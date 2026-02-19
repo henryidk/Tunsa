@@ -5,6 +5,7 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom
 import { useAuthStore, selectIsAuthenticated, selectUserRole, selectIsLoading } from './store/auth.store';
 import type { RoleName } from './types/auth.types';
 import Login from './pages/Login';
+import AdminDashboard from './pages/admin/AdminDashboard';
 
 // Ruta Protegida
 interface ProtectedRouteProps {
@@ -85,7 +86,7 @@ function App() {
 
         {/* Admin */}
         <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-          <Route path="/admin" element={<SimplePage title="Admin" />} />
+          <Route path="/admin" element={<AdminDashboard />} />
         </Route>
 
         {/* Secretaria */}

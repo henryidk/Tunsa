@@ -1,0 +1,89 @@
+// Archivo de schema de Prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== AUTENTICACIÓN ====================
+
+model Usuario {
+  id            String   @id @default(cuid())
+  username      String   @unique  // Usuario único (ej: "admin", "secretaria1")
+  password      String              // Hash bcrypt (NO la contraseña real)
+  nombre        String              // Nombre completo
+  telefono      String?             // Teléfono opcional
+  isActive      Boolean  @default(true)
+  
+  roleId        String
+  role          Role     @relation(fields: [roleId], references: [id])
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relaciones
+  refreshTokens RefreshToken[]
+  
+  @@map("usuarios")
+  @@index([username])
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  nombre      String   @unique  // admin, secretaria, colaborador, encargado_maquinas
+  descripcion String?
+  
+  createdAt   DateTime @default(now())
+  
+  usuarios    Usuario[]
+  
+  @@map("roles")
+}
+
+model RefreshToken {
+  id            String    @id @default(cuid())
+  token         String    @db.Text
+  
+  userId        String
+  user          Usuario   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  expiresAt     DateTime
+  revoked       Boolean   @default(false)
+  revokedAt     DateTime?
+  
+  // Información de seguridad
+  device        String?   // Navegador/dispositivo
+  ipAddress     String?   // IP desde donde se conectó
+  userAgent     String?   @db.Text
+  
+  createdAt     DateTime  @default(now())
+  
+  @@map("refresh_tokens")
+  @@index([userId])
+  @@index([revoked, expiresAt])
+}
+
+// ==================== AUDIT LOG ====================
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  
+  userId     String?  // Null si es intento fallido
+  username   String?  // Para intentos fallidos
+  
+  action     String   // LOGIN_SUCCESS, LOGIN_FAILED, LOGOUT, etc.
+  
+  ipAddress  String?
+  userAgent  String?  @db.Text
+  
+  details    Json?    // Información adicional
+  
+  createdAt  DateTime @default(now())
+  
+  @@map("audit_logs")
+  @@index([username, createdAt])
+  @@index([action, createdAt])
+}

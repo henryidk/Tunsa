@@ -1,7 +1,9 @@
 // UsuariosSection.tsx — usuarios del sistema, roles y permisos
 
+import { useState } from 'react';
 import type { Usuario } from '../../../types/auth.types';
 import { useUsuarios } from '../../../hooks/useUsuarios';
+import EditarUsuarioModal from '../EditarUsuarioModal';
 
 interface UsuariosSectionProps {
   onShowToast: (icon: string, title: string, msg: string) => void;
@@ -39,7 +41,8 @@ function getInitials(nombre: string): string {
 }
 
 export default function UsuariosSection({ onShowToast, user }: UsuariosSectionProps) {
-  const { usuarios, isLoading, error } = useUsuarios();
+  const { usuarios, isLoading, error, updateUsuario } = useUsuarios();
+  const [editUsuario, setEditUsuario] = useState<Usuario | null>(null);
 
   return (
     <div>
@@ -132,7 +135,7 @@ export default function UsuariosSection({ onShowToast, user }: UsuariosSectionPr
                           <>
                             <button
                               disabled={isCurrentUser}
-                              onClick={() => onShowToast('✏️', 'Editar usuario', 'Disponible en la versión final')}
+                              onClick={() => setEditUsuario(u)}
                               className="px-2.5 py-1 rounded-lg text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                               Editar
@@ -185,6 +188,13 @@ export default function UsuariosSection({ onShowToast, user }: UsuariosSectionPr
           ))}
         </div>
       </div>
+
+      <EditarUsuarioModal
+        usuario={editUsuario}
+        open={editUsuario !== null}
+        onClose={() => setEditUsuario(null)}
+        onSave={updated => { updateUsuario(updated); setEditUsuario(null); }}
+      />
     </div>
   );
 }

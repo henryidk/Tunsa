@@ -7,6 +7,7 @@ interface UseUsuariosResult {
   isLoading: boolean;
   error: string | null;
   refetch: () => void;
+  updateUsuario: (updated: Usuario) => void;
 }
 
 export function useUsuarios(): UseUsuariosResult {
@@ -27,9 +28,13 @@ export function useUsuarios(): UseUsuariosResult {
     }
   }, []);
 
+  const updateUsuario = useCallback((updated: Usuario) => {
+    setUsuarios(prev => prev.map(u => u.id === updated.id ? updated : u));
+  }, []);
+
   useEffect(() => {
     fetchUsuarios();
   }, [fetchUsuarios]);
 
-  return { usuarios, isLoading, error, refetch: fetchUsuarios };
+  return { usuarios, isLoading, error, refetch: fetchUsuarios, updateUsuario };
 }

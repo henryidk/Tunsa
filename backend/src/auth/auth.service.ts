@@ -94,7 +94,11 @@ export class AuthService {
         username: user.username,
         nombre: user.nombre,
         telefono: user.telefono,
-        role: user.role.nombre,
+        isActive: user.isActive,
+        roleId: user.roleId,
+        role: user.role,
+        createdAt: user.createdAt.toISOString(),
+        updatedAt: user.updatedAt.toISOString(),
       },
     };
   }

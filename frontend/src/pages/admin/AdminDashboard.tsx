@@ -95,7 +95,7 @@ export default function AdminDashboard() {
             <ClientesSection onShowToast={showToast} onOpenModal={openModal} />
           )}
           {activeSection === 'usuarios' && (
-            <UsuariosSection onShowToast={showToast} onOpenModal={openModal} user={user} />
+            <UsuariosSection onShowToast={showToast} user={user} />
           )}
         </main>
       </div>

@@ -111,6 +111,7 @@ export default function UsuariosSection({ onShowToast, user }: UsuariosSectionPr
                             )}
                           </div>
                           <div className="text-xs text-slate-400 font-mono mt-0.5">@{u.username}</div>
+                          <div className="text-xs text-slate-500 mt-0.5">{rolLabel[rolKey] ?? rolKey}</div>
                         </div>
                       </div>
                     </td>

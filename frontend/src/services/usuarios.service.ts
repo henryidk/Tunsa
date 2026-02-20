@@ -7,9 +7,25 @@ interface UpdateUsuarioData {
   telefono?: string;
 }
 
+interface CreateUsuarioData {
+  nombre: string;
+  username: string;
+  telefono?: string;
+  rol: string;
+}
+
+export interface CreateUsuarioResponse extends Usuario {
+  temporaryPassword: string;
+}
+
 export const usuariosService = {
   async getAll(): Promise<Usuario[]> {
     const response = await api.get<Usuario[]>('/users');
+    return response.data;
+  },
+
+  async create(data: CreateUsuarioData): Promise<CreateUsuarioResponse> {
+    const response = await api.post<CreateUsuarioResponse>('/users', data);
     return response.data;
   },
 
@@ -26,5 +42,9 @@ export const usuariosService = {
   async activate(id: string): Promise<Usuario> {
     const response = await api.patch<Usuario>(`/users/${id}/activate`);
     return response.data;
+  },
+
+  async changePassword(newPassword: string): Promise<void> {
+    await api.patch('/users/change-password', { newPassword });
   },
 };

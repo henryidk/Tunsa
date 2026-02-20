@@ -1,14 +1,18 @@
-import { Controller, Get, Patch, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Body, UseGuards } from '@nestjs/common';
 import { UsersService } from './users.service';
+import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { MustChangePasswordGuard } from '../auth/guards/must-change-password.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { SkipMustChangePassword } from '../auth/decorators/skip-must-change-password.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
 
 @Controller('users')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, MustChangePasswordGuard)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
@@ -16,6 +20,26 @@ export class UsersController {
   @Roles('admin')
   findAll() {
     return this.usersService.findAll();
+  }
+
+  @Post()
+  @Roles('admin')
+  create(@Body() createUserDto: CreateUserDto) {
+    return this.usersService.create(createUserDto);
+  }
+
+  /**
+   * Permite a cualquier usuario autenticado cambiar su propia contraseña.
+   * @SkipMustChangePassword() es necesario para que usuarios con
+   * mustChangePassword = true puedan acceder a este endpoint.
+   */
+  @Patch('change-password')
+  @SkipMustChangePassword()
+  changePassword(
+    @Body() dto: ChangePasswordDto,
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ) {
+    return this.usersService.changePassword(currentUser.id, dto.newPassword);
   }
 
   @Patch(':id')

@@ -92,6 +92,7 @@ api.interceptors.response.use(
         processQueue(refreshError as Error, null);
         localStorage.removeItem('accessToken');
         localStorage.removeItem('user');
+        localStorage.removeItem('mustChangePassword');
         window.location.href = '/login';
         return Promise.reject(refreshError);
       } finally {

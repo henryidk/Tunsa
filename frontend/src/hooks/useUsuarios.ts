@@ -7,6 +7,7 @@ interface UseUsuariosResult {
   isLoading: boolean;
   error: string | null;
   refetch: () => void;
+  addUsuario: (nuevo: Usuario) => void;
   updateUsuario: (updated: Usuario) => void;
 }
 
@@ -28,6 +29,10 @@ export function useUsuarios(): UseUsuariosResult {
     }
   }, []);
 
+  const addUsuario = useCallback((nuevo: Usuario) => {
+    setUsuarios(prev => [...prev, nuevo]);
+  }, []);
+
   const updateUsuario = useCallback((updated: Usuario) => {
     setUsuarios(prev => prev.map(u => u.id === updated.id ? updated : u));
   }, []);
@@ -36,5 +41,5 @@ export function useUsuarios(): UseUsuariosResult {
     fetchUsuarios();
   }, [fetchUsuarios]);
 
-  return { usuarios, isLoading, error, refetch: fetchUsuarios, updateUsuario };
+  return { usuarios, isLoading, error, refetch: fetchUsuarios, addUsuario, updateUsuario };
 }

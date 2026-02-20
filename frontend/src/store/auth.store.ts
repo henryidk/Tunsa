@@ -20,14 +20,18 @@ const storage = {
 
   getAccessToken: (): string | null => localStorage.getItem('accessToken'),
 
-  setAuth: (user: Usuario, accessToken: string) => {
+  getMustChangePassword: (): boolean => localStorage.getItem('mustChangePassword') === 'true',
+
+  setAuth: (user: Usuario, accessToken: string, mustChangePassword: boolean) => {
     localStorage.setItem('user', JSON.stringify(user));
     localStorage.setItem('accessToken', accessToken);
+    localStorage.setItem('mustChangePassword', String(mustChangePassword));
   },
 
   clearAuth: () => {
     localStorage.removeItem('user');
     localStorage.removeItem('accessToken');
+    localStorage.removeItem('mustChangePassword');
   },
 };
 
@@ -38,15 +42,16 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   isAuthenticated: !!storage.getAccessToken(),
   isLoading: false,
   error: null,
+  mustChangePassword: storage.getMustChangePassword(),
 
   login: async (credentials: LoginCredentials) => {
     set({ isLoading: true, error: null });
 
     try {
       const response = await authService.login(credentials);
-      const { user, accessToken } = response;
+      const { user, accessToken, mustChangePassword } = response;
 
-      storage.setAuth(user, accessToken);
+      storage.setAuth(user, accessToken, mustChangePassword ?? false);
 
       set({
         user,
@@ -55,6 +60,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         isAuthenticated: true,
         isLoading: false,
         error: null,
+        mustChangePassword: mustChangePassword ?? false,
       });
     } catch (error: unknown) {
       let errorMessage = 'Error al iniciar sesión';
@@ -71,6 +77,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         isAuthenticated: false,
         isLoading: false,
         error: errorMessage,
+        mustChangePassword: false,
       });
 
       throw error;
@@ -93,6 +100,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         isAuthenticated: false,
         isLoading: false,
         error: null,
+        mustChangePassword: false,
       });
     }
   },
@@ -114,6 +122,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         accessToken: null,
         refreshToken: null,
         isAuthenticated: false,
+        mustChangePassword: false,
       });
       return false;
     }
@@ -129,6 +138,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         accessToken,
         refreshToken: null,
         isAuthenticated: true,
+        mustChangePassword: storage.getMustChangePassword(),
       });
     } else {
       storage.clearAuth();
@@ -137,8 +147,14 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         accessToken: null,
         refreshToken: null,
         isAuthenticated: false,
+        mustChangePassword: false,
       });
     }
+  },
+
+  setMustChangePassword: (value: boolean) => {
+    localStorage.setItem('mustChangePassword', String(value));
+    set({ mustChangePassword: value });
   },
 
   clearError: () => set({ error: null }),
@@ -149,3 +165,4 @@ export const selectIsAuthenticated = (state: AuthStore) => state.isAuthenticated
 export const selectIsLoading = (state: AuthStore) => state.isLoading;
 export const selectError = (state: AuthStore) => state.error;
 export const selectUserRole = (state: AuthStore) => state.user?.role.nombre;
+export const selectMustChangePassword = (state: AuthStore) => state.mustChangePassword;

@@ -89,12 +89,14 @@ export class AuthService {
     return {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
+      mustChangePassword: user.mustChangePassword,
       user: {
         id: user.id,
         username: user.username,
         nombre: user.nombre,
         telefono: user.telefono,
         isActive: user.isActive,
+        mustChangePassword: user.mustChangePassword,
         roleId: user.roleId,
         role: user.role,
         createdAt: user.createdAt.toISOString(),

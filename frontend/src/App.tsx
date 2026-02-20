@@ -6,6 +6,7 @@ import { useAuthStore, selectIsAuthenticated, selectUserRole, selectIsLoading } 
 import type { RoleName } from './types/auth.types';
 import Login from './pages/Login';
 import AdminDashboard from './pages/admin/AdminDashboard';
+import CambiarPasswordModal from './components/admin/CambiarPasswordModal';
 
 // Ruta Protegida
 interface ProtectedRouteProps {
@@ -51,8 +52,8 @@ function PublicRoute() {
 
 // Página simple para cada rol
 function SimplePage({ title }: { title: string }) {
-  const { logout, user } = useAuthStore();
-  
+  const { logout, user, mustChangePassword } = useAuthStore();
+
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-lg p-8 text-center max-w-md w-full">
@@ -65,6 +66,7 @@ function SimplePage({ title }: { title: string }) {
           Cerrar sesión
         </button>
       </div>
+      {mustChangePassword && <CambiarPasswordModal />}
     </div>
   );
 }

@@ -10,6 +10,7 @@ export interface AuthenticatedUser {
   id: string;
   username: string;
   role: string;
+  mustChangePassword: boolean;
 }
 
 export interface UserWithRole {
@@ -19,6 +20,7 @@ export interface UserWithRole {
   nombre: string;
   telefono: string | null;
   isActive: boolean;
+  mustChangePassword: boolean;
   roleId: string;
   role: { id: string; nombre: string; descripcion: string | null };
   createdAt: Date;

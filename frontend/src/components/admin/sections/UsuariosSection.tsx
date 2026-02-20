@@ -6,6 +6,7 @@ import { useUsuarios } from '../../../hooks/useUsuarios';
 import { usuariosService } from '../../../services/usuarios.service';
 import EditarUsuarioModal from '../EditarUsuarioModal';
 import ConfirmDesactivarModal from '../ConfirmDesactivarModal';
+import AgregarUsuarioModal from '../AgregarUsuarioModal';
 
 interface UsuariosSectionProps {
   onShowToast: (icon: string, title: string, msg: string) => void;
@@ -43,7 +44,8 @@ function getInitials(nombre: string): string {
 }
 
 export default function UsuariosSection({ onShowToast, user }: UsuariosSectionProps) {
-  const { usuarios, isLoading, error, updateUsuario } = useUsuarios();
+  const { usuarios, isLoading, error, addUsuario, updateUsuario } = useUsuarios();
+  const [agregarOpen, setAgregarOpen] = useState(false);
   const [editUsuario, setEditUsuario] = useState<Usuario | null>(null);
   const [desactivarUsuario, setDesactivarUsuario] = useState<Usuario | null>(null);
   const [activandoId, setActivandoId] = useState<string | null>(null);
@@ -70,7 +72,7 @@ export default function UsuariosSection({ onShowToast, user }: UsuariosSectionPr
           <p className="text-sm text-slate-500 mt-1">Cuentas con acceso al sistema, roles y permisos</p>
         </div>
         <button
-          onClick={() => onShowToast('👤', 'Nuevo usuario', 'Disponible en la versión final del sistema')}
+          onClick={() => setAgregarOpen(true)}
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
         >
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -213,6 +215,15 @@ export default function UsuariosSection({ onShowToast, user }: UsuariosSectionPr
           ))}
         </div>
       </div>
+
+      <AgregarUsuarioModal
+        open={agregarOpen}
+        onClose={() => setAgregarOpen(false)}
+        onCreated={nuevo => {
+          addUsuario(nuevo);
+          onShowToast('👤', 'Usuario creado', `${nuevo.nombre} fue agregado al sistema`);
+        }}
+      />
 
       <EditarUsuarioModal
         usuario={editUsuario}

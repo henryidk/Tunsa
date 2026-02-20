@@ -14,6 +14,7 @@ import VencidasSection from '../../components/admin/sections/VencidasSection'
 import EquiposSection from '../../components/admin/sections/EquiposSection'
 import ClientesSection from '../../components/admin/sections/ClientesSection'
 import UsuariosSection from '../../components/admin/sections/UsuariosSection'
+import CambiarPasswordModal from '../../components/admin/CambiarPasswordModal'
 
 export type Section =
   | 'dashboard'
@@ -33,7 +34,7 @@ export interface ToastState {
 }
 
 export default function AdminDashboard() {
-  const { user, logout } = useAuthStore()
+  const { user, logout, mustChangePassword } = useAuthStore()
   const [activeSection, setActiveSection] = useState<Section>('dashboard')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [toast, setToast] = useState<ToastState>({ visible: false, icon: '', title: '', msg: '' })
@@ -99,6 +100,8 @@ export default function AdminDashboard() {
           )}
         </main>
       </div>
+
+      {mustChangePassword && <CambiarPasswordModal />}
 
       <Toast toast={toast} />
       <RentaModal

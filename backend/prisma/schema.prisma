@@ -16,8 +16,9 @@ model Usuario {
   password      String              // Hash bcrypt (NO la contraseña real)
   nombre        String              // Nombre completo
   telefono      String?             // Teléfono opcional
-  isActive      Boolean  @default(true)
-  
+  isActive            Boolean  @default(true)
+  mustChangePassword  Boolean  @default(false)
+
   roleId        String
   role          Role     @relation(fields: [roleId], references: [id])
   

@@ -33,6 +33,7 @@ export interface LoginCredentials {
 // Respuesta del endpoint /auth/login
 export interface LoginResponse {
   accessToken: string;
+  mustChangePassword: boolean;
   user: Usuario;
 }
 
@@ -54,6 +55,7 @@ export interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
+  mustChangePassword: boolean;
 }
 
 // Acciones del store de autenticación
@@ -63,6 +65,7 @@ export interface AuthActions {
   refreshAccessToken: () => Promise<boolean>;
   clearError: () => void;
   checkAuth: () => void;
+  setMustChangePassword: (value: boolean) => void;
 }
 
 // Store completo (estado + acciones)

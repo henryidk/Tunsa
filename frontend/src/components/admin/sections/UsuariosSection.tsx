@@ -3,7 +3,9 @@
 import { useState } from 'react';
 import type { Usuario } from '../../../types/auth.types';
 import { useUsuarios } from '../../../hooks/useUsuarios';
+import { usuariosService } from '../../../services/usuarios.service';
 import EditarUsuarioModal from '../EditarUsuarioModal';
+import ConfirmDesactivarModal from '../ConfirmDesactivarModal';
 
 interface UsuariosSectionProps {
   onShowToast: (icon: string, title: string, msg: string) => void;
@@ -43,6 +45,21 @@ function getInitials(nombre: string): string {
 export default function UsuariosSection({ onShowToast, user }: UsuariosSectionProps) {
   const { usuarios, isLoading, error, updateUsuario } = useUsuarios();
   const [editUsuario, setEditUsuario] = useState<Usuario | null>(null);
+  const [desactivarUsuario, setDesactivarUsuario] = useState<Usuario | null>(null);
+  const [activandoId, setActivandoId] = useState<string | null>(null);
+
+  const handleActivar = async (u: Usuario) => {
+    setActivandoId(u.id);
+    try {
+      const updated = await usuariosService.activate(u.id);
+      updateUsuario(updated);
+      onShowToast('✅', 'Usuario activado', `${u.nombre} puede iniciar sesión nuevamente`);
+    } catch {
+      onShowToast('❌', 'Error', 'No se pudo activar el usuario');
+    } finally {
+      setActivandoId(null);
+    }
+  };
 
   return (
     <div>
@@ -142,7 +159,7 @@ export default function UsuariosSection({ onShowToast, user }: UsuariosSectionPr
                             </button>
                             {!isCurrentUser && (
                               <button
-                                onClick={() => onShowToast('🔒', 'Desactivado', `${u.nombre} ha sido desactivado`)}
+                                onClick={() => setDesactivarUsuario(u)}
                                 className="px-2.5 py-1 rounded-lg text-xs font-medium bg-red-600 hover:bg-red-700 text-white transition-colors"
                               >
                                 Desactivar
@@ -151,10 +168,18 @@ export default function UsuariosSection({ onShowToast, user }: UsuariosSectionPr
                           </>
                         ) : (
                           <button
-                            onClick={() => onShowToast('✅', 'Activado', `${u.nombre} ha sido reactivado`)}
-                            className="px-2.5 py-1 rounded-lg text-xs font-medium bg-green-600 hover:bg-green-700 text-white transition-colors"
+                            disabled={activandoId === u.id}
+                            onClick={() => handleActivar(u)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-green-600 hover:bg-green-700 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                           >
-                            Activar
+                            {activandoId === u.id ? (
+                              <>
+                                <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                                </svg>
+                                Activando...
+                              </>
+                            ) : 'Activar'}
                           </button>
                         )}
                       </div>
@@ -194,6 +219,17 @@ export default function UsuariosSection({ onShowToast, user }: UsuariosSectionPr
         open={editUsuario !== null}
         onClose={() => setEditUsuario(null)}
         onSave={updated => { updateUsuario(updated); setEditUsuario(null); }}
+      />
+
+      <ConfirmDesactivarModal
+        usuario={desactivarUsuario}
+        open={desactivarUsuario !== null}
+        onClose={() => setDesactivarUsuario(null)}
+        onConfirm={updated => {
+          updateUsuario(updated);
+          setDesactivarUsuario(null);
+          onShowToast('🔒', 'Usuario desactivado', `${updated.nombre} no podrá iniciar sesión`);
+        }}
       />
     </div>
   );

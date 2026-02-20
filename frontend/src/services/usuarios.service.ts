@@ -17,4 +17,14 @@ export const usuariosService = {
     const response = await api.patch<Usuario>(`/users/${id}`, data);
     return response.data;
   },
+
+  async deactivate(id: string): Promise<Usuario> {
+    const response = await api.patch<Usuario>(`/users/${id}/deactivate`);
+    return response.data;
+  },
+
+  async activate(id: string): Promise<Usuario> {
+    const response = await api.patch<Usuario>(`/users/${id}/activate`);
+    return response.data;
+  },
 };

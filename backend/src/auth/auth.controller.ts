@@ -1,9 +1,9 @@
 import { Controller, Post, Get, Body, Ip, Headers, UseGuards, Req, Res } from '@nestjs/common';
-import { ThrottlerGuard } from '@nestjs/throttler';
 import * as express from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { LoginThrottlerGuard } from './guards/login-throttler.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { Roles } from './decorators/roles.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
@@ -16,7 +16,7 @@ const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 export class AuthController {
   constructor(private authService: AuthService) {}
 
-  @UseGuards(ThrottlerGuard)
+  @UseGuards(LoginThrottlerGuard)
   @Post('login')
   async login(
     @Body() loginDto: LoginDto,

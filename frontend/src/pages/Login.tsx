@@ -1,6 +1,6 @@
 // Página de Login - Proyecto Tunsa
 
-import { useState, FormEvent, useEffect, useRef } from 'react';
+import { useState, FormEvent, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuthStore } from '../store/auth.store';
@@ -15,7 +15,44 @@ export default function Login() {
   const hasRedirected = useRef(false);
   
   const { login, isLoading, error, clearError, isAuthenticated, user } = useAuthStore();
-  
+  const [countdown, setCountdown] = useState(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopCountdown = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    setCountdown(0);
+  }, []);
+
+  useEffect(() => {
+    if (!error) {
+      stopCountdown();
+      return;
+    }
+    const match = error.match(/en (\d+) segundos/);
+    if (match) {
+      const seconds = parseInt(match[1], 10);
+      setCountdown(seconds);
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      intervalRef.current = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(intervalRef.current!);
+            intervalRef.current = null;
+            clearError();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [error, clearError, stopCountdown]);
+
   useEffect(() => {
     if (isAuthenticated && user && !hasRedirected.current) {
       hasRedirected.current = true;
@@ -73,12 +110,16 @@ export default function Login() {
 
           {/* Formulario */}
           <form onSubmit={handleSubmit} className="px-8 pb-8 space-y-5">
-            {error && (
+            {(error || countdown > 0) && (
               <div className="bg-red-50 border border-red-200 p-4 rounded-xl flex items-start gap-3">
                 <div className="w-5 h-5 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0 mt-0.5">
                   <span className="text-red-600 text-xs font-bold">!</span>
                 </div>
-                <p className="text-red-700 text-sm">{error}</p>
+                <p className="text-red-700 text-sm">
+                  {countdown > 0
+                    ? `Demasiados intentos fallidos. Intenta nuevamente en ${countdown} segundos.`
+                    : error}
+                </p>
               </div>
             )}
 
@@ -137,7 +178,7 @@ export default function Login() {
 
             <button
               type="submit"
-              disabled={isLoading || !username.trim() || !password.trim()}
+              disabled={isLoading || !username.trim() || !password.trim() || countdown > 0}
               className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-blue-700 
                        text-white font-semibold rounded-xl
                        hover:from-blue-700 hover:to-blue-800 hover:shadow-lg hover:shadow-blue-500/25

@@ -44,6 +44,11 @@ export const usuariosService = {
     return response.data;
   },
 
+  async resetPassword(id: string): Promise<CreateUsuarioResponse> {
+    const response = await api.patch<CreateUsuarioResponse>(`/users/${id}/reset-password`);
+    return response.data;
+  },
+
   async changePassword(newPassword: string): Promise<void> {
     await api.patch('/users/change-password', { newPassword });
   },

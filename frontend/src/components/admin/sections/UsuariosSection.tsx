@@ -7,6 +7,7 @@ import { usuariosService } from '../../../services/usuarios.service';
 import EditarUsuarioModal from '../EditarUsuarioModal';
 import ConfirmDesactivarModal from '../ConfirmDesactivarModal';
 import AgregarUsuarioModal from '../AgregarUsuarioModal';
+import ResetPasswordModal from '../ResetPasswordModal';
 
 interface UsuariosSectionProps {
   onShowToast: (icon: string, title: string, msg: string) => void;
@@ -49,6 +50,7 @@ export default function UsuariosSection({ onShowToast, user }: UsuariosSectionPr
   const [editUsuario, setEditUsuario] = useState<Usuario | null>(null);
   const [desactivarUsuario, setDesactivarUsuario] = useState<Usuario | null>(null);
   const [activandoId, setActivandoId] = useState<string | null>(null);
+  const [resetUsuario, setResetUsuario] = useState<Usuario | null>(null);
 
   const handleActivar = async (u: Usuario) => {
     setActivandoId(u.id);
@@ -160,12 +162,21 @@ export default function UsuariosSection({ onShowToast, user }: UsuariosSectionPr
                               Editar
                             </button>
                             {!isCurrentUser && (
-                              <button
-                                onClick={() => setDesactivarUsuario(u)}
-                                className="px-2.5 py-1 rounded-lg text-xs font-medium bg-red-600 hover:bg-red-700 text-white transition-colors"
-                              >
-                                Desactivar
-                              </button>
+                              <>
+                                <button
+                                  onClick={() => setResetUsuario(u)}
+                                  className="px-2.5 py-1 rounded-lg text-xs font-medium border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 transition-colors"
+                                  title="Restablecer contraseña"
+                                >
+                                  Resetear
+                                </button>
+                                <button
+                                  onClick={() => setDesactivarUsuario(u)}
+                                  className="px-2.5 py-1 rounded-lg text-xs font-medium bg-red-600 hover:bg-red-700 text-white transition-colors"
+                                >
+                                  Desactivar
+                                </button>
+                              </>
                             )}
                           </>
                         ) : (
@@ -241,6 +252,12 @@ export default function UsuariosSection({ onShowToast, user }: UsuariosSectionPr
           setDesactivarUsuario(null);
           onShowToast('🔒', 'Usuario desactivado', `${updated.nombre} no podrá iniciar sesión`);
         }}
+      />
+
+      <ResetPasswordModal
+        usuario={resetUsuario}
+        open={resetUsuario !== null}
+        onClose={() => setResetUsuario(null)}
       />
     </div>
   );

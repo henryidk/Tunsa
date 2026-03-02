@@ -143,6 +143,46 @@ export class UsersService {
     return { ...usuario, temporaryPassword: plainPassword };
   }
 
+  async resetPassword(id: string, requestingUserId: string, ipAddress?: string, userAgent?: string) {
+    if (id === requestingUserId) {
+      throw new ConflictException('No puedes resetear tu propia contraseña');
+    }
+
+    const usuario = await this.prisma.usuario.findUnique({ where: { id } });
+    if (!usuario) throw new NotFoundException('Usuario no encontrado');
+
+    const plainPassword  = generateSecurePassword();
+    const hashedPassword = await bcrypt.hash(plainPassword, 12);
+
+    // Revocar todas las sesiones activas del usuario afectado
+    await this.prisma.refreshToken.updateMany({
+      where: { userId: id, revoked: false },
+      data: { revoked: true, revokedAt: new Date() },
+    });
+
+    const updated = await this.prisma.usuario.update({
+      where: { id },
+      data: { password: hashedPassword, mustChangePassword: true },
+      select: userSelect,
+    });
+
+    // Registrar en audit log — nunca se loguea la contraseña en texto plano
+    await this.prisma.auditLog.create({
+      data: {
+        userId:    requestingUserId,
+        action:    'PASSWORD_RESET_BY_ADMIN',
+        ipAddress: ipAddress ?? null,
+        userAgent: userAgent  ?? null,
+        details: {
+          targetUserId:   id,
+          targetUsername: usuario.username,
+        },
+      },
+    });
+
+    return { ...updated, temporaryPassword: plainPassword };
+  }
+
   async changePassword(userId: string, newPassword: string) {
     const usuario = await this.prisma.usuario.findUnique({ where: { id: userId } });
     if (!usuario) throw new NotFoundException('Usuario no encontrado');

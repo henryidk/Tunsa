@@ -67,6 +67,41 @@ model RefreshToken {
   @@index([revoked, expiresAt])
 }
 
+// ==================== EQUIPOS ====================
+
+enum TipoMaquinaria {
+  LIVIANA
+  PESADA
+  USO_PROPIO
+}
+
+model Equipo {
+  id           String         @id @default(cuid())
+  numeracion   String         @unique          // Código interno: "1", "47", "MP01"
+  descripcion  String         @db.Text
+  categoria    String                          // "Bailarina", "Generador", etc.
+  serie        String?   @db.Text                // Serie equipo / motor (tal como aparece en inventario)
+  fechaCompra  DateTime
+  montoCompra  Decimal        @db.Decimal(12, 2)
+  tipo         TipoMaquinaria @default(LIVIANA)
+
+  rentaDia     Decimal?       @db.Decimal(10, 2)
+  rentaSemana  Decimal?       @db.Decimal(10, 2)
+  rentaMes     Decimal?       @db.Decimal(10, 2)
+
+  isActive     Boolean        @default(true)
+  motivoBaja   String?
+  fechaBaja    DateTime?
+
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@map("equipos")
+  @@index([categoria])
+  @@index([tipo])
+  @@index([isActive])
+}
+
 // ==================== AUDIT LOG ====================
 
 model AuditLog {

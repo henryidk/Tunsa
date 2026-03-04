@@ -1,150 +1,382 @@
-// EquiposSection.tsx — catálogo de maquinaria para renta
+// EquiposSection.tsx — inventario completo de equipos
 
-import { useState } from 'react'
+import { useState } from 'react';
+import type { Equipo } from '../../../types/equipo.types';
+import { TIPO_LABEL, TIPO_BADGE, CATEGORIAS_EQUIPO } from '../../../types/equipo.types';
+import { useEquipos } from '../../../hooks/useEquipos';
+import { equiposService } from '../../../services/equipos.service';
+import { generarReporteInventario } from '../../../utils/equipos.pdf';
+import AgregarEquipoModal from '../AgregarEquipoModal';
+import EditarEquipoModal from '../EditarEquipoModal';
+import BajaEquipoModal from '../BajaEquipoModal';
 
 interface EquiposSectionProps {
-  onShowToast: (icon: string, title: string, msg: string) => void
-  onOpenModal: (rentaId: string) => void
+  onShowToast: (icon: string, title: string, msg: string) => void;
 }
 
-type TabId = 'todos' | 'disponibles' | 'en-renta'
+type TabId = 'activos' | 'baja';
 
-interface Equipo {
-  emoji: string
-  name: string
-  category: string
-  price: string
-  stock: number
-  rentals: number
-  available: boolean
+function formatMoneda(value: number | null | undefined): string {
+  if (value == null) return '—';
+  return `Q${value.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-const equipos: Equipo[] = [
-  { emoji: '🔩', name: 'Taladro Industrial', category: 'Perforación', price: 'Q150', stock: 3, rentals: 47, available: true },
-  { emoji: '💨', name: 'Compresor de Aire', category: 'Compresión', price: 'Q200', stock: 2, rentals: 31, available: false },
-  { emoji: '🔨', name: 'Martillo Neumático', category: 'Demolición', price: 'Q180', stock: 2, rentals: 22, available: true },
-  { emoji: '⚡', name: 'Generador Eléctrico', category: 'Generación', price: 'Q300', stock: 1, rentals: 18, available: false },
-  { emoji: '🏗️', name: 'Andamio Metálico', category: 'Elevación', price: 'Q100', stock: 8, rentals: 56, available: true },
-  { emoji: '🌀', name: 'Mezcladora de Concreto', category: 'Mezcla', price: 'Q220', stock: 2, rentals: 29, available: false },
-  { emoji: '🪚', name: 'Sierra Circular', category: 'Corte', price: 'Q160', stock: 3, rentals: 15, available: true },
-  { emoji: '🎯', name: 'Niveladora Láser', category: 'Medición', price: 'Q120', stock: 2, rentals: 9, available: true },
-]
+function formatFecha(iso: string): string {
+  return new Date(iso).toLocaleDateString('es-GT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
 
 export default function EquiposSection({ onShowToast }: EquiposSectionProps) {
-  const [activeTab, setActiveTab] = useState<TabId>('todos')
+  const { equipos, isLoading, error, addEquipo, updateEquipo } = useEquipos();
 
-  const tabs: { id: TabId; label: string; count: string; countCls: string }[] = [
-    { id: 'todos', label: 'Todos', count: '23', countCls: 'bg-slate-200 text-slate-600' },
-    { id: 'disponibles', label: 'Disponibles', count: '18', countCls: 'bg-green-100 text-green-700' },
-    { id: 'en-renta', label: 'En renta', count: '5', countCls: 'bg-amber-100 text-amber-700' },
-  ]
+  const [tab, setTab]                     = useState<TabId>('activos');
+  const [search, setSearch]               = useState('');
+  const [filtroTipo, setFiltroTipo]       = useState('');
+  const [filtroCategoria, setFiltroCategoria] = useState('');
 
-  const filtered = equipos.filter(e => {
-    if (activeTab === 'disponibles') return e.available
-    if (activeTab === 'en-renta') return !e.available
-    return true
-  })
+  const [agregarOpen, setAgregarOpen]     = useState(false);
+  const [editEquipo, setEditEquipo]       = useState<Equipo | null>(null);
+  const [bajaEquipo, setBajaEquipo]       = useState<Equipo | null>(null);
+  const [reactivandoId, setReactivandoId] = useState<string | null>(null);
+  const [generando, setGenerando]         = useState(false);
+
+  // ── Filtrado ──────────────────────────────────────────────────────────────
+  const base = equipos.filter(e => tab === 'activos' ? e.isActive : !e.isActive);
+
+  const filtered = base.filter(e => {
+    const q = search.toLowerCase();
+    const matchSearch = !q ||
+      e.numeracion.toLowerCase().includes(q)  ||
+      e.descripcion.toLowerCase().includes(q) ||
+      e.categoria.toLowerCase().includes(q)   ||
+      (e.serie ?? '').toLowerCase().includes(q);
+
+    const matchTipo     = !filtroTipo     || e.tipo      === filtroTipo;
+    const matchCategoria = !filtroCategoria || e.categoria === filtroCategoria;
+
+    return matchSearch && matchTipo && matchCategoria;
+  });
+
+  // ── Stats ─────────────────────────────────────────────────────────────────
+  const activos   = equipos.filter(e => e.isActive);
+  const dadosBaja = equipos.filter(e => !e.isActive);
+  const valorTotal = activos.reduce((sum, e) => sum + e.montoCompra, 0);
+
+  // ── Generar reporte PDF ────────────────────────────────────────────────────
+  const handleGenerarReporte = async () => {
+    setGenerando(true);
+    try {
+      // pequeño timeout para que el spinner sea visible antes del trabajo síncrono
+      await new Promise(r => setTimeout(r, 50));
+      generarReporteInventario(equipos);
+    } finally {
+      setGenerando(false);
+    }
+  };
+
+  // ── Reactivar ──────────────────────────────────────────────────────────────
+  const handleReactivar = async (e: Equipo) => {
+    setReactivandoId(e.id);
+    try {
+      const updated = await equiposService.reactivar(e.id);
+      updateEquipo(updated);
+      onShowToast('✅', 'Equipo reactivado', `#${e.numeracion} está activo nuevamente`);
+    } catch {
+      onShowToast('❌', 'Error', 'No se pudo reactivar el equipo');
+    } finally {
+      setReactivandoId(null);
+    }
+  };
 
   return (
     <div>
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Gestión de Equipos</h1>
-          <p className="text-sm text-slate-500 mt-1">Catálogo completo de maquinaria disponible para renta</p>
+          <h1 className="text-2xl font-bold text-slate-800">Inventario de equipos</h1>
+          <p className="text-sm text-slate-500 mt-1">Registro y control del inventario de maquinaria</p>
         </div>
-        <button
-          onClick={() => onShowToast('🔧', 'Nuevo equipo', 'Disponible en la versión final del sistema')}
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
-        >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-          </svg>
-          Agregar equipo
-        </button>
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={handleGenerarReporte}
+            disabled={generando || isLoading || equipos.length === 0}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {generando ? (
+              <>
+                <svg className="animate-spin" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                </svg>
+                Generando...
+              </>
+            ) : (
+              <>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                  <line x1="12" y1="18" x2="12" y2="12"/>
+                  <line x1="9" y1="15" x2="15" y2="15"/>
+                </svg>
+                Generar reporte
+              </>
+            )}
+          </button>
+          <button
+            onClick={() => setAgregarOpen(true)}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            Agregar equipo
+          </button>
+        </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex items-center gap-3 mb-5 flex-wrap">
-        <input
-          type="search"
-          placeholder="Buscar equipo..."
-          className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:border-indigo-400 min-w-[200px]"
-        />
-        <select className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white focus:outline-none focus:border-indigo-400">
-          <option>Todas las categorías</option>
-          <option>Perforación</option>
-          <option>Compresión</option>
-          <option>Corte</option>
-          <option>Elevación</option>
-          <option>Generación</option>
-        </select>
-        {/* Filter tabs */}
-        <div className="ml-auto flex bg-white border border-slate-200 rounded-lg overflow-hidden">
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium border-r border-slate-200 last:border-0 transition-colors whitespace-nowrap ${
-                activeTab === tab.id
-                  ? 'bg-indigo-50 text-indigo-700 font-semibold'
-                  : 'text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              {tab.label}
-              <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full ${tab.countCls}`}>
-                {tab.count}
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {[
+          { label: 'Equipos activos',    value: activos.length,                                  color: 'text-indigo-600', bg: 'bg-indigo-50' },
+          { label: 'Maq. Liviana',       value: activos.filter(e => e.tipo === 'LIVIANA').length,  color: 'text-blue-600',   bg: 'bg-blue-50' },
+          { label: 'Maq. Pesada',        value: activos.filter(e => e.tipo === 'PESADA').length,   color: 'text-amber-600',  bg: 'bg-amber-50' },
+          { label: 'Valor inventario',   value: formatMoneda(valorTotal),                         color: 'text-emerald-600', bg: 'bg-emerald-50', isString: true },
+        ].map(s => (
+          <div key={s.label} className="bg-white border border-slate-200 rounded-xl px-4 py-3.5 shadow-sm">
+            <div className={`inline-flex items-center justify-center w-8 h-8 rounded-lg ${s.bg} mb-2`}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={s.color}>
+                <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+              </svg>
+            </div>
+            <div className={`text-xl font-bold ${s.color}`}>{s.value}</div>
+            <div className="text-xs text-slate-500 mt-0.5">{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Tabs + Filtros */}
+      <div className="flex flex-wrap items-center gap-3 mb-5">
+        {/* Tabs */}
+        <div className="flex bg-white border border-slate-200 rounded-lg overflow-hidden">
+          {([
+            { id: 'activos', label: 'Activos',       count: activos.length,   cls: 'bg-indigo-100 text-indigo-700' },
+            { id: 'baja',    label: 'Dados de baja', count: dadosBaja.length, cls: 'bg-red-100 text-red-600' },
+          ] as const).map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              className={`flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium border-r border-slate-200 last:border-0 transition-colors ${
+                tab === t.id ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-slate-600 hover:bg-slate-50'
+              }`}>
+              {t.label}
+              <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full ${tab === t.id ? t.cls : 'bg-slate-100 text-slate-500'}`}>
+                {t.count}
               </span>
             </button>
           ))}
         </div>
+
+        {/* Search */}
+        <div className="relative">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input type="search" value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Buscar por no., descripción o serie..."
+            className="pl-8 pr-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:border-indigo-400 min-w-[240px]" />
+        </div>
+
+        {/* Filtro tipo */}
+        <select value={filtroTipo} onChange={e => setFiltroTipo(e.target.value)}
+          className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white focus:outline-none focus:border-indigo-400">
+          <option value="">Todos los tipos</option>
+          <option value="LIVIANA">Maq. Liviana</option>
+          <option value="PESADA">Maq. Pesada</option>
+          <option value="USO_PROPIO">Uso Propio</option>
+        </select>
+
+        {/* Filtro categoría */}
+        <select value={filtroCategoria} onChange={e => setFiltroCategoria(e.target.value)}
+          className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white focus:outline-none focus:border-indigo-400">
+          <option value="">Todas las categorías</option>
+          {CATEGORIAS_EQUIPO.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+
+        {/* Reset filtros */}
+        {(search || filtroTipo || filtroCategoria) && (
+          <button onClick={() => { setSearch(''); setFiltroTipo(''); setFiltroCategoria(''); }}
+            className="text-xs text-slate-500 hover:text-slate-700 underline transition-colors">
+            Limpiar filtros
+          </button>
+        )}
       </div>
 
-      {/* Equipment grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {filtered.map(eq => (
-          <div
-            key={eq.name}
-            className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col hover:-translate-y-1 hover:shadow-md transition-all"
-          >
-            <div className="px-4 pt-4 flex items-start justify-between">
-              <span className="text-4xl">{eq.emoji}</span>
-              <span
-                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
-                  eq.available ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
-                }`}
-              >
-                {eq.available ? 'Disponible' : 'En renta'}
+      {/* Tabla */}
+      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 bg-slate-50">
+                {['No.', 'Equipo', 'Series', 'Tipo', 'Monto compra', 'Renta / día', 'Fecha compra', 'Acciones'].map(h => (
+                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {/* Loading */}
+              {isLoading && (
+                <tr><td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-400">Cargando inventario...</td></tr>
+              )}
+              {/* Error */}
+              {error && !isLoading && (
+                <tr><td colSpan={8} className="px-4 py-10 text-center text-sm text-red-500">{error}</td></tr>
+              )}
+              {/* Empty */}
+              {!isLoading && !error && filtered.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="px-4 py-10 text-center">
+                    <div className="text-slate-400 text-sm">
+                      {search || filtroTipo || filtroCategoria
+                        ? 'No se encontraron equipos con esos filtros.'
+                        : tab === 'baja' ? 'No hay equipos dados de baja.' : 'No hay equipos registrados.'}
+                    </div>
+                  </td>
+                </tr>
+              )}
+              {/* Rows */}
+              {!isLoading && !error && filtered.map(e => (
+                <tr key={e.id}
+                  className={`border-b border-slate-100 hover:bg-slate-50 transition-colors ${!e.isActive ? 'opacity-60' : ''}`}>
+
+                  {/* No. */}
+                  <td className="px-4 py-3">
+                    <span className="font-mono font-bold text-slate-700 text-xs bg-slate-100 px-2 py-1 rounded">
+                      #{e.numeracion}
+                    </span>
+                  </td>
+
+                  {/* Equipo */}
+                  <td className="px-4 py-3 max-w-[240px]">
+                    <div className="font-medium text-slate-800 leading-snug line-clamp-2 text-xs">{e.descripcion}</div>
+                    <span className="inline-block mt-1 text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                      {e.categoria}
+                    </span>
+                  </td>
+
+                  {/* Serie */}
+                  <td className="px-4 py-3 max-w-[180px]">
+                    {e.serie
+                      ? <div className="text-[11px] font-mono text-slate-600 truncate" title={e.serie}>{e.serie}</div>
+                      : <span className="text-xs text-slate-300">—</span>
+                    }
+                  </td>
+
+                  {/* Tipo */}
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold ${TIPO_BADGE[e.tipo]}`}>
+                      {TIPO_LABEL[e.tipo]}
+                    </span>
+                  </td>
+
+                  {/* Monto compra */}
+                  <td className="px-4 py-3 font-mono text-xs text-slate-700 whitespace-nowrap">
+                    {formatMoneda(e.montoCompra)}
+                  </td>
+
+                  {/* Renta/día */}
+                  <td className="px-4 py-3 font-mono text-xs text-indigo-600 whitespace-nowrap">
+                    {e.rentaDia != null ? `Q${e.rentaDia.toLocaleString('es-GT')}` : <span className="text-slate-300">—</span>}
+                  </td>
+
+                  {/* Fecha compra */}
+                  <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">
+                    {formatFecha(e.fechaCompra)}
+                  </td>
+
+                  {/* Acciones */}
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1.5">
+                      {e.isActive ? (
+                        <>
+                          <button onClick={() => setEditEquipo(e)}
+                            className="px-2.5 py-1 rounded-lg text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors">
+                            Editar
+                          </button>
+                          <button onClick={() => setBajaEquipo(e)}
+                            className="px-2.5 py-1 rounded-lg text-xs font-medium bg-red-600 hover:bg-red-700 text-white transition-colors">
+                            Dar de baja
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <div className="text-[11px] text-slate-400 max-w-[120px] truncate" title={e.motivoBaja ?? ''}>
+                            {e.motivoBaja ?? 'Sin motivo'}
+                          </div>
+                          <button
+                            disabled={reactivandoId === e.id}
+                            onClick={() => handleReactivar(e)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-green-600 hover:bg-green-700 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                          >
+                            {reactivandoId === e.id ? (
+                              <><svg className="animate-spin" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>...</>
+                            ) : 'Reactivar'}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Footer de la tabla */}
+        {!isLoading && !error && filtered.length > 0 && (
+          <div className="px-4 py-2.5 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+            <span className="text-xs text-slate-400">
+              {filtered.length} {filtered.length === 1 ? 'equipo' : 'equipos'} encontrados
+              {(search || filtroTipo || filtroCategoria) && ` de ${base.length} en total`}
+            </span>
+            {tab === 'activos' && (
+              <span className="text-xs text-slate-400 font-mono">
+                Valor filtrado: {formatMoneda(filtered.reduce((s, e) => s + e.montoCompra, 0))}
               </span>
-            </div>
-            <div className="px-4 pt-2 pb-3 flex-1">
-              <div className="font-bold text-slate-800 text-sm mb-0.5">{eq.name}</div>
-              <div className="text-xs text-slate-500 font-medium mb-2">{eq.category}</div>
-              <div className="font-bold font-mono text-indigo-600 text-lg mb-2">
-                {eq.price} <span className="text-xs font-medium text-slate-500">/ día</span>
-              </div>
-              <div className="flex gap-4 text-xs text-slate-500">
-                <span>Stock: <strong className="text-slate-800">{eq.stock}</strong></span>
-                <span>Rentas: <strong className="text-slate-800">{eq.rentals}</strong></span>
-              </div>
-            </div>
-            <div className="px-4 py-3 border-t border-slate-100 bg-slate-50 flex gap-2">
-              <button
-                onClick={() => onShowToast('✏️', 'Editar equipo', 'Disponible en versión final')}
-                className="flex-1 px-2 py-1.5 rounded-lg text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors"
-              >
-                Editar
-              </button>
-              <button
-                onClick={() => onShowToast('📊', 'Historial', `Historial de rentas de ${eq.name}`)}
-                className="flex-1 px-2 py-1.5 rounded-lg text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors"
-              >
-                Historial
-              </button>
-            </div>
+            )}
           </div>
-        ))}
+        )}
       </div>
+
+      {/* Modales */}
+      <AgregarEquipoModal
+        open={agregarOpen}
+        onClose={() => setAgregarOpen(false)}
+        onCreated={nuevo => {
+          addEquipo(nuevo);
+          onShowToast('🔧', 'Equipo registrado', `#${nuevo.numeracion} agregado al inventario`);
+        }}
+      />
+
+      <EditarEquipoModal
+        equipo={editEquipo}
+        open={editEquipo !== null}
+        onClose={() => setEditEquipo(null)}
+        onSave={updated => {
+          updateEquipo(updated);
+          setEditEquipo(null);
+          onShowToast('✅', 'Equipo actualizado', `#${updated.numeracion} guardado correctamente`);
+        }}
+      />
+
+      <BajaEquipoModal
+        equipo={bajaEquipo}
+        open={bajaEquipo !== null}
+        onClose={() => setBajaEquipo(null)}
+        onConfirm={updated => {
+          updateEquipo(updated);
+          setBajaEquipo(null);
+          onShowToast('🔒', 'Equipo dado de baja', `#${updated.numeracion} marcado como inactivo`);
+        }}
+      />
     </div>
-  )
+  );
 }

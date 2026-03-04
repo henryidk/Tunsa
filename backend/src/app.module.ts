@@ -4,6 +4,7 @@ import * as Joi from 'joi';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
+import { EquiposModule } from './equipos/equipos.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { UsersModule } from './users/users.module';
     PrismaModule,
     AuthModule,
     UsersModule,
+    EquiposModule,
   ],
 })
 export class AppModule {}

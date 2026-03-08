@@ -14,6 +14,7 @@ import VencidasSection from '../../components/admin/sections/VencidasSection'
 import EquiposSection from '../../components/admin/sections/EquiposSection'
 import ClientesSection from '../../components/admin/sections/ClientesSection'
 import UsuariosSection from '../../components/admin/sections/UsuariosSection'
+import BitacorasSection from '../../components/admin/sections/BitacorasSection'
 import CambiarPasswordModal from '../../components/admin/CambiarPasswordModal'
 
 export type Section =
@@ -25,6 +26,7 @@ export type Section =
   | 'equipos'
   | 'clientes'
   | 'usuarios'
+  | 'bitacoras'
 
 export interface ToastState {
   visible: boolean
@@ -97,6 +99,9 @@ export default function AdminDashboard() {
           )}
           {activeSection === 'usuarios' && (
             <UsuariosSection onShowToast={showToast} user={user} />
+          )}
+          {activeSection === 'bitacoras' && (
+            <BitacorasSection />
           )}
         </main>
       </div>

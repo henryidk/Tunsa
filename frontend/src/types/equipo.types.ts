@@ -6,6 +6,7 @@ export interface Equipo {
   descripcion: string;
   categoria:   string;
   serie:       string | null;
+  cantidad:    number;
   fechaCompra: string;
   montoCompra: number;
   tipo:        TipoMaquinaria;
@@ -18,34 +19,6 @@ export interface Equipo {
   createdAt:   string;
   updatedAt:   string;
 }
-
-export const CATEGORIAS_EQUIPO = [
-  'Bailarina',
-  'Barreno',
-  'Bomba de agua',
-  'Bomba p/sólidos',
-  'Chapeadora',
-  'Compresor',
-  'Cortadora de concreto',
-  'Generador eléctrico',
-  'Generador soldador',
-  'Helicóptero',
-  'Hidrolavadora',
-  'Martillo demoledor',
-  'Medidor de presión',
-  'Mezcladora',
-  'Minicargador',
-  'Montacarga',
-  'Motosierra',
-  'Plancha alizadora',
-  'Plato vibratorio',
-  'Rastrío',
-  'Regla vibratoria',
-  'Retroexcavadora',
-  'Rodo compactador',
-  'Sopladora',
-  'Vibrador de concreto',
-] as const;
 
 export const TIPO_LABEL: Record<TipoMaquinaria, string> = {
   LIVIANA:   'Maq. Liviana',

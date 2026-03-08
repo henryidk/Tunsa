@@ -1,11 +1,24 @@
 import type { Equipo } from '../types/equipo.types';
 import { api } from './auth.service';
 
+export interface BitacoraEntry {
+  id:            string;
+  modulo:        'equipo' | 'usuario';
+  entidadId:     string;
+  entidadNombre: string;
+  campo:         string;
+  valorAnterior: string | null;
+  valorNuevo:    string | null;
+  realizadoPor:  string;
+  createdAt:     string;
+}
+
 interface CreateEquipoData {
   numeracion:  string;
   descripcion: string;
   categoria:   string;
   serie?:       string;
+  cantidad?:    number;
   fechaCompra:  string;
   montoCompra:  number;
   tipo:         string;
@@ -43,6 +56,11 @@ export const equiposService = {
 
   async reactivar(id: string): Promise<Equipo> {
     const res = await api.patch<Equipo>(`/equipos/${id}/reactivar`);
+    return res.data;
+  },
+
+  async getBitacoras(): Promise<BitacoraEntry[]> {
+    const res = await api.get<BitacoraEntry[]>('/bitacoras');
     return res.data;
   },
 };

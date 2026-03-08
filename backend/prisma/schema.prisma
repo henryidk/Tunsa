@@ -77,12 +77,13 @@ enum TipoMaquinaria {
 
 model Equipo {
   id           String         @id @default(cuid())
-  numeracion   String         @unique          // Código interno: "1", "47", "MP01"
+  numeracion   String         @unique          // Código interno: "1", "47", "MP01", "PT01"
   descripcion  String         @db.Text
-  categoria    String                          // "Bailarina", "Generador", etc.
-  serie        String?   @db.Text                // Serie equipo / motor (tal como aparece en inventario)
+  categoria    String                          // "Bailarina", "Generador", "Puntales", etc.
+  serie        String?        @db.Text         // Serie equipo / motor
+  cantidad     Int            @default(1)      // Unidades (>1 para materiales a granel como puntales)
   fechaCompra  DateTime
-  montoCompra  Decimal        @db.Decimal(12, 2)
+  montoCompra  Decimal        @db.Decimal(12, 2) // Valor total del lote
   tipo         TipoMaquinaria @default(LIVIANA)
 
   rentaDia     Decimal?       @db.Decimal(10, 2)
@@ -100,6 +101,35 @@ model Equipo {
   @@index([categoria])
   @@index([tipo])
   @@index([isActive])
+}
+
+// ==================== BITÁCORAS ====================
+
+model Bitacora {
+  id            String   @id @default(cuid())
+  modulo        String   // "equipo" | "usuario"
+  entidadId     String
+  entidadNombre String
+  campo         String
+  valorAnterior String?
+  valorNuevo    String?
+  realizadoPor  String
+
+  createdAt     DateTime @default(now())
+
+  @@map("bitacoras")
+  @@index([modulo, createdAt])
+  @@index([entidadId])
+}
+
+// ==================== CATEGORÍAS ====================
+
+model Categoria {
+  id        String   @id @default(cuid())
+  nombre    String   @unique
+  createdAt DateTime @default(now())
+
+  @@map("categorias")
 }
 
 // ==================== AUDIT LOG ====================

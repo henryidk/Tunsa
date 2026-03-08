@@ -306,6 +306,7 @@ async function main() {
         descripcion: e.descripcion,
         categoria:   e.categoria,
         serie:       e.serie,
+        cantidad:    1,
         fechaCompra: e.fechaCompra,
         montoCompra: e.montoCompra,
         tipo:        e.tipo,
@@ -319,6 +320,58 @@ async function main() {
     });
   }
   console.log(`  ${equiposData.length} equipos creados`);
+
+  // 5. Crear categorías
+  console.log('\nCreando categorías...');
+  const categorias = [
+    'Bailarina', 'Barreno', 'Bomba de agua', 'Bomba p/sólidos',
+    'Chapeadora', 'Compresor', 'Cortadora de concreto', 'Generador eléctrico',
+    'Generador soldador', 'Helicóptero', 'Hidrolavadora', 'Martillo demoledor',
+    'Medidor de presión', 'Mezcladora', 'Minicargador', 'Montacarga',
+    'Motosierra', 'Plancha alizadora', 'Plato vibratorio', 'Puntales',
+    'Rastrío', 'Regla vibratoria', 'Retroexcavadora', 'Rodo compactador',
+    'Sopladora', 'Vibrador de concreto',
+  ];
+  for (const nombre of categorias) {
+    await prisma.categoria.upsert({
+      where:  { nombre },
+      update: {},
+      create: { nombre },
+    });
+  }
+  console.log(`  ${categorias.length} categorías creadas`);
+
+  // 6. Puntales como equipos LIVIANA (categoria "Puntales")
+  //    montoCompra = valor total del lote (cantidad * precioUnitario)
+  //    fechaCompra = fecha real cuando se conoce, placeholder '2020-01-01' si no consta en doc
+  console.log('\nCreando puntales como equipos...');
+  const puntalesEquipos = [
+    { numeracion: 'PT01', descripcion: 'Puntales telescópicos',  cantidad: 100, fechaCompra: new Date('2020-01-01'), montoCompra: 26168.00, rentaDia: 1.5, rentaSemana: 5, rentaMes: 15 },
+    { numeracion: 'PM01', descripcion: 'Puntales metálicos',      cantidad: 900, fechaCompra: new Date('2020-01-01'), montoCompra: 153000.00, rentaDia: 1.5, rentaSemana: 5, rentaMes: 15 },
+    { numeracion: 'PM02', descripcion: 'Puntales metálicos',      cantidad: 200, fechaCompra: new Date('2024-12-20'), montoCompra: 34000.00, rentaDia: 1.5, rentaSemana: 5, rentaMes: 15 },
+    { numeracion: 'PM03', descripcion: 'Puntales metálicos',      cantidad: 300, fechaCompra: new Date('2024-12-30'), montoCompra: 51000.00, rentaDia: 1.5, rentaSemana: 5, rentaMes: 15 },
+    { numeracion: 'PM04', descripcion: 'Puntales metálicos',      cantidad: 2,   fechaCompra: new Date('2025-04-15'), montoCompra: 340.00, rentaDia: 1.5, rentaSemana: 5, rentaMes: 15 },
+  ];
+  for (const p of puntalesEquipos) {
+    await prisma.equipo.upsert({
+      where: { numeracion: p.numeracion },
+      update: {},
+      create: {
+        numeracion:  p.numeracion,
+        descripcion: p.descripcion,
+        categoria:   'Puntales',
+        serie:       null,
+        cantidad:    p.cantidad,
+        fechaCompra: p.fechaCompra,
+        montoCompra: p.montoCompra,
+        tipo:        'LIVIANA',
+        rentaDia:    p.rentaDia,
+        rentaSemana: p.rentaSemana,
+        rentaMes:    p.rentaMes,
+      },
+    });
+  }
+  console.log(`  ${puntalesEquipos.length} grupos de puntales agregados como equipos LIVIANA`);
 
   console.log('===========================================');
   console.log('\nSeed completado exitosamente!');

@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import type { ChangeEvent, MouseEvent } from 'react';
 import type { Equipo, TipoMaquinaria } from '../../types/equipo.types';
-import { CATEGORIAS_EQUIPO } from '../../types/equipo.types';
 import { equiposService } from '../../services/equipos.service';
+import { useCategorias } from '../../hooks/useCategorias';
 
 interface EditarEquipoModalProps {
   equipo:  Equipo | null;
@@ -18,12 +18,10 @@ interface FormState {
   descripcion: string;
   categoria:   string;
   serie:       string;
+  cantidad:    string;
   fechaCompra: string;
   montoCompra: string;
   tipo:        TipoMaquinaria | '';
-  rentaDia:    string;
-  rentaSemana: string;
-  rentaMes:    string;
 }
 
 const TIPOS = [
@@ -36,6 +34,7 @@ export default function EditarEquipoModal({ equipo, open, onClose, onSave }: Edi
   const [form, setForm]         = useState<FormState>({} as FormState);
   const [isSaving, setIsSaving] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const { categorias }          = useCategorias();
 
   useEffect(() => {
     if (equipo) {
@@ -44,12 +43,10 @@ export default function EditarEquipoModal({ equipo, open, onClose, onSave }: Edi
         descripcion: equipo.descripcion,
         categoria:   equipo.categoria,
         serie:       equipo.serie ?? '',
+        cantidad:    equipo.cantidad.toString(),
         fechaCompra: equipo.fechaCompra.substring(0, 10),
         montoCompra: equipo.montoCompra.toString(),
         tipo:        equipo.tipo,
-        rentaDia:    equipo.rentaDia    != null ? equipo.rentaDia.toString()    : '',
-        rentaSemana: equipo.rentaSemana != null ? equipo.rentaSemana.toString() : '',
-        rentaMes:    equipo.rentaMes    != null ? equipo.rentaMes.toString()    : '',
       });
       setApiError(null);
     }
@@ -85,12 +82,10 @@ export default function EditarEquipoModal({ equipo, open, onClose, onSave }: Edi
         descripcion: form.descripcion.trim(),
         categoria:   form.categoria,
         serie:       form.serie.trim() || undefined,
+        cantidad:    parseInt(form.cantidad) || 1,
         fechaCompra: form.fechaCompra,
         montoCompra: monto,
         tipo:        form.tipo as TipoMaquinaria,
-        rentaDia:    form.rentaDia    ? parseFloat(form.rentaDia)    : undefined,
-        rentaSemana: form.rentaSemana ? parseFloat(form.rentaSemana) : undefined,
-        rentaMes:    form.rentaMes    ? parseFloat(form.rentaMes)    : undefined,
       });
       onSave(updated);
       onClose();
@@ -147,11 +142,17 @@ export default function EditarEquipoModal({ equipo, open, onClose, onSave }: Edi
                   {TIPOS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>
               </div>
+              <div>
+                <label className={labelCls}>Cantidad</label>
+                <input type="number" value={form.cantidad} onChange={handleChange('cantidad')}
+                  disabled={isSaving} min="1" step="1"
+                  className={`${inputCls} font-mono`} />
+              </div>
               <div className="col-span-2">
                 <label className={labelCls}>Categoría</label>
                 <select value={form.categoria} onChange={handleChange('categoria')} disabled={isSaving}
                   className={`${inputCls} bg-white`}>
-                  {CATEGORIAS_EQUIPO.map(c => <option key={c} value={c}>{c}</option>)}
+                  {categorias.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
               <div className="col-span-2">
@@ -184,19 +185,6 @@ export default function EditarEquipoModal({ equipo, open, onClose, onSave }: Edi
                 <input type="number" value={form.montoCompra} onChange={handleChange('montoCompra')}
                   disabled={isSaving} min="0" step="0.01" className={`${inputCls} font-mono`} />
               </div>
-            </div>
-          </div>
-
-          <div>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">Precios de renta (Q)</p>
-            <div className="grid grid-cols-3 gap-3">
-              {(['rentaDia', 'rentaSemana', 'rentaMes'] as const).map((field, i) => (
-                <div key={field}>
-                  <label className={labelCls}>{['Por día', 'Por semana', 'Por mes'][i]}</label>
-                  <input type="number" value={form[field]} onChange={handleChange(field)}
-                    disabled={isSaving} min="0" step="0.01" className={`${inputCls} font-mono`} />
-                </div>
-              ))}
             </div>
           </div>
 

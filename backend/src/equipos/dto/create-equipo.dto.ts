@@ -31,6 +31,12 @@ export class CreateEquipoDto {
   @Type(() => Number)
   montoCompra: number;
 
+  @IsOptional()
+  @IsNumber({}, { message: 'La cantidad debe ser un número' })
+  @Min(1, { message: 'La cantidad debe ser al menos 1' })
+  @Type(() => Number)
+  cantidad?: number;
+
   @IsEnum(TipoMaquinaria, { message: 'Tipo de maquinaria no válido' })
   tipo: TipoMaquinaria;
 

@@ -5,11 +5,6 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
-/**
- * Genera una contraseña aleatoria de 8 caracteres usando crypto.randomInt,
- * garantizando al menos un carácter de cada tipo.
- * crypto.randomInt es criptográficamente seguro (CSPRNG).
- */
 function generateSecurePassword(): string {
   const upper   = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   const lower   = 'abcdefghijklmnopqrstuvwxyz';
@@ -17,7 +12,6 @@ function generateSecurePassword(): string {
   const special = '!@#$%&*';
   const all     = upper + lower + digits + special;
 
-  // Garantizar al menos uno de cada tipo
   const password: string[] = [
     upper  [randomInt(upper.length)],
     lower  [randomInt(lower.length)],
@@ -29,7 +23,6 @@ function generateSecurePassword(): string {
     all[randomInt(all.length)],
   ];
 
-  // Fisher-Yates shuffle con crypto.randomInt
   for (let i = password.length - 1; i > 0; i--) {
     const j = randomInt(i + 1);
     [password[i], password[j]] = [password[j], password[i]];
@@ -76,7 +69,7 @@ export class UsersService {
     });
   }
 
-  async setActive(id: string, isActive: boolean, requestingUserId: string) {
+  async setActive(id: string, isActive: boolean, requestingUserId: string, requestingUsername: string) {
     if (id === requestingUserId) {
       throw new ConflictException('No puedes modificar el estado de tu propia cuenta');
     }
@@ -91,14 +84,28 @@ export class UsersService {
       });
     }
 
-    return this.prisma.usuario.update({
+    const updated = await this.prisma.usuario.update({
       where: { id },
       data: { isActive },
       select: userSelect,
     });
+
+    await this.prisma.bitacora.create({
+      data: {
+        modulo:        'usuario',
+        entidadId:     id,
+        entidadNombre: `${usuario.nombre} (@${usuario.username})`,
+        campo:         isActive ? 'activar' : 'desactivar',
+        valorAnterior: isActive ? 'Inactivo' : 'Activo',
+        valorNuevo:    isActive ? 'Activo'   : 'Inactivo',
+        realizadoPor:  requestingUsername,
+      },
+    });
+
+    return updated;
   }
 
-  async update(id: string, data: UpdateUserDto) {
+  async update(id: string, data: UpdateUserDto, requestingUsername: string) {
     const usuario = await this.prisma.usuario.findUnique({ where: { id } });
     if (!usuario) throw new NotFoundException('Usuario no encontrado');
 
@@ -107,7 +114,7 @@ export class UsersService {
       if (taken) throw new ConflictException('El nombre de usuario ya está en uso');
     }
 
-    return this.prisma.usuario.update({
+    const updated = await this.prisma.usuario.update({
       where: { id },
       data: {
         ...(data.nombre   !== undefined && { nombre:   data.nombre }),
@@ -116,6 +123,38 @@ export class UsersService {
       },
       select: userSelect,
     });
+
+    const changes: { campo: string; valorAnterior: string | null; valorNuevo: string | null }[] = [];
+
+    if (data.nombre !== undefined && data.nombre !== usuario.nombre) {
+      changes.push({ campo: 'nombre', valorAnterior: usuario.nombre, valorNuevo: data.nombre });
+    }
+    if (data.username !== undefined && data.username !== usuario.username) {
+      changes.push({ campo: 'username', valorAnterior: usuario.username, valorNuevo: data.username });
+    }
+    if (data.telefono !== undefined) {
+      const prev = usuario.telefono ?? null;
+      const next = data.telefono   || null;
+      if (prev !== next) {
+        changes.push({ campo: 'telefono', valorAnterior: prev, valorNuevo: next });
+      }
+    }
+
+    if (changes.length > 0) {
+      await this.prisma.bitacora.createMany({
+        data: changes.map(c => ({
+          modulo:        'usuario',
+          entidadId:     id,
+          entidadNombre: `${updated.nombre} (@${updated.username})`,
+          campo:         c.campo,
+          valorAnterior: c.valorAnterior,
+          valorNuevo:    c.valorNuevo,
+          realizadoPor:  requestingUsername,
+        })),
+      });
+    }
+
+    return updated;
   }
 
   async create(dto: CreateUserDto) {
@@ -130,12 +169,12 @@ export class UsersService {
 
     const usuario = await this.prisma.usuario.create({
       data: {
-        nombre:            dto.nombre,
-        username:          dto.username,
-        telefono:          dto.telefono || null,
-        password:          hashedPassword,
+        nombre:             dto.nombre,
+        username:           dto.username,
+        telefono:           dto.telefono || null,
+        password:           hashedPassword,
         mustChangePassword: true,
-        roleId:            role.id,
+        roleId:             role.id,
       },
       select: userSelect,
     });
@@ -143,7 +182,7 @@ export class UsersService {
     return { ...usuario, temporaryPassword: plainPassword };
   }
 
-  async resetPassword(id: string, requestingUserId: string, ipAddress?: string, userAgent?: string) {
+  async resetPassword(id: string, requestingUserId: string, requestingUsername: string, ipAddress?: string, userAgent?: string) {
     if (id === requestingUserId) {
       throw new ConflictException('No puedes resetear tu propia contraseña');
     }
@@ -154,7 +193,6 @@ export class UsersService {
     const plainPassword  = generateSecurePassword();
     const hashedPassword = await bcrypt.hash(plainPassword, 12);
 
-    // Revocar todas las sesiones activas del usuario afectado
     await this.prisma.refreshToken.updateMany({
       where: { userId: id, revoked: false },
       data: { revoked: true, revokedAt: new Date() },
@@ -166,7 +204,6 @@ export class UsersService {
       select: userSelect,
     });
 
-    // Registrar en audit log — nunca se loguea la contraseña en texto plano
     await this.prisma.auditLog.create({
       data: {
         userId:    requestingUserId,
@@ -180,6 +217,18 @@ export class UsersService {
       },
     });
 
+    await this.prisma.bitacora.create({
+      data: {
+        modulo:        'usuario',
+        entidadId:     id,
+        entidadNombre: `${usuario.nombre} (@${usuario.username})`,
+        campo:         'reset_password',
+        valorAnterior: null,
+        valorNuevo:    null,
+        realizadoPor:  requestingUsername,
+      },
+    });
+
     return { ...updated, temporaryPassword: plainPassword };
   }
 
@@ -187,7 +236,6 @@ export class UsersService {
     const usuario = await this.prisma.usuario.findUnique({ where: { id: userId } });
     if (!usuario) throw new NotFoundException('Usuario no encontrado');
 
-    // Evitar que el usuario reutilice su contraseña actual (incluida la temporal)
     const isSamePassword = await bcrypt.compare(newPassword, usuario.password);
     if (isSamePassword) {
       throw new BadRequestException('La nueva contraseña no puede ser igual a la contraseña actual');
@@ -195,7 +243,6 @@ export class UsersService {
 
     const hashedPassword = await bcrypt.hash(newPassword, 12);
 
-    // Revocar todos los refresh tokens para invalidar otras sesiones
     await this.prisma.refreshToken.updateMany({
       where: { userId, revoked: false },
       data: { revoked: true, revokedAt: new Date() },

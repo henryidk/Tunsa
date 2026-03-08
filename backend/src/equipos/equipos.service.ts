@@ -8,7 +8,6 @@ import { BajaEquipoDto } from './dto/baja-equipo.dto';
 export class EquiposService {
   constructor(private prisma: PrismaService) {}
 
-  /** Serializa los campos Decimal a number para que el frontend reciba tipos limpios */
   private serialize(equipo: any) {
     return {
       ...equipo,
@@ -19,12 +18,40 @@ export class EquiposService {
     };
   }
 
+  private buildChanges(equipo: any, dto: UpdateEquipoDto) {
+    const changes: { campo: string; valorAnterior: string | null; valorNuevo: string | null }[] = [];
+
+    const fmtStr = (v: any): string | null => (v != null ? String(v) : null);
+    const fmtNum = (v: any): string | null => (v != null ? parseFloat(v.toString()).toString() : null);
+
+    const track = (campo: string, va: string | null, vn: string | null) => {
+      if (va !== vn) changes.push({ campo, valorAnterior: va, valorNuevo: vn });
+    };
+
+    if (dto.descripcion !== undefined) track('descripcion', fmtStr(equipo.descripcion), fmtStr(dto.descripcion));
+    if (dto.categoria   !== undefined) track('categoria',   fmtStr(equipo.categoria),   fmtStr(dto.categoria));
+    if (dto.serie       !== undefined) track('serie',       fmtStr(equipo.serie),        fmtStr(dto.serie || null));
+    if (dto.cantidad    !== undefined) track('cantidad',    fmtStr(equipo.cantidad),     fmtStr(dto.cantidad));
+    if (dto.tipo        !== undefined) track('tipo',        fmtStr(equipo.tipo),         fmtStr(dto.tipo));
+
+    if (dto.fechaCompra !== undefined) {
+      const anteriorFecha = equipo.fechaCompra instanceof Date
+        ? equipo.fechaCompra.toISOString().substring(0, 10)
+        : String(equipo.fechaCompra).substring(0, 10);
+      track('fechaCompra', anteriorFecha, dto.fechaCompra);
+    }
+
+    if (dto.montoCompra !== undefined) track('montoCompra', fmtNum(equipo.montoCompra), fmtNum(dto.montoCompra));
+    if (dto.rentaDia    !== undefined) track('rentaDia',    fmtNum(equipo.rentaDia),    fmtNum(dto.rentaDia    ?? null));
+    if (dto.rentaSemana !== undefined) track('rentaSemana', fmtNum(equipo.rentaSemana), fmtNum(dto.rentaSemana ?? null));
+    if (dto.rentaMes    !== undefined) track('rentaMes',    fmtNum(equipo.rentaMes),    fmtNum(dto.rentaMes    ?? null));
+
+    return changes;
+  }
+
   async findAll() {
     const equipos = await this.prisma.equipo.findMany({
-      orderBy: [
-        { isActive: 'desc' },
-        { createdAt: 'asc' },
-      ],
+      orderBy: [{ isActive: 'desc' }, { createdAt: 'asc' }],
     });
     return equipos.map(e => this.serialize(e));
   }
@@ -45,6 +72,7 @@ export class EquiposService {
         descripcion: dto.descripcion,
         categoria:   dto.categoria,
         serie:       dto.serie || null,
+        cantidad:    dto.cantidad ?? 1,
         fechaCompra: new Date(dto.fechaCompra),
         montoCompra: dto.montoCompra,
         tipo:        dto.tipo,
@@ -57,7 +85,7 @@ export class EquiposService {
     return this.serialize(equipo);
   }
 
-  async update(id: string, dto: UpdateEquipoDto) {
+  async update(id: string, dto: UpdateEquipoDto, usuarioNombre: string) {
     const equipo = await this.prisma.equipo.findUnique({ where: { id } });
     if (!equipo) throw new NotFoundException('Equipo no encontrado');
 
@@ -66,6 +94,8 @@ export class EquiposService {
       if (taken) throw new ConflictException(`Ya existe un equipo con la numeración "${dto.numeracion}"`);
     }
 
+    const changes = this.buildChanges(equipo, dto);
+
     const updated = await this.prisma.equipo.update({
       where: { id },
       data: {
@@ -73,6 +103,7 @@ export class EquiposService {
         ...(dto.descripcion !== undefined && { descripcion: dto.descripcion }),
         ...(dto.categoria   !== undefined && { categoria:   dto.categoria }),
         ...(dto.serie       !== undefined && { serie:       dto.serie       || null }),
+        ...(dto.cantidad    !== undefined && { cantidad:    dto.cantidad }),
         ...(dto.fechaCompra !== undefined && { fechaCompra: new Date(dto.fechaCompra) }),
         ...(dto.montoCompra !== undefined && { montoCompra: dto.montoCompra }),
         ...(dto.tipo        !== undefined && { tipo:        dto.tipo }),
@@ -81,6 +112,20 @@ export class EquiposService {
         ...(dto.rentaMes    !== undefined && { rentaMes:    dto.rentaMes    ?? null }),
       },
     });
+
+    if (changes.length > 0) {
+      await this.prisma.bitacora.createMany({
+        data: changes.map(c => ({
+          modulo:        'equipo',
+          entidadId:     id,
+          entidadNombre: `#${equipo.numeracion} ${equipo.descripcion}`,
+          campo:         c.campo,
+          valorAnterior: c.valorAnterior,
+          valorNuevo:    c.valorNuevo,
+          realizadoPor:  usuarioNombre,
+        })),
+      });
+    }
 
     return this.serialize(updated);
   }

@@ -28,11 +28,6 @@ export class UsersController {
     return this.usersService.create(createUserDto);
   }
 
-  /**
-   * Permite a cualquier usuario autenticado cambiar su propia contraseña.
-   * @SkipMustChangePassword() es necesario para que usuarios con
-   * mustChangePassword = true puedan acceder a este endpoint.
-   */
   @Patch('change-password')
   @SkipMustChangePassword()
   changePassword(
@@ -44,8 +39,12 @@ export class UsersController {
 
   @Patch(':id')
   @Roles('admin')
-  update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    return this.usersService.update(id, updateUserDto);
+  update(
+    @Param('id') id: string,
+    @Body() updateUserDto: UpdateUserDto,
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ) {
+    return this.usersService.update(id, updateUserDto, currentUser.username);
   }
 
   @Patch(':id/reset-password')
@@ -56,18 +55,18 @@ export class UsersController {
     @Ip() ipAddress: string,
     @Headers('user-agent') userAgent: string,
   ) {
-    return this.usersService.resetPassword(id, currentUser.id, ipAddress, userAgent);
+    return this.usersService.resetPassword(id, currentUser.id, currentUser.username, ipAddress, userAgent);
   }
 
   @Patch(':id/deactivate')
   @Roles('admin')
   deactivate(@Param('id') id: string, @CurrentUser() currentUser: AuthenticatedUser) {
-    return this.usersService.setActive(id, false, currentUser.id);
+    return this.usersService.setActive(id, false, currentUser.id, currentUser.username);
   }
 
   @Patch(':id/activate')
   @Roles('admin')
   activate(@Param('id') id: string, @CurrentUser() currentUser: AuthenticatedUser) {
-    return this.usersService.setActive(id, true, currentUser.id);
+    return this.usersService.setActive(id, true, currentUser.id, currentUser.username);
   }
 }

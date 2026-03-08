@@ -1,13 +1,14 @@
 // EquiposSection.tsx — inventario completo de equipos
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type { Equipo } from '../../../types/equipo.types';
-import { TIPO_LABEL, TIPO_BADGE, CATEGORIAS_EQUIPO } from '../../../types/equipo.types';
+import { TIPO_LABEL, TIPO_BADGE } from '../../../types/equipo.types';
 import { useEquipos } from '../../../hooks/useEquipos';
 import { equiposService } from '../../../services/equipos.service';
 import { generarReporteInventario } from '../../../utils/equipos.pdf';
 import AgregarEquipoModal from '../AgregarEquipoModal';
 import EditarEquipoModal from '../EditarEquipoModal';
+import PreciosEquipoModal from '../PreciosEquipoModal';
 import BajaEquipoModal from '../BajaEquipoModal';
 
 interface EquiposSectionProps {
@@ -35,9 +36,16 @@ export default function EquiposSection({ onShowToast }: EquiposSectionProps) {
 
   const [agregarOpen, setAgregarOpen]     = useState(false);
   const [editEquipo, setEditEquipo]       = useState<Equipo | null>(null);
+  const [preciosEquipo, setPreciosEquipo] = useState<Equipo | null>(null);
   const [bajaEquipo, setBajaEquipo]       = useState<Equipo | null>(null);
   const [reactivandoId, setReactivandoId] = useState<string | null>(null);
   const [generando, setGenerando]         = useState(false);
+
+  // ── Categorías disponibles según tipo seleccionado ────────────────────────
+  const categoriasDisponibles = useMemo(() => {
+    const base = filtroTipo ? equipos.filter(e => e.tipo === filtroTipo) : equipos;
+    return [...new Set(base.map(e => e.categoria))].sort();
+  }, [equipos, filtroTipo]);
 
   // ── Filtrado ──────────────────────────────────────────────────────────────
   const base = equipos.filter(e => tab === 'activos' ? e.isActive : !e.isActive);
@@ -184,7 +192,17 @@ export default function EquiposSection({ onShowToast }: EquiposSectionProps) {
         </div>
 
         {/* Filtro tipo */}
-        <select value={filtroTipo} onChange={e => setFiltroTipo(e.target.value)}
+        <select value={filtroTipo} onChange={e => {
+          const nuevoTipo = e.target.value;
+          setFiltroTipo(nuevoTipo);
+          // resetear categoría si ya no pertenece al nuevo tipo
+          if (filtroCategoria) {
+            const cats = nuevoTipo
+              ? equipos.filter(eq => eq.tipo === nuevoTipo).map(eq => eq.categoria)
+              : equipos.map(eq => eq.categoria);
+            if (!cats.includes(filtroCategoria)) setFiltroCategoria('');
+          }
+        }}
           className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white focus:outline-none focus:border-indigo-400">
           <option value="">Todos los tipos</option>
           <option value="LIVIANA">Maq. Liviana</option>
@@ -196,7 +214,7 @@ export default function EquiposSection({ onShowToast }: EquiposSectionProps) {
         <select value={filtroCategoria} onChange={e => setFiltroCategoria(e.target.value)}
           className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white focus:outline-none focus:border-indigo-400">
           <option value="">Todas las categorías</option>
-          {CATEGORIAS_EQUIPO.map(c => <option key={c} value={c}>{c}</option>)}
+          {categoriasDisponibles.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
 
         {/* Reset filtros */}
@@ -257,9 +275,16 @@ export default function EquiposSection({ onShowToast }: EquiposSectionProps) {
                   {/* Equipo */}
                   <td className="px-4 py-3 max-w-[240px]">
                     <div className="font-medium text-slate-800 leading-snug line-clamp-2 text-xs">{e.descripcion}</div>
-                    <span className="inline-block mt-1 text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                      {e.categoria}
-                    </span>
+                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                      <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                        {e.categoria}
+                      </span>
+                      {e.cantidad > 1 && (
+                        <span className="text-[11px] font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full">
+                          ×{e.cantidad.toLocaleString('es-GT')} uds.
+                        </span>
+                      )}
+                    </div>
                   </td>
 
                   {/* Serie */}
@@ -282,9 +307,9 @@ export default function EquiposSection({ onShowToast }: EquiposSectionProps) {
                     {formatMoneda(e.montoCompra)}
                   </td>
 
-                  {/* Renta/día */}
+                  {/* Renta / día */}
                   <td className="px-4 py-3 font-mono text-xs text-indigo-600 whitespace-nowrap">
-                    {e.rentaDia != null ? `Q${e.rentaDia.toLocaleString('es-GT')}` : <span className="text-slate-300">—</span>}
+                    {e.rentaDia != null ? `Q${e.rentaDia.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : <span className="text-slate-300">—</span>}
                   </td>
 
                   {/* Fecha compra */}
@@ -297,6 +322,10 @@ export default function EquiposSection({ onShowToast }: EquiposSectionProps) {
                     <div className="flex items-center gap-1.5">
                       {e.isActive ? (
                         <>
+                          <button onClick={() => setPreciosEquipo(e)}
+                            className="px-2.5 py-1 rounded-lg text-xs font-medium border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors">
+                            Precios
+                          </button>
                           <button onClick={() => setEditEquipo(e)}
                             className="px-2.5 py-1 rounded-lg text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors">
                             Editar
@@ -364,6 +393,17 @@ export default function EquiposSection({ onShowToast }: EquiposSectionProps) {
           updateEquipo(updated);
           setEditEquipo(null);
           onShowToast('✅', 'Equipo actualizado', `#${updated.numeracion} guardado correctamente`);
+        }}
+      />
+
+      <PreciosEquipoModal
+        equipo={preciosEquipo}
+        open={preciosEquipo !== null}
+        onClose={() => setPreciosEquipo(null)}
+        onSave={updated => {
+          updateEquipo(updated);
+          setPreciosEquipo(null);
+          onShowToast('💰', 'Precios actualizados', `#${updated.numeracion} actualizado correctamente`);
         }}
       />
 

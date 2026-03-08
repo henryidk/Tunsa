@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import type { ChangeEvent, MouseEvent } from 'react';
 import type { Equipo, TipoMaquinaria } from '../../types/equipo.types';
-import { CATEGORIAS_EQUIPO } from '../../types/equipo.types';
 import { equiposService } from '../../services/equipos.service';
+import { useCategorias } from '../../hooks/useCategorias';
 
 interface AgregarEquipoModalProps {
   open:      boolean;
@@ -17,6 +17,7 @@ interface FormState {
   descripcion: string;
   categoria:   string;
   serie:       string;
+  cantidad:    string;
   fechaCompra: string;
   montoCompra: string;
   tipo:        TipoMaquinaria | '';
@@ -26,7 +27,7 @@ interface FormState {
 }
 
 const emptyForm: FormState = {
-  numeracion: '', descripcion: '', categoria: '', serie: '',
+  numeracion: '', descripcion: '', categoria: '', serie: '', cantidad: '1',
   fechaCompra: '', montoCompra: '', tipo: '',
   rentaDia: '', rentaSemana: '', rentaMes: '',
 };
@@ -41,6 +42,7 @@ export default function AgregarEquipoModal({ open, onClose, onCreated }: Agregar
   const [form, setForm]         = useState<FormState>(emptyForm);
   const [isSaving, setIsSaving] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const { categorias }          = useCategorias();
 
   if (!open) return null;
 
@@ -80,11 +82,13 @@ export default function AgregarEquipoModal({ open, onClose, onCreated }: Agregar
     setApiError(null);
 
     try {
+      const cantidad = parseInt(form.cantidad) || 1;
       const nuevo = await equiposService.create({
         numeracion,
         descripcion,
         categoria,
-        serie: form.serie.trim() || undefined,
+        serie:    form.serie.trim() || undefined,
+        cantidad: cantidad > 1 ? cantidad : undefined,
         fechaCompra,
         montoCompra,
         tipo,
@@ -151,12 +155,18 @@ export default function AgregarEquipoModal({ open, onClose, onCreated }: Agregar
                   {TIPOS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>
               </div>
+              <div>
+                <label className={labelCls}>Cantidad</label>
+                <input type="number" value={form.cantidad} onChange={handleChange('cantidad')}
+                  disabled={isSaving} placeholder="1" min="1" step="1"
+                  className={`${inputCls} font-mono`} />
+              </div>
               <div className="col-span-2">
                 <label className={labelCls}>Categoría <span className="text-red-400">*</span></label>
                 <select value={form.categoria} onChange={handleChange('categoria')} disabled={isSaving}
                   className={`${inputCls} bg-white`}>
                   <option value="">Seleccionar categoría...</option>
-                  {CATEGORIAS_EQUIPO.map(c => <option key={c} value={c}>{c}</option>)}
+                  {categorias.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
               <div className="col-span-2">

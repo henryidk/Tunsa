@@ -9,8 +9,10 @@ import ConfirmDesactivarModal from '../ConfirmDesactivarModal';
 import AgregarUsuarioModal from '../AgregarUsuarioModal';
 import ResetPasswordModal from '../ResetPasswordModal';
 
+import type { ToastType } from '../../../pages/admin/AdminDashboard'
+
 interface UsuariosSectionProps {
-  onShowToast: (icon: string, title: string, msg: string) => void;
+  onShowToast: (type: ToastType, title: string, msg: string) => void;
   user: Usuario | null;
 }
 
@@ -57,9 +59,9 @@ export default function UsuariosSection({ onShowToast, user }: UsuariosSectionPr
     try {
       const updated = await usuariosService.activate(u.id);
       updateUsuario(updated);
-      onShowToast('✅', 'Usuario activado', `${u.nombre} puede iniciar sesión nuevamente`);
+      onShowToast('success', 'Usuario activado', `${u.nombre} puede iniciar sesión nuevamente`);
     } catch {
-      onShowToast('❌', 'Error', 'No se pudo activar el usuario');
+      onShowToast('error', 'Error', 'No se pudo activar el usuario');
     } finally {
       setActivandoId(null);
     }

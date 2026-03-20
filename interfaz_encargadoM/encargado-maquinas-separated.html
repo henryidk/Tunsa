@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Encargado de Máquinas - Sistema Ferretería</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="encargado-maquinas.css">
+</head>
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <div class="logo-icon">⚙️</div>
+                <span class="logo-text">Sistema Ferretería</span>
+            </div>
+            <button class="sidebar-toggle" id="sidebarToggle">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M15 18l-6-6 6-6"/>
+                </svg>
+            </button>
+        </div>
+
+        <div class="sidebar-user">
+            <div class="user-avatar">JP</div>
+            <div class="user-details">
+                <div class="user-name">Juan Pérez</div>
+                <div class="user-role">Encargado de Máquinas</div>
+            </div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <div class="nav-section">
+                <div class="nav-section-title">PRINCIPAL</div>
+                <a href="#" class="nav-item active" data-section="dashboard">
+                    <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="14" width="7" height="7"></rect>
+                        <rect x="3" y="14" width="7" height="7"></rect>
+                    </svg>
+                    <span class="nav-label">Dashboard</span>
+                </a>
+                <a href="#" class="nav-item" data-section="nueva-solicitud">
+                    <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                    <span class="nav-label">Nueva Solicitud</span>
+                </a>
+            </div>
+
+            <div class="nav-section">
+                <div class="nav-section-title">RENTAS</div>
+                <a href="#" class="nav-item" data-section="pendientes-autorizacion">
+                    <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                    <span class="nav-label">Pendientes</span>
+                    <span class="nav-badge" id="navBadgePending">0</span>
+                </a>
+                <a href="#" class="nav-item" data-section="rentas-activas">
+                    <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                    </svg>
+                    <span class="nav-label">Activas</span>
+                    <span class="nav-badge nav-badge-success" id="navBadgeActive">0</span>
+                </a>
+                <a href="#" class="nav-item" data-section="rentas-vencidas">
+                    <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    </svg>
+                    <span class="nav-label">Vencidas</span>
+                    <span class="nav-badge nav-badge-danger" id="navBadgeOverdue">0</span>
+                </a>
+                <a href="#" class="nav-item" data-section="historial">
+                    <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                    <span class="nav-label">Historial</span>
+                </a>
+            </div>
+
+            <div class="nav-section">
+                <div class="nav-section-title">GESTIÓN</div>
+                <a href="#" class="nav-item" data-section="equipos">
+                    <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+                    </svg>
+                    <span class="nav-label">Equipos</span>
+                </a>
+            </div>
+        </nav>
+
+        <div class="sidebar-footer">
+            <button class="btn-logout" onclick="limpiarDatosPrueba()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                    <polyline points="16 17 21 12 16 7"></polyline>
+                    <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+                <span>Limpiar Datos</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Topbar -->
+        <header class="topbar">
+            <div class="topbar-left">
+                <button class="mobile-menu-btn" id="mobileMenuBtn">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
+                    </svg>
+                </button>
+                <div class="breadcrumb">
+                    <span class="breadcrumb-home">Inicio</span>
+                    <span class="breadcrumb-separator">/</span>
+                    <span class="breadcrumb-current" id="breadcrumbCurrent">Dashboard</span>
+                </div>
+            </div>
+            <div class="topbar-right">
+                <button class="topbar-btn" id="refreshBtn" title="Actualizar">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="23 4 23 10 17 10"></polyline>
+                        <polyline points="1 20 1 14 7 14"></polyline>
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Page Content -->
+        <div class="page-content">
+            
+            <!-- Dashboard Section -->
+            <section class="page-section active" id="dashboard">
+                <div class="section-header">
+                    <h1 class="page-title">Dashboard</h1>
+                    <p class="page-subtitle">Resumen general del sistema de rentas</p>
+                </div>
+
+                <!-- Stats Cards -->
+                <div class="stats-grid">
+                    <div class="stat-card stat-warning">
+                        <div class="stat-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polyline points="12 6 12 12 16 14"></polyline>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-label">Pendientes Aprobación</div>
+                            <div class="stat-value" id="dashPendingCount">0</div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card stat-success">
+                        <div class="stat-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-label">Rentas Activas</div>
+                            <div class="stat-value" id="dashActiveCount">0</div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card stat-danger">
+                        <div class="stat-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="12" y1="8" x2="12" y2="12"></line>
+                                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-label">Rentas Vencidas</div>
+                            <div class="stat-value" id="dashOverdueCount">0</div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card stat-primary">
+                        <div class="stat-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="1" x2="12" y2="23"></line>
+                                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-label">Ingresos del Mes</div>
+                            <div class="stat-value" id="dashRevenue">Q0.00</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Activity -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Actividad Reciente</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="activity-list" id="recentActivity">
+                            <div class="activity-item">
+                                <div class="activity-icon activity-success">✓</div>
+                                <div class="activity-content">
+                                    <div class="activity-title">Sistema iniciado correctamente</div>
+                                    <div class="activity-time">Hace unos momentos</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Nueva Solicitud Section -->
+            <section class="page-section" id="nueva-solicitud">
+                <div class="section-header">
+                    <div>
+                        <h1 class="page-title">Nueva Solicitud de Renta</h1>
+                        <p class="page-subtitle">Registra los datos del cliente y agrega los equipos que necesita rentar</p>
+                    </div>
+                </div>
+
+                <div class="ns-layout">
+
+                    <!-- LEFT -->
+                    <div class="ns-left">
+
+                        <!-- 1. Datos del cliente -->
+                        <div class="card ns-card" id="clientCard">
+                            <div class="ns-card-header">
+                                <div class="ns-card-icon">👤</div>
+                                <div style="flex:1">
+                                    <div class="ns-card-title">Cliente de la Solicitud</div>
+                                    <div class="ns-card-subtitle">Busca un cliente registrado o registra uno nuevo primero</div>
+                                </div>
+                            </div>
+                            <div class="ns-card-body">
+
+                                <!-- ── ESTADO: SIN CLIENTE SELECCIONADO ── -->
+                                <div id="clEmptyState">
+
+                                    <!-- Buscador -->
+                                    <div class="cl-search-wrap">
+                                        <div class="cl-search-box">
+                                            <svg class="cl-search-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                                            <input
+                                                type="text"
+                                                class="cl-search-input"
+                                                id="clientSearch"
+                                                placeholder="Buscar cliente por nombre o código CLI-XXXX..."
+                                                autocomplete="off"
+                                                oninput="clBuscar(this.value)"
+                                                onfocus="clBuscar(this.value)">
+                                            <button class="cl-search-clear" id="clClearBtn" onclick="clLimpiarBusqueda()" title="Limpiar">✕</button>
+                                        </div>
+                                        <div class="cl-dropdown" id="clDropdown"></div>
+                                    </div>
+
+                                    <!-- Separador -->
+                                    <div class="cl-divider"><span>¿Cliente nuevo?</span></div>
+
+                                    <!-- CTA registrar nuevo -->
+                                    <div class="cl-register-cta">
+                                        <div class="cl-register-cta-text">
+                                            <strong>Registrar antes de continuar</strong>
+                                            <span>El cliente debe estar registrado en el sistema para poder crear una solicitud. El registro incluye sus datos y documentación.</span>
+                                        </div>
+                                        <button class="btn btn-secondary cl-register-btn" onclick="clAbrirModal()">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+                                            Registrar nuevo cliente
+                                        </button>
+                                    </div>
+
+                                </div>
+
+                                <!-- ── ESTADO: CLIENTE SELECCIONADO ── -->
+                                <div id="clSelectedState" style="display:none">
+                                    <div class="cl-profile-card">
+                                        <div class="cl-profile-avatar" id="clAvatar"></div>
+                                        <div class="cl-profile-info">
+                                            <div class="cl-profile-name" id="clNombre"></div>
+                                            <div class="cl-profile-meta">
+                                                <span id="clCodigo" class="cl-profile-code"></span>
+                                                <span class="cl-sep">·</span>
+                                                <span id="clTelefono"></span>
+                                                <span class="cl-sep">·</span>
+                                                <span>DPI: <span id="clDpi"></span></span>
+                                            </div>
+                                        </div>
+                                        <div class="cl-profile-status">
+                                            <span class="cl-tag cl-tag-ok">
+                                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                                                Verificado
+                                            </span>
+                                            <span class="cl-tag" id="clDocTag"></span>
+                                        </div>
+                                        <button class="cl-change-btn" onclick="clDeseleccionar()" title="Cambiar cliente">
+                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                            Cambiar
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Campos ocultos que usa createRental() -->
+                                <input type="hidden" id="clientName">
+                                <input type="hidden" id="clientPhone">
+
+                            </div>
+                        </div>
+
+                        <!-- ══════════════════════════════════════════════
+                             MODAL: REGISTRAR NUEVO CLIENTE
+                             Proceso separado e independiente de la solicitud
+                        ══════════════════════════════════════════════ -->
+                        <div class="cl-modal-overlay" id="clModalOverlay" onclick="clCerrarModal(event)">
+                            <div class="cl-modal" id="clModal">
+
+                                <div class="cl-modal-header">
+                                    <div>
+                                        <div class="cl-modal-title">Registrar nuevo cliente</div>
+                                        <div class="cl-modal-sub">Este proceso guarda al cliente en el sistema. Al finalizar, quedará seleccionado automáticamente para esta solicitud.</div>
+                                    </div>
+                                    <button class="cl-modal-close" onclick="clCerrarModal()">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                    </button>
+                                </div>
+
+                                <div class="cl-modal-body">
+
+                                    <!-- Paso indicador -->
+                                    <div class="cl-steps">
+                                        <div class="cl-step cl-step-active" id="clStep1Ind">
+                                            <div class="cl-step-num">1</div>
+                                            <div class="cl-step-label">Datos personales</div>
+                                        </div>
+                                        <div class="cl-step-line"></div>
+                                        <div class="cl-step" id="clStep2Ind">
+                                            <div class="cl-step-num">2</div>
+                                            <div class="cl-step-label">Documentación</div>
+                                        </div>
+                                    </div>
+
+                                    <!-- ── PASO 1: Datos personales ── -->
+                                    <div id="clStep1">
+                                        <div class="ns-form-row" style="margin-bottom:18px">
+                                            <div class="form-group">
+                                                <label class="form-label">Nombre completo <span class="required">*</span></label>
+                                                <input type="text" class="form-input" id="clRegNombre" placeholder="Ej. Juan Carlos Pérez López">
+                                            </div>
+                                            <div class="form-group">
+                                                <label class="form-label">Teléfono <span class="required">*</span></label>
+                                                <input type="tel" class="form-input" id="clRegTel" placeholder="1234-5678">
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">
+                                                Número de DPI <span class="required">*</span>
+                                                <span class="cl-hint">Documento Personal de Identificación · 13 dígitos</span>
+                                            </label>
+                                            <div class="cl-dpi-row">
+                                                <input type="text" class="form-input cl-dpi-input" id="clRegDpi"
+                                                    placeholder="0000 00000 0101" maxlength="17"
+                                                    oninput="clFormatDpi(this)">
+                                                <span class="cl-dpi-count" id="clDpiCount">0 / 13</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- ── PASO 2: Documentación ── -->
+                                    <div id="clStep2" style="display:none">
+                                        <div class="cl-doc-info">
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                            Sube un <strong>único PDF</strong> que contenga toda la documentación del cliente
+                                        </div>
+
+                                        <!-- Checklist de documentos -->
+                                        <div class="cl-doc-list">
+                                            <div class="cl-doc-item">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                                DPI (Documento Personal de Identificación)
+                                            </div>
+                                            <div class="cl-doc-item">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                                Patente de Comercio
+                                            </div>
+                                            <div class="cl-doc-item">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                                RTU (Registro Tributario Unificado)
+                                            </div>
+                                            <div class="cl-doc-item">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                                Referencias Comerciales
+                                            </div>
+                                            <div class="cl-doc-item">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                                Referencias Personales
+                                            </div>
+                                        </div>
+
+                                        <!-- Upload zone -->
+                                        <div class="cl-upload-zone" id="clUploadZone"
+                                             onclick="document.getElementById('clFileInput').click()"
+                                             ondragover="clDragOver(event)"
+                                             ondragleave="clDragLeave(event)"
+                                             ondrop="clDrop(event)">
+
+                                            <div id="clUploadIdle">
+                                                <div class="cl-upload-icon">
+                                                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="12" x2="12" y2="18"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+                                                </div>
+                                                <div class="cl-upload-label"><strong>Arrastra el PDF aquí</strong> o haz clic para seleccionar</div>
+                                                <div class="cl-upload-sub">Solo PDF · Máx. 10 MB</div>
+                                            </div>
+
+                                            <div id="clUploadDone" style="display:none" class="cl-upload-done">
+                                                <div class="cl-upload-done-icon">
+                                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                                </div>
+                                                <div>
+                                                    <div class="cl-file-name" id="clFileName"></div>
+                                                    <div class="cl-file-size" id="clFileSize"></div>
+                                                </div>
+                                                <button class="cl-file-remove" onclick="event.stopPropagation();clQuitarArchivo()" title="Quitar">✕</button>
+                                            </div>
+                                        </div>
+                                        <input type="file" id="clFileInput" accept=".pdf" style="display:none" onchange="clArchivoElegido(this)">
+                                    </div>
+
+                                </div><!-- /modal-body -->
+
+                                <div class="cl-modal-footer">
+                                    <button class="btn btn-secondary" id="clBtnBack" onclick="clPasoAnterior()" style="display:none">
+                                        ← Atrás
+                                    </button>
+                                    <div style="margin-left:auto;display:flex;gap:10px">
+                                        <button class="btn btn-secondary" onclick="clCerrarModal()">Cancelar</button>
+                                        <button class="btn btn-primary" id="clBtnNext" onclick="clSiguientePaso()">
+                                            Siguiente →
+                                        </button>
+                                        <button class="btn btn-primary" id="clBtnGuardar" onclick="clGuardarCliente()" style="display:none">
+                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
+                                            Guardar cliente
+                                        </button>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <!-- 2. Equipos -->
+                        <div class="card ns-card">
+                            <div class="ns-card-header">
+                                <div class="ns-card-icon">🔧</div>
+                                <div>
+                                    <div class="ns-card-title">Equipos / Maquinaria</div>
+                                    <div class="ns-card-subtitle">Cada equipo puede tener su propia fecha y duración de renta</div>
+                                </div>
+                            </div>
+                            <div class="ns-card-body">
+
+                                <!-- Zona de adición — 2 filas claras -->
+                                <div class="ns-add-zone">
+                                    <div class="ns-add-zone-label">Agregar equipo</div>
+
+                                    <!-- Fila 1: equipo + cantidad -->
+                                    <div class="ns-add-row ns-add-row-top">
+                                        <div class="form-group ns-fg-equipo">
+                                            <label class="form-label">Equipo <span class="required">*</span></label>
+                                            <select class="form-select" id="equipmentSelect">
+                                                <option value="">Seleccionar equipo...</option>
+                                                <option value="Taladro Industrial">Taladro Industrial — Q150/día</option>
+                                                <option value="Compresor de Aire">Compresor de Aire — Q200/día</option>
+                                                <option value="Martillo Neumático">Martillo Neumático — Q180/día</option>
+                                                <option value="Cortadora de Concreto">Cortadora de Concreto — Q250/día</option>
+                                                <option value="Andamio Metálico">Andamio Metálico — Q100/día</option>
+                                                <option value="Mezcladora de Concreto">Mezcladora de Concreto — Q220/día</option>
+                                                <option value="Sierra Circular">Sierra Circular — Q160/día</option>
+                                                <option value="Generador Eléctrico">Generador Eléctrico — Q300/día</option>
+                                                <option value="Niveladora Láser">Niveladora Láser — Q120/día</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group ns-fg-sm">
+                                            <label class="form-label">Cantidad</label>
+                                            <input type="number" class="form-input" id="equipmentQty" value="1" min="1">
+                                        </div>
+                                    </div>
+
+                                    <!-- Fila 2: fecha + días + botón -->
+                                    <div class="ns-add-row ns-add-row-bot">
+                                        <div class="form-group ns-fg-date">
+                                            <label class="form-label">Fecha de Inicio <span class="required">*</span></label>
+                                            <input type="date" class="form-input" id="equipStartDate">
+                                        </div>
+                                        <div class="form-group ns-fg-sm">
+                                            <label class="form-label">Duración (días) <span class="required">*</span></label>
+                                            <input type="number" class="form-input" id="equipDuration" value="1" min="1" placeholder="1">
+                                        </div>
+                                        <div class="ns-fg-action">
+                                            <label class="form-label ns-label-invisible">Acción</label>
+                                            <button type="button" class="btn btn-primary ns-btn-add" onclick="agregarEquipoALista()">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                                Agregar Equipo
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Separador -->
+                                <div class="ns-divider">
+                                    <span>Equipos en la solicitud</span>
+                                </div>
+
+                                <!-- Tabla de equipos agregados -->
+                                <div class="ns-table-wrap">
+                                    <table class="data-table ns-equip-table">
+                                        <thead>
+                                            <tr>
+                                                <th>#</th>
+                                                <th>Equipo</th>
+                                                <th>Cant.</th>
+                                                <th>Fecha Inicio</th>
+                                                <th>Días</th>
+                                                <th>Q / día</th>
+                                                <th>Subtotal</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="equipmentListBody">
+                                            <tr class="empty-row">
+                                                <td colspan="8">
+                                                    <div class="empty-state">
+                                                        <div class="empty-icon">📭</div>
+                                                        <p>Aún no has agregado equipos.<br>Completa el formulario de arriba y haz clic en "Agregar Equipo".</p>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <!-- 3. Notas -->
+                        <div class="card ns-card">
+                            <div class="ns-card-header">
+                                <div class="ns-card-icon">📝</div>
+                                <div>
+                                    <div class="ns-card-title">Notas / Observaciones</div>
+                                    <div class="ns-card-subtitle">Condiciones especiales o acuerdos adicionales (opcional)</div>
+                                </div>
+                            </div>
+                            <div class="ns-card-body">
+                                <textarea class="form-textarea" id="notes" rows="4" placeholder="Ej: El cliente necesita entrega en obra, andamio en buen estado, pago en efectivo, etc."></textarea>
+                            </div>
+                        </div>
+
+                    </div><!-- /ns-left -->
+
+                    <!-- RIGHT: Resumen -->
+                    <div class="ns-right">
+                        <div class="card ns-summary-card">
+                            <div class="ns-card-header">
+                                <div class="ns-card-icon">🧾</div>
+                                <div>
+                                    <div class="ns-card-title">Resumen de Solicitud</div>
+                                    <div class="ns-card-subtitle">Detalle y total estimado</div>
+                                </div>
+                            </div>
+
+                            <div class="ns-summary-items" id="summaryItems">
+                                <div class="ns-summary-empty" id="summaryEmpty">
+                                    <div class="ns-summary-empty-icon">📦</div>
+                                    <div>Aún no hay equipos<br>en la solicitud</div>
+                                </div>
+                            </div>
+
+                            <div class="ns-total-panel">
+                                <div class="ns-total-label">Total Estimado</div>
+                                <div class="ns-total-amount">
+                                    <span class="ns-total-sym">Q</span>
+                                    <span id="totalCost">0.00</span>
+                                </div>
+                                <div class="ns-total-note" id="costBreakdown">0 equipos seleccionados</div>
+                            </div>
+
+                            <div class="ns-form-actions">
+                                <button type="button" class="btn btn-secondary" onclick="resetFormComplete()">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                                    Limpiar
+                                </button>
+                                <button type="button" class="btn btn-primary" id="btnEnviarSolicitud" onclick="createRental()">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                                    Enviar Solicitud
+                                </button>
+                            </div>
+                        </div>
+                    </div><!-- /ns-right -->
+
+                </div><!-- /ns-layout -->
+            </section>
+
+            <!-- Pendientes de Autorización Section -->
+            <section class="page-section" id="pendientes-autorizacion">
+                <div class="section-header">
+                    <div>
+                        <h1 class="page-title">Pendientes de Autorización</h1>
+                        <p class="page-subtitle">Solicitudes esperando aprobación de secretaría</p>
+                    </div>
+                    <div class="header-actions">
+                        <input 
+                            type="search" 
+                            class="search-input" 
+                            id="searchPending"
+                            placeholder="🔍 Buscar solicitudes...">
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Fecha</th>
+                                    <th>Cliente</th>
+                                    <th>Teléfono</th>
+                                    <th>Equipo</th>
+                                    <th>Cantidad</th>
+                                    <th>Inicio</th>
+                                    <th>Duración</th>
+                                    <th>Total</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pendingTable">
+                                <tr class="empty-row">
+                                    <td colspan="10">
+                                        <div class="empty-state">
+                                            <div class="empty-icon">⏳</div>
+                                            <p>No hay solicitudes pendientes</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Rentas Activas Section -->
+            <section class="page-section" id="rentas-activas">
+                <div class="section-header">
+                    <div>
+                        <h1 class="page-title">Rentas Activas</h1>
+                        <p class="page-subtitle">Equipos actualmente rentados</p>
+                    </div>
+                    <div class="header-actions">
+                        <input 
+                            type="search" 
+                            class="search-input" 
+                            id="searchActive"
+                            placeholder="🔍 Buscar rentas activas...">
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Cliente</th>
+                                    <th>Equipo</th>
+                                    <th>Cantidad</th>
+                                    <th>Inicio</th>
+                                    <th>Fin Estimado</th>
+                                    <th>Días Restantes</th>
+                                    <th>Total</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="activeTable">
+                                <tr class="empty-row">
+                                    <td colspan="9">
+                                        <div class="empty-state">
+                                            <div class="empty-icon">📦</div>
+                                            <p>No hay rentas activas</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Rentas Vencidas Section -->
+            <section class="page-section" id="rentas-vencidas">
+                <div class="section-header">
+                    <div>
+                        <h1 class="page-title">Rentas Vencidas</h1>
+                        <p class="page-subtitle">Rentas que han superado su fecha de devolución</p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Cliente</th>
+                                    <th>Equipo</th>
+                                    <th>Inicio</th>
+                                    <th>Debía Terminar</th>
+                                    <th>Días de Atraso</th>
+                                    <th>Cargo Extra</th>
+                                    <th>Total</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="overdueTable">
+                                <tr class="empty-row">
+                                    <td colspan="9">
+                                        <div class="empty-state">
+                                            <div class="empty-icon">✅</div>
+                                            <p>No hay rentas vencidas</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Historial Section -->
+            <section class="page-section" id="historial">
+                <div class="section-header">
+                    <div>
+                        <h1 class="page-title">Historial de Rentas</h1>
+                        <p class="page-subtitle">Registro completo de todas las rentas</p>
+                    </div>
+                    <div class="header-actions">
+                        <input 
+                            type="search" 
+                            class="search-input" 
+                            id="searchHistory"
+                            placeholder="🔍 Buscar en historial...">
+                        <select class="filter-select" id="filterStatus">
+                            <option value="all">Todos los estados</option>
+                            <option value="completed">Completadas</option>
+                            <option value="completed-late">Completadas con atraso</option>
+                            <option value="rejected">Rechazadas</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Cliente</th>
+                                    <th>Equipo</th>
+                                    <th>Periodo</th>
+                                    <th>Duración</th>
+                                    <th>Devuelto</th>
+                                    <th>Total Pagado</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyTable">
+                                <tr class="empty-row">
+                                    <td colspan="8">
+                                        <div class="empty-state">
+                                            <div class="empty-icon">📋</div>
+                                            <p>No hay historial de rentas</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Equipos Section -->
+            <section class="page-section" id="equipos">
+                <div class="section-header">
+                    <div>
+                        <h1 class="page-title">Disponibilidad de Equipos</h1>
+                        <p class="page-subtitle">Estado actual de todos los equipos</p>
+                    </div>
+                </div>
+
+                <div class="equipment-grid" id="equipmentGrid">
+                    <!-- Equipment cards will be generated by JS -->
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- Modal for Extension -->
+    <div id="extendModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Extender Renta</h3>
+                <button class="modal-close" onclick="closeExtendModal()">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>Cliente: <strong id="extendClient"></strong></p>
+                <div id="extendEquipmentList" style="margin: 0.5rem 0 0.25rem;"></div>
+                <p>Vence: <strong id="extendCurrentEnd"></strong></p>
+                
+                <div class="form-group">
+                    <label class="form-label">
+                        Días adicionales
+                        <span class="required">*</span>
+                    </label>
+                    <input 
+                        type="number" 
+                        class="form-input" 
+                        id="extendDays"
+                        min="1" 
+                        value="1"
+                        placeholder="Número de días">
+                </div>
+
+                <div class="total-summary">
+                    <div class="total-label">Costo adicional</div>
+                    <div class="total-value" id="extendCost">Q0.00</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeExtendModal()">Cancelar</button>
+                <button class="btn btn-primary" onclick="confirmExtend()">Confirmar Extensión</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Return -->
+    <div id="returnModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Confirmar Devolución</h3>
+                <button class="modal-close" onclick="closeReturnModal()">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>Cliente: <strong id="returnClient"></strong></p>
+                <div id="returnEquipmentList" style="margin: 0.5rem 0 0.25rem;"></div>
+                <div id="returnLateFee" class="alert-warning" style="display:none;">
+                    ⚠️ Cargo por atraso: <strong id="lateFeeAmount"></strong>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Estado del equipo</label>
+                    <select class="form-select" id="equipmentCondition">
+                        <option value="good">Buen estado</option>
+                        <option value="damaged">Dañado</option>
+                        <option value="lost">Perdido</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Notas de devolución</label>
+                    <textarea 
+                        class="form-textarea" 
+                        id="returnNotes"
+                        rows="3"
+                        placeholder="Observaciones sobre el estado del equipo..."></textarea>
+                </div>
+
+                <div class="total-summary">
+                    <div class="total-label">Total a cobrar</div>
+                    <div class="total-value" id="returnTotal">Q0.00</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeReturnModal()">Cancelar</button>
+                <button class="btn btn-primary" onclick="confirmReturn()">Confirmar Devolución</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">
+        <div class="toast-icon">✅</div>
+        <div class="toast-content">
+            <div class="toast-title">Operación exitosa</div>
+            <div class="toast-message">La acción se completó correctamente</div>
+        </div>
+    </div>
+
+    <script src="encargado-maquinas.js"></script>
+</body>
+</html>

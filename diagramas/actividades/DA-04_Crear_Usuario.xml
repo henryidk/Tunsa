@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+  <root>
+    <mxCell id="0"/>
+    <mxCell id="1" parent="0"/>
+    <mxCell id="10" value="DA-04 — Crear Usuario (CU-04)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontStyle=1;fontSize=14;" vertex="1" parent="1"><mxGeometry x="80" y="10" width="1000" height="30" as="geometry"/></mxCell>
+    <mxCell id="11" value="" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="1"><mxGeometry x="555" y="55" width="30" height="30" as="geometry"/></mxCell>
+    <mxCell id="12" value="Administrador accede a
+sección Usuarios" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=0;fontSize=11;" vertex="1" parent="1"><mxGeometry x="450" y="110" width="240" height="50" as="geometry"/></mxCell>
+    <mxCell id="13" value="Clic en &quot;Agregar usuario&quot;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=0;fontSize=11;" vertex="1" parent="1"><mxGeometry x="450" y="180" width="240" height="50" as="geometry"/></mxCell>
+    <mxCell id="14" value="Sistema muestra AgregarUsuarioModal" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=0;fontSize=11;" vertex="1" parent="1"><mxGeometry x="450" y="250" width="240" height="50" as="geometry"/></mxCell>
+    <mxCell id="15" value="Completa: nombre, username,
+teléfono (opcional), rol" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=0;fontSize=11;" vertex="1" parent="1"><mxGeometry x="450" y="320" width="240" height="50" as="geometry"/></mxCell>
+    <mxCell id="16" value="¿Campos válidos?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1"><mxGeometry x="475" y="395" width="190" height="80" as="geometry"/></mxCell>
+    <mxCell id="17" value="Mostrar validaciones
+por campo" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="1"><mxGeometry x="840" y="405" width="190" height="50" as="geometry"/></mxCell>
+    <mxCell id="18" value="¿Username duplicado?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1"><mxGeometry x="475" y="500" width="190" height="80" as="geometry"/></mxCell>
+    <mxCell id="19" value="Mostrar error:
+usuario ya existe" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="1"><mxGeometry x="840" y="510" width="190" height="50" as="geometry"/></mxCell>
+    <mxCell id="20" value="Sistema genera contraseña
+segura de 8 caracteres" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=0;fontSize=11;" vertex="1" parent="1"><mxGeometry x="450" y="600" width="240" height="50" as="geometry"/></mxCell>
+    <mxCell id="21" value="Crear usuario con
+mustChangePassword=true, isActive=true" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=0;fontSize=11;" vertex="1" parent="1"><mxGeometry x="450" y="670" width="240" height="60" as="geometry"/></mxCell>
+    <mxCell id="22" value="Modal muestra contraseña
+temporal para copiar" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=0;fontSize=11;" vertex="1" parent="1"><mxGeometry x="450" y="752" width="240" height="50" as="geometry"/></mxCell>
+    <mxCell id="23" value="Mostrar toast de éxito
+y actualizar tabla" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=0;fontSize=11;" vertex="1" parent="1"><mxGeometry x="450" y="822" width="240" height="50" as="geometry"/></mxCell>
+    <mxCell id="24" value="" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#000000;strokeColor=#000000;strokeWidth=5;" vertex="1" parent="1"><mxGeometry x="555" y="892" width="30" height="30" as="geometry"/></mxCell>
+    <mxCell id="25" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=10;" edge="1" source="11" target="12" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="26" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=10;" edge="1" source="12" target="13" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="27" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=10;" edge="1" source="13" target="14" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="28" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=10;" edge="1" source="14" target="15" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="29" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=10;" edge="1" source="15" target="16" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="30" value="No" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=10;" edge="1" source="16" target="17" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="31" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=10;" edge="1" source="17" target="15" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="32" value="Sí" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=10;" edge="1" source="16" target="18" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="33" value="Sí" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=10;" edge="1" source="18" target="19" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="34" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=10;" edge="1" source="19" target="15" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="35" value="No" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=10;" edge="1" source="18" target="20" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="36" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=10;" edge="1" source="20" target="21" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="37" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=10;" edge="1" source="21" target="22" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="38" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=10;" edge="1" source="22" target="23" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="39" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=10;" edge="1" source="23" target="24" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+  </root>
+</mxGraphModel>

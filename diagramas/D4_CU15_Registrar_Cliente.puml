@@ -1,0 +1,38 @@
+@startuml D4_CU15_Registrar_Cliente
+title CU-15 — Registrar Cliente
+
+left to right direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam backgroundColor #FAFAFA
+skinparam actor {
+  BackgroundColor #E8EAF6
+  BorderColor #3F51B5
+  FontColor #1A1A2E
+}
+skinparam usecase {
+  BackgroundColor #FFFFFF
+  BorderColor #5C6BC0
+  FontColor #1A1A2E
+  ArrowColor #5C6BC0
+}
+
+actor "Administrador"          as Admin
+actor "Secretaria"             as Sec
+actor "Encargado de Máquinas"  as Enc
+
+rectangle "Sistema Tunsa — Clientes" {
+  usecase "CU-15\nRegistrar Cliente" as CU15
+
+  usecase "Validar DPI\núnico"              as ValDPI
+  usecase "Generar código\nCLI-XXXX"        as GenCodigo
+}
+
+Admin --> CU15
+Sec   --> CU15
+Enc   --> CU15
+
+CU15 .right.> ValDPI    : <<include>>
+CU15 .right.> GenCodigo : <<include>>
+
+@enduml

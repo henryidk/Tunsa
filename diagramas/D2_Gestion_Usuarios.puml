@@ -1,0 +1,47 @@
+@startuml D2_Gestion_Usuarios
+title Módulo 2 — Gestión de Usuarios\nCU-04 · CU-05 · CU-06 · CU-07 · CU-08
+
+left to right direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam backgroundColor #FAFAFA
+skinparam actor {
+  BackgroundColor #E8EAF6
+  BorderColor #3F51B5
+  FontColor #1A1A2E
+}
+skinparam usecase {
+  BackgroundColor #FFFFFF
+  BorderColor #5C6BC0
+  FontColor #1A1A2E
+  ArrowColor #5C6BC0
+}
+
+actor "Administrador" as Admin
+
+rectangle "Sistema Tunsa — Gestión de Usuarios" {
+  usecase "CU-04\nCrear Usuario"                 as CU04
+  usecase "CU-05\nEditar Usuario"                as CU05
+  usecase "CU-06\nDesactivar Usuario"            as CU06
+  usecase "CU-07\nActivar Usuario"               as CU07
+  usecase "CU-08\nResetear Contraseña\nde Usuario" as CU08
+
+  usecase "Generar contraseña\ntemporal segura"   as GenPass
+  usecase "Revocar sesiones\nactivas del usuario" as RevokeSession
+  usecase "Registrar evento\nen AuditLog"         as Audit
+}
+
+Admin --> CU04
+Admin --> CU05
+Admin --> CU06
+Admin --> CU07
+Admin --> CU08
+
+CU04 .down.> GenPass       : <<include>>
+CU08 .down.> GenPass       : <<include>>
+CU08 .down.> RevokeSession : <<include>>
+CU08 .down.> Audit         : <<include>>
+CU06 .down.> RevokeSession : <<include>>
+CU08 .up.>   CU05          : <<extend>>
+
+@enduml

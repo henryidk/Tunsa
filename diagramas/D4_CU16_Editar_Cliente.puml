@@ -1,0 +1,34 @@
+@startuml D4_CU16_Editar_Cliente
+title CU-16 — Editar Cliente
+
+left to right direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam backgroundColor #FAFAFA
+skinparam actor {
+  BackgroundColor #E8EAF6
+  BorderColor #3F51B5
+  FontColor #1A1A2E
+}
+skinparam usecase {
+  BackgroundColor #FFFFFF
+  BorderColor #5C6BC0
+  FontColor #1A1A2E
+  ArrowColor #5C6BC0
+}
+
+actor "Administrador" as Admin
+actor "Secretaria"    as Sec
+
+rectangle "Sistema Tunsa — Clientes" {
+  usecase "CU-16\nEditar Cliente" as CU16
+
+  usecase "Validar DPI\nno duplicado" as ValDPI
+}
+
+Admin --> CU16
+Sec   --> CU16
+
+CU16 .right.> ValDPI : <<include>>
+
+@enduml

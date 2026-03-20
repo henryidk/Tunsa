@@ -1,5 +1,7 @@
 // RentaModal.tsx — modal de detalle de renta
 
+import type { ToastType } from '../../pages/admin/AdminDashboard'
+
 interface RentaData {
   cliente: string
   estado: string
@@ -91,7 +93,7 @@ interface RentaModalProps {
   open: boolean
   rentaId: string
   onClose: () => void
-  onShowToast: (icon: string, title: string, msg: string) => void
+  onShowToast: (type: ToastType, title: string, msg: string) => void
 }
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
@@ -179,7 +181,7 @@ export default function RentaModal({ open, rentaId, onClose, onShowToast }: Rent
         <div className="flex items-center gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
           {esPendiente && (
             <button
-              onClick={() => { onShowToast('❌', 'Rechazada', `Solicitud ${rentaId} rechazada`); onClose() }}
+              onClick={() => { onShowToast('error', 'Rechazada', `Solicitud ${rentaId} rechazada`); onClose() }}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-red-600 hover:bg-red-700 text-white transition-colors"
             >
               Rechazar
@@ -194,7 +196,7 @@ export default function RentaModal({ open, rentaId, onClose, onShowToast }: Rent
             </button>
             {esPendiente && (
               <button
-                onClick={() => { onShowToast('✅', 'Aprobada', `Solicitud ${rentaId} aprobada exitosamente`); onClose() }}
+                onClick={() => { onShowToast('success', 'Aprobada', `Solicitud ${rentaId} aprobada exitosamente`); onClose() }}
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-green-600 hover:bg-green-700 text-white transition-colors"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

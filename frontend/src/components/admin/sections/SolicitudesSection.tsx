@@ -2,8 +2,10 @@
 
 import { useState } from 'react'
 
+import type { ToastType } from '../../../pages/admin/AdminDashboard'
+
 interface SolicitudesSectionProps {
-  onShowToast: (icon: string, title: string, msg: string) => void
+  onShowToast: (type: ToastType, title: string, msg: string) => void
   onOpenModal: (rentaId: string) => void
 }
 
@@ -134,8 +136,8 @@ export default function SolicitudesSection({ onShowToast, onOpenModal }: Solicit
                 <td className="px-4 py-3 text-xs text-slate-500">Juan Pérez</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <button onClick={() => onShowToast('✅', 'Aprobada', 'Solicitud RNT-2024-089 aprobada')} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-green-600 hover:bg-green-700 text-white transition-colors">Aprobar</button>
-                    <button onClick={() => onShowToast('❌', 'Rechazada', 'Solicitud rechazada')} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-red-600 hover:bg-red-700 text-white transition-colors">Rechazar</button>
+                    <button onClick={() => onShowToast('success', 'Aprobada', 'Solicitud RNT-2024-089 aprobada')} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-green-600 hover:bg-green-700 text-white transition-colors">Aprobar</button>
+                    <button onClick={() => onShowToast('error', 'Rechazada', 'Solicitud rechazada')} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-red-600 hover:bg-red-700 text-white transition-colors">Rechazar</button>
                     <button onClick={() => onOpenModal('RNT-2024-089')} className="p-1.5 rounded-lg text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors"><EyeIcon /></button>
                   </div>
                 </td>
@@ -160,8 +162,8 @@ export default function SolicitudesSection({ onShowToast, onOpenModal }: Solicit
                 <td className="px-4 py-3 text-xs text-slate-500">Juan Pérez</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <button onClick={() => onShowToast('✅', 'Aprobada', 'Solicitud aprobada')} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-green-600 hover:bg-green-700 text-white transition-colors">Aprobar</button>
-                    <button onClick={() => onShowToast('❌', 'Rechazada', 'Solicitud rechazada')} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-red-600 hover:bg-red-700 text-white transition-colors">Rechazar</button>
+                    <button onClick={() => onShowToast('success', 'Aprobada', 'Solicitud aprobada')} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-green-600 hover:bg-green-700 text-white transition-colors">Aprobar</button>
+                    <button onClick={() => onShowToast('error', 'Rechazada', 'Solicitud rechazada')} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-red-600 hover:bg-red-700 text-white transition-colors">Rechazar</button>
                     <button onClick={() => onOpenModal('RNT-2024-087')} className="p-1.5 rounded-lg text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors"><EyeIcon /></button>
                   </div>
                 </td>
@@ -208,7 +210,7 @@ export default function SolicitudesSection({ onShowToast, onOpenModal }: Solicit
                 <td className="px-4 py-3 text-xs text-slate-500">Juan Pérez</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <button onClick={() => onShowToast('⚠️', 'Notificado', 'Aviso enviado al cliente')} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-500 hover:bg-amber-600 text-white transition-colors">Notificar</button>
+                    <button onClick={() => onShowToast('warning', 'Notificado', 'Aviso enviado al cliente')} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-500 hover:bg-amber-600 text-white transition-colors">Notificar</button>
                     <button onClick={() => onOpenModal('RNT-2024-081')} className="p-1.5 rounded-lg text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors"><EyeIcon /></button>
                   </div>
                 </td>

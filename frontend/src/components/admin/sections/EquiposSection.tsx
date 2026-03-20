@@ -11,8 +11,10 @@ import EditarEquipoModal from '../EditarEquipoModal';
 import PreciosEquipoModal from '../PreciosEquipoModal';
 import BajaEquipoModal from '../BajaEquipoModal';
 
+import type { ToastType } from '../../../pages/admin/AdminDashboard'
+
 interface EquiposSectionProps {
-  onShowToast: (icon: string, title: string, msg: string) => void;
+  onShowToast: (type: ToastType, title: string, msg: string) => void;
 }
 
 type TabId = 'activos' | 'baja';
@@ -87,9 +89,9 @@ export default function EquiposSection({ onShowToast }: EquiposSectionProps) {
     try {
       const updated = await equiposService.reactivar(e.id);
       updateEquipo(updated);
-      onShowToast('✅', 'Equipo reactivado', `#${e.numeracion} está activo nuevamente`);
+      onShowToast('success', 'Equipo reactivado', `#${e.numeracion} está activo nuevamente`);
     } catch {
-      onShowToast('❌', 'Error', 'No se pudo reactivar el equipo');
+      onShowToast('error', 'Error', 'No se pudo reactivar el equipo');
     } finally {
       setReactivandoId(null);
     }
@@ -392,7 +394,7 @@ export default function EquiposSection({ onShowToast }: EquiposSectionProps) {
         onSave={updated => {
           updateEquipo(updated);
           setEditEquipo(null);
-          onShowToast('✅', 'Equipo actualizado', `#${updated.numeracion} guardado correctamente`);
+          onShowToast('success', 'Equipo actualizado', `#${updated.numeracion} guardado correctamente`);
         }}
       />
 

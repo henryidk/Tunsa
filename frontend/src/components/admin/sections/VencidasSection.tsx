@@ -1,7 +1,9 @@
 // VencidasSection.tsx — equipos no devueltos en fecha acordada
 
+import type { ToastType } from '../../../pages/admin/AdminDashboard'
+
 interface VencidasSectionProps {
-  onShowToast: (icon: string, title: string, msg: string) => void
+  onShowToast: (type: ToastType, title: string, msg: string) => void
   onOpenModal: (rentaId: string) => void
 }
 
@@ -30,7 +32,7 @@ export default function VencidasSection({ onShowToast, onOpenModal }: VencidasSe
         </svg>
         <span><strong>2 rentas vencidas</strong> — Equipos sin devolver. Contacta a los clientes o aplica recargos según política.</span>
         <button
-          onClick={() => onShowToast('📨', 'Notificaciones enviadas', 'Se notificó a todos los clientes con rentas vencidas')}
+          onClick={() => onShowToast('info', 'Notificaciones enviadas', 'Se notificó a todos los clientes con rentas vencidas')}
           className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-red-600 hover:bg-red-700 text-white transition-colors flex-shrink-0"
         >
           Notificar a todos
@@ -69,8 +71,8 @@ export default function VencidasSection({ onShowToast, onOpenModal }: VencidasSe
                 <td className="px-4 py-3 font-bold font-mono text-red-600">Q440</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <button onClick={() => onShowToast('📨', 'Notificado', 'Aviso enviado')} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-500 hover:bg-amber-600 text-white transition-colors">Notificar</button>
-                    <button onClick={() => onShowToast('✅', 'Marcado', 'Equipo devuelto')} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-green-600 hover:bg-green-700 text-white transition-colors">Devuelto</button>
+                    <button onClick={() => onShowToast('info', 'Notificado', 'Aviso enviado')} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-500 hover:bg-amber-600 text-white transition-colors">Notificar</button>
+                    <button onClick={() => onShowToast('success', 'Marcado', 'Equipo devuelto')} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-green-600 hover:bg-green-700 text-white transition-colors">Devuelto</button>
                     <button onClick={() => onOpenModal('RNT-2024-081')} className="px-2.5 py-1 rounded-lg text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors">Ver</button>
                   </div>
                 </td>
@@ -95,8 +97,8 @@ export default function VencidasSection({ onShowToast, onOpenModal }: VencidasSe
                 <td className="px-4 py-3 font-bold font-mono text-red-600">Q1,550</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <button onClick={() => onShowToast('📨', 'Notificado', 'Aviso enviado')} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-500 hover:bg-amber-600 text-white transition-colors">Notificar</button>
-                    <button onClick={() => onShowToast('✅', 'Marcado', 'Equipo devuelto')} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-green-600 hover:bg-green-700 text-white transition-colors">Devuelto</button>
+                    <button onClick={() => onShowToast('info', 'Notificado', 'Aviso enviado')} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-500 hover:bg-amber-600 text-white transition-colors">Notificar</button>
+                    <button onClick={() => onShowToast('success', 'Marcado', 'Equipo devuelto')} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-green-600 hover:bg-green-700 text-white transition-colors">Devuelto</button>
                     <button className="px-2.5 py-1 rounded-lg text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors">Ver</button>
                   </div>
                 </td>

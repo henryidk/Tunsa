@@ -1,18 +1,67 @@
 // ClientesSection.tsx — directorio de clientes registrados
 
-interface ClientesSectionProps {
-  onShowToast: (icon: string, title: string, msg: string) => void
-  onOpenModal: (rentaId: string) => void
+import { useState, useEffect } from 'react';
+import { clientesService } from '../../../services/clientes.service';
+import type { Cliente } from '../../../services/clientes.service';
+import RegistrarClienteModal from '../RegistrarClienteModal';
+
+import type { ToastType } from '../../../pages/admin/AdminDashboard'
+
+interface Props {
+  onShowToast: (type: ToastType, title: string, msg: string) => void;
 }
 
-const Avatar = ({ initials }: { initials: string }) => (
-  <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-    style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}>
-    {initials}
-  </div>
-)
+function initiales(nombre: string): string {
+  return nombre
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(w => w[0].toUpperCase())
+    .join('');
+}
 
-export default function ClientesSection({ onShowToast }: ClientesSectionProps) {
+function Avatar({ nombre }: { nombre: string }) {
+  return (
+    <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+      style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}>
+      {initiales(nombre)}
+    </div>
+  );
+}
+
+function formatFecha(iso: string) {
+  return new Date(iso).toLocaleDateString('es-GT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+export default function ClientesSection({ onShowToast }: Props) {
+  const [clientes, setClientes]     = useState<Cliente[]>([]);
+  const [isLoading, setIsLoading]   = useState(true);
+  const [error, setError]           = useState<string | null>(null);
+  const [search, setSearch]         = useState('');
+  const [modalOpen, setModalOpen]   = useState(false);
+
+  useEffect(() => {
+    clientesService.getAll()
+      .then(data => setClientes(data))
+      .catch(() => setError('No se pudo cargar la lista de clientes.'))
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  const filtrados = clientes.filter(c => {
+    const q = search.toLowerCase();
+    return (
+      c.nombre.toLowerCase().includes(q) ||
+      c.id.toLowerCase().includes(q) ||
+      c.dpi.includes(q) ||
+      (c.telefono ?? '').includes(q)
+    );
+  });
+
+  const handleRegistrado = (cliente: Cliente) => {
+    setClientes(prev => [cliente, ...prev]);
+    onShowToast('success', 'Cliente registrado', `${cliente.nombre} fue registrado con código ${cliente.id}.`);
+  };
+
   return (
     <div>
       {/* Header */}
@@ -21,126 +70,116 @@ export default function ClientesSection({ onShowToast }: ClientesSectionProps) {
           <h1 className="text-2xl font-bold text-slate-800">Clientes</h1>
           <p className="text-sm text-slate-500 mt-1">Directorio de clientes registrados en el sistema</p>
         </div>
+        <button onClick={() => setModalOpen(true)}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Registrar cliente
+        </button>
       </div>
 
-      {/* Filters */}
-      <div className="flex items-center gap-3 mb-5 flex-wrap">
-        <input
-          type="search"
-          placeholder="Buscar cliente..."
-          className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:border-indigo-400 min-w-[220px]"
-        />
-        <select className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white focus:outline-none focus:border-indigo-400">
-          <option>Todos</option>
-          <option>Con documentación</option>
-          <option>Sin documentación</option>
-        </select>
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        {[
+          { label: 'Total clientes',    value: clientes.length,  color: 'text-indigo-600',  bg: 'bg-indigo-50' },
+          { label: 'Registrados hoy',
+            value: clientes.filter(c => new Date(c.createdAt).toLocaleDateString('es-GT') === new Date().toLocaleDateString('es-GT')).length,
+            color: 'text-emerald-600', bg: 'bg-emerald-50' },
+          { label: 'Con teléfono',      value: clientes.filter(c => c.telefono).length, color: 'text-blue-600', bg: 'bg-blue-50' },
+        ].map(s => (
+          <div key={s.label} className="bg-white border border-slate-200 rounded-xl px-4 py-3.5 shadow-sm">
+            <div className={`inline-flex items-center justify-center w-8 h-8 rounded-lg ${s.bg} mb-2`}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={s.color}>
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+            </div>
+            <div className={`text-xl font-bold ${s.color}`}>{s.value}</div>
+            <div className="text-xs text-slate-500 mt-0.5">{s.label}</div>
+          </div>
+        ))}
       </div>
 
-      {/* Table */}
+      {/* Búsqueda */}
+      <div className="flex items-center gap-3 mb-5">
+        <div className="relative">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input type="search" value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Buscar por nombre, código o DPI..."
+            className="pl-8 pr-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:border-indigo-400 min-w-[280px]" />
+        </div>
+        {search && (
+          <button onClick={() => setSearch('')}
+            className="text-xs text-slate-500 hover:text-slate-700 underline transition-colors">
+            Limpiar
+          </button>
+        )}
+      </div>
+
+      {/* Tabla */}
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50">
-                {['Cliente', 'Código', 'DPI', 'Teléfono', 'Documentación', 'Rentas totales', 'Última renta', ''].map(h => (
+                {['Cliente', 'Código', 'DPI', 'Teléfono', 'Registrado'].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {/* Juan Choc */}
-              <tr className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2"><Avatar initials="JC" /><span className="font-semibold text-slate-800">Juan Choc</span></div>
-                </td>
-                <td className="px-4 py-3">
-                  <code className="text-xs font-mono bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">CLI-0042</code>
-                </td>
-                <td className="px-4 py-3 font-mono text-xs text-slate-700">2345 67890 1234</td>
-                <td className="px-4 py-3 text-slate-700">5555-1234</td>
-                <td className="px-4 py-3"><span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-green-100 text-green-700">✓ OK</span></td>
-                <td className="px-4 py-3 font-bold text-slate-800 text-center">12</td>
-                <td className="px-4 py-3 text-xs text-slate-500">Hoy</td>
-                <td className="px-4 py-3">
-                  <button onClick={() => onShowToast('👤', 'Perfil', 'Ver perfil de cliente (próximamente)')} className="px-3 py-1 rounded-lg text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors">Ver perfil</button>
-                </td>
-              </tr>
-              {/* María González */}
-              <tr className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2"><Avatar initials="MG" /><span className="font-semibold text-slate-800">María González</span></div>
-                </td>
-                <td className="px-4 py-3">
-                  <code className="text-xs font-mono bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">CLI-0028</code>
-                </td>
-                <td className="px-4 py-3 font-mono text-xs text-slate-700">3456 78901 2345</td>
-                <td className="px-4 py-3 text-slate-700">4444-5678</td>
-                <td className="px-4 py-3"><span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-green-100 text-green-700">✓ OK</span></td>
-                <td className="px-4 py-3 font-bold text-slate-800 text-center">7</td>
-                <td className="px-4 py-3 text-xs text-slate-500">15 Feb</td>
-                <td className="px-4 py-3">
-                  <button onClick={() => onShowToast('👤', 'Perfil', 'Ver perfil de cliente (próximamente)')} className="px-3 py-1 rounded-lg text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors">Ver perfil</button>
-                </td>
-              </tr>
-              {/* Roberto Ajú */}
-              <tr className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2"><Avatar initials="RA" /><span className="font-semibold text-slate-800">Roberto Ajú</span></div>
-                </td>
-                <td className="px-4 py-3">
-                  <code className="text-xs font-mono bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">CLI-0019</code>
-                </td>
-                <td className="px-4 py-3 font-mono text-xs text-slate-700">4567 89012 3456</td>
-                <td className="px-4 py-3 text-slate-700">3333-9012</td>
-                <td className="px-4 py-3"><span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-700">⚠ Pendiente</span></td>
-                <td className="px-4 py-3 font-bold text-slate-800 text-center">3</td>
-                <td className="px-4 py-3 text-xs text-slate-500">10 Feb</td>
-                <td className="px-4 py-3">
-                  <button onClick={() => onShowToast('👤', 'Perfil', 'Ver perfil de cliente (próximamente)')} className="px-3 py-1 rounded-lg text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors">Ver perfil</button>
-                </td>
-              </tr>
-              {/* Ferretería El Progreso */}
-              <tr className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2"><Avatar initials="FP" /><span className="font-semibold text-slate-800">Ferretería El Progreso</span></div>
-                </td>
-                <td className="px-4 py-3">
-                  <code className="text-xs font-mono bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">CLI-0011</code>
-                </td>
-                <td className="px-4 py-3 font-mono text-xs text-slate-700">5678 90123 4567</td>
-                <td className="px-4 py-3 text-slate-700">2222-3456</td>
-                <td className="px-4 py-3"><span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-green-100 text-green-700">✓ OK</span></td>
-                <td className="px-4 py-3 font-bold text-slate-800 text-center">34</td>
-                <td className="px-4 py-3 text-xs text-slate-500">12 Feb</td>
-                <td className="px-4 py-3">
-                  <button onClick={() => onShowToast('👤', 'Perfil', 'Ver perfil de cliente (próximamente)')} className="px-3 py-1 rounded-lg text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors">Ver perfil</button>
-                </td>
-              </tr>
+              {isLoading && (
+                <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-slate-400">Cargando clientes...</td></tr>
+              )}
+              {error && !isLoading && (
+                <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-red-500">{error}</td></tr>
+              )}
+              {!isLoading && !error && filtrados.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-4 py-10 text-center text-sm text-slate-400">
+                    {search ? 'No se encontraron clientes.' : 'No hay clientes registrados aún.'}
+                  </td>
+                </tr>
+              )}
+              {!isLoading && !error && filtrados.map(c => (
+                <tr key={c.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2.5">
+                      <Avatar nombre={c.nombre} />
+                      <span className="font-semibold text-slate-800">{c.nombre}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <code className="text-xs font-mono bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">{c.id}</code>
+                  </td>
+                  <td className="px-4 py-3 font-mono text-xs text-slate-700">{c.dpi}</td>
+                  <td className="px-4 py-3 text-slate-600 text-xs">{c.telefono ?? <span className="text-slate-300">—</span>}</td>
+                  <td className="px-4 py-3 text-xs text-slate-500">{formatFecha(c.createdAt)}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
 
-        {/* Pagination */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-t border-slate-200 bg-slate-50">
-          <span className="text-sm text-slate-500">Mostrando 1–4 de 142 clientes</span>
-          <div className="flex items-center gap-1">
-            {['←', '1', '2', '3', '→'].map((p, i) => (
-              <button
-                key={p + i}
-                disabled={p === '←'}
-                className={`min-w-[32px] h-8 px-2 text-sm font-semibold rounded-lg border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-                  p === '1'
-                    ? 'bg-indigo-600 border-indigo-600 text-white'
-                    : 'bg-white border-slate-200 text-slate-600 hover:bg-indigo-50 hover:border-indigo-400 hover:text-indigo-600'
-                }`}
-              >
-                {p}
-              </button>
-            ))}
+        {!isLoading && !error && filtrados.length > 0 && (
+          <div className="px-4 py-2.5 border-t border-slate-100 bg-slate-50">
+            <span className="text-xs text-slate-400">
+              {filtrados.length} {filtrados.length === 1 ? 'cliente' : 'clientes'}
+              {search && ` de ${clientes.length} en total`}
+            </span>
           </div>
-        </div>
+        )}
       </div>
+
+      <RegistrarClienteModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onSave={handleRegistrado}
+      />
     </div>
-  )
+  );
 }

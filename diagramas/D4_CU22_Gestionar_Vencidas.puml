@@ -1,0 +1,48 @@
+@startuml D4_CU22_Gestionar_Vencidas
+title CU-22 — Gestionar Renta Vencida
+
+left to right direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam backgroundColor #FAFAFA
+skinparam actor {
+  BackgroundColor #E8EAF6
+  BorderColor #3F51B5
+  FontColor #1A1A2E
+}
+skinparam usecase {
+  BackgroundColor #FFFFFF
+  BorderColor #5C6BC0
+  FontColor #1A1A2E
+  ArrowColor #5C6BC0
+}
+
+actor "Administrador"          as Admin
+actor "Secretaria"             as Sec
+actor "Encargado de Máquinas"  as Enc
+
+rectangle "Sistema Tunsa — Rentas Vencidas" {
+  usecase "CU-22\nGestionar\nRenta Vencida" as CU22
+
+  usecase "Ver listado de\nrentas vencidas\ncon recargo estimado" as VerVencidas
+  usecase "Notificar\na cliente"                                   as Notificar
+  usecase "Notificar\na todos"                                     as NotificarTodos
+  usecase "Registrar\ndevolución\n(Dev. tardía)"                   as Devolucion
+}
+
+Admin --> CU22
+Sec   --> CU22
+Enc   --> CU22
+
+CU22 .right.> VerVencidas    : <<include>>
+CU22 .right.> Notificar      : <<extend>>\n[por cliente]
+CU22 .right.> NotificarTodos : <<extend>>\n[masivo]
+CU22 .right.> Devolucion     : <<extend>>\n[equipo devuelto]
+
+note bottom of Devolucion
+  Mueve la renta al Historial
+  con estado "Dev. tardía"
+  y libera el equipo
+end note
+
+@enduml

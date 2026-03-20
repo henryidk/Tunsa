@@ -132,6 +132,20 @@ model Categoria {
   @@map("categorias")
 }
 
+// ==================== CLIENTES ====================
+
+model Cliente {
+  id        String   @id  // CLI-0001, CLI-0042 — auto-generado por el servicio
+  nombre    String
+  dpi       String   @unique
+  telefono  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("clientes")
+  @@index([nombre])
+}
+
 // ==================== AUDIT LOG ====================
 
 model AuditLog {

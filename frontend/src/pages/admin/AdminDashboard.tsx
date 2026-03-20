@@ -28,9 +28,11 @@ export type Section =
   | 'usuarios'
   | 'bitacoras'
 
+export type ToastType = 'success' | 'error' | 'info' | 'warning'
+
 export interface ToastState {
   visible: boolean
-  icon: string
+  type: ToastType
   title: string
   msg: string
 }
@@ -39,12 +41,12 @@ export default function AdminDashboard() {
   const { user, logout, mustChangePassword } = useAuthStore()
   const [activeSection, setActiveSection] = useState<Section>('dashboard')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [toast, setToast] = useState<ToastState>({ visible: false, icon: '', title: '', msg: '' })
+  const [toast, setToast] = useState<ToastState>({ visible: false, type: 'success', title: '', msg: '' })
   const [modalOpen, setModalOpen] = useState(false)
   const [modalRentaId, setModalRentaId] = useState('')
 
-  const showToast = (icon: string, title: string, msg: string) => {
-    setToast({ visible: true, icon, title, msg })
+  const showToast = (type: ToastType, title: string, msg: string) => {
+    setToast({ visible: true, type, title, msg })
     setTimeout(() => setToast(t => ({ ...t, visible: false })), 3500)
   }
 
@@ -95,7 +97,7 @@ export default function AdminDashboard() {
             <EquiposSection onShowToast={showToast} onOpenModal={openModal} />
           )}
           {activeSection === 'clientes' && (
-            <ClientesSection onShowToast={showToast} onOpenModal={openModal} />
+            <ClientesSection onShowToast={showToast} />
           )}
           {activeSection === 'usuarios' && (
             <UsuariosSection onShowToast={showToast} user={user} />

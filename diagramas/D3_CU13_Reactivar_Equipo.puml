@@ -1,0 +1,40 @@
+@startuml D3_CU13_Reactivar_Equipo
+title CU-13 — Reactivar Equipo
+
+left to right direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam backgroundColor #FAFAFA
+skinparam actor {
+  BackgroundColor #E8EAF6
+  BorderColor #3F51B5
+  FontColor #1A1A2E
+}
+skinparam usecase {
+  BackgroundColor #FFFFFF
+  BorderColor #5C6BC0
+  FontColor #1A1A2E
+  ArrowColor #5C6BC0
+}
+
+actor "Administrador" as Admin
+
+rectangle "Sistema Tunsa — Equipos" {
+  usecase "CU-13\nReactivar Equipo" as CU13
+
+  usecase "Limpiar motivoBaja\ny fechaBaja"    as LimpiarBaja
+  usecase "Registrar cambio\nen Bitácora"      as Bitacora
+}
+
+Admin --> CU13
+
+CU13 .right.> LimpiarBaja : <<include>>
+CU13 .right.> Bitacora    : <<include>>
+
+note bottom of CU13
+  Solo disponible para equipos
+  con isActive = false
+  (pestaña "Dados de baja")
+end note
+
+@enduml

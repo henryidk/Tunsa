@@ -15,6 +15,7 @@ import EquiposSection from '../../components/admin/sections/EquiposSection'
 import ClientesSection from '../../components/admin/sections/ClientesSection'
 import UsuariosSection from '../../components/admin/sections/UsuariosSection'
 import BitacorasSection from '../../components/admin/sections/BitacorasSection'
+import CategoriasSection from '../../components/admin/sections/CategoriasSection'
 import CambiarPasswordModal from '../../components/admin/CambiarPasswordModal'
 
 export type Section =
@@ -24,6 +25,7 @@ export type Section =
   | 'rentas-historial'
   | 'rentas-vencidas'
   | 'equipos'
+  | 'categorias'
   | 'clientes'
   | 'usuarios'
   | 'bitacoras'
@@ -95,6 +97,9 @@ export default function AdminDashboard() {
           )}
           {activeSection === 'equipos' && (
             <EquiposSection onShowToast={showToast} onOpenModal={openModal} />
+          )}
+          {activeSection === 'categorias' && (
+            <CategoriasSection onShowToast={showToast} />
           )}
           {activeSection === 'clientes' && (
             <ClientesSection onShowToast={showToast} />

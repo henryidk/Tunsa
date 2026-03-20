@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { equiposService } from '../../../services/equipos.service';
 import type { BitacoraEntry } from '../../../services/equipos.service';
-import type { TipoMaquinaria } from '../../../types/equipo.types';
 import { TIPO_LABEL } from '../../../types/equipo.types';
 
 const CAMPO_LABEL: Record<string, string> = {
@@ -37,12 +36,12 @@ const CAMPO_BADGE: Record<string, string> = {
 };
 
 function formatValor(campo: string, valor: string | null): string {
-  if (valor === null) return '—';
+  if (valor === null) return campo === 'categoria' ? 'Sin categoría' : '—';
   if (CAMPOS_MONEDA.has(campo)) {
     const n = parseFloat(valor);
     return isNaN(n) ? valor : `Q${n.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
-  if (campo === 'tipo') return TIPO_LABEL[valor as TipoMaquinaria] ?? valor;
+  if (campo === 'tipo') return TIPO_LABEL[valor] ?? valor;
   if (campo === 'fechaCompra') {
     const d = new Date(valor);
     return isNaN(d.getTime()) ? valor : d.toLocaleDateString('es-GT', { day: '2-digit', month: '2-digit', year: 'numeric' });

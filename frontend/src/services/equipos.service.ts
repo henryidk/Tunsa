@@ -14,20 +14,22 @@ export interface BitacoraEntry {
 }
 
 interface CreateEquipoData {
-  numeracion:  string;
-  descripcion: string;
-  categoria:   string;
+  numeracion:   string;
+  descripcion:  string;
+  tipoId:       string;
+  categoriaId?: string;
   serie?:       string;
   cantidad?:    number;
   fechaCompra:  string;
   montoCompra:  number;
-  tipo:         string;
   rentaDia?:    number;
   rentaSemana?: number;
   rentaMes?:    number;
 }
 
-interface UpdateEquipoData extends Partial<CreateEquipoData> {}
+interface UpdateEquipoData extends Partial<Omit<CreateEquipoData, 'categoriaId'>> {
+  categoriaId?: string | null;
+}
 
 interface BajaEquipoData {
   motivo?: string;

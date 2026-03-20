@@ -4,13 +4,13 @@ import { useState, useMemo } from 'react';
 import type { Equipo } from '../../../types/equipo.types';
 import { TIPO_LABEL, TIPO_BADGE } from '../../../types/equipo.types';
 import { useEquipos } from '../../../hooks/useEquipos';
+import { useCategorias } from '../../../hooks/useCategorias';
 import { equiposService } from '../../../services/equipos.service';
 import { generarReporteInventario } from '../../../utils/equipos.pdf';
 import AgregarEquipoModal from '../AgregarEquipoModal';
 import EditarEquipoModal from '../EditarEquipoModal';
 import PreciosEquipoModal from '../PreciosEquipoModal';
 import BajaEquipoModal from '../BajaEquipoModal';
-
 import type { ToastType } from '../../../pages/admin/AdminDashboard'
 
 interface EquiposSectionProps {
@@ -30,6 +30,7 @@ function formatFecha(iso: string): string {
 
 export default function EquiposSection({ onShowToast }: EquiposSectionProps) {
   const { equipos, isLoading, error, addEquipo, updateEquipo } = useEquipos();
+  const { tipos } = useCategorias();
 
   const [tab, setTab]                     = useState<TabId>('activos');
   const [search, setSearch]               = useState('');
@@ -45,8 +46,13 @@ export default function EquiposSection({ onShowToast }: EquiposSectionProps) {
 
   // ── Categorías disponibles según tipo seleccionado ────────────────────────
   const categoriasDisponibles = useMemo(() => {
-    const base = filtroTipo ? equipos.filter(e => e.tipo === filtroTipo) : equipos;
-    return [...new Set(base.map(e => e.categoria))].sort();
+    const base = filtroTipo
+      ? equipos.filter(e => e.tipo.nombre === filtroTipo)
+      : equipos;
+    const nombres = base
+      .map(e => e.categoria?.nombre)
+      .filter((n): n is string => !!n);
+    return [...new Set(nombres)].sort();
   }, [equipos, filtroTipo]);
 
   // ── Filtrado ──────────────────────────────────────────────────────────────
@@ -55,15 +61,22 @@ export default function EquiposSection({ onShowToast }: EquiposSectionProps) {
   const filtered = base.filter(e => {
     const q = search.toLowerCase();
     const matchSearch = !q ||
-      e.numeracion.toLowerCase().includes(q)  ||
-      e.descripcion.toLowerCase().includes(q) ||
-      e.categoria.toLowerCase().includes(q)   ||
+      e.numeracion.toLowerCase().includes(q)             ||
+      e.descripcion.toLowerCase().includes(q)            ||
+      (e.categoria?.nombre ?? '').toLowerCase().includes(q) ||
       (e.serie ?? '').toLowerCase().includes(q);
 
-    const matchTipo     = !filtroTipo     || e.tipo      === filtroTipo;
-    const matchCategoria = !filtroCategoria || e.categoria === filtroCategoria;
+    const matchTipo      = !filtroTipo      || e.tipo.nombre            === filtroTipo;
+    const matchCategoria = !filtroCategoria || e.categoria?.nombre       === filtroCategoria;
 
     return matchSearch && matchTipo && matchCategoria;
+  }).sort((a, b) => {
+    const aIsNum = /^\d+$/.test(a.numeracion);
+    const bIsNum = /^\d+$/.test(b.numeracion);
+    if (aIsNum && bIsNum) return parseInt(a.numeracion) - parseInt(b.numeracion);
+    if (aIsNum) return -1;
+    if (bIsNum) return 1;
+    return a.numeracion.localeCompare(b.numeracion);
   });
 
   // ── Stats ─────────────────────────────────────────────────────────────────
@@ -146,8 +159,8 @@ export default function EquiposSection({ onShowToast }: EquiposSectionProps) {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
           { label: 'Equipos activos',    value: activos.length,                                  color: 'text-indigo-600', bg: 'bg-indigo-50' },
-          { label: 'Maq. Liviana',       value: activos.filter(e => e.tipo === 'LIVIANA').length,  color: 'text-blue-600',   bg: 'bg-blue-50' },
-          { label: 'Maq. Pesada',        value: activos.filter(e => e.tipo === 'PESADA').length,   color: 'text-amber-600',  bg: 'bg-amber-50' },
+          { label: 'Maq. Liviana',       value: activos.filter(e => e.tipo.nombre === 'LIVIANA').length,  color: 'text-blue-600',   bg: 'bg-blue-50' },
+          { label: 'Maq. Pesada',        value: activos.filter(e => e.tipo.nombre === 'PESADA').length,   color: 'text-amber-600',  bg: 'bg-amber-50' },
           { label: 'Valor inventario',   value: formatMoneda(valorTotal),                         color: 'text-emerald-600', bg: 'bg-emerald-50', isString: true },
         ].map(s => (
           <div key={s.label} className="bg-white border border-slate-200 rounded-xl px-4 py-3.5 shadow-sm">
@@ -200,8 +213,8 @@ export default function EquiposSection({ onShowToast }: EquiposSectionProps) {
           // resetear categoría si ya no pertenece al nuevo tipo
           if (filtroCategoria) {
             const cats = nuevoTipo
-              ? equipos.filter(eq => eq.tipo === nuevoTipo).map(eq => eq.categoria)
-              : equipos.map(eq => eq.categoria);
+              ? equipos.filter(eq => eq.tipo.nombre === nuevoTipo).map(eq => eq.categoria?.nombre)
+              : equipos.map(eq => eq.categoria?.nombre);
             if (!cats.includes(filtroCategoria)) setFiltroCategoria('');
           }
         }}
@@ -210,6 +223,7 @@ export default function EquiposSection({ onShowToast }: EquiposSectionProps) {
           <option value="LIVIANA">Maq. Liviana</option>
           <option value="PESADA">Maq. Pesada</option>
           <option value="USO_PROPIO">Uso Propio</option>
+          {/* Los nombres de tipo vienen del campo tipo.nombre del backend */}
         </select>
 
         {/* Filtro categoría */}
@@ -278,9 +292,11 @@ export default function EquiposSection({ onShowToast }: EquiposSectionProps) {
                   <td className="px-4 py-3 max-w-[240px]">
                     <div className="font-medium text-slate-800 leading-snug line-clamp-2 text-xs">{e.descripcion}</div>
                     <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                      <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                        {e.categoria}
-                      </span>
+                      {e.categoria && (
+                        <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                          {e.categoria.nombre}
+                        </span>
+                      )}
                       {e.cantidad > 1 && (
                         <span className="text-[11px] font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full">
                           ×{e.cantidad.toLocaleString('es-GT')} uds.
@@ -299,8 +315,8 @@ export default function EquiposSection({ onShowToast }: EquiposSectionProps) {
 
                   {/* Tipo */}
                   <td className="px-4 py-3">
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold ${TIPO_BADGE[e.tipo]}`}>
-                      {TIPO_LABEL[e.tipo]}
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold ${TIPO_BADGE[e.tipo.nombre] ?? 'bg-slate-100 text-slate-600'}`}>
+                      {TIPO_LABEL[e.tipo.nombre] ?? e.tipo.nombre}
                     </span>
                   </td>
 
@@ -380,16 +396,18 @@ export default function EquiposSection({ onShowToast }: EquiposSectionProps) {
       {/* Modales */}
       <AgregarEquipoModal
         open={agregarOpen}
+        tipos={tipos}
         onClose={() => setAgregarOpen(false)}
         onCreated={nuevo => {
           addEquipo(nuevo);
-          onShowToast('🔧', 'Equipo registrado', `#${nuevo.numeracion} agregado al inventario`);
+          onShowToast('success', 'Equipo registrado', `#${nuevo.numeracion} agregado al inventario`);
         }}
       />
 
       <EditarEquipoModal
         equipo={editEquipo}
         open={editEquipo !== null}
+        tipos={tipos}
         onClose={() => setEditEquipo(null)}
         onSave={updated => {
           updateEquipo(updated);
@@ -405,7 +423,7 @@ export default function EquiposSection({ onShowToast }: EquiposSectionProps) {
         onSave={updated => {
           updateEquipo(updated);
           setPreciosEquipo(null);
-          onShowToast('💰', 'Precios actualizados', `#${updated.numeracion} actualizado correctamente`);
+          onShowToast('success', 'Precios actualizados', `#${updated.numeracion} actualizado correctamente`);
         }}
       />
 
@@ -416,9 +434,10 @@ export default function EquiposSection({ onShowToast }: EquiposSectionProps) {
         onConfirm={updated => {
           updateEquipo(updated);
           setBajaEquipo(null);
-          onShowToast('🔒', 'Equipo dado de baja', `#${updated.numeracion} marcado como inactivo`);
+          onShowToast('warning', 'Equipo dado de baja', `#${updated.numeracion} marcado como inactivo`);
         }}
       />
+
     </div>
   );
 }

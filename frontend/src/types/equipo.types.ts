@@ -1,18 +1,40 @@
-export type TipoMaquinaria = 'LIVIANA' | 'PESADA' | 'USO_PROPIO';
+// Tipo de equipo tal como viene de la API (tipos_equipo)
+export interface TipoEquipo {
+  id:     string;  // 'tipo_liviana' | 'tipo_pesada' | 'tipo_uso'
+  nombre: string;  // 'LIVIANA' | 'PESADA' | 'USO_PROPIO'
+}
+
+// Categoría tal como viene de la API
+export interface Categoria {
+  id:     string;
+  nombre: string;
+  tipoId: string;
+}
+
+// Tipo con sus categorías anidadas (respuesta de GET /categorias/tipos)
+export interface TipoConCategorias extends TipoEquipo {
+  categorias: Omit<Categoria, 'tipoId'>[];
+}
 
 export interface Equipo {
   id:          string;
   numeracion:  string;
   descripcion: string;
-  categoria:   string;
   serie:       string | null;
   cantidad:    number;
   fechaCompra: string;
   montoCompra: number;
-  tipo:        TipoMaquinaria;
+
+  tipoId:      string;
+  tipo:        TipoEquipo;
+
+  categoriaId: string | null;
+  categoria:   Categoria | null;
+
   rentaDia:    number | null;
   rentaSemana: number | null;
   rentaMes:    number | null;
+
   isActive:    boolean;
   motivoBaja:  string | null;
   fechaBaja:   string | null;
@@ -20,14 +42,15 @@ export interface Equipo {
   updatedAt:   string;
 }
 
-export const TIPO_LABEL: Record<TipoMaquinaria, string> = {
-  LIVIANA:   'Maq. Liviana',
-  PESADA:    'Maq. Pesada',
+// Mapas de presentación indexados por tipo.nombre
+export const TIPO_LABEL: Record<string, string> = {
+  LIVIANA:    'Maq. Liviana',
+  PESADA:     'Maq. Pesada',
   USO_PROPIO: 'Uso Propio',
 };
 
-export const TIPO_BADGE: Record<TipoMaquinaria, string> = {
-  LIVIANA:   'bg-blue-100 text-blue-700',
-  PESADA:    'bg-amber-100 text-amber-700',
+export const TIPO_BADGE: Record<string, string> = {
+  LIVIANA:    'bg-blue-100 text-blue-700',
+  PESADA:     'bg-amber-100 text-amber-700',
   USO_PROPIO: 'bg-slate-100 text-slate-600',
 };

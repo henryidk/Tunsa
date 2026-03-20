@@ -79,9 +79,11 @@ export default function BajaEquipoModal({ equipo, open, onClose, onConfirm }: Ba
           <div className="min-w-0">
             <div className="text-sm font-semibold text-slate-800 leading-tight truncate">{equipo.descripcion}</div>
             <div className="flex items-center gap-2 mt-1">
-              <span className="text-xs text-slate-400">{equipo.categoria}</span>
-              <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${TIPO_BADGE[equipo.tipo]}`}>
-                {TIPO_LABEL[equipo.tipo]}
+              {equipo.categoria && (
+                <span className="text-xs text-slate-400">{equipo.categoria.nombre}</span>
+              )}
+              <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${TIPO_BADGE[equipo.tipo.nombre] ?? 'bg-slate-100 text-slate-600'}`}>
+                {TIPO_LABEL[equipo.tipo.nombre] ?? equipo.tipo.nombre}
               </span>
             </div>
           </div>

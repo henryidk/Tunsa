@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import type { ChangeEvent, MouseEvent } from 'react';
-import type { Equipo, TipoMaquinaria } from '../../types/equipo.types';
+import type { Equipo, TipoConCategorias } from '../../types/equipo.types';
+import { TIPO_LABEL } from '../../types/equipo.types';
 import { equiposService } from '../../services/equipos.service';
-import { useCategorias } from '../../hooks/useCategorias';
 
 interface EditarEquipoModalProps {
   equipo:  Equipo | null;
   open:    boolean;
+  tipos:   TipoConCategorias[];
   onClose: () => void;
   onSave:  (updated: Equipo) => void;
 }
@@ -16,37 +17,30 @@ interface EditarEquipoModalProps {
 interface FormState {
   numeracion:  string;
   descripcion: string;
-  categoria:   string;
+  tipoId:      string;
+  categoriaId: string;
   serie:       string;
   cantidad:    string;
   fechaCompra: string;
   montoCompra: string;
-  tipo:        TipoMaquinaria | '';
 }
 
-const TIPOS = [
-  { value: 'LIVIANA',    label: 'Maquinaria Liviana' },
-  { value: 'PESADA',     label: 'Maquinaria Pesada' },
-  { value: 'USO_PROPIO', label: 'Uso Propio' },
-];
-
-export default function EditarEquipoModal({ equipo, open, onClose, onSave }: EditarEquipoModalProps) {
+export default function EditarEquipoModal({ equipo, open, tipos, onClose, onSave }: EditarEquipoModalProps) {
   const [form, setForm]         = useState<FormState>({} as FormState);
   const [isSaving, setIsSaving] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
-  const { categorias }          = useCategorias();
 
   useEffect(() => {
     if (equipo) {
       setForm({
         numeracion:  equipo.numeracion,
         descripcion: equipo.descripcion,
-        categoria:   equipo.categoria,
+        tipoId:      equipo.tipoId,
+        categoriaId: equipo.categoriaId ?? '',
         serie:       equipo.serie ?? '',
         cantidad:    equipo.cantidad.toString(),
         fechaCompra: equipo.fechaCompra.substring(0, 10),
         montoCompra: equipo.montoCompra.toString(),
-        tipo:        equipo.tipo,
       });
       setApiError(null);
     }
@@ -56,7 +50,13 @@ export default function EditarEquipoModal({ equipo, open, onClose, onSave }: Edi
 
   const handleChange = (field: keyof FormState) =>
     (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-      setForm(prev => ({ ...prev, [field]: e.target.value }));
+      const value = e.target.value;
+      setForm(prev => ({
+        ...prev,
+        [field]: value,
+        // reset categoría cuando cambia el tipo
+        ...(field === 'tipoId' ? { categoriaId: '' } : {}),
+      }));
       setApiError(null);
     };
 
@@ -67,11 +67,10 @@ export default function EditarEquipoModal({ equipo, open, onClose, onSave }: Edi
   const handleSave = async () => {
     if (!form.numeracion.trim())  { setApiError('La numeración es requerida.'); return; }
     if (!form.descripcion.trim()) { setApiError('La descripción es requerida.'); return; }
-    if (!form.categoria.trim())   { setApiError('La categoría es requerida.'); return; }
+    if (!form.tipoId)             { setApiError('El tipo de maquinaria es requerido.'); return; }
     if (!form.fechaCompra)        { setApiError('La fecha de compra es requerida.'); return; }
     const monto = parseFloat(form.montoCompra);
     if (isNaN(monto) || monto < 0) { setApiError('El monto de compra debe ser un número válido.'); return; }
-    if (!form.tipo)               { setApiError('El tipo de maquinaria es requerido.'); return; }
 
     setIsSaving(true);
     setApiError(null);
@@ -80,12 +79,12 @@ export default function EditarEquipoModal({ equipo, open, onClose, onSave }: Edi
       const updated = await equiposService.update(equipo.id, {
         numeracion:  form.numeracion.trim(),
         descripcion: form.descripcion.trim(),
-        categoria:   form.categoria,
+        tipoId:      form.tipoId,
+        categoriaId: form.categoriaId || null,
         serie:       form.serie.trim() || undefined,
         cantidad:    parseInt(form.cantidad) || 1,
         fechaCompra: form.fechaCompra,
         montoCompra: monto,
-        tipo:        form.tipo as TipoMaquinaria,
       });
       onSave(updated);
       onClose();
@@ -99,6 +98,9 @@ export default function EditarEquipoModal({ equipo, open, onClose, onSave }: Edi
       setIsSaving(false);
     }
   };
+
+  const tipoSeleccionado  = tipos.find(t => t.id === form.tipoId);
+  const categoriasDelTipo = tipoSeleccionado?.categorias ?? [];
 
   const inputCls = 'w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all disabled:opacity-60 disabled:cursor-not-allowed';
   const labelCls = 'block text-xs font-semibold text-slate-600 mb-1.5';
@@ -114,7 +116,9 @@ export default function EditarEquipoModal({ equipo, open, onClose, onSave }: Edi
         <div className="flex items-center justify-between px-6 py-5 border-b border-slate-200 flex-shrink-0">
           <div>
             <h2 className="font-bold text-slate-800 text-base">Editar equipo</h2>
-            <p className="text-xs text-slate-400 mt-0.5 font-mono">#{equipo.numeracion} · {equipo.categoria}</p>
+            <p className="text-xs text-slate-400 mt-0.5 font-mono">
+              #{equipo.numeracion}{equipo.categoria ? ` · ${equipo.categoria.nombre}` : ''}
+            </p>
           </div>
           <button onClick={onClose} disabled={isSaving}
             className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-40">
@@ -124,7 +128,7 @@ export default function EditarEquipoModal({ equipo, open, onClose, onSave }: Edi
           </button>
         </div>
 
-        {/* Body — mismo layout que AgregarEquipoModal */}
+        {/* Body */}
         <div className="px-6 py-5 overflow-y-auto flex-1 space-y-5">
 
           <div>
@@ -137,9 +141,13 @@ export default function EditarEquipoModal({ equipo, open, onClose, onSave }: Edi
               </div>
               <div>
                 <label className={labelCls}>Tipo</label>
-                <select value={form.tipo} onChange={handleChange('tipo')} disabled={isSaving}
+                <select value={form.tipoId} onChange={handleChange('tipoId')} disabled={isSaving}
                   className={`${inputCls} bg-white`}>
-                  {TIPOS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  {tipos.map(t => (
+                    <option key={t.id} value={t.id}>
+                      {TIPO_LABEL[t.nombre] ?? t.nombre}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -150,9 +158,15 @@ export default function EditarEquipoModal({ equipo, open, onClose, onSave }: Edi
               </div>
               <div className="col-span-2">
                 <label className={labelCls}>Categoría</label>
-                <select value={form.categoria} onChange={handleChange('categoria')} disabled={isSaving}
+                <select value={form.categoriaId} onChange={handleChange('categoriaId')}
+                  disabled={isSaving || categoriasDelTipo.length === 0}
                   className={`${inputCls} bg-white`}>
-                  {categorias.map(c => <option key={c} value={c}>{c}</option>)}
+                  <option value="">
+                    {categoriasDelTipo.length === 0 ? 'Sin categorías para este tipo' : 'Sin categoría'}
+                  </option>
+                  {categoriasDelTipo.map(c => (
+                    <option key={c.id} value={c.id}>{c.nombre}</option>
+                  ))}
                 </select>
               </div>
               <div className="col-span-2">

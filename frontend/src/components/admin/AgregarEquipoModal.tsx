@@ -2,12 +2,13 @@
 
 import { useState } from 'react';
 import type { ChangeEvent, MouseEvent } from 'react';
-import type { Equipo, TipoMaquinaria } from '../../types/equipo.types';
+import type { Equipo, TipoConCategorias } from '../../types/equipo.types';
+import { TIPO_LABEL } from '../../types/equipo.types';
 import { equiposService } from '../../services/equipos.service';
-import { useCategorias } from '../../hooks/useCategorias';
 
 interface AgregarEquipoModalProps {
   open:      boolean;
+  tipos:     TipoConCategorias[];
   onClose:   () => void;
   onCreated: (nuevo: Equipo) => void;
 }
@@ -15,40 +16,38 @@ interface AgregarEquipoModalProps {
 interface FormState {
   numeracion:  string;
   descripcion: string;
-  categoria:   string;
+  tipoId:      string;
+  categoriaId: string;
   serie:       string;
   cantidad:    string;
   fechaCompra: string;
   montoCompra: string;
-  tipo:        TipoMaquinaria | '';
   rentaDia:    string;
   rentaSemana: string;
   rentaMes:    string;
 }
 
 const emptyForm: FormState = {
-  numeracion: '', descripcion: '', categoria: '', serie: '', cantidad: '1',
-  fechaCompra: '', montoCompra: '', tipo: '',
-  rentaDia: '', rentaSemana: '', rentaMes: '',
+  numeracion: '', descripcion: '', tipoId: '', categoriaId: '', serie: '', cantidad: '1',
+  fechaCompra: '', montoCompra: '', rentaDia: '', rentaSemana: '', rentaMes: '',
 };
 
-const TIPOS = [
-  { value: 'LIVIANA',    label: 'Maquinaria Liviana' },
-  { value: 'PESADA',     label: 'Maquinaria Pesada' },
-  { value: 'USO_PROPIO', label: 'Uso Propio' },
-];
-
-export default function AgregarEquipoModal({ open, onClose, onCreated }: AgregarEquipoModalProps) {
+export default function AgregarEquipoModal({ open, tipos, onClose, onCreated }: AgregarEquipoModalProps) {
   const [form, setForm]         = useState<FormState>(emptyForm);
   const [isSaving, setIsSaving] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
-  const { categorias }          = useCategorias();
 
   if (!open) return null;
 
   const handleChange = (field: keyof FormState) =>
     (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-      setForm(prev => ({ ...prev, [field]: e.target.value }));
+      const value = e.target.value;
+      setForm(prev => ({
+        ...prev,
+        [field]: value,
+        // reset categoría cuando cambia el tipo
+        ...(field === 'tipoId' ? { categoriaId: '' } : {}),
+      }));
       setApiError(null);
     };
 
@@ -66,17 +65,14 @@ export default function AgregarEquipoModal({ open, onClose, onCreated }: Agregar
   const handleSave = async () => {
     const numeracion  = form.numeracion.trim();
     const descripcion = form.descripcion.trim();
-    const categoria   = form.categoria.trim();
     const fechaCompra = form.fechaCompra;
     const montoCompra = parseFloat(form.montoCompra);
-    const tipo        = form.tipo;
 
-    if (!numeracion)        { setApiError('La numeración es requerida.'); return; }
-    if (!descripcion)       { setApiError('La descripción es requerida.'); return; }
-    if (!categoria)         { setApiError('La categoría es requerida.'); return; }
-    if (!fechaCompra)       { setApiError('La fecha de compra es requerida.'); return; }
-    if (isNaN(montoCompra) || montoCompra < 0) { setApiError('El monto de compra debe ser un número válido.'); return; }
-    if (!tipo)              { setApiError('El tipo de maquinaria es requerido.'); return; }
+    if (!numeracion)                             { setApiError('La numeración es requerida.'); return; }
+    if (!descripcion)                            { setApiError('La descripción es requerida.'); return; }
+    if (!form.tipoId)                            { setApiError('El tipo de maquinaria es requerido.'); return; }
+    if (!fechaCompra)                            { setApiError('La fecha de compra es requerida.'); return; }
+    if (isNaN(montoCompra) || montoCompra < 0)  { setApiError('El monto de compra debe ser un número válido.'); return; }
 
     setIsSaving(true);
     setApiError(null);
@@ -86,12 +82,12 @@ export default function AgregarEquipoModal({ open, onClose, onCreated }: Agregar
       const nuevo = await equiposService.create({
         numeracion,
         descripcion,
-        categoria,
-        serie:    form.serie.trim() || undefined,
-        cantidad: cantidad > 1 ? cantidad : undefined,
+        tipoId:      form.tipoId,
+        categoriaId: form.categoriaId || undefined,
+        serie:       form.serie.trim() || undefined,
+        cantidad:    cantidad > 1 ? cantidad : undefined,
         fechaCompra,
         montoCompra,
-        tipo,
         rentaDia:    form.rentaDia    ? parseFloat(form.rentaDia)    : undefined,
         rentaSemana: form.rentaSemana ? parseFloat(form.rentaSemana) : undefined,
         rentaMes:    form.rentaMes    ? parseFloat(form.rentaMes)    : undefined,
@@ -109,6 +105,9 @@ export default function AgregarEquipoModal({ open, onClose, onCreated }: Agregar
       setIsSaving(false);
     }
   };
+
+  const tipoSeleccionado = tipos.find(t => t.id === form.tipoId);
+  const categoriasDelTipo = tipoSeleccionado?.categorias ?? [];
 
   const inputCls = 'w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all disabled:opacity-60 disabled:cursor-not-allowed';
   const labelCls = 'block text-xs font-semibold text-slate-600 mb-1.5';
@@ -149,10 +148,14 @@ export default function AgregarEquipoModal({ open, onClose, onCreated }: Agregar
               </div>
               <div>
                 <label className={labelCls}>Tipo <span className="text-red-400">*</span></label>
-                <select value={form.tipo} onChange={handleChange('tipo')} disabled={isSaving}
+                <select value={form.tipoId} onChange={handleChange('tipoId')} disabled={isSaving}
                   className={`${inputCls} bg-white`}>
                   <option value="">Seleccionar tipo...</option>
-                  {TIPOS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  {tipos.map(t => (
+                    <option key={t.id} value={t.id}>
+                      {TIPO_LABEL[t.nombre] ?? t.nombre}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -162,11 +165,20 @@ export default function AgregarEquipoModal({ open, onClose, onCreated }: Agregar
                   className={`${inputCls} font-mono`} />
               </div>
               <div className="col-span-2">
-                <label className={labelCls}>Categoría <span className="text-red-400">*</span></label>
-                <select value={form.categoria} onChange={handleChange('categoria')} disabled={isSaving}
+                <label className={labelCls}>Categoría</label>
+                <select value={form.categoriaId} onChange={handleChange('categoriaId')}
+                  disabled={isSaving || !form.tipoId || categoriasDelTipo.length === 0}
                   className={`${inputCls} bg-white`}>
-                  <option value="">Seleccionar categoría...</option>
-                  {categorias.map(c => <option key={c} value={c}>{c}</option>)}
+                  <option value="">
+                    {!form.tipoId
+                      ? 'Selecciona un tipo primero'
+                      : categoriasDelTipo.length === 0
+                        ? 'Sin categorías para este tipo'
+                        : 'Sin categoría'}
+                  </option>
+                  {categoriasDelTipo.map(c => (
+                    <option key={c.id} value={c.id}>{c.nombre}</option>
+                  ))}
                 </select>
               </div>
               <div className="col-span-2">

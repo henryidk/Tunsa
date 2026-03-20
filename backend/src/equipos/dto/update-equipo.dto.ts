@@ -1,6 +1,5 @@
-import { IsString, IsOptional, IsNumber, IsEnum, IsDateString, MaxLength, Min } from 'class-validator';
+import { IsString, IsOptional, IsNumber, IsDateString, MaxLength, Min } from 'class-validator';
 import { Type } from 'class-transformer';
-import { TipoMaquinaria } from '@prisma/client';
 
 export class UpdateEquipoDto {
   @IsOptional()
@@ -13,10 +12,15 @@ export class UpdateEquipoDto {
   @MaxLength(500)
   descripcion?: string;
 
+  /** Cambiar tipo implica validar que la nueva categoría (si hay) también pertenezca al nuevo tipo. */
   @IsOptional()
   @IsString()
-  @MaxLength(100)
-  categoria?: string;
+  tipoId?: string;
+
+  /** null explícito desvincula la categoría; undefined la deja sin cambios. */
+  @IsOptional()
+  @IsString()
+  categoriaId?: string | null;
 
   @IsOptional()
   @IsString()
@@ -38,10 +42,6 @@ export class UpdateEquipoDto {
   @Min(0)
   @Type(() => Number)
   montoCompra?: number;
-
-  @IsOptional()
-  @IsEnum(TipoMaquinaria)
-  tipo?: TipoMaquinaria;
 
   @IsOptional()
   @IsNumber()

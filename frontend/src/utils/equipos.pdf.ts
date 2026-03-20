@@ -80,7 +80,7 @@ function drawTable(
     const base = [
       e.numeracion,
       e.descripcion,
-      e.categoria,
+      e.categoria?.nombre ?? '—',
       e.serie ?? '—',
       fMoneda(e.montoCompra),
     ];
@@ -166,9 +166,9 @@ export function generarReporteInventario(equipos: Equipo[]): void {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
 
-  const liviana   = equipos.filter(e => e.isActive && e.tipo === 'LIVIANA');
-  const pesada    = equipos.filter(e => e.isActive && e.tipo === 'PESADA');
-  const usoProp   = equipos.filter(e => e.isActive && e.tipo === 'USO_PROPIO');
+  const liviana   = equipos.filter(e => e.isActive && e.tipo.nombre === 'LIVIANA');
+  const pesada    = equipos.filter(e => e.isActive && e.tipo.nombre === 'PESADA');
+  const usoProp   = equipos.filter(e => e.isActive && e.tipo.nombre === 'USO_PROPIO');
   const baja      = equipos.filter(e => !e.isActive);
 
   // Totales
@@ -239,8 +239,8 @@ export function generarReporteInventario(equipos: Equipo[]): void {
   // ── Dados de baja ────────────────────────────────────────────────────────
   if (baja.length > 0) {
     if (y > 155) { doc.addPage(); y = 26; }
-    const livBaja  = baja.filter(e => e.tipo === 'LIVIANA');
-    const pesaBaja = baja.filter(e => e.tipo !== 'LIVIANA');
+    const livBaja  = baja.filter(e => e.tipo.nombre === 'LIVIANA');
+    const pesaBaja = baja.filter(e => e.tipo.nombre !== 'LIVIANA');
 
     y = drawSectionTitle(doc, `EQUIPOS DADOS DE BAJA — ${baja.length} equipos`, y, pageWidth);
 

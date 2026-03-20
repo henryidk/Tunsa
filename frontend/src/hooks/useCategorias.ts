@@ -1,21 +1,26 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { categoriasService } from '../services/categorias.service';
+import type { TipoConCategorias } from '../types/equipo.types';
 
 interface UseCategorias {
-  categorias: string[];
-  isLoading:  boolean;
+  tipos:     TipoConCategorias[];
+  isLoading: boolean;
+  refetch:   () => void;
 }
 
 export function useCategorias(): UseCategorias {
-  const [categorias, setCategorias] = useState<string[]>([]);
-  const [isLoading, setIsLoading]   = useState(true);
+  const [tipos, setTipos]         = useState<TipoConCategorias[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    categoriasService.getAll()
-      .then(data => setCategorias(data))
-      .catch(() => setCategorias([]))
+  const refetch = useCallback(() => {
+    setIsLoading(true);
+    categoriasService.getTipos()
+      .then(data => setTipos(data))
+      .catch(() => setTipos([]))
       .finally(() => setIsLoading(false));
   }, []);
 
-  return { categorias, isLoading };
+  useEffect(() => { refetch(); }, [refetch]);
+
+  return { tipos, isLoading, refetch };
 }

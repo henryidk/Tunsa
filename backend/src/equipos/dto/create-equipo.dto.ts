@@ -1,6 +1,5 @@
-import { IsString, IsNotEmpty, IsOptional, IsNumber, IsEnum, IsDateString, MaxLength, Min } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsNumber, IsDateString, MaxLength, Min } from 'class-validator';
 import { Type } from 'class-transformer';
-import { TipoMaquinaria } from '@prisma/client';
 
 export class CreateEquipoDto {
   @IsString()
@@ -13,10 +12,19 @@ export class CreateEquipoDto {
   @MaxLength(500, { message: 'La descripción no puede exceder 500 caracteres' })
   descripcion: string;
 
+  /** ID del TipoEquipo al que pertenece este equipo (tipos_equipo.id). */
   @IsString()
-  @IsNotEmpty({ message: 'La categoría es requerida' })
-  @MaxLength(100, { message: 'La categoría no puede exceder 100 caracteres' })
-  categoria: string;
+  @IsNotEmpty({ message: 'El tipo es requerido' })
+  tipoId: string;
+
+  /**
+   * ID de la Categoria (opcional).
+   * Cuando se provee, el servicio valida que categoria.tipoId === tipoId
+   * (también reforzado con FK compuesta en la DB).
+   */
+  @IsOptional()
+  @IsString()
+  categoriaId?: string;
 
   @IsOptional()
   @IsString()
@@ -36,9 +44,6 @@ export class CreateEquipoDto {
   @Min(1, { message: 'La cantidad debe ser al menos 1' })
   @Type(() => Number)
   cantidad?: number;
-
-  @IsEnum(TipoMaquinaria, { message: 'Tipo de maquinaria no válido' })
-  tipo: TipoMaquinaria;
 
   @IsOptional()
   @IsNumber()

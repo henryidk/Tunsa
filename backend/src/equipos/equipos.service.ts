@@ -53,7 +53,7 @@ export class EquiposService {
     }
   }
 
-  private buildChanges(equipo: any, dto: UpdateEquipoDto, categoriaNuevaNombre?: string | null) {
+  private buildChanges(equipo: any, dto: UpdateEquipoDto, categoriaNuevaNombre?: string | null, tipoNuevoNombre?: string) {
     const changes: { campo: string; valorAnterior: string | null; valorNuevo: string | null }[] = [];
 
     const fmt    = (v: any): string | null => (v != null ? String(v) : null);
@@ -62,8 +62,8 @@ export class EquiposService {
       if (va !== vn) changes.push({ campo, valorAnterior: va, valorNuevo: vn });
     };
 
-    if (dto.descripcion !== undefined) track('descripcion', fmt(equipo.descripcion),      fmt(dto.descripcion));
-    if (dto.tipoId      !== undefined) track('tipo',        fmt(equipo.tipo?.nombre),      fmt(dto.tipoId));
+    if (dto.descripcion !== undefined) track('descripcion', fmt(equipo.descripcion),  fmt(dto.descripcion));
+    if (dto.tipoId      !== undefined) track('tipo',        fmt(equipo.tipo?.nombre), tipoNuevoNombre !== undefined ? tipoNuevoNombre : fmt(dto.tipoId));
     if (dto.categoriaId !== undefined) track('categoria',   fmt(equipo.categoria?.nombre), categoriaNuevaNombre !== undefined ? categoriaNuevaNombre : fmt(dto.categoriaId));
     if (dto.serie       !== undefined) track('serie',       fmt(equipo.serie),             fmt(dto.serie || null));
     if (dto.cantidad    !== undefined) track('cantidad',    fmt(equipo.cantidad),          fmt(dto.cantidad));
@@ -155,18 +155,32 @@ export class EquiposService {
       await this.validarTipoYCategoria(tipoIdEfectivo, categoriaIdEfectiva);
     }
 
-    // Resolver el nombre de la nueva categoría para la bitácora
+    // Resolver nombres legibles para la bitácora (evitar guardar IDs crudos)
+    let tipoNuevoNombre: string | undefined = undefined;
+    if (dto.tipoId !== undefined) {
+      if (dto.tipoId === equipo.tipoId) {
+        // No cambió — pasar el nombre actual para que track() detecte igualdad y no registre
+        tipoNuevoNombre = equipo.tipo?.nombre ?? dto.tipoId;
+      } else {
+        const tipo = await this.prisma.tipoEquipo.findUnique({ where: { id: dto.tipoId } });
+        tipoNuevoNombre = tipo?.nombre ?? dto.tipoId;
+      }
+    }
+
     let categoriaNuevaNombre: string | null | undefined = undefined;
     if (dto.categoriaId !== undefined) {
       if (dto.categoriaId === null) {
         categoriaNuevaNombre = null;
+      } else if (dto.categoriaId === equipo.categoriaId) {
+        // No cambió — pasar el nombre actual para que track() detecte igualdad y no registre
+        categoriaNuevaNombre = equipo.categoria?.nombre ?? null;
       } else {
         const cat = await this.prisma.categoria.findUnique({ where: { id: dto.categoriaId } });
         categoriaNuevaNombre = cat?.nombre ?? null;
       }
     }
 
-    const changes = this.buildChanges(equipo, dto, categoriaNuevaNombre);
+    const changes = this.buildChanges(equipo, dto, categoriaNuevaNombre, tipoNuevoNombre);
 
     const updated = await this.prisma.equipo.update({
       where: { id },

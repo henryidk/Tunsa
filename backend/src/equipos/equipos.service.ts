@@ -155,25 +155,19 @@ export class EquiposService {
       await this.validarTipoYCategoria(tipoIdEfectivo, categoriaIdEfectiva);
     }
 
-    // Resolver nombres legibles para la bitácora (evitar guardar IDs crudos)
+    // Resolver nombres legibles para la bitácora.
+    // El frontend solo envía un campo si realmente cambió, así que
+    // si dto.tipoId está presente, es un cambio real — siempre resolvemos el nombre.
     let tipoNuevoNombre: string | undefined = undefined;
     if (dto.tipoId !== undefined) {
-      if (dto.tipoId === equipo.tipoId) {
-        // No cambió — pasar el nombre actual para que track() detecte igualdad y no registre
-        tipoNuevoNombre = equipo.tipo?.nombre ?? dto.tipoId;
-      } else {
-        const tipo = await this.prisma.tipoEquipo.findUnique({ where: { id: dto.tipoId } });
-        tipoNuevoNombre = tipo?.nombre ?? dto.tipoId;
-      }
+      const tipo = await this.prisma.tipoEquipo.findUnique({ where: { id: dto.tipoId } });
+      tipoNuevoNombre = tipo?.nombre ?? dto.tipoId;
     }
 
     let categoriaNuevaNombre: string | null | undefined = undefined;
     if (dto.categoriaId !== undefined) {
       if (dto.categoriaId === null) {
         categoriaNuevaNombre = null;
-      } else if (dto.categoriaId === equipo.categoriaId) {
-        // No cambió — pasar el nombre actual para que track() detecte igualdad y no registre
-        categoriaNuevaNombre = equipo.categoria?.nombre ?? null;
       } else {
         const cat = await this.prisma.categoria.findUnique({ where: { id: dto.categoriaId } });
         categoriaNuevaNombre = cat?.nombre ?? null;

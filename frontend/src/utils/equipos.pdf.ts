@@ -161,25 +161,64 @@ function drawTable(
   return (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
 }
 
+// ── Ordenación numérica ────────────────────────────────────────────────────
+function sortNumeracion(lista: Equipo[]): Equipo[] {
+  return [...lista].sort((a, b) => {
+    const na = (() => { const m = a.numeracion.match(/\d+/); return m ? parseInt(m[0], 10) : Infinity; })();
+    const nb = (() => { const m = b.numeracion.match(/\d+/); return m ? parseInt(m[0], 10) : Infinity; })();
+    if (na !== nb) return na - nb;
+    return a.numeracion.localeCompare(b.numeracion, 'es', { numeric: true });
+  });
+}
+
+// ── Helpers para tipos dinámicos ───────────────────────────────────────────
+
+// Detecta si algún equipo del grupo tiene tarifas de renta
+function hasRenta(lista: Equipo[]): boolean {
+  return lista.some(e => e.rentaDia != null || e.rentaSemana != null || e.rentaMes != null);
+}
+
+// Nombres completos para las secciones del PDF
+// Cualquier tipo nuevo no mapeado usa su nombre con guiones bajos reemplazados
+const TIPO_LABEL_SECTION: Record<string, string> = {
+  LIVIANA:    'MAQUINARIA LIVIANA',
+  PESADA:     'MAQUINARIA PESADA',
+  USO_PROPIO: 'EQUIPO USO PROPIO',
+};
+function tipoLabelSection(nombre: string): string {
+  return TIPO_LABEL_SECTION[nombre] ?? nombre.replace(/_/g, ' ');
+}
+
+// Orden de aparición: conocidos primero según lista, PESADA siempre al final,
+// tipos nuevos desconocidos van entre los conocidos y PESADA
+const TIPO_ORDER_KNOWN = ['LIVIANA', 'USO_PROPIO'];
+function sortTipoNombres(nombres: string[]): string[] {
+  return [...nombres].sort((a, b) => {
+    if (a === 'PESADA') return 1;
+    if (b === 'PESADA') return -1;
+    const ia = TIPO_ORDER_KNOWN.indexOf(a);
+    const ib = TIPO_ORDER_KNOWN.indexOf(b);
+    if (ia >= 0 && ib >= 0) return ia - ib;
+    if (ia >= 0) return -1;
+    if (ib >= 0) return 1;
+    return a.localeCompare(b);
+  });
+}
+
 // ── Función principal ──────────────────────────────────────────────────────
 export function generarReporteInventario(equipos: Equipo[]): void {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
 
-  const liviana   = equipos.filter(e => e.isActive && e.tipo.nombre === 'LIVIANA');
-  const pesada    = equipos.filter(e => e.isActive && e.tipo.nombre === 'PESADA');
-  const usoProp   = equipos.filter(e => e.isActive && e.tipo.nombre === 'USO_PROPIO');
-  const baja      = equipos.filter(e => !e.isActive);
+  const activos = equipos.filter(e => e.isActive);
+  const baja    = sortNumeracion(equipos.filter(e => !e.isActive));
 
-  // Totales
-  const totalLiviana  = liviana.reduce((s, e) => s + e.montoCompra, 0);
-  const totalPesada   = pesada.reduce((s, e) => s + e.montoCompra, 0);
-  const totalUso      = usoProp.reduce((s, e) => s + e.montoCompra, 0);
-  const totalGeneral  = totalLiviana + totalPesada + totalUso;
+  // Derivar tipos directamente de los datos — soporta tipos nuevos automáticamente
+  const tipoNombres = sortTipoNombres([...new Set(equipos.map(e => e.tipo.nombre))]);
 
   let y = 26;
 
-  // ── Resumen estadístico ──────────────────────────────────────────────────
+  // ── Header ───────────────────────────────────────────────────────────────
   doc.setFillColor(...C.headerBg);
   doc.rect(0, 0, pageWidth, 20, 'F');
   doc.setFont('helvetica', 'bold');
@@ -190,17 +229,22 @@ export function generarReporteInventario(equipos: Equipo[]): void {
   doc.setFontSize(8);
   doc.text(`Generado: ${fFechaHoy()}`, pageWidth - 14, 13, { align: 'right' });
 
-  // Tarjetas resumen
+  // ── Tarjetas resumen (una por tipo + TOTAL, dinámicas) ────────────────────
+  const tipoStats = tipoNombres.map(nombre => {
+    const eq = activos.filter(e => e.tipo.nombre === nombre);
+    return { nombre, count: eq.length, total: eq.reduce((s, e) => s + e.montoCompra, 0) };
+  });
+  const totalGeneral = tipoStats.reduce((s, t) => s + t.total, 0);
+  const totalCount   = tipoStats.reduce((s, t) => s + t.count, 0);
+
   const cards = [
-    { label: 'Maq. Liviana', count: liviana.length,   monto: totalLiviana },
-    { label: 'Maq. Pesada',  count: pesada.length,    monto: totalPesada  },
-    { label: 'Uso Propio',   count: usoProp.length,   monto: totalUso     },
-    { label: 'TOTAL ACTIVO', count: liviana.length + pesada.length + usoProp.length, monto: totalGeneral },
+    ...tipoStats.map(t => ({ label: TIPO_LABEL[t.nombre] ?? t.nombre.replace(/_/g, ' '), count: t.count, monto: t.total })),
+    { label: 'TOTAL ACTIVO', count: totalCount, monto: totalGeneral },
   ];
-  const cardW = (pageWidth - 28 - 9) / 4;
+  const cardW = (pageWidth - 28 - (cards.length - 1) * 3) / cards.length;
   cards.forEach((c, i) => {
     const x = 14 + i * (cardW + 3);
-    const isTotal = i === 3;
+    const isTotal = i === cards.length - 1;
     doc.setFillColor(...(isTotal ? C.sectionBg : C.totalBg));
     doc.roundedRect(x, y, cardW, 13, 1, 1, 'F');
     doc.setFont('helvetica', 'bold');
@@ -216,50 +260,33 @@ export function generarReporteInventario(equipos: Equipo[]): void {
   });
   y += 17;
 
-  // ── Maquinaria Liviana ───────────────────────────────────────────────────
-  if (liviana.length > 0) {
-    y = drawSectionTitle(doc, `MAQUINARIA LIVIANA — ${liviana.length} equipos · ${fMoneda(totalLiviana)}`, y, pageWidth);
-    y = drawTable(doc, liviana, y, true, false, pageWidth) + 5;
-  }
+  // ── Secciones dinámicas por tipo ──────────────────────────────────────────
+  for (const nombre of tipoNombres) {
+    const tipoEquipos = sortNumeracion(activos.filter(e => e.tipo.nombre === nombre));
+    if (tipoEquipos.length === 0) continue;
 
-  // ── Maquinaria Pesada ────────────────────────────────────────────────────
-  if (pesada.length > 0) {
+    const tipoTotal = tipoEquipos.reduce((s, e) => s + e.montoCompra, 0);
+
     if (y > 165) { doc.addPage(); y = 26; }
-    y = drawSectionTitle(doc, `MAQUINARIA PESADA — ${pesada.length} equipos · ${fMoneda(totalPesada)}`, y, pageWidth);
-    y = drawTable(doc, pesada, y, false, false, pageWidth) + 5;
+    y = drawSectionTitle(doc, `${tipoLabelSection(nombre)} — ${tipoEquipos.length} equipos · ${fMoneda(tipoTotal)}`, y, pageWidth);
+    y = drawTable(doc, tipoEquipos, y, hasRenta(tipoEquipos), false, pageWidth) + 5;
   }
 
-  // ── Equipo uso propio ────────────────────────────────────────────────────
-  if (usoProp.length > 0) {
-    if (y > 165) { doc.addPage(); y = 26; }
-    y = drawSectionTitle(doc, `EQUIPO USO PROPIO — ${usoProp.length} equipos · ${fMoneda(totalUso)}`, y, pageWidth);
-    y = drawTable(doc, usoProp, y, false, false, pageWidth) + 5;
-  }
-
-  // ── Dados de baja ────────────────────────────────────────────────────────
+  // ── Dados de baja (agrupados por tipo, dinámico) ──────────────────────────
   if (baja.length > 0) {
     if (y > 155) { doc.addPage(); y = 26; }
-    const livBaja  = baja.filter(e => e.tipo.nombre === 'LIVIANA');
-    const pesaBaja = baja.filter(e => e.tipo.nombre !== 'LIVIANA');
-
     y = drawSectionTitle(doc, `EQUIPOS DADOS DE BAJA — ${baja.length} equipos`, y, pageWidth);
 
-    if (livBaja.length > 0) {
-      doc.setFont('helvetica', 'italic');
-      doc.setFontSize(7);
-      doc.setTextColor(...C.muted);
-      doc.text(TIPO_LABEL['LIVIANA'], 16, y + 3);
-      y += 5;
-      y = drawTable(doc, livBaja, y, true, true, pageWidth) + 4;
-    }
-    if (pesaBaja.length > 0) {
+    for (const nombre of tipoNombres) {
+      const tipoBajas = sortNumeracion(baja.filter(e => e.tipo.nombre === nombre));
+      if (tipoBajas.length === 0) continue;
       if (y > 170) { doc.addPage(); y = 26; }
       doc.setFont('helvetica', 'italic');
       doc.setFontSize(7);
       doc.setTextColor(...C.muted);
-      doc.text(TIPO_LABEL['PESADA'], 16, y + 3);
+      doc.text(TIPO_LABEL[nombre] ?? nombre.replace(/_/g, ' '), 16, y + 3);
       y += 5;
-      y = drawTable(doc, pesaBaja, y, false, true, pageWidth) + 4;
+      y = drawTable(doc, tipoBajas, y, hasRenta(tipoBajas), true, pageWidth) + 4;
     }
   }
 

@@ -234,7 +234,7 @@ export default function UsuariosSection({ onShowToast, user }: UsuariosSectionPr
         onClose={() => setAgregarOpen(false)}
         onCreated={nuevo => {
           addUsuario(nuevo);
-          onShowToast('👤', 'Usuario creado', `${nuevo.nombre} fue agregado al sistema`);
+          onShowToast('success', 'Usuario creado', `${nuevo.nombre} fue agregado al sistema`);
         }}
       />
 
@@ -252,7 +252,7 @@ export default function UsuariosSection({ onShowToast, user }: UsuariosSectionPr
         onConfirm={updated => {
           updateUsuario(updated);
           setDesactivarUsuario(null);
-          onShowToast('🔒', 'Usuario desactivado', `${updated.nombre} no podrá iniciar sesión`);
+          onShowToast('warning', 'Usuario desactivado', `${updated.nombre} no podrá iniciar sesión`);
         }}
       />
 

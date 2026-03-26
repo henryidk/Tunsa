@@ -26,9 +26,10 @@ interface FormState {
 }
 
 export default function EditarEquipoModal({ equipo, open, tipos, onClose, onSave }: EditarEquipoModalProps) {
-  const [form, setForm]         = useState<FormState>({} as FormState);
-  const [isSaving, setIsSaving] = useState(false);
-  const [apiError, setApiError] = useState<string | null>(null);
+  const [form, setForm]                   = useState<FormState>({} as FormState);
+  const [isSaving, setIsSaving]           = useState(false);
+  const [apiError, setApiError]           = useState<string | null>(null);
+  const [confirmarTipo, setConfirmarTipo] = useState(false);
 
   useEffect(() => {
     if (equipo) {
@@ -64,28 +65,37 @@ export default function EditarEquipoModal({ equipo, open, tipos, onClose, onSave
     if (e.target === e.currentTarget && !isSaving) onClose();
   };
 
-  const handleSave = async () => {
-    if (!form.numeracion.trim())  { setApiError('La numeración es requerida.'); return; }
-    if (!form.descripcion.trim()) { setApiError('La descripción es requerida.'); return; }
-    if (!form.tipoId)             { setApiError('El tipo de maquinaria es requerido.'); return; }
-    if (!form.fechaCompra)        { setApiError('La fecha de compra es requerida.'); return; }
-    const monto = parseFloat(form.montoCompra);
-    if (isNaN(monto) || monto < 0) { setApiError('El monto de compra debe ser un número válido.'); return; }
-
+  const doSave = async () => {
     setIsSaving(true);
     setApiError(null);
+    setConfirmarTipo(false);
+
+    // Solo enviar los campos que realmente cambiaron (PATCH semántico correcto)
+    const payload: Record<string, unknown> = {};
+
+    const descripcion = form.descripcion.trim();
+    if (descripcion !== equipo.descripcion) payload.descripcion = descripcion;
+
+    if (form.tipoId !== equipo.tipoId) payload.tipoId = form.tipoId;
+
+    const categoriaId = form.categoriaId || null;
+    if (categoriaId !== equipo.categoriaId) payload.categoriaId = categoriaId;
+
+    const serie = form.serie.trim() || null;
+    if (serie !== (equipo.serie ?? null)) payload.serie = serie ?? undefined;
+
+    const cantidad = parseInt(form.cantidad) || 1;
+    if (cantidad !== equipo.cantidad) payload.cantidad = cantidad;
+
+    if (form.fechaCompra !== equipo.fechaCompra.substring(0, 10)) payload.fechaCompra = form.fechaCompra;
+
+    const monto = parseFloat(form.montoCompra);
+    if (monto !== equipo.montoCompra) payload.montoCompra = monto;
+
+    if (Object.keys(payload).length === 0) { onClose(); return; }
 
     try {
-      const updated = await equiposService.update(equipo.id, {
-        numeracion:  form.numeracion.trim(),
-        descripcion: form.descripcion.trim(),
-        tipoId:      form.tipoId,
-        categoriaId: form.categoriaId || null,
-        serie:       form.serie.trim() || undefined,
-        cantidad:    parseInt(form.cantidad) || 1,
-        fechaCompra: form.fechaCompra,
-        montoCompra: monto,
-      });
+      const updated = await equiposService.update(equipo.id, payload);
       onSave(updated);
       onClose();
     } catch (err: unknown) {
@@ -99,6 +109,21 @@ export default function EditarEquipoModal({ equipo, open, tipos, onClose, onSave
     }
   };
 
+  const handleSave = () => {
+    if (!form.descripcion.trim()) { setApiError('La descripción es requerida.'); return; }
+    if (!form.tipoId)             { setApiError('El tipo de maquinaria es requerido.'); return; }
+    if (!form.fechaCompra)        { setApiError('La fecha de compra es requerida.'); return; }
+    const monto = parseFloat(form.montoCompra);
+    if (isNaN(monto) || monto < 0) { setApiError('El monto de compra debe ser un número válido.'); return; }
+
+    // Si el tipo cambió, pedir confirmación antes de guardar
+    if (form.tipoId !== equipo.tipoId) {
+      setConfirmarTipo(true);
+      return;
+    }
+    doSave();
+  };
+
   const tipoSeleccionado  = tipos.find(t => t.id === form.tipoId);
   const categoriasDelTipo = tipoSeleccionado?.categorias ?? [];
 
@@ -106,6 +131,7 @@ export default function EditarEquipoModal({ equipo, open, tipos, onClose, onSave
   const labelCls = 'block text-xs font-semibold text-slate-600 mb-1.5';
 
   return (
+    <>
     <div
       className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/45 backdrop-blur-sm"
       onClick={handleOverlayClick}
@@ -136,8 +162,9 @@ export default function EditarEquipoModal({ equipo, open, tipos, onClose, onSave
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>Numeración</label>
-                <input type="text" value={form.numeracion} onChange={handleChange('numeracion')}
-                  disabled={isSaving} className={`${inputCls} font-mono`} />
+                <div className={`${inputCls} font-mono bg-slate-50 text-slate-500 cursor-not-allowed select-none`}>
+                  {form.numeracion}
+                </div>
               </div>
               <div>
                 <label className={labelCls}>Tipo</label>
@@ -230,5 +257,50 @@ export default function EditarEquipoModal({ equipo, open, tipos, onClose, onSave
 
       </div>
     </div>
+
+    {/* Diálogo de confirmación — cambio de tipo */}
+    {confirmarTipo && (
+      <div className="fixed inset-0 z-[2100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 flex flex-col gap-4">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-600">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-800 text-sm">¿Cambiar tipo de maquinaria?</h3>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                Estás moviendo el equipo{' '}
+                <span className="font-semibold text-slate-700">#{equipo.numeracion}</span> de{' '}
+                <span className="font-semibold text-slate-700">{TIPO_LABEL[equipo.tipo.nombre] ?? equipo.tipo.nombre}</span> a{' '}
+                <span className="font-semibold text-slate-700">{TIPO_LABEL[tipos.find(t => t.id === form.tipoId)?.nombre ?? ''] ?? form.tipoId}</span>.
+              </p>
+              {equipo.categoriaId && (
+                <p className="text-xs text-amber-600 font-medium mt-2">
+                  La categoría actual será removida al cambiar el tipo.
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <button
+              onClick={() => setConfirmarTipo(false)}
+              className="px-4 py-2 rounded-lg text-sm font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={doSave}
+              className="px-4 py-2 rounded-lg text-sm font-medium bg-amber-500 hover:bg-amber-600 text-white transition-colors"
+            >
+              Sí, cambiar tipo
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

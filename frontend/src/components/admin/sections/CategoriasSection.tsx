@@ -7,6 +7,7 @@ import { equiposService } from '../../../services/equipos.service';
 import { categoriasService } from '../../../services/categorias.service';
 import type { TipoAdmin, CategoriaAdmin } from '../../../services/categorias.service';
 import type { ToastType } from '../../../pages/admin/AdminDashboard';
+import { generarReporteCategorias } from '../../../utils/categorias.pdf';
 
 interface CategoriasSectionProps {
   onShowToast: (type: ToastType, title: string, msg: string) => void;
@@ -46,7 +47,9 @@ export default function CategoriasSection({ onShowToast }: CategoriasSectionProp
   const [equipoLoading, setEquipoLoading] = useState<Record<string, boolean>>({});
   const [assignOpen,     setAssignOpen]     = useState<string | null>(null);
   const [quitarConfirm,  setQuitarConfirm]  = useState<string | null>(null);
-  const assignRef = useRef<HTMLDivElement>(null);
+  const [generando,      setGenerando]      = useState(false);
+  const assignRef    = useRef<HTMLDivElement>(null);
+  const allEquipos   = useRef<Equipo[]>([]);  // todos (activos + baja) — sólo para PDF
 
   // ── Fetch ────────────────────────────────────────────────────────────────────
   const fetchAll = useCallback(async () => {
@@ -56,6 +59,7 @@ export default function CategoriasSection({ onShowToast }: CategoriasSectionProp
         categoriasService.getTiposAdmin(),
         equiposService.getAll(),
       ]);
+      allEquipos.current = equiposData;
       setTipos(tiposData);
       setEquipos(equiposData.filter(e => e.isActive));
     } catch {
@@ -213,9 +217,25 @@ export default function CategoriasSection({ onShowToast }: CategoriasSectionProp
   const handleAssign = async (equipo: Equipo, categoriaId: string | null) => {
     setEquipoLoading(prev => ({ ...prev, [equipo.id]: true }));
     setAssignOpen(null);
+    setQuitarConfirm(null);
+    const prevCategoriaId = equipo.categoriaId;
     try {
       const updated = await equiposService.update(equipo.id, { categoriaId });
+
+      // Actualizar el equipo en el estado local
       setEquipos(prev => prev.map(e => e.id === equipo.id ? updated : e));
+
+      // Sincronizar _count.equipos en el panel de categorías para que los
+      // contadores del panel izquierdo reflejen el cambio sin recargar
+      setTipos(prev => prev.map(t => ({
+        ...t,
+        categorias: t.categorias.map(c => {
+          if (c.id === prevCategoriaId) return { ...c, _count: { equipos: Math.max(0, c._count.equipos - 1) } };
+          if (c.id === categoriaId)     return { ...c, _count: { equipos: c._count.equipos + 1 } };
+          return c;
+        }),
+      })));
+
       const catNombre = categoriaId
         ? (categoriasActivas.find(c => c.id === categoriaId)?.nombre ?? 'la categoría')
         : 'Sin categoría';
@@ -224,6 +244,17 @@ export default function CategoriasSection({ onShowToast }: CategoriasSectionProp
       onShowToast('error', 'Error', 'No se pudo actualizar la categoría del equipo.');
     } finally {
       setEquipoLoading(prev => ({ ...prev, [equipo.id]: false }));
+    }
+  };
+
+  // ── Generar reporte PDF ───────────────────────────────────────────────────────
+  const handleGenerarReporte = async () => {
+    setGenerando(true);
+    try {
+      await new Promise(r => setTimeout(r, 50));
+      generarReporteCategorias(tipos, allEquipos.current);
+    } finally {
+      setGenerando(false);
     }
   };
 
@@ -250,6 +281,30 @@ export default function CategoriasSection({ onShowToast }: CategoriasSectionProp
           <h1 className="text-xl font-bold text-slate-800">Categorías</h1>
           <p className="text-sm text-slate-500 mt-0.5">Gestiona categorías y la asignación de equipos</p>
         </div>
+        <button
+          onClick={handleGenerarReporte}
+          disabled={generando || isLoading || tipos.length === 0}
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {generando ? (
+            <>
+              <svg className="animate-spin" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+              </svg>
+              Generando…
+            </>
+          ) : (
+            <>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="12" y1="18" x2="12" y2="12"/>
+                <line x1="9" y1="15" x2="15" y2="15"/>
+              </svg>
+              Generar reporte
+            </>
+          )}
+        </button>
       </div>
 
       {/* Tipo tabs */}

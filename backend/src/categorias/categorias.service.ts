@@ -6,10 +6,73 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCategoriaDto } from './dto/create-categoria.dto';
 import { UpdateCategoriaDto } from './dto/update-categoria.dto';
+import { CreateTipoDto } from './dto/create-tipo.dto';
 
 @Injectable()
 export class CategoriasService {
   constructor(private prisma: PrismaService) {}
+
+  /** POST /categorias/tipos — crea un nuevo tipo de equipo */
+  async createTipo(dto: CreateTipoDto, realizadoPor: string) {
+    const nombre = dto.nombre.trim().toUpperCase().replace(/\s+/g, '_');
+
+    const existe = await this.prisma.tipoEquipo.findUnique({ where: { nombre } });
+    if (existe) throw new ConflictException(`Ya existe el tipo "${nombre}"`);
+
+    const nuevo = await this.prisma.tipoEquipo.create({
+      data: {
+        nombre,
+        descripcion: dto.descripcion?.trim() ?? nombre,
+      },
+      include: { _count: { select: { categorias: true } } },
+    });
+
+    await this.prisma.bitacora.create({
+      data: {
+        modulo:        'tipo_equipo',
+        entidadId:     nuevo.id,
+        entidadNombre: nuevo.nombre,
+        campo:         'creacion',
+        valorAnterior: null,
+        valorNuevo:    nuevo.nombre,
+        realizadoPor,
+      },
+    });
+
+    return nuevo;
+  }
+
+  /** DELETE /categorias/tipos/:id — elimina un tipo si no tiene equipos */
+  async removeTipo(id: string, realizadoPor: string) {
+    const tipo = await this.prisma.tipoEquipo.findUnique({
+      where:   { id },
+      include: { categorias: { include: { _count: { select: { equipos: true } } } } },
+    });
+    if (!tipo) throw new NotFoundException(`Tipo no encontrado`);
+
+    const totalEquipos = await this.prisma.equipo.count({ where: { tipoId: id } });
+    if (totalEquipos > 0) {
+      throw new ConflictException(
+        `No se puede eliminar: ${totalEquipos} equipo(s) pertenecen a este tipo`,
+      );
+    }
+
+    // Eliminar categorías vacías y luego el tipo
+    await this.prisma.categoria.deleteMany({ where: { tipoId: id } });
+    await this.prisma.tipoEquipo.delete({ where: { id } });
+
+    await this.prisma.bitacora.create({
+      data: {
+        modulo:        'tipo_equipo',
+        entidadId:     id,
+        entidadNombre: tipo.nombre,
+        campo:         'eliminacion',
+        valorAnterior: tipo.nombre,
+        valorNuevo:    null,
+        realizadoPor,
+      },
+    });
+  }
 
   /** GET /categorias/tipos — tipos con categorías (solo id+nombre). Usado por formularios de equipo. */
   async findTipos() {
@@ -63,7 +126,7 @@ export class CategoriasService {
   }
 
   /** POST /categorias */
-  async create(dto: CreateCategoriaDto) {
+  async create(dto: CreateCategoriaDto, realizadoPor: string) {
     const tipo = await this.prisma.tipoEquipo.findUnique({ where: { id: dto.tipoId } });
     if (!tipo) throw new NotFoundException(`Tipo no encontrado`);
 
@@ -72,10 +135,24 @@ export class CategoriasService {
     });
     if (existe) throw new ConflictException(`Ya existe la categoría "${dto.nombre}" en este tipo`);
 
-    return this.prisma.categoria.create({
+    const nueva = await this.prisma.categoria.create({
       data:    { nombre: dto.nombre, tipoId: dto.tipoId },
       include: { _count: { select: { equipos: true } } },
     });
+
+    await this.prisma.bitacora.create({
+      data: {
+        modulo:        'categoria',
+        entidadId:     nueva.id,
+        entidadNombre: `${nueva.nombre} (${tipo.nombre})`,
+        campo:         'creacion',
+        valorAnterior: null,
+        valorNuevo:    nueva.nombre,
+        realizadoPor,
+      },
+    });
+
+    return nueva;
   }
 
   /** PATCH /categorias/:id */
@@ -96,10 +173,10 @@ export class CategoriasService {
   }
 
   /** DELETE /categorias/:id */
-  async remove(id: string) {
+  async remove(id: string, realizadoPor: string) {
     const cat = await this.prisma.categoria.findUnique({
       where:   { id },
-      include: { _count: { select: { equipos: true } } },
+      include: { _count: { select: { equipos: true } }, tipo: { select: { nombre: true } } },
     });
     if (!cat) throw new NotFoundException(`Categoría no encontrada`);
 
@@ -110,5 +187,17 @@ export class CategoriasService {
     }
 
     await this.prisma.categoria.delete({ where: { id } });
+
+    await this.prisma.bitacora.create({
+      data: {
+        modulo:        'categoria',
+        entidadId:     id,
+        entidadNombre: `${cat.nombre} (${cat.tipo.nombre})`,
+        campo:         'eliminacion',
+        valorAnterior: cat.nombre,
+        valorNuevo:    null,
+        realizadoPor,
+      },
+    });
   }
 }

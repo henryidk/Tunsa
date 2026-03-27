@@ -5,18 +5,34 @@ import {
 import { CategoriasService } from './categorias.service';
 import { CreateCategoriaDto } from './dto/create-categoria.dto';
 import { UpdateCategoriaDto } from './dto/update-categoria.dto';
+import { CreateTipoDto } from './dto/create-tipo.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { MustChangePasswordGuard } from '../auth/guards/must-change-password.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
 
 @Controller('categorias')
 @UseGuards(JwtAuthGuard, MustChangePasswordGuard)
 export class CategoriasController {
   constructor(private readonly categoriasService: CategoriasService) {}
 
+  /** POST /categorias/tipos — crea un nuevo tipo */
+  @Post('tipos')
+  createTipo(@Body() dto: CreateTipoDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.categoriasService.createTipo(dto, user.username);
+  }
+
   /** GET /categorias/tipos — para formularios de equipo (sin conteo) */
   @Get('tipos')
   findTipos() {
     return this.categoriasService.findTipos();
+  }
+
+  /** DELETE /categorias/tipos/:id — elimina un tipo si no tiene equipos */
+  @Delete('tipos/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  removeTipo(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.categoriasService.removeTipo(id, user.username);
   }
 
   /** GET /categorias/admin — para panel de administración (con conteo de equipos) */
@@ -34,8 +50,8 @@ export class CategoriasController {
 
   /** POST /categorias */
   @Post()
-  create(@Body() dto: CreateCategoriaDto) {
-    return this.categoriasService.create(dto);
+  create(@Body() dto: CreateCategoriaDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.categoriasService.create(dto, user.username);
   }
 
   /** PATCH /categorias/:id */
@@ -47,7 +63,7 @@ export class CategoriasController {
   /** DELETE /categorias/:id */
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param('id') id: string) {
-    return this.categoriasService.remove(id);
+  remove(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.categoriasService.remove(id, user.username);
   }
 }

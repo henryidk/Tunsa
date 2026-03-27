@@ -15,6 +15,13 @@ export interface TipoAdmin {
   categorias: CategoriaAdmin[];
 }
 
+export interface TipoAdminNuevo {
+  id:          string;
+  nombre:      string;
+  descripcion: string;
+  categorias:  CategoriaAdmin[];
+}
+
 export const categoriasService = {
   /** GET /categorias/tipos — para formularios de equipo */
   async getTipos(): Promise<TipoConCategorias[]> {
@@ -40,6 +47,12 @@ export const categoriasService = {
     return res.data;
   },
 
+  /** POST /categorias/tipos — crea un nuevo tipo */
+  async createTipo(nombre: string, descripcion?: string): Promise<TipoAdminNuevo> {
+    const res = await api.post<TipoAdminNuevo>('/categorias/tipos', { nombre, descripcion });
+    return res.data;
+  },
+
   /** POST /categorias */
   async create(nombre: string, tipoId: string): Promise<CategoriaAdmin> {
     const res = await api.post<CategoriaAdmin>('/categorias', { nombre, tipoId });
@@ -55,5 +68,10 @@ export const categoriasService = {
   /** DELETE /categorias/:id */
   async delete(id: string): Promise<void> {
     await api.delete(`/categorias/${id}`);
+  },
+
+  /** DELETE /categorias/tipos/:id */
+  async deleteTipo(id: string): Promise<void> {
+    await api.delete(`/categorias/tipos/${id}`);
   },
 };

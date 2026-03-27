@@ -1,6 +1,6 @@
-// BitacorasSection.tsx — registro de cambios en equipos y usuarios del sistema
+// BitacorasSection.tsx — registro de cambios del sistema
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { equiposService } from '../../../services/equipos.service';
 import type { BitacoraEntry } from '../../../services/equipos.service';
 import { TIPO_LABEL } from '../../../types/equipo.types';
@@ -25,6 +25,10 @@ const CAMPO_LABEL: Record<string, string> = {
   reset_password:  'Reseteo de contraseña',
   desactivar:      'Desactivación',
   activar:         'Activación',
+  // acciones genéricas (aplican a cualquier módulo)
+  eliminacion: 'Eliminación',
+  creacion:    'Creación',
+  renombrado:  'Renombrado',
 };
 
 const CAMPOS_MONEDA = new Set(['montoCompra', 'rentaDia', 'rentaSemana', 'rentaMes']);
@@ -33,7 +37,21 @@ const CAMPO_BADGE: Record<string, string> = {
   reset_password: 'bg-amber-50 text-amber-700',
   desactivar:     'bg-red-50 text-red-700',
   activar:        'bg-green-50 text-green-700',
+  eliminacion:    'bg-red-50 text-red-700',
+  creacion:       'bg-green-50 text-green-700',
 };
+
+// Config de módulos conocidos — cualquier módulo nuevo no mapeado
+// usa un estilo neutro como fallback, nunca muestra datos incorrectos
+const MODULO_CONFIG: Record<string, { label: string; badge: string; stat: string }> = {
+  equipo:      { label: 'Equipo',    badge: 'bg-blue-50 text-blue-700',      stat: 'text-blue-600' },
+  usuario:     { label: 'Usuario',   badge: 'bg-violet-50 text-violet-700',  stat: 'text-violet-600' },
+  categoria:   { label: 'Categoría', badge: 'bg-emerald-50 text-emerald-700', stat: 'text-emerald-600' },
+  tipo_equipo: { label: 'Tipo',      badge: 'bg-orange-50 text-orange-700',  stat: 'text-orange-600' },
+};
+function moduloDisplay(modulo: string) {
+  return MODULO_CONFIG[modulo] ?? { label: modulo, badge: 'bg-slate-100 text-slate-600', stat: 'text-slate-600' };
+}
 
 function formatValor(campo: string, valor: string | null): string {
   if (valor === null) return campo === 'categoria' ? 'Sin categoría' : '—';
@@ -57,14 +75,12 @@ function formatFechaHora(iso: string) {
   };
 }
 
-type ModuloFiltro = '' | 'equipo' | 'usuario';
-
 export default function BitacorasSection() {
-  const [entradas, setEntradas]     = useState<BitacoraEntry[]>([]);
-  const [isLoading, setIsLoading]   = useState(true);
-  const [error, setError]           = useState<string | null>(null);
-  const [search, setSearch]         = useState('');
-  const [filtroModulo, setFiltroModulo] = useState<ModuloFiltro>('');
+  const [entradas, setEntradas]         = useState<BitacoraEntry[]>([]);
+  const [isLoading, setIsLoading]       = useState(true);
+  const [error, setError]               = useState<string | null>(null);
+  const [search, setSearch]             = useState('');
+  const [filtroModulo, setFiltroModulo] = useState('');
 
   useEffect(() => {
     equiposService.getBitacoras()
@@ -78,34 +94,49 @@ export default function BitacorasSection() {
     const q = search.toLowerCase();
     if (!q) return true;
     return (
-      e.entidadNombre.toLowerCase().includes(q)              ||
+      e.entidadNombre.toLowerCase().includes(q)                   ||
       (CAMPO_LABEL[e.campo] ?? e.campo).toLowerCase().includes(q) ||
-      e.realizadoPor.toLowerCase().includes(q)               ||
-      (e.valorAnterior ?? '').toLowerCase().includes(q)      ||
+      e.realizadoPor.toLowerCase().includes(q)                    ||
+      (e.valorAnterior ?? '').toLowerCase().includes(q)           ||
       (e.valorNuevo    ?? '').toLowerCase().includes(q)
     );
   });
 
   const hoy = new Date().toLocaleDateString('es-GT');
-  const cambiosHoy       = entradas.filter(e => new Date(e.createdAt).toLocaleDateString('es-GT') === hoy).length;
-  const cambiosEquipos   = entradas.filter(e => e.modulo === 'equipo').length;
-  const cambiosUsuarios  = entradas.filter(e => e.modulo === 'usuario').length;
+  const cambiosHoy = entradas.filter(e => new Date(e.createdAt).toLocaleDateString('es-GT') === hoy).length;
+
+  // Conteo dinámico por módulo — soporta cualquier módulo nuevo automáticamente
+  const conteosPorModulo = useMemo(() => {
+    return entradas.reduce((acc, e) => {
+      acc[e.modulo] = (acc[e.modulo] ?? 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+  }, [entradas]);
+
+  // Módulos presentes en los datos, en orden de config conocida + nuevos al final
+  const modulosPresentes = useMemo(() => {
+    const conocidos = Object.keys(MODULO_CONFIG).filter(m => conteosPorModulo[m]);
+    const nuevos    = Object.keys(conteosPorModulo).filter(m => !MODULO_CONFIG[m]);
+    return [...conocidos, ...nuevos];
+  }, [conteosPorModulo]);
 
   return (
     <div>
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-800">Bitácoras</h1>
-        <p className="text-sm text-slate-500 mt-1">Registro de cambios realizados en equipos y usuarios del sistema</p>
+        <p className="text-sm text-slate-500 mt-1">Registro de cambios realizados en el sistema</p>
       </div>
 
-      {/* Stats */}
+      {/* Stats — primeras 2 fijas, resto dinámico por módulo */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
-          { label: 'Total de registros', value: entradas.length,   color: 'text-indigo-600',  bg: 'bg-indigo-50' },
-          { label: 'Cambios hoy',        value: cambiosHoy,        color: 'text-emerald-600', bg: 'bg-emerald-50' },
-          { label: 'En equipos',         value: cambiosEquipos,    color: 'text-blue-600',    bg: 'bg-blue-50' },
-          { label: 'En usuarios',        value: cambiosUsuarios,   color: 'text-violet-600',  bg: 'bg-violet-50' },
+          { label: 'Total de registros', value: entradas.length, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+          { label: 'Cambios hoy',        value: cambiosHoy,      color: 'text-emerald-600', bg: 'bg-emerald-50' },
+          ...modulosPresentes.map(m => {
+            const cfg = moduloDisplay(m);
+            return { label: `En ${cfg.label.toLowerCase()}s`, value: conteosPorModulo[m] ?? 0, color: cfg.stat, bg: cfg.badge.replace('text-', 'bg-').split(' ')[0] };
+          }),
         ].map(s => (
           <div key={s.label} className="bg-white border border-slate-200 rounded-xl px-4 py-3.5 shadow-sm">
             <div className={`inline-flex items-center justify-center w-8 h-8 rounded-lg ${s.bg} mb-2`}>
@@ -123,11 +154,14 @@ export default function BitacorasSection() {
       <div className="flex flex-wrap items-center gap-3 mb-5">
         {/* Filtro módulo */}
         <div className="flex bg-white border border-slate-200 rounded-lg overflow-hidden">
-          {([
-            { id: '' as ModuloFiltro,        label: 'Todos',    count: entradas.length },
-            { id: 'equipo' as ModuloFiltro,  label: 'Equipos',  count: cambiosEquipos },
-            { id: 'usuario' as ModuloFiltro, label: 'Usuarios', count: cambiosUsuarios },
-          ]).map(t => (
+          {[
+            { id: '', label: 'Todos', count: entradas.length },
+            ...modulosPresentes.map(m => ({
+              id:    m,
+              label: `${moduloDisplay(m).label}s`,
+              count: conteosPorModulo[m] ?? 0,
+            })),
+          ].map(t => (
             <button key={t.id} onClick={() => setFiltroModulo(t.id)}
               className={`flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium border-r border-slate-200 last:border-0 transition-colors ${
                 filtroModulo === t.id ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-slate-600 hover:bg-slate-50'
@@ -204,10 +238,8 @@ export default function BitacorasSection() {
 
                     {/* Módulo */}
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold ${
-                        e.modulo === 'equipo' ? 'bg-blue-50 text-blue-700' : 'bg-violet-50 text-violet-700'
-                      }`}>
-                        {e.modulo === 'equipo' ? 'Equipo' : 'Usuario'}
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold ${moduloDisplay(e.modulo).badge}`}>
+                        {moduloDisplay(e.modulo).label}
                       </span>
                     </td>
 

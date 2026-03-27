@@ -158,10 +158,15 @@ export default function EquiposSection({ onShowToast }: EquiposSectionProps) {
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
-          { label: 'Equipos activos',    value: activos.length,                                  color: 'text-indigo-600', bg: 'bg-indigo-50' },
-          { label: 'Maq. Liviana',       value: activos.filter(e => e.tipo.nombre === 'LIVIANA').length,  color: 'text-blue-600',   bg: 'bg-blue-50' },
-          { label: 'Maq. Pesada',        value: activos.filter(e => e.tipo.nombre === 'PESADA').length,   color: 'text-amber-600',  bg: 'bg-amber-50' },
-          { label: 'Valor inventario',   value: formatMoneda(valorTotal),                         color: 'text-emerald-600', bg: 'bg-emerald-50', isString: true },
+          { label: 'Equipos activos',  value: activos.length,       color: 'text-indigo-600',  bg: 'bg-indigo-50' },
+          // Tarjetas por tipo — dinámicas, soportan tipos nuevos automáticamente
+          ...[...new Set(activos.map(e => e.tipo.nombre))].map(nombre => ({
+            label: TIPO_LABEL[nombre] ?? nombre.replace(/_/g, ' '),
+            value: activos.filter(e => e.tipo.nombre === nombre).length,
+            color: nombre === 'LIVIANA' ? 'text-blue-600' : nombre === 'PESADA' ? 'text-amber-600' : 'text-slate-600',
+            bg:    nombre === 'LIVIANA' ? 'bg-blue-50'   : nombre === 'PESADA' ? 'bg-amber-50'  : 'bg-slate-50',
+          })),
+          { label: 'Valor inventario', value: formatMoneda(valorTotal), color: 'text-emerald-600', bg: 'bg-emerald-50', isString: true },
         ].map(s => (
           <div key={s.label} className="bg-white border border-slate-200 rounded-xl px-4 py-3.5 shadow-sm">
             <div className={`inline-flex items-center justify-center w-8 h-8 rounded-lg ${s.bg} mb-2`}>
@@ -220,10 +225,11 @@ export default function EquiposSection({ onShowToast }: EquiposSectionProps) {
         }}
           className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white focus:outline-none focus:border-indigo-400">
           <option value="">Todos los tipos</option>
-          <option value="LIVIANA">Maq. Liviana</option>
-          <option value="PESADA">Maq. Pesada</option>
-          <option value="USO_PROPIO">Uso Propio</option>
-          {/* Los nombres de tipo vienen del campo tipo.nombre del backend */}
+          {[...new Set(equipos.map(e => e.tipo.nombre))].map(nombre => (
+            <option key={nombre} value={nombre}>
+              {TIPO_LABEL[nombre] ?? nombre.replace(/_/g, ' ')}
+            </option>
+          ))}
         </select>
 
         {/* Filtro categoría */}

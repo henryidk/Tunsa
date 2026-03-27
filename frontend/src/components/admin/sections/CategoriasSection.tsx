@@ -13,7 +13,7 @@ interface CategoriasSectionProps {
   onShowToast: (type: ToastType, title: string, msg: string) => void;
 }
 
-const TIPO_NOMBRES = ['LIVIANA', 'PESADA', 'USO_PROPIO'];
+// Sin TIPO_NOMBRES hardcodeado — se deriva del estado `tipos` cargado desde el API
 
 type CatAction =
   | { type: 'idle' }
@@ -37,17 +37,29 @@ export default function CategoriasSection({ onShowToast }: CategoriasSectionProp
   const [equipos,   setEquipos]   = useState<Equipo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const [tipoActivo,   setTipoActivo]   = useState('LIVIANA');
+  const [tipoActivo,   setTipoActivo]   = useState('');
   const [catActivaId,  setCatActivaId]  = useState<string | 'sin-categoria'>('sin-categoria');
 
   const [catActions,     setCatActions]     = useState<Record<string, CatAction>>({});
   const [addingNombre,   setAddingNombre]   = useState('');
   const [addingLoading,  setAddingLoading]  = useState(false);
+  const [addingTipo,     setAddingTipo]     = useState('');
+  const [addingTipoLoad, setAddingTipoLoad] = useState(false);
 
-  const [equipoLoading, setEquipoLoading] = useState<Record<string, boolean>>({});
+  const [equipoLoading,  setEquipoLoading]  = useState<Record<string, boolean>>({});
   const [assignOpen,     setAssignOpen]     = useState<string | null>(null);
   const [quitarConfirm,  setQuitarConfirm]  = useState<string | null>(null);
   const [generando,      setGenerando]      = useState(false);
+  const [blockDeleteCat,   setBlockDeleteCat]   = useState<CategoriaAdmin | null>(null);
+  const [confirmDeleteCat, setConfirmDeleteCat] = useState<CategoriaAdmin | null>(null);
+  const [isDeletingConfirm, setIsDeletingConfirm] = useState(false);
+
+  // Tipo deletion modals: null = closed, else the tipo being deleted
+  const [blockDeleteTipo,   setBlockDeleteTipo]   = useState<TipoAdmin | null>(null);
+  const [warnDeleteTipo,    setWarnDeleteTipo]    = useState<TipoAdmin | null>(null);
+  const [confirmDeleteTipo, setConfirmDeleteTipo] = useState<TipoAdmin | null>(null);
+  const [isDeletingTipo,    setIsDeletingTipo]    = useState(false);
+  const [gestionarOpen,    setGestionarOpen]    = useState(false);
   const assignRef    = useRef<HTMLDivElement>(null);
   const allEquipos   = useRef<Equipo[]>([]);  // todos (activos + baja) — sólo para PDF
 
@@ -62,6 +74,8 @@ export default function CategoriasSection({ onShowToast }: CategoriasSectionProp
       allEquipos.current = equiposData;
       setTipos(tiposData);
       setEquipos(equiposData.filter(e => e.isActive));
+      // Inicializar tab activo con el primer tipo disponible
+      setTipoActivo(prev => prev || tiposData[0]?.nombre || '');
     } catch {
       onShowToast('error', 'Error', 'No se pudieron cargar los datos.');
     } finally {
@@ -189,6 +203,88 @@ export default function CategoriasSection({ onShowToast }: CategoriasSectionProp
     }
   };
 
+  const handleDeleteFromModal = async () => {
+    if (!confirmDeleteCat) return;
+    setIsDeletingConfirm(true);
+    try {
+      await categoriasService.delete(confirmDeleteCat.id);
+      setTipos(prev => prev.map(t =>
+        t.nombre === tipoActivo
+          ? { ...t, categorias: t.categorias.filter(c => c.id !== confirmDeleteCat.id) }
+          : t,
+      ));
+      onShowToast('success', 'Eliminada', `Categoría "${confirmDeleteCat.nombre}" eliminada.`);
+      setConfirmDeleteCat(null);
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === 'object' && 'response' in err
+          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+          : undefined;
+      onShowToast('error', 'Error', msg ?? 'No se pudo eliminar la categoría.');
+    } finally {
+      setIsDeletingConfirm(false);
+    }
+  };
+
+  const handleAddTipo = async () => {
+    const nombre = addingTipo.trim();
+    if (!nombre) return;
+    setAddingTipoLoad(true);
+    try {
+      const nuevo = await categoriasService.createTipo(nombre);
+      setTipos(prev => [...prev, { ...nuevo, categorias: [] }]);
+      setTipoActivo(nuevo.nombre);
+      setAddingTipo('');
+      onShowToast('success', 'Tipo creado', `Tipo "${nuevo.nombre}" creado correctamente.`);
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === 'object' && 'response' in err
+          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+          : undefined;
+      onShowToast('error', 'Error', msg ?? 'No se pudo crear el tipo.');
+    } finally {
+      setAddingTipoLoad(false);
+    }
+  };
+
+  const handleDeleteTipo = (tipo: TipoAdmin) => {
+    const totalEquipos = allEquipos.current.filter(e => e.tipo.nombre === tipo.nombre).length;
+    if (totalEquipos > 0) {
+      setBlockDeleteTipo(tipo);
+    } else if (tipo.categorias.length > 0) {
+      setWarnDeleteTipo(tipo);
+    } else {
+      setConfirmDeleteTipo(tipo);
+    }
+  };
+
+  const executeDeleteTipo = async (tipo: TipoAdmin) => {
+    setIsDeletingTipo(true);
+    try {
+      await categoriasService.deleteTipo(tipo.id);
+      setTipos(prev => {
+        const remaining = prev.filter(t => t.id !== tipo.id);
+        // If we deleted the active tab, switch to first remaining
+        if (tipoActivo === tipo.nombre) {
+          setTipoActivo(remaining[0]?.nombre ?? '');
+          setCatActivaId('sin-categoria');
+        }
+        return remaining;
+      });
+      onShowToast('success', 'Tipo eliminado', `Tipo "${tipo.nombre}" eliminado correctamente.`);
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === 'object' && 'response' in err
+          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+          : undefined;
+      onShowToast('error', 'Error', msg ?? 'No se pudo eliminar el tipo.');
+    } finally {
+      setIsDeletingTipo(false);
+      setWarnDeleteTipo(null);
+      setConfirmDeleteTipo(null);
+    }
+  };
+
   const handleAddCategoria = async () => {
     const nombre = addingNombre.trim();
     if (!nombre || !tipoActual) return;
@@ -272,8 +368,311 @@ export default function CategoriasSection({ onShowToast }: CategoriasSectionProp
     );
   }
 
+  // ── Modal: categoría con equipos, no se puede eliminar ───────────────────────
+  const blockEquipos = blockDeleteCat ? (equiposPorCategoria.get(blockDeleteCat.id) ?? []) : [];
+
   return (
     <div className="flex flex-col h-full gap-5">
+
+      {/* Modal: confirmar eliminación (categoría sin equipos) */}
+      {confirmDeleteCat && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 overflow-hidden">
+
+            <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-red-600">
+                  <polyline points="3 6 5 6 21 6"/>
+                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                  <path d="M10 11v6"/><path d="M14 11v6"/>
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-slate-800">Eliminar categoría</h2>
+                <p className="text-xs text-slate-500 mt-0.5">Esta acción no se puede deshacer</p>
+              </div>
+            </div>
+
+            <div className="px-5 py-4">
+              <p className="text-sm text-slate-600">
+                ¿Estás seguro de que deseas eliminar{' '}
+                <span className="font-semibold text-slate-800">"{confirmDeleteCat.nombre}"</span>?
+              </p>
+            </div>
+
+            <div className="flex gap-2 px-5 py-4 border-t border-slate-100">
+              <button
+                onClick={handleDeleteFromModal}
+                disabled={isDeletingConfirm}
+                className="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-red-600 hover:bg-red-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isDeletingConfirm ? 'Eliminando…' : 'Eliminar'}
+              </button>
+              <button
+                onClick={() => setConfirmDeleteCat(null)}
+                disabled={isDeletingConfirm}
+                className="flex-1 px-4 py-2 rounded-lg text-sm font-medium border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* Modal: bloqueo — categoría con equipos */}
+      {blockDeleteCat && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 overflow-hidden">
+
+            {/* Header */}
+            <div className="flex items-center gap-3 px-5 py-4 bg-red-50 border-b border-red-100">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-red-600">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="8" x2="12" y2="12"/>
+                  <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-red-800">No se puede eliminar</h2>
+                <p className="text-xs text-red-600 mt-0.5">
+                  <span className="font-semibold">"{blockDeleteCat.nombre}"</span> tiene {blockEquipos.length} equipo{blockEquipos.length !== 1 ? 's' : ''} asignado{blockEquipos.length !== 1 ? 's' : ''}
+                </p>
+              </div>
+            </div>
+
+            {/* Lista de equipos */}
+            <div className="px-5 py-3">
+              <p className="text-xs text-slate-500 mb-2">
+                Quita o reasigna los siguientes equipos antes de eliminar la categoría:
+              </p>
+              <div className="max-h-48 overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-lg">
+                {sortEquipos(blockEquipos).map(e => (
+                  <div key={e.id} className="flex items-center gap-2.5 px-3 py-2">
+                    <span className="font-mono text-xs font-bold text-slate-400 w-10 flex-shrink-0 text-right">
+                      #{e.numeracion}
+                    </span>
+                    <span className="text-xs text-slate-700 truncate">{e.descripcion}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Acciones */}
+            <div className="flex gap-2 px-5 py-4 border-t border-slate-100">
+              <button
+                onClick={() => {
+                  setCatActivaId(blockDeleteCat.id);
+                  setBlockDeleteCat(null);
+                }}
+                className="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
+              >
+                Ver equipos
+              </button>
+              <button
+                onClick={() => setBlockDeleteCat(null)}
+                className="flex-1 px-4 py-2 rounded-lg text-sm font-medium border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
+              >
+                Cerrar
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* Modal: tipo con equipos, no se puede eliminar */}
+      {blockDeleteTipo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 overflow-hidden">
+            <div className="flex items-center gap-3 px-5 py-4 bg-red-50 border-b border-red-100">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-red-600">
+                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-red-800">No se puede eliminar el tipo</h2>
+                <p className="text-xs text-red-600 mt-0.5">
+                  <span className="font-semibold">"{blockDeleteTipo.nombre}"</span> tiene equipos asignados
+                </p>
+              </div>
+            </div>
+            <div className="px-5 py-4">
+              <p className="text-xs text-slate-500 mb-2">
+                Existen {allEquipos.current.filter(e => e.tipo.nombre === blockDeleteTipo.nombre).length} equipo(s) de este tipo.
+                Reasígnalos a otro tipo o elimínalos antes de continuar.
+              </p>
+            </div>
+            <div className="flex px-5 py-4 border-t border-slate-100">
+              <button
+                onClick={() => setBlockDeleteTipo(null)}
+                className="flex-1 px-4 py-2 rounded-lg text-sm font-medium border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: tipo con categorías vacías — advertencia antes de eliminar */}
+      {warnDeleteTipo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 overflow-hidden">
+            <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-600">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-slate-800">Eliminar tipo</h2>
+                <p className="text-xs text-slate-500 mt-0.5">Esta acción no se puede deshacer</p>
+              </div>
+            </div>
+            <div className="px-5 py-4">
+              <p className="text-sm text-slate-600 mb-3">
+                ¿Estás seguro de eliminar <span className="font-semibold text-slate-800">"{warnDeleteTipo.nombre}"</span>?
+              </p>
+              <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                <p className="text-xs text-amber-700 font-medium">Se eliminarán también {warnDeleteTipo.categorias.length} categoría{warnDeleteTipo.categorias.length !== 1 ? 's' : ''} vacía{warnDeleteTipo.categorias.length !== 1 ? 's' : ''}:</p>
+                <ul className="mt-1 space-y-0.5">
+                  {warnDeleteTipo.categorias.map(c => (
+                    <li key={c.id} className="text-xs text-amber-600">• {c.nombre}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+            <div className="flex gap-2 px-5 py-4 border-t border-slate-100">
+              <button
+                onClick={() => executeDeleteTipo(warnDeleteTipo)}
+                disabled={isDeletingTipo}
+                className="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-red-600 hover:bg-red-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isDeletingTipo ? 'Eliminando…' : 'Eliminar tipo'}
+              </button>
+              <button
+                onClick={() => setWarnDeleteTipo(null)}
+                disabled={isDeletingTipo}
+                className="flex-1 px-4 py-2 rounded-lg text-sm font-medium border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: tipo sin categorías — confirmación simple */}
+      {confirmDeleteTipo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 overflow-hidden">
+            <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-red-600">
+                  <polyline points="3 6 5 6 21 6"/>
+                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                  <path d="M10 11v6"/><path d="M14 11v6"/>
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-slate-800">Eliminar tipo</h2>
+                <p className="text-xs text-slate-500 mt-0.5">Esta acción no se puede deshacer</p>
+              </div>
+            </div>
+            <div className="px-5 py-4">
+              <p className="text-sm text-slate-600">
+                ¿Estás seguro de eliminar el tipo{' '}
+                <span className="font-semibold text-slate-800">"{confirmDeleteTipo.nombre}"</span>?
+              </p>
+            </div>
+            <div className="flex gap-2 px-5 py-4 border-t border-slate-100">
+              <button
+                onClick={() => executeDeleteTipo(confirmDeleteTipo)}
+                disabled={isDeletingTipo}
+                className="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-red-600 hover:bg-red-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isDeletingTipo ? 'Eliminando…' : 'Eliminar'}
+              </button>
+              <button
+                onClick={() => setConfirmDeleteTipo(null)}
+                disabled={isDeletingTipo}
+                className="flex-1 px-4 py-2 rounded-lg text-sm font-medium border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: gestionar tipos */}
+      {gestionarOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 overflow-hidden">
+
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+              <div>
+                <h2 className="text-sm font-bold text-slate-800">Gestionar tipos</h2>
+                <p className="text-xs text-slate-500 mt-0.5">{tipos.length} tipo{tipos.length !== 1 ? 's' : ''} registrado{tipos.length !== 1 ? 's' : ''}</p>
+              </div>
+              <button
+                onClick={() => setGestionarOpen(false)}
+                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+
+            <div className="divide-y divide-slate-100 max-h-96 overflow-y-auto">
+              {tipos.map(t => {
+                const totalEq = allEquipos.current.filter(e => e.tipo.nombre === t.nombre).length;
+                return (
+                  <div key={t.id} className="flex items-center gap-4 px-5 py-3.5">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-slate-800">
+                        {TIPO_LABEL[t.nombre] ?? t.nombre.replace(/_/g, ' ')}
+                      </p>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        {t.categorias.length} categoría{t.categorias.length !== 1 ? 's' : ''}
+                        {' · '}
+                        {totalEq} equipo{totalEq !== 1 ? 's' : ''}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => { setGestionarOpen(false); handleDeleteTipo(t); }}
+                      title="Eliminar tipo"
+                      className="flex-shrink-0 p-2 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="3 6 5 6 21 6"/>
+                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                        <path d="M10 11v6"/><path d="M14 11v6"/>
+                      </svg>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="px-5 py-4 border-t border-slate-100">
+              <button
+                onClick={() => setGestionarOpen(false)}
+                className="w-full px-4 py-2 rounded-lg text-sm font-medium border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
+              >
+                Cerrar
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* Header */}
       <div className="flex items-end justify-between flex-shrink-0">
@@ -307,21 +706,65 @@ export default function CategoriasSection({ onShowToast }: CategoriasSectionProp
         </button>
       </div>
 
-      {/* Tipo tabs */}
-      <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit flex-shrink-0">
-        {TIPO_NOMBRES.map(nombre => (
+      {/* Tipo tabs + crear nuevo tipo */}
+      <div className="flex items-center gap-3 flex-shrink-0 flex-wrap">
+        <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
+          {tipos.map(t => (
+            <button
+              key={t.nombre}
+              onClick={() => handleTipoChange(t.nombre)}
+              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                tipoActivo === t.nombre
+                  ? 'bg-white shadow-sm text-slate-800'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              {TIPO_LABEL[t.nombre] ?? t.nombre.replace(/_/g, ' ')}
+            </button>
+          ))}
+        </div>
+
+        {/* Botón gestionar tipos */}
+        <button
+          onClick={() => setGestionarOpen(true)}
+          title="Gestionar tipos"
+          className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-700 transition-colors"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/>
+            <path d="M12 2v2m0 16v2M2 12h2m16 0h2"/>
+          </svg>
+        </button>
+
+        {/* Formulario inline para nuevo tipo */}
+        <div className="flex gap-1.5 items-center">
+          <input
+            type="text"
+            value={addingTipo}
+            onChange={e => setAddingTipo(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') handleAddTipo(); }}
+            placeholder="Nuevo tipo..."
+            disabled={addingTipoLoad}
+            className="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 disabled:opacity-60 placeholder-slate-400 w-36"
+          />
           <button
-            key={nombre}
-            onClick={() => handleTipoChange(nombre)}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-              tipoActivo === nombre
-                ? 'bg-white shadow-sm text-slate-800'
-                : 'text-slate-500 hover:text-slate-700'
-            }`}
+            onClick={handleAddTipo}
+            disabled={addingTipoLoad || !addingTipo.trim()}
+            title="Crear tipo"
+            className="px-2.5 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-medium hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
-            {TIPO_LABEL[nombre] ?? nombre}
+            {addingTipoLoad ? (
+              <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+              </svg>
+            ) : (
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+            )}
           </button>
-        ))}
+        </div>
       </div>
 
       {/* Main layout */}
@@ -379,33 +822,6 @@ export default function CategoriasSection({ onShowToast }: CategoriasSectionProp
                 );
               }
 
-              if (action.type === 'deleting') {
-                return (
-                  <div key={cat.id} className="px-3 py-2.5 border-b border-slate-100 bg-red-50">
-                    <p className="text-xs text-red-700 font-semibold mb-1 truncate">¿Eliminar "{cat.nombre}"?</p>
-                    {count > 0 && (
-                      <p className="text-[11px] text-red-500 mb-1.5">
-                        Tiene {count} equipo{count !== 1 ? 's' : ''} asignado{count !== 1 ? 's' : ''}.
-                      </p>
-                    )}
-                    <div className="flex gap-1.5">
-                      <button
-                        onClick={() => handleDeleteConfirm(cat)}
-                        className="flex-1 text-xs py-1 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 transition-colors"
-                      >
-                        Eliminar
-                      </button>
-                      <button
-                        onClick={() => setAction(cat.id, { type: 'idle' })}
-                        className="flex-1 text-xs py-1 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-                  </div>
-                );
-              }
-
               // Normal row
               return (
                 <button
@@ -437,7 +853,11 @@ export default function CategoriasSection({ onShowToast }: CategoriasSectionProp
                         </svg>
                       </button>
                       <button
-                        onClick={e => { e.stopPropagation(); setAction(cat.id, { type: 'deleting' }); }}
+                        onClick={e => {
+                          e.stopPropagation();
+                          if (count > 0) setBlockDeleteCat(cat);
+                          else setConfirmDeleteCat(cat);
+                        }}
                         title="Eliminar"
                         className="p-1 rounded hover:bg-red-100 text-slate-400 hover:text-red-600 transition-colors"
                       >

@@ -4,16 +4,22 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Environment variables
-.env*
+# Environment variables — NUNCA subir al repo
+.env
+.env.local
+.env.production
+.env.development
 
 # Build outputs
 dist/
 build/
 
-# Database
+# Database y backups — nunca subir al repo
 *.db
 *.sqlite
+*.sql
+*.xlsx
+*.xls
 
 # OS
 .DS_Store

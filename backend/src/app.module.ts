@@ -10,6 +10,7 @@ import { CategoriasModule } from './categorias/categorias.module';
 import { BitacorasModule } from './bitacoras/bitacoras.module';
 import { ClientesModule } from './clientes/clientes.module';
 import { CleanupModule } from './cleanup/cleanup.module';
+import { R2Module } from './r2/r2.module';
 
 @Module({
   imports: [
@@ -47,6 +48,12 @@ import { CleanupModule } from './cleanup/cleanup.module';
         // Redis
         REDIS_HOST: Joi.string().default('localhost'),
         REDIS_PORT: Joi.number().default(6379),
+
+        // Cloudflare R2
+        R2_ACCOUNT_ID:     Joi.string().required(),
+        R2_ACCESS_KEY_ID:  Joi.string().required(),
+        R2_SECRET_ACCESS_KEY: Joi.string().required(),
+        R2_BUCKET:         Joi.string().required(),
       }),
       validationOptions: {
         abortEarly: false,
@@ -61,6 +68,7 @@ import { CleanupModule } from './cleanup/cleanup.module';
     BitacorasModule,
     ClientesModule,
     CleanupModule,
+    R2Module,
   ],
 })
 export class AppModule {}

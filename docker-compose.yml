@@ -43,6 +43,10 @@ services:
       PORT: ${PORT}
       NODE_ENV: ${NODE_ENV}
       FRONTEND_URL: ${FRONTEND_URL}
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
+      R2_BUCKET: ${R2_BUCKET}
     ports:
       - "4000:4000"
     depends_on:

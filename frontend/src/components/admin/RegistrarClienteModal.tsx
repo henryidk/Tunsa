@@ -60,30 +60,15 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
     if (e.target === e.currentTarget && !isSaving) handleClose();
   };
 
-  const handleSaveWithoutDoc = async () => {
-    const dpiClean = form.dpi.replace(/\D/g, '');
-    setConfirmSinDoc(false);
-    setIsSaving(true);
-    setApiError(null);
-    try {
-      const cliente = await clientesService.create({
-        nombre:   form.nombre.trim(),
-        dpi:      dpiClean,
-        telefono: form.telefono.trim() || undefined,
-      });
-      onSave(cliente);
-      handleClose();
-    } catch (err: unknown) {
-      const msg =
-        err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
-          : undefined;
-      setApiError(msg ?? 'Ocurrió un error al registrar el cliente.');
-      setStep(1);
-    } finally {
-      setIsSaving(false);
+  const extractApiError = (err: unknown): string => {
+    if (err && typeof err === 'object' && 'response' in err) {
+      const msg = (err as { response?: { data?: { message?: string } } }).response?.data?.message;
+      if (msg) return msg;
     }
+    return 'Ocurrió un error inesperado.';
   };
+
+  const handleSaveWithoutDoc = () => registrarCliente(false);
 
   const handleClose = () => {
     setStep(1);
@@ -104,11 +89,9 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
     setStep(2);
   };
 
-  const handleSave = async () => {
+  const registrarCliente = async (conDocumento: boolean) => {
     const dpiClean = form.dpi.replace(/\D/g, '');
-
-    if (!file) { setConfirmSinDoc(true); return; }
-
+    setConfirmSinDoc(false);
     setIsSaving(true);
     setApiError(null);
 
@@ -118,18 +101,32 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
         dpi:      dpiClean,
         telefono: form.telefono.trim() || undefined,
       });
+
+      if (conDocumento && file) {
+        try {
+          await clientesService.uploadDocumento(cliente.id, file);
+          cliente.documentoKey = `clientes/${cliente.id}/documento.pdf`;
+        } catch {
+          // Cliente creado pero falló el upload — registrar sin doc y avisar
+          onSave(cliente);
+          handleClose();
+          return;
+        }
+      }
+
       onSave(cliente);
       handleClose();
     } catch (err: unknown) {
-      const msg =
-        err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
-          : undefined;
-      setApiError(msg ?? 'Ocurrió un error al registrar el cliente.');
+      setApiError(extractApiError(err));
       setStep(1);
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleSave = async () => {
+    if (!file) { setConfirmSinDoc(true); return; }
+    await registrarCliente(true);
   };
 
   const handleFilePick = (picked: File | null | undefined) => {

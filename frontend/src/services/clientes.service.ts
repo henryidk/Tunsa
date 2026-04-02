@@ -1,17 +1,18 @@
 import { api } from './auth.service';
 
 export interface Cliente {
-  id:        string;   // CLI-0001
-  nombre:    string;
-  dpi:       string;
-  telefono?: string | null;
-  createdAt: string;
-  updatedAt: string;
+  id:           string;   // CLI-0001
+  nombre:       string;
+  dpi:          string;
+  telefono?:    string | null;
+  documentoKey: string | null;
+  createdAt:    string;
+  updatedAt:    string;
 }
 
 interface CreateClienteData {
-  nombre:   string;
-  dpi:      string;
+  nombre:    string;
+  dpi:       string;
   telefono?: string;
 }
 
@@ -35,5 +36,21 @@ export const clientesService = {
 
   async remove(id: string): Promise<void> {
     await api.delete(`/clientes/${id}`);
+  },
+
+  async uploadDocumento(clienteId: string, file: File): Promise<{ documentoKey: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await api.post<{ documentoKey: string }>(
+      `/clientes/${clienteId}/documento`,
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    );
+    return res.data;
+  },
+
+  async getDocumentoUrl(clienteId: string): Promise<string> {
+    const res = await api.get<{ url: string }>(`/clientes/${clienteId}/documento`);
+    return res.data.url;
   },
 };

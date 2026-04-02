@@ -161,12 +161,13 @@ model Bitacora {
 // ==================== CLIENTES ====================
 
 model Cliente {
-  id        String   @id  // CLI-0001, CLI-0042 — auto-generado por el servicio
-  nombre    String
-  dpi       String   @unique
-  telefono  String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id  // CLI-0001, CLI-0042 — auto-generado por el servicio
+  nombre       String
+  dpi          String   @unique
+  telefono     String?
+  documentoKey String?  // clave del objeto en R2: "clientes/CLI-0001/documento.pdf"
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@map("clientes")
   @@index([nombre])

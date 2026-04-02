@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import type { Equipo } from '../../../types/equipo.types';
-import { TIPO_LABEL, TIPO_BADGE } from '../../../types/equipo.types';
+import { TIPO_BADGE } from '../../../types/equipo.types';
 import { useEquipos } from '../../../hooks/useEquipos';
 import { useCategorias } from '../../../hooks/useCategorias';
 import { equiposService } from '../../../services/equipos.service';
@@ -161,7 +161,7 @@ export default function EquiposSection({ onShowToast }: EquiposSectionProps) {
           { label: 'Equipos activos',  value: activos.length,       color: 'text-indigo-600',  bg: 'bg-indigo-50' },
           // Tarjetas por tipo — dinámicas, soportan tipos nuevos automáticamente
           ...[...new Set(activos.map(e => e.tipo.nombre))].map(nombre => ({
-            label: TIPO_LABEL[nombre] ?? nombre.replace(/_/g, ' '),
+            label: nombre.replace(/_/g, ' '),
             value: activos.filter(e => e.tipo.nombre === nombre).length,
             color: nombre === 'LIVIANA' ? 'text-blue-600' : nombre === 'PESADA' ? 'text-amber-600' : 'text-slate-600',
             bg:    nombre === 'LIVIANA' ? 'bg-blue-50'   : nombre === 'PESADA' ? 'bg-amber-50'  : 'bg-slate-50',
@@ -227,7 +227,7 @@ export default function EquiposSection({ onShowToast }: EquiposSectionProps) {
           <option value="">Todos los tipos</option>
           {[...new Set(equipos.map(e => e.tipo.nombre))].map(nombre => (
             <option key={nombre} value={nombre}>
-              {TIPO_LABEL[nombre] ?? nombre.replace(/_/g, ' ')}
+              {nombre.replace(/_/g, ' ')}
             </option>
           ))}
         </select>
@@ -322,7 +322,7 @@ export default function EquiposSection({ onShowToast }: EquiposSectionProps) {
                   {/* Tipo */}
                   <td className="px-4 py-3">
                     <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold ${TIPO_BADGE[e.tipo.nombre] ?? 'bg-slate-100 text-slate-600'}`}>
-                      {TIPO_LABEL[e.tipo.nombre] ?? e.tipo.nombre}
+                      {e.tipo.nombre.replace(/_/g, ' ')}
                     </span>
                   </td>
 

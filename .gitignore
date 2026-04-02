@@ -21,6 +21,9 @@ build/
 *.xlsx
 *.xls
 
+# Archivos locales de trabajo (capturas, documentos, etc.)
+varios/
+
 # OS
 .DS_Store
 Thumbs.db

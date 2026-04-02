@@ -27,13 +27,8 @@ const C = {
 
 // ── Labels de tipo — clave para futuro: cualquier tipo nuevo no mapeado
 //    usa su propio nombre como fallback ────────────────────────────────────
-const TIPO_LABEL_FULL: Record<string, string> = {
-  LIVIANA:    'MAQUINARIA LIVIANA',
-  PESADA:     'MAQUINARIA PESADA',
-  USO_PROPIO: 'EQUIPO USO PROPIO',
-};
 function tipoLabel(nombre: string): string {
-  return TIPO_LABEL_FULL[nombre] ?? nombre.replace(/_/g, ' ');
+  return nombre.replace(/_/g, ' ');
 }
 
 // Mismo orden que equipos.pdf.ts:
@@ -254,24 +249,40 @@ export function generarReporteCategorias(tipos: TipoAdmin[], equipos: Equipo[]):
     { label: 'TOTAL ACTIVO', cats: tipoStats.reduce((s, t) => s + t.cats, 0), count: totalEquipos, total: totalGeneral },
   ];
 
-  const cardW = (pageWidth - 28 - (allCards.length - 1) * 3) / allCards.length;
-  allCards.forEach((c, i) => {
-    const x = 14 + i * (cardW + 3);
-    const isTotal = i === allCards.length - 1;
-    doc.setFillColor(...(isTotal ? C.sectionBg : C.totalBg));
-    doc.roundedRect(x, y, cardW, 16, 1, 1, 'F');
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(isTotal ? 8 : 7.5);
-    doc.setTextColor(...(isTotal ? C.headerText : C.totalText));
-    doc.text(c.label, x + 3, y + 5);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(6.8);
-    doc.text(`${c.cats} categoría${c.cats !== 1 ? 's' : ''} · ${c.count} equipo${c.count !== 1 ? 's' : ''}`, x + 3, y + 10);
-    doc.setFont('courier', 'bold');
-    doc.setFontSize(6.5);
-    doc.text(fMoneda(c.total), x + cardW - 3, y + 10, { align: 'right' });
+  // Máximo 4 tarjetas por fila para evitar que se compriman con muchos tipos
+  const MAX_PER_ROW = 4;
+  const CARD_H = 16;
+  const CARD_GAP = 3;
+  const cardRows: typeof allCards[] = [];
+  for (let i = 0; i < allCards.length; i += MAX_PER_ROW) {
+    cardRows.push(allCards.slice(i, i + MAX_PER_ROW));
+  }
+
+  cardRows.forEach((rowCards, rowIdx) => {
+    const rowY   = y + rowIdx * (CARD_H + CARD_GAP);
+    const cardW  = (pageWidth - 28 - (rowCards.length - 1) * CARD_GAP) / rowCards.length;
+    rowCards.forEach((c, colIdx) => {
+      const globalIdx = rowIdx * MAX_PER_ROW + colIdx;
+      const isTotal   = globalIdx === allCards.length - 1;
+      const x = 14 + colIdx * (cardW + CARD_GAP);
+      doc.setFillColor(...(isTotal ? C.sectionBg : C.totalBg));
+      doc.roundedRect(x, rowY, cardW, CARD_H, 1, 1, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(isTotal ? 8 : 7.5);
+      doc.setTextColor(...(isTotal ? C.headerText : C.totalText));
+      // Truncar label si es más largo que el ancho disponible
+      const maxLabelW = cardW - 6;
+      const label = doc.splitTextToSize(c.label, maxLabelW)[0] as string;
+      doc.text(label, x + 3, rowY + 5);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.8);
+      doc.text(`${c.cats} cat. · ${c.count} equipo${c.count !== 1 ? 's' : ''}`, x + 3, rowY + 10);
+      doc.setFont('courier', 'bold');
+      doc.setFontSize(6.5);
+      doc.text(fMoneda(c.total), x + cardW - 3, rowY + 10, { align: 'right' });
+    });
   });
-  y += 20;
+  y += cardRows.length * (CARD_H + CARD_GAP) + 2;
 
   // ── Secciones dinámicas por tipo → categoría ─────────────────────────────
   for (const tipo of sortTipos(tipos)) {

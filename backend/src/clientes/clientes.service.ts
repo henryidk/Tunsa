@@ -50,10 +50,23 @@ export class ClientesService {
     });
   }
 
-  async findAll() {
-    return this.prisma.cliente.findMany({
-      orderBy: { createdAt: 'desc' },
-    });
+  async findAll(page = 1, pageSize = 200) {
+    const skip = (page - 1) * pageSize;
+    const [clientes, total] = await Promise.all([
+      this.prisma.cliente.findMany({
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: pageSize,
+      }),
+      this.prisma.cliente.count(),
+    ]);
+    return {
+      data:       clientes,
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    };
   }
 
   async findOne(id: string) {

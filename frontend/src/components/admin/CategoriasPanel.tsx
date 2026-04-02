@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import type { ChangeEvent, KeyboardEvent } from 'react';
 import { categoriasService } from '../../services/categorias.service';
 import type { TipoAdmin, CategoriaAdmin } from '../../services/categorias.service';
-import { TIPO_LABEL, TIPO_BADGE } from '../../types/equipo.types';
+import { TIPO_BADGE } from '../../types/equipo.types';
 
 interface CategoriasPanelProps {
   open:                boolean;
@@ -166,7 +166,7 @@ export default function CategoriasPanel({ open, onClose, onCategoriasChanged }: 
                 }`}
               >
                 <span className={`inline-block w-2 h-2 rounded-full ${TIPO_BADGE[t.nombre]?.split(' ')[0] ?? 'bg-slate-300'}`} />
-                {TIPO_LABEL[t.nombre] ?? t.nombre}
+                {t.nombre.replace(/_/g, ' ')}
                 <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
                   tabIdx === i ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-500'
                 }`}>
@@ -303,7 +303,7 @@ export default function CategoriasPanel({ open, onClose, onCategoriasChanged }: 
                 onChange={(e: ChangeEvent<HTMLInputElement>) => { setNewNombre(e.target.value); setAddingErr(null); }}
                 onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') handleAdd(); }}
                 disabled={isBusy}
-                placeholder={`Nueva categoría para ${TIPO_LABEL[tipoActivo.nombre] ?? tipoActivo.nombre}...`}
+                placeholder={`Nueva categoría para ${tipoActivo.nombre.replace(/_/g, ' ')}...`}
                 className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all disabled:opacity-60"
               />
               <button

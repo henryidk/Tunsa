@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import type { ChangeEvent, MouseEvent } from 'react';
 import type { Equipo, TipoConCategorias } from '../../types/equipo.types';
-import { TIPO_LABEL } from '../../types/equipo.types';
 import { equiposService } from '../../services/equipos.service';
 
 interface AgregarEquipoModalProps {
@@ -153,7 +152,7 @@ export default function AgregarEquipoModal({ open, tipos, onClose, onCreated }: 
                   <option value="">Seleccionar tipo...</option>
                   {tipos.map(t => (
                     <option key={t.id} value={t.id}>
-                      {TIPO_LABEL[t.nombre] ?? t.nombre}
+                      {t.nombre.replace(/_/g, ' ')}
                     </option>
                   ))}
                 </select>

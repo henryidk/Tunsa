@@ -19,8 +19,8 @@ interface UpdateClienteData extends Partial<CreateClienteData> {}
 
 export const clientesService = {
   async getAll(): Promise<Cliente[]> {
-    const res = await api.get<Cliente[]>('/clientes');
-    return res.data;
+    const res = await api.get<{ data: Cliente[] }>('/clientes', { params: { pageSize: 500 } });
+    return res.data.data;
   },
 
   async create(data: CreateClienteData): Promise<Cliente> {

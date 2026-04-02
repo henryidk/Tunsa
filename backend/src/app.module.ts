@@ -2,12 +2,14 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import * as Joi from 'joi';
 import { PrismaModule } from './prisma/prisma.module';
+import { RedisModule } from './redis/redis.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { EquiposModule } from './equipos/equipos.module';
 import { CategoriasModule } from './categorias/categorias.module';
 import { BitacorasModule } from './bitacoras/bitacoras.module';
 import { ClientesModule } from './clientes/clientes.module';
+import { CleanupModule } from './cleanup/cleanup.module';
 
 @Module({
   imports: [
@@ -41,18 +43,24 @@ import { ClientesModule } from './clientes/clientes.module';
         // CORS
         FRONTEND_URL: Joi.string().uri().required()
           .messages({ 'any.required': 'FRONTEND_URL es obligatorio' }),
+
+        // Redis
+        REDIS_HOST: Joi.string().default('localhost'),
+        REDIS_PORT: Joi.number().default(6379),
       }),
       validationOptions: {
         abortEarly: false,
       },
     }),
     PrismaModule,
+    RedisModule,
     AuthModule,
     UsersModule,
     EquiposModule,
     CategoriasModule,
     BitacorasModule,
     ClientesModule,
+    CleanupModule,
   ],
 })
 export class AppModule {}

@@ -21,15 +21,15 @@ model Usuario {
 
   roleId        String
   role          Role     @relation(fields: [roleId], references: [id])
-  
+
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-  
+
   // Relaciones
   refreshTokens RefreshToken[]
-  
+
   @@map("usuarios")
-  @@index([username])
+  // @@index([username]) eliminado: @unique ya crea un índice, este era redundante
 }
 
 model Role {
@@ -46,7 +46,7 @@ model Role {
 
 model RefreshToken {
   id            String    @id @default(cuid())
-  token         String    @db.Text
+  token         String    @unique @db.Text  // @unique: O(1) lookup en revocación y validación
   
   userId        String
   user          Usuario   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -133,7 +133,7 @@ model Equipo {
   @@map("equipos")
   @@index([tipoId])
   @@index([categoriaId])
-  @@index([isActive])
+  @@index([isActive, createdAt])  // cubre ORDER BY isActive DESC, createdAt ASC (el @@index([isActive]) anterior era incompleto)
 }
 
 // ==================== BITÁCORAS ====================
@@ -151,7 +151,8 @@ model Bitacora {
   createdAt     DateTime @default(now())
 
   @@map("bitacoras")
-  @@index([modulo, createdAt])
+  @@index([createdAt, id])         // cursor pagination: ORDER BY createdAt DESC, id DESC — seek directo sin scan
+  @@index([modulo, createdAt, id]) // filtro por módulo + cursor pagination
   @@index([entidadId])
 }
 
@@ -191,4 +192,5 @@ model AuditLog {
   @@map("audit_logs")
   @@index([username, createdAt])
   @@index([action, createdAt])
+  @@index([userId, createdAt])     // consultas por usuario específico ordenadas por fecha
 }

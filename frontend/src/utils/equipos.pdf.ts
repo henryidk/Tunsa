@@ -3,7 +3,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { Equipo } from '../types/equipo.types';
-import { TIPO_LABEL } from '../types/equipo.types';
 
 // ── Colores ────────────────────────────────────────────────────────────────
 const C = {
@@ -178,15 +177,8 @@ function hasRenta(lista: Equipo[]): boolean {
   return lista.some(e => e.rentaDia != null || e.rentaSemana != null || e.rentaMes != null);
 }
 
-// Nombres completos para las secciones del PDF
-// Cualquier tipo nuevo no mapeado usa su nombre con guiones bajos reemplazados
-const TIPO_LABEL_SECTION: Record<string, string> = {
-  LIVIANA:    'MAQUINARIA LIVIANA',
-  PESADA:     'MAQUINARIA PESADA',
-  USO_PROPIO: 'EQUIPO USO PROPIO',
-};
 function tipoLabelSection(nombre: string): string {
-  return TIPO_LABEL_SECTION[nombre] ?? nombre.replace(/_/g, ' ');
+  return nombre.replace(/_/g, ' ');
 }
 
 // Orden de aparición: conocidos primero según lista, PESADA siempre al final,
@@ -238,7 +230,7 @@ export function generarReporteInventario(equipos: Equipo[]): void {
   const totalCount   = tipoStats.reduce((s, t) => s + t.count, 0);
 
   const cards = [
-    ...tipoStats.map(t => ({ label: TIPO_LABEL[t.nombre] ?? t.nombre.replace(/_/g, ' '), count: t.count, monto: t.total })),
+    ...tipoStats.map(t => ({ label: t.nombre.replace(/_/g, ' '), count: t.count, monto: t.total })),
     { label: 'TOTAL ACTIVO', count: totalCount, monto: totalGeneral },
   ];
   const cardW = (pageWidth - 28 - (cards.length - 1) * 3) / cards.length;
@@ -284,7 +276,7 @@ export function generarReporteInventario(equipos: Equipo[]): void {
       doc.setFont('helvetica', 'italic');
       doc.setFontSize(7);
       doc.setTextColor(...C.muted);
-      doc.text(TIPO_LABEL[nombre] ?? nombre.replace(/_/g, ' '), 16, y + 3);
+      doc.text(nombre.replace(/_/g, ' '), 16, y + 3);
       y += 5;
       y = drawTable(doc, tipoBajas, y, hasRenta(tipoBajas), true, pageWidth) + 4;
     }

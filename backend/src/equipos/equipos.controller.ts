@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Body, Query, UseGuards } from '@nestjs/common';
 import { EquiposService } from './equipos.service';
 import { CreateEquipoDto } from './dto/create-equipo.dto';
 import { UpdateEquipoDto } from './dto/update-equipo.dto';
@@ -16,8 +16,14 @@ export class EquiposController {
   constructor(private readonly equiposService: EquiposService) {}
 
   @Get()
-  findAll() {
-    return this.equiposService.findAll();
+  findAll(
+    @Query('page')     page?:     string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    return this.equiposService.findAll(
+      page     ? parseInt(page)     : 1,
+      pageSize ? parseInt(pageSize) : 200,
+    );
   }
 
   @Get(':id')

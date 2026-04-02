@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { ChangeEvent, MouseEvent } from 'react';
 import type { Equipo } from '../../types/equipo.types';
-import { TIPO_LABEL, TIPO_BADGE } from '../../types/equipo.types';
+import { TIPO_BADGE } from '../../types/equipo.types';
 import { equiposService } from '../../services/equipos.service';
 
 interface BajaEquipoModalProps {
@@ -83,7 +83,7 @@ export default function BajaEquipoModal({ equipo, open, onClose, onConfirm }: Ba
                 <span className="text-xs text-slate-400">{equipo.categoria.nombre}</span>
               )}
               <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${TIPO_BADGE[equipo.tipo.nombre] ?? 'bg-slate-100 text-slate-600'}`}>
-                {TIPO_LABEL[equipo.tipo.nombre] ?? equipo.tipo.nombre}
+                {equipo.tipo.nombre.replace(/_/g, ' ')}
               </span>
             </div>
           </div>

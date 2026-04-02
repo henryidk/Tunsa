@@ -2,6 +2,7 @@ import { Injectable, ConflictException, NotFoundException, BadRequestException }
 import { randomInt } from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
+import { UserCacheService } from '../redis/user-cache.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
@@ -46,7 +47,10 @@ const userSelect = {
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly userCache: UserCacheService,
+  ) {}
 
   async findByUsername(username: string) {
     return this.prisma.usuario.findUnique({
@@ -89,6 +93,9 @@ export class UsersService {
       data: { isActive },
       select: userSelect,
     });
+
+    // Invalidar cache — el estado activo/inactivo debe reflejarse en el próximo request
+    await this.userCache.invalidate(id);
 
     await this.prisma.bitacora.create({
       data: {
@@ -139,6 +146,9 @@ export class UsersService {
         changes.push({ campo: 'telefono', valorAnterior: prev, valorNuevo: next });
       }
     }
+
+    // Invalidar cache — username u otros datos pueden haber cambiado
+    await this.userCache.invalidate(id);
 
     if (changes.length > 0) {
       await this.prisma.bitacora.createMany({
@@ -204,6 +214,9 @@ export class UsersService {
       select: userSelect,
     });
 
+    // Invalidar cache — mustChangePassword cambia a true
+    await this.userCache.invalidate(id);
+
     await this.prisma.auditLog.create({
       data: {
         userId:    requestingUserId,
@@ -248,10 +261,15 @@ export class UsersService {
       data: { revoked: true, revokedAt: new Date() },
     });
 
-    return this.prisma.usuario.update({
+    const updated = await this.prisma.usuario.update({
       where: { id: userId },
       data: { password: hashedPassword, mustChangePassword: false },
       select: userSelect,
     });
+
+    // Invalidar cache — mustChangePassword cambia a false
+    await this.userCache.invalidate(userId);
+
+    return updated;
   }
 }

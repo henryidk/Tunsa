@@ -70,6 +70,12 @@ export const categoriasService = {
     await api.delete(`/categorias/${id}`);
   },
 
+  /** PATCH /categorias/tipos/:id */
+  async updateTipo(id: string, nombre: string): Promise<TipoAdmin> {
+    const res = await api.patch<TipoAdmin>(`/categorias/tipos/${id}`, { nombre });
+    return res.data;
+  },
+
   /** DELETE /categorias/tipos/:id */
   async deleteTipo(id: string): Promise<void> {
     await api.delete(`/categorias/tipos/${id}`);

@@ -2,11 +2,15 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
+import compression from 'compression';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Comprimir todas las respuestas HTTP (gzip) — reduce tamaño ~70-80%
+  app.use(compression());
 
   // Headers de seguridad
   app.use(helmet());
@@ -38,6 +42,6 @@ async function bootstrap() {
   const port = process.env.PORT || 4000;
   await app.listen(port);
   
-  console.log(`🚀 Servidor corriendo en http://localhost:${port}/api`);
+  console.log(` Servidor corriendo en http://localhost:${port}/api`);
 }
 bootstrap();

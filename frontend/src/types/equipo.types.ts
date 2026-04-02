@@ -42,13 +42,6 @@ export interface Equipo {
   updatedAt:   string;
 }
 
-// Mapas de presentación indexados por tipo.nombre
-export const TIPO_LABEL: Record<string, string> = {
-  LIVIANA:    'Maq. Liviana',
-  PESADA:     'Maq. Pesada',
-  USO_PROPIO: 'Uso Propio',
-};
-
 export const TIPO_BADGE: Record<string, string> = {
   LIVIANA:    'bg-blue-100 text-blue-700',
   PESADA:     'bg-amber-100 text-amber-700',

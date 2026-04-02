@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { BitacorasService } from './bitacoras.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -10,9 +10,21 @@ import { Roles } from '../auth/decorators/roles.decorator';
 export class BitacorasController {
   constructor(private readonly bitacorasService: BitacorasService) {}
 
+  /** GET /bitacoras/stats — conteos globales */
+  @Get('stats')
+  @Roles('admin')
+  getStats() {
+    return this.bitacorasService.getStats();
+  }
+
+  /** GET /bitacoras?cursor=&modulo=&search= */
   @Get()
   @Roles('admin')
-  findAll() {
-    return this.bitacorasService.findAll();
+  findAll(
+    @Query('cursor') cursor?: string,
+    @Query('modulo')  modulo?: string,
+    @Query('search')  search?: string,
+  ) {
+    return this.bitacorasService.findAll({ cursor, modulo, search });
   }
 }

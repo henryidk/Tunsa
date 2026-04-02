@@ -85,12 +85,24 @@ export class EquiposService {
 
   // ── CRUD ─────────────────────────────────────────────────────────────────
 
-  async findAll() {
-    const equipos = await this.prisma.equipo.findMany({
-      include: EQUIPO_INCLUDE,
-      orderBy: [{ isActive: 'desc' }, { createdAt: 'asc' }],
-    });
-    return equipos.map(e => this.serialize(e));
+  async findAll(page = 1, pageSize = 200) {
+    const skip  = (page - 1) * pageSize;
+    const [equipos, total] = await Promise.all([
+      this.prisma.equipo.findMany({
+        include:  EQUIPO_INCLUDE,
+        orderBy:  [{ isActive: 'desc' }, { createdAt: 'asc' }],
+        skip,
+        take: pageSize,
+      }),
+      this.prisma.equipo.count(),
+    ]);
+    return {
+      data:       equipos.map(e => this.serialize(e)),
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    };
   }
 
   async findById(id: string) {

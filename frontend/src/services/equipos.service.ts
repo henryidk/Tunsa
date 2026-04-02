@@ -3,7 +3,7 @@ import { api } from './auth.service';
 
 export interface BitacoraEntry {
   id:            string;
-  modulo:        'equipo' | 'usuario';
+  modulo:        string;
   entidadId:     string;
   entidadNombre: string;
   campo:         string;
@@ -11,6 +11,23 @@ export interface BitacoraEntry {
   valorNuevo:    string | null;
   realizadoPor:  string;
   createdAt:     string;
+}
+
+export interface BitacoraPageParams {
+  cursor?:  string;
+  modulo?:  string;
+  search?:  string;
+}
+
+export interface BitacoraPageResult {
+  data:       BitacoraEntry[];
+  nextCursor: string | null;
+}
+
+export interface BitacoraStats {
+  total:     number;
+  hoy:       number;
+  porModulo: Record<string, number>;
 }
 
 interface CreateEquipoData {
@@ -37,8 +54,10 @@ interface BajaEquipoData {
 
 export const equiposService = {
   async getAll(): Promise<Equipo[]> {
-    const res = await api.get<Equipo[]>('/equipos');
-    return res.data;
+    // pageSize=500 carga todos los equipos de una ferretería en una sola llamada
+    // manteniendo siempre un LIMIT en la consulta SQL
+    const res = await api.get<{ data: Equipo[] }>('/equipos', { params: { pageSize: 500 } });
+    return res.data.data;
   },
 
   async create(data: CreateEquipoData): Promise<Equipo> {
@@ -61,8 +80,13 @@ export const equiposService = {
     return res.data;
   },
 
-  async getBitacoras(): Promise<BitacoraEntry[]> {
-    const res = await api.get<BitacoraEntry[]>('/bitacoras');
+  async getBitacoraStats(): Promise<BitacoraStats> {
+    const res = await api.get<BitacoraStats>('/bitacoras/stats');
+    return res.data;
+  },
+
+  async getBitacoras(params: BitacoraPageParams = {}): Promise<BitacoraPageResult> {
+    const res = await api.get<BitacoraPageResult>('/bitacoras', { params });
     return res.data;
   },
 };

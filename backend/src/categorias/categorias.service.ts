@@ -155,9 +155,45 @@ export class CategoriasService {
     return nueva;
   }
 
+  /** PATCH /categorias/tipos/:id — renombra un tipo */
+  async updateTipo(id: string, nombre: string, realizadoPor: string) {
+    const tipo = await this.prisma.tipoEquipo.findUnique({ where: { id } });
+    if (!tipo) throw new NotFoundException(`Tipo no encontrado`);
+
+    const normalizado = nombre.trim().toUpperCase().replace(/\s+/g, '_');
+
+    const duplicado = await this.prisma.tipoEquipo.findFirst({
+      where: { nombre: normalizado, NOT: { id } },
+    });
+    if (duplicado) throw new ConflictException(`Ya existe un tipo con el nombre "${normalizado}"`);
+
+    const actualizado = await this.prisma.tipoEquipo.update({
+      where: { id },
+      data:  { nombre: normalizado },
+      include: { categorias: { include: { _count: { select: { equipos: true } } } } },
+    });
+
+    await this.prisma.bitacora.create({
+      data: {
+        modulo:        'tipo_equipo',
+        entidadId:     id,
+        entidadNombre: actualizado.nombre,
+        campo:         'nombre',
+        valorAnterior: tipo.nombre,
+        valorNuevo:    actualizado.nombre,
+        realizadoPor,
+      },
+    });
+
+    return actualizado;
+  }
+
   /** PATCH /categorias/:id */
-  async update(id: string, dto: UpdateCategoriaDto) {
-    const cat = await this.prisma.categoria.findUnique({ where: { id } });
+  async update(id: string, dto: UpdateCategoriaDto, realizadoPor: string) {
+    const cat = await this.prisma.categoria.findUnique({
+      where:   { id },
+      include: { tipo: { select: { nombre: true } } },
+    });
     if (!cat) throw new NotFoundException(`Categoría no encontrada`);
 
     const duplicado = await this.prisma.categoria.findFirst({
@@ -165,11 +201,25 @@ export class CategoriasService {
     });
     if (duplicado) throw new ConflictException(`Ya existe la categoría "${dto.nombre}" en este tipo`);
 
-    return this.prisma.categoria.update({
+    const actualizada = await this.prisma.categoria.update({
       where:   { id },
       data:    { nombre: dto.nombre },
       include: { _count: { select: { equipos: true } } },
     });
+
+    await this.prisma.bitacora.create({
+      data: {
+        modulo:        'categoria',
+        entidadId:     id,
+        entidadNombre: `${actualizada.nombre} (${cat.tipo.nombre})`,
+        campo:         'nombre',
+        valorAnterior: cat.nombre,
+        valorNuevo:    actualizada.nombre,
+        realizadoPor,
+      },
+    });
+
+    return actualizada;
   }
 
   /** DELETE /categorias/:id */

@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import type { ChangeEvent, MouseEvent } from 'react';
 import type { Equipo, TipoConCategorias } from '../../types/equipo.types';
-import { TIPO_LABEL } from '../../types/equipo.types';
 import { equiposService } from '../../services/equipos.service';
 
 interface EditarEquipoModalProps {
@@ -172,7 +171,7 @@ export default function EditarEquipoModal({ equipo, open, tipos, onClose, onSave
                   className={`${inputCls} bg-white`}>
                   {tipos.map(t => (
                     <option key={t.id} value={t.id}>
-                      {TIPO_LABEL[t.nombre] ?? t.nombre}
+                      {t.nombre.replace(/_/g, ' ')}
                     </option>
                   ))}
                 </select>
@@ -262,6 +261,7 @@ export default function EditarEquipoModal({ equipo, open, tipos, onClose, onSave
     {confirmarTipo && (
       <div className="fixed inset-0 z-[2100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
         <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 flex flex-col gap-4">
+
           <div className="flex items-start gap-3">
             <div className="flex-shrink-0 w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-600">
@@ -272,10 +272,10 @@ export default function EditarEquipoModal({ equipo, open, tipos, onClose, onSave
             <div>
               <h3 className="font-bold text-slate-800 text-sm">¿Cambiar tipo de maquinaria?</h3>
               <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Estás moviendo el equipo{' '}
+                Estás moviendo{' '}
                 <span className="font-semibold text-slate-700">#{equipo.numeracion}</span> de{' '}
-                <span className="font-semibold text-slate-700">{TIPO_LABEL[equipo.tipo.nombre] ?? equipo.tipo.nombre}</span> a{' '}
-                <span className="font-semibold text-slate-700">{TIPO_LABEL[tipos.find(t => t.id === form.tipoId)?.nombre ?? ''] ?? form.tipoId}</span>.
+                <span className="font-semibold text-slate-700">{equipo.tipo.nombre.replace(/_/g, ' ')}</span> a{' '}
+                <span className="font-semibold text-slate-700">{tipoSeleccionado?.nombre.replace(/_/g, ' ')}</span>.
               </p>
               {equipo.categoriaId && (
                 <p className="text-xs text-amber-600 font-medium mt-2">
@@ -284,6 +284,33 @@ export default function EditarEquipoModal({ equipo, open, tipos, onClose, onSave
               )}
             </div>
           </div>
+
+          {/* Selector de categoría si el nuevo tipo tiene categorías */}
+          {categoriasDelTipo.length > 0 && (
+            <div className={`rounded-xl px-4 py-3 border ${form.categoriaId ? 'bg-slate-50 border-slate-200' : 'bg-amber-50 border-amber-200'}`}>
+              <p className="text-xs font-semibold text-slate-700 mb-2">
+                {form.categoriaId
+                  ? 'Categoría seleccionada'
+                  : 'Este tipo tiene categorías disponibles'}
+              </p>
+              {!form.categoriaId && (
+                <p className="text-xs text-amber-700 mb-2">
+                  El equipo quedará sin categoría si no seleccionas una.
+                </p>
+              )}
+              <select
+                value={form.categoriaId}
+                onChange={handleChange('categoriaId')}
+                className="w-full text-xs border border-slate-200 rounded-lg px-2.5 py-2 focus:outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-50 bg-white text-slate-800"
+              >
+                <option value="">Sin categoría</option>
+                {categoriasDelTipo.map(c => (
+                  <option key={c.id} value={c.id}>{c.nombre}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div className="flex gap-2 justify-end">
             <button
               onClick={() => setConfirmarTipo(false)}
@@ -298,6 +325,7 @@ export default function EditarEquipoModal({ equipo, open, tipos, onClose, onSave
               Sí, cambiar tipo
             </button>
           </div>
+
         </div>
       </div>
     )}

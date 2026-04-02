@@ -1,9 +1,8 @@
-// BitacorasSection.tsx — registro de cambios del sistema
+// BitacorasSection.tsx — registro de cambios del sistema (cursor-based pagination)
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { equiposService } from '../../../services/equipos.service';
-import type { BitacoraEntry } from '../../../services/equipos.service';
-import { TIPO_LABEL } from '../../../types/equipo.types';
+import type { BitacoraEntry, BitacoraStats } from '../../../services/equipos.service';
 
 const CAMPO_LABEL: Record<string, string> = {
   // equipos
@@ -25,7 +24,7 @@ const CAMPO_LABEL: Record<string, string> = {
   reset_password:  'Reseteo de contraseña',
   desactivar:      'Desactivación',
   activar:         'Activación',
-  // acciones genéricas (aplican a cualquier módulo)
+  // acciones genéricas
   eliminacion: 'Eliminación',
   creacion:    'Creación',
   renombrado:  'Renombrado',
@@ -41,14 +40,13 @@ const CAMPO_BADGE: Record<string, string> = {
   creacion:       'bg-green-50 text-green-700',
 };
 
-// Config de módulos conocidos — cualquier módulo nuevo no mapeado
-// usa un estilo neutro como fallback, nunca muestra datos incorrectos
 const MODULO_CONFIG: Record<string, { label: string; badge: string; stat: string }> = {
-  equipo:      { label: 'Equipo',    badge: 'bg-blue-50 text-blue-700',      stat: 'text-blue-600' },
-  usuario:     { label: 'Usuario',   badge: 'bg-violet-50 text-violet-700',  stat: 'text-violet-600' },
+  equipo:      { label: 'Equipo',    badge: 'bg-blue-50 text-blue-700',       stat: 'text-blue-600' },
+  usuario:     { label: 'Usuario',   badge: 'bg-violet-50 text-violet-700',   stat: 'text-violet-600' },
   categoria:   { label: 'Categoría', badge: 'bg-emerald-50 text-emerald-700', stat: 'text-emerald-600' },
-  tipo_equipo: { label: 'Tipo',      badge: 'bg-orange-50 text-orange-700',  stat: 'text-orange-600' },
+  tipo_equipo: { label: 'Tipo',      badge: 'bg-orange-50 text-orange-700',   stat: 'text-orange-600' },
 };
+
 function moduloDisplay(modulo: string) {
   return MODULO_CONFIG[modulo] ?? { label: modulo, badge: 'bg-slate-100 text-slate-600', stat: 'text-slate-600' };
 }
@@ -59,7 +57,7 @@ function formatValor(campo: string, valor: string | null): string {
     const n = parseFloat(valor);
     return isNaN(n) ? valor : `Q${n.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
-  if (campo === 'tipo') return TIPO_LABEL[valor] ?? valor;
+  if (campo === 'tipo') return valor.replace(/_/g, ' ');
   if (campo === 'fechaCompra') {
     const d = new Date(valor);
     return isNaN(d.getTime()) ? valor : d.toLocaleDateString('es-GT', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -76,49 +74,91 @@ function formatFechaHora(iso: string) {
 }
 
 export default function BitacorasSection() {
-  const [entradas, setEntradas]         = useState<BitacoraEntry[]>([]);
-  const [isLoading, setIsLoading]       = useState(true);
-  const [error, setError]               = useState<string | null>(null);
-  const [search, setSearch]             = useState('');
+  const [entradas,    setEntradas]    = useState<BitacoraEntry[]>([]);
+  const [stats,       setStats]       = useState<BitacoraStats | null>(null);
+  const [nextCursor,  setNextCursor]  = useState<string | null>(null);
+  const [isLoading,   setIsLoading]   = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [error,       setError]       = useState<string | null>(null);
+  const [search,      setSearch]      = useState('');
   const [filtroModulo, setFiltroModulo] = useState('');
 
+  // Ref para debounce del search
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // Cargar stats una sola vez al montar
   useEffect(() => {
-    equiposService.getBitacoras()
-      .then(data => setEntradas(data))
-      .catch(() => setError('No se pudo cargar el registro de cambios.'))
-      .finally(() => setIsLoading(false));
+    equiposService.getBitacoraStats()
+      .then(s => setStats(s))
+      .catch(() => {/* stats son decorativas, no bloquear */});
   }, []);
 
-  const filtradas = entradas.filter(e => {
-    if (filtroModulo && e.modulo !== filtroModulo) return false;
-    const q = search.toLowerCase();
-    if (!q) return true;
-    return (
-      e.entidadNombre.toLowerCase().includes(q)                   ||
-      (CAMPO_LABEL[e.campo] ?? e.campo).toLowerCase().includes(q) ||
-      e.realizadoPor.toLowerCase().includes(q)                    ||
-      (e.valorAnterior ?? '').toLowerCase().includes(q)           ||
-      (e.valorNuevo    ?? '').toLowerCase().includes(q)
-    );
-  });
+  // Cargar primera página cuando cambian los filtros
+  const loadFirstPage = useCallback(async (modulo: string, search: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const result = await equiposService.getBitacoras({
+        modulo:  modulo  || undefined,
+        search:  search  || undefined,
+      });
+      setEntradas(result.data);
+      setNextCursor(result.nextCursor);
+    } catch {
+      setError('No se pudo cargar el registro de cambios.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
-  const hoy = new Date().toLocaleDateString('es-GT');
-  const cambiosHoy = entradas.filter(e => new Date(e.createdAt).toLocaleDateString('es-GT') === hoy).length;
+  useEffect(() => {
+    loadFirstPage(filtroModulo, debouncedSearch);
+  }, [filtroModulo, debouncedSearch, loadFirstPage]);
 
-  // Conteo dinámico por módulo — soporta cualquier módulo nuevo automáticamente
-  const conteosPorModulo = useMemo(() => {
-    return entradas.reduce((acc, e) => {
-      acc[e.modulo] = (acc[e.modulo] ?? 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-  }, [entradas]);
+  // Debounce del input de búsqueda (400ms)
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => setDebouncedSearch(value), 400);
+  };
 
-  // Módulos presentes en los datos, en orden de config conocida + nuevos al final
-  const modulosPresentes = useMemo(() => {
-    const conocidos = Object.keys(MODULO_CONFIG).filter(m => conteosPorModulo[m]);
-    const nuevos    = Object.keys(conteosPorModulo).filter(m => !MODULO_CONFIG[m]);
-    return [...conocidos, ...nuevos];
-  }, [conteosPorModulo]);
+  // Limpiar timer al desmontar
+  useEffect(() => () => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+  }, []);
+
+  // Cargar siguiente página (cursor)
+  const handleLoadMore = async () => {
+    if (!nextCursor || isLoadingMore) return;
+    setIsLoadingMore(true);
+    try {
+      const result = await equiposService.getBitacoras({
+        cursor:  nextCursor,
+        modulo:  filtroModulo || undefined,
+        search:  debouncedSearch || undefined,
+      });
+      setEntradas(prev => [...prev, ...result.data]);
+      setNextCursor(result.nextCursor);
+    } catch {
+      // no bloquear — el usuario puede reintentar
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
+  const handleLimpiarFiltros = () => {
+    setSearch('');
+    setDebouncedSearch('');
+    setFiltroModulo('');
+  };
+
+  const modulosPresentes = stats
+    ? [
+        ...Object.keys(MODULO_CONFIG).filter(m => stats.porModulo[m]),
+        ...Object.keys(stats.porModulo).filter(m => !MODULO_CONFIG[m]),
+      ]
+    : [];
 
   return (
     <div>
@@ -128,14 +168,19 @@ export default function BitacorasSection() {
         <p className="text-sm text-slate-500 mt-1">Registro de cambios realizados en el sistema</p>
       </div>
 
-      {/* Stats — primeras 2 fijas, resto dinámico por módulo */}
+      {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
-          { label: 'Total de registros', value: entradas.length, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-          { label: 'Cambios hoy',        value: cambiosHoy,      color: 'text-emerald-600', bg: 'bg-emerald-50' },
+          { label: 'Total de registros', value: stats?.total  ?? '—', color: 'text-indigo-600',  bg: 'bg-indigo-50' },
+          { label: 'Cambios hoy',        value: stats?.hoy    ?? '—', color: 'text-emerald-600', bg: 'bg-emerald-50' },
           ...modulosPresentes.map(m => {
             const cfg = moduloDisplay(m);
-            return { label: `En ${cfg.label.toLowerCase()}s`, value: conteosPorModulo[m] ?? 0, color: cfg.stat, bg: cfg.badge.replace('text-', 'bg-').split(' ')[0] };
+            return {
+              label: `En ${cfg.label.toLowerCase()}s`,
+              value: stats?.porModulo[m] ?? 0,
+              color: cfg.stat,
+              bg:    cfg.badge.split(' ')[0],
+            };
           }),
         ].map(s => (
           <div key={s.label} className="bg-white border border-slate-200 rounded-xl px-4 py-3.5 shadow-sm">
@@ -155,11 +200,11 @@ export default function BitacorasSection() {
         {/* Filtro módulo */}
         <div className="flex bg-white border border-slate-200 rounded-lg overflow-hidden">
           {[
-            { id: '', label: 'Todos', count: entradas.length },
+            { id: '', label: 'Todos', count: stats?.total ?? null },
             ...modulosPresentes.map(m => ({
               id:    m,
               label: `${moduloDisplay(m).label}s`,
-              count: conteosPorModulo[m] ?? 0,
+              count: stats?.porModulo[m] ?? null,
             })),
           ].map(t => (
             <button key={t.id} onClick={() => setFiltroModulo(t.id)}
@@ -167,9 +212,11 @@ export default function BitacorasSection() {
                 filtroModulo === t.id ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-slate-600 hover:bg-slate-50'
               }`}>
               {t.label}
-              <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full ${
-                filtroModulo === t.id ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-500'
-              }`}>{t.count}</span>
+              {t.count !== null && (
+                <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full ${
+                  filtroModulo === t.id ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-500'
+                }`}>{t.count}</span>
+              )}
             </button>
           ))}
         </div>
@@ -183,14 +230,14 @@ export default function BitacorasSection() {
           <input
             type="search"
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={e => handleSearchChange(e.target.value)}
             placeholder="Buscar por nombre, campo, usuario..."
             className="pl-8 pr-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:border-indigo-400 min-w-[260px]"
           />
         </div>
 
         {(search || filtroModulo) && (
-          <button onClick={() => { setSearch(''); setFiltroModulo(''); }}
+          <button onClick={handleLimpiarFiltros}
             className="text-xs text-slate-500 hover:text-slate-700 underline transition-colors">
             Limpiar filtros
           </button>
@@ -217,63 +264,44 @@ export default function BitacorasSection() {
               {error && !isLoading && (
                 <tr><td colSpan={7} className="px-4 py-10 text-center text-sm text-red-500">{error}</td></tr>
               )}
-              {!isLoading && !error && filtradas.length === 0 && (
+              {!isLoading && !error && entradas.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-400">
                     {search || filtroModulo ? 'No se encontraron resultados.' : 'No hay cambios registrados aún.'}
                   </td>
                 </tr>
               )}
-              {!isLoading && !error && filtradas.map(e => {
+              {!isLoading && !error && entradas.map(e => {
                 const { fecha, hora } = formatFechaHora(e.createdAt);
                 const campoBadge = CAMPO_BADGE[e.campo] ?? 'bg-indigo-50 text-indigo-700';
                 return (
                   <tr key={e.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-
-                    {/* Fecha y hora */}
                     <td className="px-4 py-3 whitespace-nowrap">
                       <div className="text-xs font-medium text-slate-700">{fecha}</div>
                       <div className="text-[11px] text-slate-400 font-mono">{hora}</div>
                     </td>
-
-                    {/* Módulo */}
                     <td className="px-4 py-3 whitespace-nowrap">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold ${moduloDisplay(e.modulo).badge}`}>
                         {moduloDisplay(e.modulo).label}
                       </span>
                     </td>
-
-                    {/* Entidad */}
                     <td className="px-4 py-3 max-w-[180px]">
                       <span className="text-xs text-slate-700 line-clamp-2">{e.entidadNombre}</span>
                     </td>
-
-                    {/* Campo */}
                     <td className="px-4 py-3 whitespace-nowrap">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${campoBadge}`}>
                         {CAMPO_LABEL[e.campo] ?? e.campo}
                       </span>
                     </td>
-
-                    {/* Valor anterior */}
                     <td className="px-4 py-3 max-w-[150px]">
-                      <span className="text-xs text-slate-400 line-clamp-2">
-                        {formatValor(e.campo, e.valorAnterior)}
-                      </span>
+                      <span className="text-xs text-slate-400 line-clamp-2">{formatValor(e.campo, e.valorAnterior)}</span>
                     </td>
-
-                    {/* Valor nuevo */}
                     <td className="px-4 py-3 max-w-[150px]">
-                      <span className="text-xs font-medium text-slate-800 line-clamp-2">
-                        {formatValor(e.campo, e.valorNuevo)}
-                      </span>
+                      <span className="text-xs font-medium text-slate-800 line-clamp-2">{formatValor(e.campo, e.valorNuevo)}</span>
                     </td>
-
-                    {/* Realizado por */}
                     <td className="px-4 py-3 whitespace-nowrap">
                       <span className="text-xs font-mono text-slate-600">{e.realizadoPor}</span>
                     </td>
-
                   </tr>
                 );
               })}
@@ -281,12 +309,26 @@ export default function BitacorasSection() {
           </table>
         </div>
 
-        {!isLoading && !error && filtradas.length > 0 && (
-          <div className="px-4 py-2.5 border-t border-slate-100 bg-slate-50">
+        {/* Footer: conteo + cargar más */}
+        {!isLoading && !error && entradas.length > 0 && (
+          <div className="px-4 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between gap-4">
             <span className="text-xs text-slate-400">
-              {filtradas.length} {filtradas.length === 1 ? 'registro' : 'registros'}
-              {(search || filtroModulo) && ` de ${entradas.length} en total`}
+              Mostrando {entradas.length} registro{entradas.length !== 1 ? 's' : ''}
+              {nextCursor ? ' — hay más disponibles' : ' — todos los registros cargados'}
             </span>
+            {nextCursor && (
+              <button
+                onClick={handleLoadMore}
+                disabled={isLoadingMore}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isLoadingMore ? (
+                  <><svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>Cargando...</>
+                ) : (
+                  <>Cargar más</>
+                )}
+              </button>
+            )}
           </div>
         )}
       </div>

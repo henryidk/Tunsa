@@ -28,6 +28,16 @@ export class CategoriasController {
     return this.categoriasService.findTipos();
   }
 
+  /** PATCH /categorias/tipos/:id — renombra un tipo */
+  @Patch('tipos/:id')
+  updateTipo(
+    @Param('id') id: string,
+    @Body('nombre') nombre: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.categoriasService.updateTipo(id, nombre, user.username);
+  }
+
   /** DELETE /categorias/tipos/:id — elimina un tipo si no tiene equipos */
   @Delete('tipos/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -56,8 +66,12 @@ export class CategoriasController {
 
   /** PATCH /categorias/:id */
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateCategoriaDto) {
-    return this.categoriasService.update(id, dto);
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateCategoriaDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.categoriasService.update(id, dto, user.username);
   }
 
   /** DELETE /categorias/:id */

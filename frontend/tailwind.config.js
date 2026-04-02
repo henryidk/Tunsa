@@ -13,6 +13,9 @@ export default {
         warning: '#f59e0b',
         success: '#10b981',
       },
+      zIndex: {
+        '60': '60',
+      },
       fontFamily: {
         sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],

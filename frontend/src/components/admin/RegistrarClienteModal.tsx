@@ -32,8 +32,9 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
   const [form,     setForm]     = useState<FormState>(EMPTY);
   const [isSaving, setIsSaving] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
-  const [file,     setFile]     = useState<File | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
+  const [file,        setFile]        = useState<File | null>(null);
+  const [isDragging,  setIsDragging]  = useState(false);
+  const [confirmSinDoc, setConfirmSinDoc] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!open) return null;
@@ -59,12 +60,38 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
     if (e.target === e.currentTarget && !isSaving) handleClose();
   };
 
+  const handleSaveWithoutDoc = async () => {
+    const dpiClean = form.dpi.replace(/\D/g, '');
+    setConfirmSinDoc(false);
+    setIsSaving(true);
+    setApiError(null);
+    try {
+      const cliente = await clientesService.create({
+        nombre:   form.nombre.trim(),
+        dpi:      dpiClean,
+        telefono: form.telefono.trim() || undefined,
+      });
+      onSave(cliente);
+      handleClose();
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === 'object' && 'response' in err
+          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+          : undefined;
+      setApiError(msg ?? 'Ocurrió un error al registrar el cliente.');
+      setStep(1);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleClose = () => {
     setStep(1);
     setForm(EMPTY);
     setApiError(null);
     setFile(null);
     setIsDragging(false);
+    setConfirmSinDoc(false);
     onClose();
   };
 
@@ -79,6 +106,8 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
 
   const handleSave = async () => {
     const dpiClean = form.dpi.replace(/\D/g, '');
+
+    if (!file) { setConfirmSinDoc(true); return; }
 
     setIsSaving(true);
     setApiError(null);
@@ -233,7 +262,7 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
                   <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
                 </svg>
                 <span className="text-xs text-blue-700">
-                  Sube un <strong>único PDF</strong> con toda la documentación del cliente. Este paso es opcional.
+                  Sube un <strong>único PDF</strong> con toda la documentación del cliente.
                 </span>
               </div>
 
@@ -300,7 +329,7 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
                     <p className="text-sm text-slate-600">
                       <span className="font-semibold text-indigo-600">Arrastra el PDF aquí</span> o haz clic para seleccionar
                     </p>
-                    <p className="text-xs text-slate-400 mt-0.5">Solo PDF · Máx. 10 MB</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Solo PDF</p>
                   </div>
                 </div>
               )}
@@ -365,6 +394,44 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
         </div>
 
       </div>
+
+      {/* Modal de advertencia: sin documentación */}
+      {confirmSinDoc && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 overflow-hidden">
+
+            <div className="flex flex-col items-center pt-7 pb-4 px-6">
+              <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mb-4">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-500">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+              </div>
+              <h3 className="font-bold text-slate-800 text-base text-center">Sin documentación</h3>
+              <p className="text-sm text-slate-500 text-center mt-2">
+                No has subido ningún documento PDF. ¿Deseas registrar al cliente de todas formas?
+              </p>
+            </div>
+
+            <div className="flex gap-2 px-6 pb-6">
+              <button
+                onClick={() => setConfirmSinDoc(false)}
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors"
+              >
+                Volver
+              </button>
+              <button
+                onClick={handleSaveWithoutDoc}
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium bg-amber-500 hover:bg-amber-600 text-white transition-colors"
+              >
+                Registrar sin PDF
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

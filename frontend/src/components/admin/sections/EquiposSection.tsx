@@ -15,7 +15,10 @@ import PuntalesTab from './PuntalesTab';
 import type { ToastType } from '../../../pages/admin/AdminDashboard'
 
 interface EquiposSectionProps {
-  onShowToast: (type: ToastType, title: string, msg: string) => void;
+  onShowToast?: (type: ToastType, title: string, msg: string) => void;
+  /** Si es false, oculta todas las acciones de escritura (agregar, editar, baja, reactivar).
+   *  Por defecto true (comportamiento del admin). */
+  canEdit?: boolean;
 }
 
 type TabId = 'activos' | 'baja';
@@ -30,7 +33,7 @@ function formatFecha(iso: string): string {
   return new Date(iso).toLocaleDateString('es-GT', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
-export default function EquiposSection({ onShowToast }: EquiposSectionProps) {
+export default function EquiposSection({ onShowToast = () => {}, canEdit = true }: EquiposSectionProps) {
   const { equipos, isLoading, error, addEquipo, updateEquipo } = useEquipos();
   const { tipos } = useCategorias();
 
@@ -147,15 +150,17 @@ export default function EquiposSection({ onShowToast }: EquiposSectionProps) {
                 </>
               )}
             </button>
-            <button
-              onClick={() => setAgregarOpen(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-              </svg>
-              Agregar equipo
-            </button>
+            {canEdit && (
+              <button
+                onClick={() => setAgregarOpen(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                Agregar equipo
+              </button>
+            )}
           </div>
         )}
       </div>

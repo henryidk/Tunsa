@@ -6,6 +6,7 @@ import { useAuthStore, selectIsAuthenticated, selectUserRole, selectIsLoading } 
 import type { RoleName } from './types/auth.types';
 import Login from './pages/Login';
 import AdminDashboard from './pages/admin/AdminDashboard';
+import EncargadoDashboard from './pages/encargado/EncargadoDashboard';
 import CambiarPasswordModal from './components/admin/CambiarPasswordModal';
 
 // Ruta Protegida
@@ -98,7 +99,7 @@ function App() {
 
         {/* Encargado Máquinas */}
         <Route element={<ProtectedRoute allowedRoles={['admin', 'encargado_maquinas']} />}>
-          <Route path="/encargado-maquinas" element={<SimplePage title="Encargado de Máquinas" />} />
+          <Route path="/encargado-maquinas" element={<EncargadoDashboard />} />
         </Route>
 
         {/* Redirecciones */}

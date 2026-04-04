@@ -1,7 +1,7 @@
 // Tipos para el sistema de autenticación - Proyecto Tunsa
 
 // Roles disponibles en el sistema
-export type RoleName = 'admin' | 'secretaria' | 'colaborador' | 'encargado_maquinas';
+export type RoleName = 'admin' | 'secretaria' | 'encargado_maquinas';
 
 // Estructura del rol
 export interface Role {

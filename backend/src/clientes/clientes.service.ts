@@ -49,15 +49,29 @@ export class ClientesService {
     }
   }
 
-  async create(dto: CreateClienteDto) {
+  async create(dto: CreateClienteDto, requestingUsername: string) {
     const dpiExiste = await this.prisma.cliente.findUnique({ where: { dpi: dto.dpi } });
     if (dpiExiste) throw new ConflictException('Ya existe un cliente registrado con ese DPI.');
 
-    const id = await this.generarCodigo();
-    return this.prisma.cliente.create({ data: { id, ...dto } });
+    const id      = await this.generarCodigo();
+    const cliente = await this.prisma.cliente.create({ data: { id, ...dto } });
+
+    await this.prisma.bitacora.create({
+      data: {
+        modulo:        'cliente',
+        entidadId:     cliente.id,
+        entidadNombre: `${cliente.nombre} (${cliente.id})`,
+        campo:         'crear',
+        valorAnterior: null,
+        valorNuevo:    null,
+        realizadoPor:  requestingUsername,
+      },
+    });
+
+    return cliente;
   }
 
-  async uploadDocumento(clienteId: string, buffer: Buffer, mimetype: string): Promise<{ documentoKey: string }> {
+  async uploadDocumento(clienteId: string, buffer: Buffer, mimetype: string, requestingUsername: string): Promise<{ documentoKey: string }> {
     // Validar mimetype
     if (mimetype !== 'application/pdf') {
       throw new BadRequestException('Solo se permiten archivos PDF.');
@@ -66,7 +80,7 @@ export class ClientesService {
     // Validar magic bytes (doble verificación — mimetype puede ser falsificado)
     this.validatePdfBuffer(buffer);
 
-    await this.findOne(clienteId);
+    const cliente = await this.findOne(clienteId);
 
     const key = this.buildDocumentoKey(clienteId);
     await this.r2.uploadFile(key, buffer, 'application/pdf');
@@ -74,6 +88,18 @@ export class ClientesService {
     await this.prisma.cliente.update({
       where: { id: clienteId },
       data:  { documentoKey: key },
+    });
+
+    await this.prisma.bitacora.create({
+      data: {
+        modulo:        'cliente',
+        entidadId:     clienteId,
+        entidadNombre: `${cliente.nombre} (${clienteId})`,
+        campo:         'documento',
+        valorAnterior: null,
+        valorNuevo:    null,
+        realizadoPor:  requestingUsername,
+      },
     });
 
     return { documentoKey: key };
@@ -115,8 +141,8 @@ export class ClientesService {
     return cliente;
   }
 
-  async update(id: string, dto: UpdateClienteDto) {
-    await this.findOne(id);
+  async update(id: string, dto: UpdateClienteDto, requestingUsername: string) {
+    const anterior = await this.findOne(id);
 
     if (dto.dpi) {
       const dpiExiste = await this.prisma.cliente.findFirst({
@@ -125,7 +151,39 @@ export class ClientesService {
       if (dpiExiste) throw new ConflictException('Ya existe otro cliente con ese DPI.');
     }
 
-    return this.prisma.cliente.update({ where: { id }, data: dto });
+    const actualizado = await this.prisma.cliente.update({ where: { id }, data: dto });
+
+    const changes: { campo: string; valorAnterior: string | null; valorNuevo: string | null }[] = [];
+
+    if (dto.nombre !== undefined && dto.nombre !== anterior.nombre) {
+      changes.push({ campo: 'nombre', valorAnterior: anterior.nombre, valorNuevo: dto.nombre });
+    }
+    if (dto.dpi !== undefined && dto.dpi !== anterior.dpi) {
+      changes.push({ campo: 'dpi', valorAnterior: anterior.dpi, valorNuevo: dto.dpi });
+    }
+    if (dto.telefono !== undefined) {
+      const prev = anterior.telefono ?? null;
+      const next = dto.telefono    || null;
+      if (prev !== next) {
+        changes.push({ campo: 'telefono', valorAnterior: prev, valorNuevo: next });
+      }
+    }
+
+    if (changes.length > 0) {
+      await this.prisma.bitacora.createMany({
+        data: changes.map(c => ({
+          modulo:        'cliente',
+          entidadId:     id,
+          entidadNombre: `${actualizado.nombre} (${id})`,
+          campo:         c.campo,
+          valorAnterior: c.valorAnterior,
+          valorNuevo:    c.valorNuevo,
+          realizadoPor:  requestingUsername,
+        })),
+      });
+    }
+
+    return actualizado;
   }
 
   async remove(id: string) {

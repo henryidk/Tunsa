@@ -21,7 +21,6 @@ export interface Equipo {
   numeracion:  string;
   descripcion: string;
   serie:       string | null;
-  cantidad:    number;
   fechaCompra: string;
   montoCompra: number;
 

@@ -34,7 +34,7 @@ model Usuario {
 
 model Role {
   id          String   @id @default(cuid())
-  nombre      String   @unique  // admin, secretaria, colaborador, encargado_maquinas
+  nombre      String   @unique  // admin, secretaria, encargado_maquinas
   descripcion String?
   
   createdAt   DateTime @default(now())
@@ -106,7 +106,6 @@ model Equipo {
   numeracion   String     @unique
   descripcion  String     @db.Text
   serie        String?    @db.Text
-  cantidad     Int        @default(1)
   fechaCompra  DateTime
   montoCompra  Decimal    @db.Decimal(12, 2)
 
@@ -134,6 +133,35 @@ model Equipo {
   @@index([tipoId])
   @@index([categoriaId])
   @@index([isActive, createdAt])  // cubre ORDER BY isActive DESC, createdAt ASC (el @@index([isActive]) anterior era incompleto)
+}
+
+// ==================== PUNTALES ====================
+
+model Puntal {
+  id             String    @id @default(cuid())
+  descripcion    String
+  cantidad       Int
+  precioUnitario Decimal   @db.Decimal(10, 2)
+  fechaCompra    DateTime?
+  ubicacion      String?
+  isActive       Boolean   @default(true)
+
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@map("puntales")
+  @@index([isActive])
+}
+
+// Configuración global de precios de renta — registro único (id siempre = 1)
+model PuntalesConfig {
+  id          Int      @id @default(1)
+  rentaDia    Decimal  @db.Decimal(10, 2)
+  rentaSemana Decimal  @db.Decimal(10, 2)
+  rentaMes    Decimal  @db.Decimal(10, 2)
+  updatedAt   DateTime @updatedAt
+
+  @@map("puntales_config")
 }
 
 // ==================== BITÁCORAS ====================

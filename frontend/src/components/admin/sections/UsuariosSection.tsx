@@ -20,20 +20,17 @@ const rolBadge: Record<string, string> = {
   admin: 'bg-violet-100 text-violet-800',
   encargado_maquinas: 'bg-indigo-100 text-indigo-700',
   secretaria: 'bg-sky-100 text-sky-700',
-  colaborador: 'bg-green-100 text-green-700',
 };
 
 const rolLabel: Record<string, string> = {
   admin: 'Administrador',
   secretaria: 'Secretaria',
   encargado_maquinas: 'Enc. Máquinas',
-  colaborador: 'Colaborador',
 };
 
 const rolGradient: Record<string, string> = {
   admin: 'linear-gradient(135deg,#6366f1,#4f46e5)',
   secretaria: 'linear-gradient(135deg,#06b6d4,#0891b2)',
-  colaborador: 'linear-gradient(135deg,#10b981,#059669)',
   encargado_maquinas: 'linear-gradient(135deg,#f59e0b,#d97706)',
 };
 
@@ -217,7 +214,6 @@ export default function UsuariosSection({ onShowToast, user }: UsuariosSectionPr
             { rolKey: 'admin', label: 'Administrador', desc: 'Acceso total: usuarios, equipos, clientes, rentas y reportes.' },
             { rolKey: 'secretaria', label: 'Secretaria', desc: 'Aprobación de solicitudes, gestión de cobros y reportes.' },
             { rolKey: 'encargado_maquinas', label: 'Enc. de Máquinas', desc: 'Creación de solicitudes y gestión de equipos en campo.' },
-            { rolKey: 'colaborador', label: 'Colaborador', desc: 'Solo lectura: rentas activas e inventario de equipos.' },
           ].map(r => (
             <div key={r.rolKey} className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col gap-2">
               <span className={`inline-flex items-center self-start px-2.5 py-1 rounded-full text-xs font-bold ${rolBadge[r.rolKey] ?? 'bg-slate-100 text-slate-600'}`}>

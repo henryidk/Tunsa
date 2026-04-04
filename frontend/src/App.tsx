@@ -96,11 +96,6 @@ function App() {
           <Route path="/secretaria" element={<SimplePage title="Secretaria" />} />
         </Route>
 
-        {/* Colaborador */}
-        <Route element={<ProtectedRoute allowedRoles={['admin', 'secretaria', 'colaborador']} />}>
-          <Route path="/colaborador" element={<SimplePage title="Colaborador" />} />
-        </Route>
-
         {/* Encargado Máquinas */}
         <Route element={<ProtectedRoute allowedRoles={['admin', 'encargado_maquinas']} />}>
           <Route path="/encargado-maquinas" element={<SimplePage title="Encargado de Máquinas" />} />

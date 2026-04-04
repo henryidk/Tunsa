@@ -23,8 +23,7 @@ function initiales(nombre: string): string {
 
 function Avatar({ nombre }: { nombre: string }) {
   return (
-    <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-      style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}>
+    <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 bg-indigo-100 text-indigo-600">
       {initiales(nombre)}
     </div>
   );
@@ -239,10 +238,10 @@ export default function ClientesSection({ onShowToast }: Props) {
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         {[
           { label: 'Total clientes',    value: clientes.length,  color: 'text-indigo-600',  bg: 'bg-indigo-50' },
-          { label: 'Registrados hoy',
-            value: clientes.filter(c => new Date(c.createdAt).toLocaleDateString('es-GT') === new Date().toLocaleDateString('es-GT')).length,
+          { label: 'Registrados este mes',
+            value: clientes.filter(c => { const d = new Date(c.createdAt); const n = new Date(); return d.getMonth() === n.getMonth() && d.getFullYear() === n.getFullYear(); }).length,
             color: 'text-emerald-600', bg: 'bg-emerald-50' },
-          { label: 'Con teléfono',      value: clientes.filter(c => c.telefono).length, color: 'text-blue-600', bg: 'bg-blue-50' },
+          { label: 'Sin documento',     value: clientes.filter(c => !c.documentoKey).length, color: 'text-amber-600', bg: 'bg-amber-50' },
         ].map(s => (
           <div key={s.label} className="bg-white border border-slate-200 rounded-xl px-4 py-3.5 shadow-sm">
             <div className={`inline-flex items-center justify-center w-8 h-8 rounded-lg ${s.bg} mb-2`}>
@@ -282,21 +281,21 @@ export default function ClientesSection({ onShowToast }: Props) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50">
-                {['Cliente', 'Código', 'DPI', 'Teléfono', 'Documento', 'Registrado', ''].map((h, i) => (
+                {['Código', 'Cliente', 'DPI', 'Teléfono', 'Documento', 'Registrado', ''].map((h, i) => (
                   <th key={i} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {isLoading && (
-                <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-slate-400">Cargando clientes...</td></tr>
+                <tr><td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-400">Cargando clientes...</td></tr>
               )}
               {error && !isLoading && (
-                <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-red-500">{error}</td></tr>
+                <tr><td colSpan={7} className="px-4 py-10 text-center text-sm text-red-500">{error}</td></tr>
               )}
               {!isLoading && !error && filtrados.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-sm text-slate-400">
+                  <td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-400">
                     {search ? 'No se encontraron clientes.' : 'No hay clientes registrados aún.'}
                   </td>
                 </tr>
@@ -304,13 +303,13 @@ export default function ClientesSection({ onShowToast }: Props) {
               {!isLoading && !error && filtrados.map(c => (
                 <tr key={c.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
                   <td className="px-4 py-3">
+                    <code className="text-xs font-mono bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">{c.id}</code>
+                  </td>
+                  <td className="px-4 py-3">
                     <div className="flex items-center gap-2.5">
                       <Avatar nombre={c.nombre} />
                       <span className="font-semibold text-slate-800">{c.nombre}</span>
                     </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <code className="text-xs font-mono bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">{c.id}</code>
                   </td>
                   <td className="px-4 py-3 font-mono text-xs text-slate-700">{c.dpi}</td>
                   <td className="px-4 py-3 text-slate-600 text-xs">{c.telefono ?? <span className="text-slate-300">—</span>}</td>
@@ -341,22 +340,17 @@ export default function ClientesSection({ onShowToast }: Props) {
                         </button>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-1.5">
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 text-slate-400 border border-slate-200">
-                          Sin documento
-                        </span>
-                        <button
-                          onClick={() => setSubirDoc(c)}
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-slate-500 hover:text-indigo-700 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 transition-colors"
-                          title="Subir documentación"
-                        >
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                            <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
-                          </svg>
-                          Subir
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => setSubirDoc(c)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 hover:border-amber-300 transition-colors"
+                        title="Subir documentación"
+                      >
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                          <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                        </svg>
+                        Sin documento
+                      </button>
                     )}
                   </td>
                   <td className="px-4 py-3 text-xs text-slate-500">{formatFecha(c.createdAt)}</td>

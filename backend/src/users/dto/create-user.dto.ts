@@ -21,6 +21,6 @@ export class CreateUserDto {
 
   @IsString()
   @IsNotEmpty({ message: 'El rol es requerido' })
-  @IsIn(['admin', 'secretaria', 'colaborador', 'encargado_maquinas'], { message: 'Rol no válido' })
+  @IsIn(['admin', 'secretaria', 'encargado_maquinas'], { message: 'Rol no válido' })
   rol: string;
 }

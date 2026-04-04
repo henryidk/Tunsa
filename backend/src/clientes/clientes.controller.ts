@@ -12,19 +12,24 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { MustChangePasswordGuard } from '../auth/guards/must-change-password.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
 
 const MAX_PDF_SIZE = 10 * 1024 * 1024; // 10 MB
 
 @Controller('clientes')
 @UseGuards(JwtAuthGuard, RolesGuard, MustChangePasswordGuard)
-@Roles('admin', 'secretaria')
+@Roles('admin', 'secretaria', 'encargado_maquinas')
 export class ClientesController {
   constructor(private readonly clientesService: ClientesService) {}
 
   @Post()
-  @Roles('admin')
-  create(@Body() dto: CreateClienteDto) {
-    return this.clientesService.create(dto);
+  @Roles('admin', 'secretaria', 'encargado_maquinas')
+  create(
+    @Body() dto: CreateClienteDto,
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ) {
+    return this.clientesService.create(dto, currentUser.username);
   }
 
   @Get()
@@ -44,9 +49,13 @@ export class ClientesController {
   }
 
   @Patch(':id')
-  @Roles('admin')
-  update(@Param('id') id: string, @Body() dto: UpdateClienteDto) {
-    return this.clientesService.update(id, dto);
+  @Roles('admin', 'secretaria')
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateClienteDto,
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ) {
+    return this.clientesService.update(id, dto, currentUser.username);
   }
 
   @Delete(':id')
@@ -58,7 +67,7 @@ export class ClientesController {
   // ── Documento PDF ──────────────────────────────────────────────────────────
 
   @Post(':id/documento')
-  @Roles('admin')
+  @Roles('admin', 'secretaria', 'encargado_maquinas')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_PDF_SIZE } }))
   uploadDocumento(
     @Param('id') id: string,
@@ -71,8 +80,9 @@ export class ClientesController {
       }),
     )
     file: Express.Multer.File,
+    @CurrentUser() currentUser: AuthenticatedUser,
   ) {
-    return this.clientesService.uploadDocumento(id, file.buffer, file.mimetype);
+    return this.clientesService.uploadDocumento(id, file.buffer, file.mimetype, currentUser.username);
   }
 
   @Get(':id/documento')

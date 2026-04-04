@@ -1,4 +1,4 @@
-import { PrismaClient, TipoMaquinaria } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -24,15 +24,6 @@ async function main() {
     create: {
       nombre: 'secretaria',
       descripcion: 'Secretaria - Aprueba solicitudes',
-    },
-  });
-
-  const colaboradorRole = await prisma.role.upsert({
-    where: { nombre: 'colaborador' },
-    update: {},
-    create: {
-      nombre: 'colaborador',
-      descripcion: 'Colaborador - Solicita creditos y efectivo',
     },
   });
 
@@ -80,21 +71,6 @@ async function main() {
   });
   console.log('  - Secretaria creada');
 
-  // Usuario Colaborador
-  const colaboradorPassword = await bcrypt.hash('Colab123!', 12);
-  await prisma.usuario.upsert({
-    where: { username: 'colaborador' },
-    update: {},
-    create: {
-      username: 'colaborador',
-      password: colaboradorPassword,
-      nombre: 'Carlos Ruiz',
-      telefono: '55559012',
-      roleId: colaboradorRole.id,
-    },
-  });
-  console.log('  - Colaborador creado');
-
   // Usuario Encargado Maquinas
   const encargadoPassword = await bcrypt.hash('Encar123!', 12);
   await prisma.usuario.upsert({
@@ -125,27 +101,24 @@ async function main() {
   console.log('   Usuario:    secretaria');
   console.log('   Contrasena: Secre123!\n');
   
-  console.log('COLABORADOR:');
-  console.log('   Usuario:    colaborador');
-  console.log('   Contrasena: Colab123!\n');
-  
   console.log('ENCARGADO MAQUINAS:');
   console.log('   Usuario:    encargado');
   console.log('   Contrasena: Encar123!\n');
   
   console.log('===========================================');
 
-  // 4. Crear equipos
-  console.log('\nCreando equipos...');
+  // 4. Tipos de equipo, categorías y equipos
+  // Los tres pasos van juntos porque categorías dependen de tipos, y equipos de ambos.
+  console.log('\nCreando tipos, categorías y equipos...');
 
   interface EquipoSeed {
     numeracion:  string;
     descripcion: string;
-    categoria:   string;
+    categoria:   string;   // clave de lookup — debe existir en categoriasPorTipo[tipo]
     serie:       string | null;
     fechaCompra: Date;
     montoCompra: number;
-    tipo:        TipoMaquinaria;
+    tipo:        string;   // 'LIVIANA' | 'PESADA' | 'USO_PROPIO'
     rentaDia:    number | null;
     rentaSemana: number | null;
     rentaMes:    number | null;
@@ -297,81 +270,124 @@ async function main() {
     { numeracion: 'MP03', descripcion: 'Minicargador CASE SR220B',                       categoria: 'Minicargador',     serie: 'serie: JAFSR220LMM407232 & motor: 614722',   fechaCompra: new Date('2022-03-24'), montoCompra: 325000.00, tipo: 'PESADA',   rentaDia: null, rentaSemana: null, rentaMes: null,       isActive: false, motivoBaja: 'Dado de baja tras ser vendida a Otto Perez',     fechaBaja: new Date('2022-03-24') },
   ];
 
+  // ── 4a. Tipos de equipo ───────────────────────────────────────────────────
+  // IDs explícitos para mantener consistencia con la DB existente.
+  const [tipoLiviana, tipoPesada, tipoUso] = await Promise.all([
+    prisma.tipoEquipo.upsert({
+      where:  { nombre: 'LIVIANA' },
+      update: {},
+      create: { id: 'tipo_liviana', nombre: 'LIVIANA',    descripcion: 'Maquinaria liviana de alquiler' },
+    }),
+    prisma.tipoEquipo.upsert({
+      where:  { nombre: 'PESADA' },
+      update: {},
+      create: { id: 'tipo_pesada',  nombre: 'PESADA',     descripcion: 'Maquinaria pesada de alquiler' },
+    }),
+    prisma.tipoEquipo.upsert({
+      where:  { nombre: 'USO_PROPIO' },
+      update: {},
+      create: { id: 'tipo_uso',     nombre: 'USO_PROPIO', descripcion: 'Equipo para uso interno' },
+    }),
+  ]);
+
+  const tipoMap: Record<string, string> = {
+    LIVIANA:    tipoLiviana.id,
+    PESADA:     tipoPesada.id,
+    USO_PROPIO: tipoUso.id,
+  };
+  console.log('  3 tipos de equipo listos');
+
+  // ── 4b. Categorías — agrupadas por tipo ──────────────────────────────────
+  // Los nombres duplicados entre tipos ('Rodo compactador', 'Montacarga', 'Compresor')
+  // son entidades distintas. La clave `nombre|tipoNombre` los distingue sin ambigüedad.
+  const categoriasPorTipo: Record<string, string[]> = {
+    LIVIANA: [
+      'Bailarina',         'Bomba de agua',          'Bomba p/sólidos',
+      'Cortadora de concreto', 'Generador eléctrico', 'Generador soldador',
+      'Martillo demoledor', 'Medidor de presión',     'Mezcladora',
+      'Plancha alizadora', 'Plato vibratorio',        'Rastrío',
+      'Compresor',         'Barreno',                 'Rodo compactador',
+      'Vibrador de concreto', 'Montacarga',            'Helicóptero',
+    ],
+    PESADA: [
+      'Retroexcavadora', 'Rodo compactador', 'Montacarga', 'Minicargador',
+    ],
+    USO_PROPIO: [
+      'Motosierra', 'Hidrolavadora', 'Chapeadora',
+      'Sopladora',  'Compresor',     'Regla vibratoria',
+    ],
+  };
+
+  // Map: `${categoríaNombre}|${tipoNombre}` → categoriaId
+  const categoriaMap = new Map<string, string>();
+
+  for (const [tipoNombre, nombres] of Object.entries(categoriasPorTipo)) {
+    const tipoId = tipoMap[tipoNombre];
+    for (const nombre of nombres) {
+      const cat = await prisma.categoria.upsert({
+        where:  { nombre_tipoId: { nombre, tipoId } },
+        update: {},
+        create: { nombre, tipoId },
+      });
+      categoriaMap.set(`${nombre}|${tipoNombre}`, cat.id);
+    }
+  }
+  console.log(`  ${categoriaMap.size} categorías listas`);
+
+  // ── 4c. Equipos ───────────────────────────────────────────────────────────
   for (const e of equiposData) {
     await prisma.equipo.upsert({
-      where: { numeracion: e.numeracion },
+      where:  { numeracion: e.numeracion },
       update: {},
       create: {
         numeracion:  e.numeracion,
         descripcion: e.descripcion,
-        categoria:   e.categoria,
         serie:       e.serie,
-        cantidad:    1,
         fechaCompra: e.fechaCompra,
         montoCompra: e.montoCompra,
-        tipo:        e.tipo,
+        tipoId:      tipoMap[e.tipo],
+        categoriaId: categoriaMap.get(`${e.categoria}|${e.tipo}`) ?? null,
         rentaDia:    e.rentaDia,
         rentaSemana: e.rentaSemana,
         rentaMes:    e.rentaMes,
-        isActive:    e.isActive    ?? true,
-        motivoBaja:  e.motivoBaja  ?? null,
-        fechaBaja:   e.fechaBaja   ?? null,
+        isActive:    e.isActive   ?? true,
+        motivoBaja:  e.motivoBaja ?? null,
+        fechaBaja:   e.fechaBaja  ?? null,
       },
     });
   }
-  console.log(`  ${equiposData.length} equipos creados`);
+  console.log(`  ${equiposData.length} equipos listos`);
 
-  // 5. Crear categorías
-  console.log('\nCreando categorías...');
-  const categorias = [
-    'Bailarina', 'Barreno', 'Bomba de agua', 'Bomba p/sólidos',
-    'Chapeadora', 'Compresor', 'Cortadora de concreto', 'Generador eléctrico',
-    'Generador soldador', 'Helicóptero', 'Hidrolavadora', 'Martillo demoledor',
-    'Medidor de presión', 'Mezcladora', 'Minicargador', 'Montacarga',
-    'Motosierra', 'Plancha alizadora', 'Plato vibratorio', 'Puntales',
-    'Rastrío', 'Regla vibratoria', 'Retroexcavadora', 'Rodo compactador',
-    'Sopladora', 'Vibrador de concreto',
-  ];
-  for (const nombre of categorias) {
-    await prisma.categoria.upsert({
-      where:  { nombre },
-      update: {},
-      create: { nombre },
-    });
-  }
-  console.log(`  ${categorias.length} categorías creadas`);
+  // 5. Configuración global de precios de renta de puntales
+  console.log('\nCreando configuración de precios de puntales...');
+  await prisma.puntalesConfig.upsert({
+    where:  { id: 1 },
+    update: {},
+    create: { id: 1, rentaDia: 1.5, rentaSemana: 5, rentaMes: 15 },
+  });
+  console.log('  Configuración creada: Q1.50/día · Q5.00/semana · Q15.00/mes');
 
-  // 6. Puntales como equipos LIVIANA (categoria "Puntales")
-  //    montoCompra = valor total del lote (cantidad * precioUnitario)
-  //    fechaCompra = fecha real cuando se conoce, placeholder '2020-01-01' si no consta en doc
-  console.log('\nCreando puntales como equipos...');
-  const puntalesEquipos = [
-    { numeracion: 'PT01', descripcion: 'Puntales telescópicos',  cantidad: 100, fechaCompra: new Date('2020-01-01'), montoCompra: 26168.00, rentaDia: 1.5, rentaSemana: 5, rentaMes: 15 },
-    { numeracion: 'PM01', descripcion: 'Puntales metálicos',      cantidad: 900, fechaCompra: new Date('2020-01-01'), montoCompra: 153000.00, rentaDia: 1.5, rentaSemana: 5, rentaMes: 15 },
-    { numeracion: 'PM02', descripcion: 'Puntales metálicos',      cantidad: 200, fechaCompra: new Date('2024-12-20'), montoCompra: 34000.00, rentaDia: 1.5, rentaSemana: 5, rentaMes: 15 },
-    { numeracion: 'PM03', descripcion: 'Puntales metálicos',      cantidad: 300, fechaCompra: new Date('2024-12-30'), montoCompra: 51000.00, rentaDia: 1.5, rentaSemana: 5, rentaMes: 15 },
-    { numeracion: 'PM04', descripcion: 'Puntales metálicos',      cantidad: 2,   fechaCompra: new Date('2025-04-15'), montoCompra: 340.00, rentaDia: 1.5, rentaSemana: 5, rentaMes: 15 },
-  ];
-  for (const p of puntalesEquipos) {
-    await prisma.equipo.upsert({
-      where: { numeracion: p.numeracion },
-      update: {},
-      create: {
-        numeracion:  p.numeracion,
-        descripcion: p.descripcion,
-        categoria:   'Puntales',
-        serie:       null,
-        cantidad:    p.cantidad,
-        fechaCompra: p.fechaCompra,
-        montoCompra: p.montoCompra,
-        tipo:        'LIVIANA',
-        rentaDia:    p.rentaDia,
-        rentaSemana: p.rentaSemana,
-        rentaMes:    p.rentaMes,
-      },
-    });
+  // 6. Lotes históricos de puntales
+  //    Guard: omite la creación si ya existen lotes para evitar duplicados en re-ejecuciones.
+  //    No hay clave natural única por lote, por lo que upsert no aplica aquí.
+  //    precioUnitario = montoTotal / cantidad (calculado de los registros reales)
+  //    fechaCompra null = fecha no consta en documentación
+  console.log('\nCreando lotes de puntales...');
+  const puntalesExistentes = await prisma.puntal.count();
+  if (puntalesExistentes > 0) {
+    console.log(`  Omitido: ya existen ${puntalesExistentes} lotes.`);
+  } else {
+    const puntalesLotes = [
+      { descripcion: 'Puntales telescópicos', cantidad: 100, precioUnitario: 261.68, fechaCompra: null },
+      { descripcion: 'Puntales metálicos',    cantidad: 900, precioUnitario: 170.00, fechaCompra: null },
+      { descripcion: 'Puntales metálicos',    cantidad: 200, precioUnitario: 170.00, fechaCompra: new Date('2024-12-20') },
+      { descripcion: 'Puntales metálicos',    cantidad: 300, precioUnitario: 170.00, fechaCompra: new Date('2024-12-30') },
+      { descripcion: 'Puntales metálicos',    cantidad:   2, precioUnitario: 170.00, fechaCompra: new Date('2025-04-15') },
+    ];
+    await prisma.puntal.createMany({ data: puntalesLotes });
+    const totalStock = puntalesLotes.reduce((sum, l) => sum + l.cantidad, 0);
+    console.log(`  ${puntalesLotes.length} lotes creados — stock total: ${totalStock} unidades`);
   }
-  console.log(`  ${puntalesEquipos.length} grupos de puntales agregados como equipos LIVIANA`);
 
   console.log('===========================================');
   console.log('\nSeed completado exitosamente!');

@@ -66,7 +66,6 @@ export class EquiposService {
     if (dto.tipoId      !== undefined) track('tipo',        fmt(equipo.tipo?.nombre), tipoNuevoNombre !== undefined ? tipoNuevoNombre : fmt(dto.tipoId));
     if (dto.categoriaId !== undefined) track('categoria',   fmt(equipo.categoria?.nombre), categoriaNuevaNombre !== undefined ? categoriaNuevaNombre : fmt(dto.categoriaId));
     if (dto.serie       !== undefined) track('serie',       fmt(equipo.serie),             fmt(dto.serie || null));
-    if (dto.cantidad    !== undefined) track('cantidad',    fmt(equipo.cantidad),          fmt(dto.cantidad));
 
     if (dto.fechaCompra !== undefined) {
       const va = equipo.fechaCompra instanceof Date
@@ -125,7 +124,6 @@ export class EquiposService {
         numeracion:  dto.numeracion,
         descripcion: dto.descripcion,
         serie:       dto.serie       || null,
-        cantidad:    dto.cantidad    ?? 1,
         fechaCompra: new Date(dto.fechaCompra),
         montoCompra: dto.montoCompra,
         tipoId:      dto.tipoId,
@@ -196,7 +194,6 @@ export class EquiposService {
         ...(dto.tipoId      !== undefined && { tipoId:      dto.tipoId }),
         ...(dto.categoriaId !== undefined && { categoriaId: dto.categoriaId }),
         ...(dto.serie       !== undefined && { serie:       dto.serie       || null }),
-        ...(dto.cantidad    !== undefined && { cantidad:    dto.cantidad }),
         ...(dto.fechaCompra !== undefined && { fechaCompra: new Date(dto.fechaCompra) }),
         ...(dto.montoCompra !== undefined && { montoCompra: dto.montoCompra }),
         ...(dto.rentaDia    !== undefined && { rentaDia:    dto.rentaDia    ?? null }),

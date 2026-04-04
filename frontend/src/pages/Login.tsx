@@ -59,7 +59,6 @@ export default function Login() {
       const routes: Record<string, string> = {
         admin: '/admin',
         secretaria: '/secretaria',
-        colaborador: '/colaborador',
         encargado_maquinas: '/encargado-maquinas',
       };
       navigate(routes[user.role.nombre] || '/admin', { replace: true });

@@ -11,6 +11,7 @@ import AgregarEquipoModal from '../AgregarEquipoModal';
 import EditarEquipoModal from '../EditarEquipoModal';
 import PreciosEquipoModal from '../PreciosEquipoModal';
 import BajaEquipoModal from '../BajaEquipoModal';
+import PuntalesTab from './PuntalesTab';
 import type { ToastType } from '../../../pages/admin/AdminDashboard'
 
 interface EquiposSectionProps {
@@ -18,6 +19,7 @@ interface EquiposSectionProps {
 }
 
 type TabId = 'activos' | 'baja';
+type SectionTab = 'maquinaria' | 'puntales';
 
 function formatMoneda(value: number | null | undefined): string {
   if (value == null) return '—';
@@ -32,6 +34,7 @@ export default function EquiposSection({ onShowToast }: EquiposSectionProps) {
   const { equipos, isLoading, error, addEquipo, updateEquipo } = useEquipos();
   const { tipos } = useCategorias();
 
+  const [sectionTab, setSectionTab]       = useState<SectionTab>('maquinaria');
   const [tab, setTab]                     = useState<TabId>('activos');
   const [search, setSearch]               = useState('');
   const [filtroTipo, setFiltroTipo]       = useState('');
@@ -113,47 +116,72 @@ export default function EquiposSection({ onShowToast }: EquiposSectionProps) {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-start justify-between mb-6">
+      <div className="flex items-start justify-between mb-5">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Inventario de equipos</h1>
           <p className="text-sm text-slate-500 mt-1">Registro y control del inventario de maquinaria</p>
         </div>
-        <div className="flex items-center gap-2.5">
-          <button
-            onClick={handleGenerarReporte}
-            disabled={generando || isLoading || equipos.length === 0}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {generando ? (
-              <>
-                <svg className="animate-spin" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-                </svg>
-                Generando...
-              </>
-            ) : (
-              <>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                  <polyline points="14 2 14 8 20 8"/>
-                  <line x1="12" y1="18" x2="12" y2="12"/>
-                  <line x1="9" y1="15" x2="15" y2="15"/>
-                </svg>
-                Generar reporte
-              </>
-            )}
-          </button>
-          <button
-            onClick={() => setAgregarOpen(true)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-            </svg>
-            Agregar equipo
-          </button>
-        </div>
+        {sectionTab === 'maquinaria' && (
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={handleGenerarReporte}
+              disabled={generando || isLoading || equipos.length === 0}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {generando ? (
+                <>
+                  <svg className="animate-spin" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                  </svg>
+                  Generando...
+                </>
+              ) : (
+                <>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="12" y1="18" x2="12" y2="12"/>
+                    <line x1="9" y1="15" x2="15" y2="15"/>
+                  </svg>
+                  Generar reporte
+                </>
+              )}
+            </button>
+            <button
+              onClick={() => setAgregarOpen(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              Agregar equipo
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* Section tabs: Maquinaria / Puntales */}
+      <div className="flex gap-1 p-1 bg-slate-100 rounded-xl mb-6 w-fit">
+        {([
+          { id: 'maquinaria', label: 'Maquinaria' },
+          { id: 'puntales',   label: 'Puntales'   },
+        ] as const).map(t => (
+          <button key={t.id} onClick={() => setSectionTab(t.id)}
+            className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
+              sectionTab === t.id
+                ? 'bg-white text-indigo-700 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Puntales tab ──────────────────────────────────────────────────── */}
+      {sectionTab === 'puntales' && <PuntalesTab onShowToast={onShowToast} />}
+
+      {/* ── Maquinaria tab ────────────────────────────────────────────────── */}
+      {sectionTab === 'maquinaria' && <>
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -303,11 +331,6 @@ export default function EquiposSection({ onShowToast }: EquiposSectionProps) {
                           {e.categoria.nombre}
                         </span>
                       )}
-                      {e.cantidad > 1 && (
-                        <span className="text-[11px] font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full">
-                          ×{e.cantidad.toLocaleString('es-GT')} uds.
-                        </span>
-                      )}
                     </div>
                   </td>
 
@@ -398,6 +421,9 @@ export default function EquiposSection({ onShowToast }: EquiposSectionProps) {
           </div>
         )}
       </div>
+
+      {/* END maquinaria tab */}
+      </>}
 
       {/* Modales */}
       <AgregarEquipoModal

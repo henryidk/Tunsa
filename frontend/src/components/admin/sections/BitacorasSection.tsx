@@ -17,10 +17,11 @@ const CAMPO_LABEL: Record<string, string> = {
   rentaSemana:  'Renta por semana',
   rentaMes:     'Renta por mes',
   numeracion:   'Numeración',
-  // usuarios
+  // clientes / usuarios
   nombre:          'Nombre',
   username:        'Usuario',
   telefono:        'Teléfono',
+  dpi:             'DPI',
   reset_password:  'Reseteo de contraseña',
   desactivar:      'Desactivación',
   activar:         'Activación',
@@ -28,6 +29,8 @@ const CAMPO_LABEL: Record<string, string> = {
   eliminacion: 'Eliminación',
   creacion:    'Creación',
   renombrado:  'Renombrado',
+  crear:       'Creación',
+  documento:   'Documentación',
 };
 
 const CAMPOS_MONEDA = new Set(['montoCompra', 'rentaDia', 'rentaSemana', 'rentaMes']);
@@ -38,6 +41,8 @@ const CAMPO_BADGE: Record<string, string> = {
   activar:        'bg-green-50 text-green-700',
   eliminacion:    'bg-red-50 text-red-700',
   creacion:       'bg-green-50 text-green-700',
+  crear:          'bg-green-50 text-green-700',
+  documento:      'bg-cyan-50 text-cyan-700',
 };
 
 const MODULO_CONFIG: Record<string, { label: string; badge: string; stat: string }> = {
@@ -45,6 +50,7 @@ const MODULO_CONFIG: Record<string, { label: string; badge: string; stat: string
   usuario:     { label: 'Usuario',   badge: 'bg-violet-50 text-violet-700',   stat: 'text-violet-600' },
   categoria:   { label: 'Categoría', badge: 'bg-emerald-50 text-emerald-700', stat: 'text-emerald-600' },
   tipo_equipo: { label: 'Tipo',      badge: 'bg-orange-50 text-orange-700',   stat: 'text-orange-600' },
+  cliente:     { label: 'Cliente',   badge: 'bg-cyan-50 text-cyan-700',       stat: 'text-cyan-600' },
 };
 
 function moduloDisplay(modulo: string) {

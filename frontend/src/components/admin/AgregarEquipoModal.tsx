@@ -18,7 +18,6 @@ interface FormState {
   tipoId:      string;
   categoriaId: string;
   serie:       string;
-  cantidad:    string;
   fechaCompra: string;
   montoCompra: string;
   rentaDia:    string;
@@ -27,7 +26,7 @@ interface FormState {
 }
 
 const emptyForm: FormState = {
-  numeracion: '', descripcion: '', tipoId: '', categoriaId: '', serie: '', cantidad: '1',
+  numeracion: '', descripcion: '', tipoId: '', categoriaId: '', serie: '',
   fechaCompra: '', montoCompra: '', rentaDia: '', rentaSemana: '', rentaMes: '',
 };
 
@@ -77,14 +76,12 @@ export default function AgregarEquipoModal({ open, tipos, onClose, onCreated }: 
     setApiError(null);
 
     try {
-      const cantidad = parseInt(form.cantidad) || 1;
       const nuevo = await equiposService.create({
         numeracion,
         descripcion,
         tipoId:      form.tipoId,
         categoriaId: form.categoriaId || undefined,
         serie:       form.serie.trim() || undefined,
-        cantidad:    cantidad > 1 ? cantidad : undefined,
         fechaCompra,
         montoCompra,
         rentaDia:    form.rentaDia    ? parseFloat(form.rentaDia)    : undefined,
@@ -156,12 +153,6 @@ export default function AgregarEquipoModal({ open, tipos, onClose, onCreated }: 
                     </option>
                   ))}
                 </select>
-              </div>
-              <div>
-                <label className={labelCls}>Cantidad</label>
-                <input type="number" value={form.cantidad} onChange={handleChange('cantidad')}
-                  disabled={isSaving} placeholder="1" min="1" step="1"
-                  className={`${inputCls} font-mono`} />
               </div>
               <div className="col-span-2">
                 <label className={labelCls}>Categoría</label>

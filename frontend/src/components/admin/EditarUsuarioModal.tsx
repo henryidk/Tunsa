@@ -16,20 +16,17 @@ const rolLabel: Record<string, string> = {
   admin: 'Administrador',
   secretaria: 'Secretaria',
   encargado_maquinas: 'Enc. de Máquinas',
-  colaborador: 'Colaborador',
 };
 
 const rolBadge: Record<string, string> = {
   admin: 'bg-violet-100 text-violet-800',
   secretaria: 'bg-sky-100 text-sky-700',
   encargado_maquinas: 'bg-indigo-100 text-indigo-700',
-  colaborador: 'bg-green-100 text-green-700',
 };
 
 const rolGradient: Record<string, string> = {
   admin: 'linear-gradient(135deg,#6366f1,#4f46e5)',
   secretaria: 'linear-gradient(135deg,#06b6d4,#0891b2)',
-  colaborador: 'linear-gradient(135deg,#10b981,#059669)',
   encargado_maquinas: 'linear-gradient(135deg,#f59e0b,#d97706)',
 };
 

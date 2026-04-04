@@ -40,12 +40,6 @@ export class CreateEquipoDto {
   montoCompra: number;
 
   @IsOptional()
-  @IsNumber({}, { message: 'La cantidad debe ser un número' })
-  @Min(1, { message: 'La cantidad debe ser al menos 1' })
-  @Type(() => Number)
-  cantidad?: number;
-
-  @IsOptional()
   @IsNumber()
   @Min(0)
   @Type(() => Number)

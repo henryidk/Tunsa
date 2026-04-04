@@ -16,7 +16,6 @@ const roles = [
   { value: 'admin',              label: 'Administrador' },
   { value: 'secretaria',         label: 'Secretaria' },
   { value: 'encargado_maquinas', label: 'Enc. de Máquinas' },
-  { value: 'colaborador',        label: 'Colaborador' },
 ];
 
 interface FormState {

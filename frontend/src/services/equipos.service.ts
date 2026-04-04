@@ -36,7 +36,6 @@ interface CreateEquipoData {
   tipoId:       string;
   categoriaId?: string;
   serie?:       string;
-  cantidad?:    number;
   fechaCompra:  string;
   montoCompra:  number;
   rentaDia?:    number;

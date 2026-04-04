@@ -24,8 +24,11 @@ export class UsersController {
 
   @Post()
   @Roles('admin')
-  create(@Body() createUserDto: CreateUserDto) {
-    return this.usersService.create(createUserDto);
+  create(
+    @Body() createUserDto: CreateUserDto,
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ) {
+    return this.usersService.create(createUserDto, currentUser.username);
   }
 
   @Patch('change-password')

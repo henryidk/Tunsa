@@ -19,7 +19,6 @@ interface FormState {
   tipoId:      string;
   categoriaId: string;
   serie:       string;
-  cantidad:    string;
   fechaCompra: string;
   montoCompra: string;
 }
@@ -38,7 +37,6 @@ export default function EditarEquipoModal({ equipo, open, tipos, onClose, onSave
         tipoId:      equipo.tipoId,
         categoriaId: equipo.categoriaId ?? '',
         serie:       equipo.serie ?? '',
-        cantidad:    equipo.cantidad.toString(),
         fechaCompra: equipo.fechaCompra.substring(0, 10),
         montoCompra: equipo.montoCompra.toString(),
       });
@@ -82,9 +80,6 @@ export default function EditarEquipoModal({ equipo, open, tipos, onClose, onSave
 
     const serie = form.serie.trim() || null;
     if (serie !== (equipo.serie ?? null)) payload.serie = serie ?? undefined;
-
-    const cantidad = parseInt(form.cantidad) || 1;
-    if (cantidad !== equipo.cantidad) payload.cantidad = cantidad;
 
     if (form.fechaCompra !== equipo.fechaCompra.substring(0, 10)) payload.fechaCompra = form.fechaCompra;
 
@@ -175,12 +170,6 @@ export default function EditarEquipoModal({ equipo, open, tipos, onClose, onSave
                     </option>
                   ))}
                 </select>
-              </div>
-              <div>
-                <label className={labelCls}>Cantidad</label>
-                <input type="number" value={form.cantidad} onChange={handleChange('cantidad')}
-                  disabled={isSaving} min="1" step="1"
-                  className={`${inputCls} font-mono`} />
               </div>
               <div className="col-span-2">
                 <label className={labelCls}>Categoría</label>

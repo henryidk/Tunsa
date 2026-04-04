@@ -28,12 +28,6 @@ export class UpdateEquipoDto {
   serie?: string;
 
   @IsOptional()
-  @IsNumber()
-  @Min(1)
-  @Type(() => Number)
-  cantidad?: number;
-
-  @IsOptional()
   @IsDateString()
   fechaCompra?: string;
 

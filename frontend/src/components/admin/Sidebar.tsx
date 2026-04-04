@@ -28,7 +28,6 @@ interface SidebarProps {
 const rolLabels: Record<string, string> = {
   admin: 'Administrador',
   secretaria: 'Secretaria',
-  colaborador: 'Colaborador',
   encargado_maquinas: 'Enc. de Máquinas',
 };
 

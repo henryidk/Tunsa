@@ -167,7 +167,7 @@ export class UsersService {
     return updated;
   }
 
-  async create(dto: CreateUserDto) {
+  async create(dto: CreateUserDto, requestingUsername: string) {
     const taken = await this.prisma.usuario.findUnique({ where: { username: dto.username } });
     if (taken) throw new ConflictException('El nombre de usuario ya está en uso');
 
@@ -187,6 +187,18 @@ export class UsersService {
         roleId:             role.id,
       },
       select: userSelect,
+    });
+
+    await this.prisma.bitacora.create({
+      data: {
+        modulo:        'usuario',
+        entidadId:     usuario.id,
+        entidadNombre: `${usuario.nombre} (@${usuario.username})`,
+        campo:         'crear',
+        valorAnterior: null,
+        valorNuevo:    role.nombre,
+        realizadoPor:  requestingUsername,
+      },
     });
 
     return { ...usuario, temporaryPassword: plainPassword };

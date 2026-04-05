@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useAuthStore } from '../../store/auth.store';
 import EncargadoSidebar from '../../components/encargado/EncargadoSidebar';
 import EncargadoTopBar from '../../components/encargado/EncargadoTopBar';
+import Toast from '../../components/admin/Toast';
 import DashboardSection from '../../components/encargado/sections/DashboardSection';
 import NuevaSolicitudSection from '../../components/encargado/sections/NuevaSolicitudSection';
 import PendientesSection from '../../components/encargado/sections/PendientesSection';
@@ -11,7 +12,10 @@ import RentasActivasSection from '../../components/encargado/sections/RentasActi
 import VencidasSection from '../../components/encargado/sections/VencidasSection';
 import HistorialSection from '../../components/encargado/sections/HistorialSection';
 import EquiposSection from '../../components/encargado/sections/EquiposSection';
+import ClientesSection from '../../components/encargado/sections/ClientesSection';
 import CambiarPasswordModal from '../../components/admin/CambiarPasswordModal';
+import type { ToastType } from '../../types/ui.types';
+import type { ToastState } from '../admin/AdminDashboard';
 
 type Section =
   | 'dashboard'
@@ -20,14 +24,21 @@ type Section =
   | 'rentas-activas'
   | 'vencidas'
   | 'historial'
-  | 'equipos';
+  | 'equipos'
+  | 'clientes';
 
 export default function EncargadoDashboard() {
   const { user, logout, mustChangePassword } = useAuthStore();
   const [activeSection, setActiveSection] = useState<Section>('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [toast, setToast] = useState<ToastState>({ visible: false, type: 'success', title: '', msg: '' });
 
   const navTo = (section: string) => setActiveSection(section as Section);
+
+  const showToast = (type: ToastType, title: string, msg: string) => {
+    setToast({ visible: true, type, title, msg });
+    setTimeout(() => setToast(t => ({ ...t, visible: false })), 3500);
+  };
 
   const renderSection = () => {
     switch (activeSection) {
@@ -38,6 +49,7 @@ export default function EncargadoDashboard() {
       case 'vencidas':        return <VencidasSection />;
       case 'historial':       return <HistorialSection />;
       case 'equipos':         return <EquiposSection />;
+      case 'clientes':        return <ClientesSection onShowToast={showToast} />;
       default:                return <DashboardSection onNavTo={navTo} />;
     }
   };
@@ -68,6 +80,7 @@ export default function EncargadoDashboard() {
       </div>
 
       {mustChangePassword && <CambiarPasswordModal />}
+      <Toast toast={toast} />
     </div>
   );
 }

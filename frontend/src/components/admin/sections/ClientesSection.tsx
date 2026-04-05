@@ -10,6 +10,7 @@ import type { ToastType } from '../../../types/ui.types'
 
 interface Props {
   onShowToast: (type: ToastType, title: string, msg: string) => void;
+  canEdit?: boolean;
 }
 
 function initiales(nombre: string): string {
@@ -160,7 +161,7 @@ function SubirDocModal({ cliente, onClose, onUploaded, onShowToast }: SubirDocMo
 
 // ── Sección principal ────────────────────────────────────────────────────────
 
-export default function ClientesSection({ onShowToast }: Props) {
+export default function ClientesSection({ onShowToast, canEdit = true }: Props) {
   const [clientes,       setClientes]       = useState<Cliente[]>([]);
   const [isLoading,      setIsLoading]      = useState(true);
   const [error,          setError]          = useState<string | null>(null);
@@ -281,9 +282,10 @@ export default function ClientesSection({ onShowToast }: Props) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50">
-                {['Código', 'Cliente', 'DPI', 'Teléfono', 'Documento', 'Registrado', ''].map((h, i) => (
+                {['Código', 'Cliente', 'DPI', 'Teléfono', 'Documento', 'Registrado'].map((h, i) => (
                   <th key={i} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                 ))}
+                {canEdit && <th className="px-4 py-3" />}
               </tr>
             </thead>
             <tbody>
@@ -354,18 +356,20 @@ export default function ClientesSection({ onShowToast }: Props) {
                     )}
                   </td>
                   <td className="px-4 py-3 text-xs text-slate-500">{formatFecha(c.createdAt)}</td>
-                  <td className="px-4 py-3">
-                    <button
-                      onClick={() => setEditingCliente(c)}
-                      className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-slate-400 hover:text-indigo-700 hover:bg-indigo-50 border border-transparent hover:border-indigo-200 transition-colors"
-                      title="Editar cliente"
-                    >
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                      </svg>
-                    </button>
-                  </td>
+                  {canEdit && (
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => setEditingCliente(c)}
+                        className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-slate-400 hover:text-indigo-700 hover:bg-indigo-50 border border-transparent hover:border-indigo-200 transition-colors"
+                        title="Editar cliente"
+                      >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                        </svg>
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -388,11 +392,13 @@ export default function ClientesSection({ onShowToast }: Props) {
         onSave={handleRegistrado}
       />
 
-      <EditarClienteModal
-        cliente={editingCliente}
-        onClose={() => setEditingCliente(null)}
-        onSave={handleEditado}
-      />
+      {canEdit && (
+        <EditarClienteModal
+          cliente={editingCliente}
+          onClose={() => setEditingCliente(null)}
+          onSave={handleEditado}
+        />
+      )}
 
       {subirDoc && (
         <SubirDocModal

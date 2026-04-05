@@ -97,7 +97,7 @@ export default function AdminDashboard() {
             <VencidasSection onShowToast={showToast} onOpenModal={openModal} />
           )}
           {activeSection === 'equipos' && (
-            <EquiposSection onShowToast={showToast} onOpenModal={openModal} />
+            <EquiposSection onShowToast={showToast} />
           )}
           {activeSection === 'categorias' && (
             <CategoriasSection onShowToast={showToast} />

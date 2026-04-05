@@ -1,10 +1,16 @@
-// NuevaSolicitudSection.tsx — formulario de nueva solicitud de renta (interfaz vacía)
+// NuevaSolicitudSection.tsx — formulario de nueva solicitud de renta
+
+import { useState } from 'react';
+import ClienteSearchWidget from '../../ClienteSearchWidget';
+import type { Cliente } from '../../../services/clientes.service';
 
 interface Props {
   onNavTo?: (section: string) => void;
 }
 
 export default function NuevaSolicitudSection(_props: Props) {
+  const [clienteSeleccionado, setClienteSeleccionado] = useState<Cliente | null>(null);
+
   return (
     <div>
       {/* Header */}
@@ -21,7 +27,7 @@ export default function NuevaSolicitudSection(_props: Props) {
         <div className="flex-1 min-w-0 space-y-5">
 
           {/* 1. Cliente */}
-          <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+          <div className="bg-white border border-slate-200 rounded-xl shadow-sm">
             <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 flex-shrink-0">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -31,53 +37,15 @@ export default function NuevaSolicitudSection(_props: Props) {
               </div>
               <div>
                 <div className="text-sm font-semibold text-slate-800">Cliente de la Solicitud</div>
-                <div className="text-xs text-slate-500">Busca un cliente registrado o registra uno nuevo primero</div>
+                <div className="text-xs text-slate-500">
+                  {clienteSeleccionado
+                    ? 'Cliente seleccionado — haz clic en × para cambiar'
+                    : 'Busca un cliente registrado o regístralo desde aquí'}
+                </div>
               </div>
             </div>
             <div className="px-5 py-5">
-
-              {/* Search bar */}
-              <div className="relative mb-4">
-                <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
-                </svg>
-                <input
-                  type="text"
-                  readOnly
-                  placeholder="Buscar cliente por nombre o código CLI-XXXX..."
-                  className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-700 placeholder:text-slate-400 bg-slate-50 focus:outline-none focus:border-indigo-400 focus:bg-white"
-                />
-              </div>
-
-              {/* Divider */}
-              <div className="flex items-center gap-3 mb-4">
-                <div className="flex-1 border-t border-slate-200" />
-                <span className="text-xs text-slate-400 font-medium">¿Cliente nuevo?</span>
-                <div className="flex-1 border-t border-slate-200" />
-              </div>
-
-              {/* CTA new client */}
-              <div className="flex items-start gap-4 bg-slate-50 rounded-xl p-4 border border-slate-200">
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold text-slate-700 mb-0.5">Registrar antes de continuar</div>
-                  <div className="text-xs text-slate-500 leading-relaxed">
-                    El cliente debe estar registrado en el sistema para poder crear una solicitud.
-                    El registro incluye sus datos y documentación.
-                  </div>
-                </div>
-                <button
-                  disabled
-                  className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-white border border-slate-200 text-slate-600 text-sm font-medium shadow-sm flex-shrink-0 opacity-60 cursor-not-allowed"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                    <circle cx="9" cy="7" r="4" />
-                    <line x1="19" y1="8" x2="19" y2="14" />
-                    <line x1="22" y1="11" x2="16" y2="11" />
-                  </svg>
-                  Registrar nuevo cliente
-                </button>
-              </div>
+              <ClienteSearchWidget onSelect={setClienteSeleccionado} />
             </div>
           </div>
 
@@ -220,9 +188,23 @@ export default function NuevaSolicitudSection(_props: Props) {
               </div>
             </div>
 
-            {/* Empty items state */}
-            <div className="flex flex-col items-center justify-center py-12 gap-2 text-slate-400">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2">
+            {/* Cliente seleccionado en el resumen */}
+            {clienteSeleccionado ? (
+              <div className="px-5 py-3 border-b border-slate-100">
+                <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Cliente</div>
+                <p className="text-sm font-semibold text-slate-800 truncate">{clienteSeleccionado.nombre}</p>
+                <p className="text-xs text-slate-400 font-mono">{clienteSeleccionado.id}</p>
+              </div>
+            ) : (
+              <div className="px-5 py-3 border-b border-slate-100">
+                <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Cliente</div>
+                <p className="text-xs text-slate-400 italic">Sin cliente seleccionado</p>
+              </div>
+            )}
+
+            {/* Equipos vacíos */}
+            <div className="flex flex-col items-center justify-center py-10 gap-2 text-slate-400">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2">
                 <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
               </svg>
               <p className="text-xs text-center">Aún no hay equipos<br />en la solicitud</p>

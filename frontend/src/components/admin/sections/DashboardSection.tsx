@@ -1,8 +1,10 @@
 // DashboardSection.tsx — resumen general del sistema
 
+import type { ToastType } from '../../../types/ui.types'
+
 interface DashboardSectionProps {
   onNavTo: (section: string) => void
-  onShowToast: (icon: string, title: string, msg: string) => void
+  onShowToast: (type: ToastType, title: string, msg: string) => void
   onOpenModal: (rentaId: string) => void
 }
 

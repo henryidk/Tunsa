@@ -1,7 +1,9 @@
 // HistorialSection.tsx — registro completo de rentas
 
+import type { ToastType } from '../../../types/ui.types'
+
 interface HistorialSectionProps {
-  onShowToast: (icon: string, title: string, msg: string) => void
+  onShowToast: (type: ToastType, title: string, msg: string) => void
   onOpenModal: (rentaId: string) => void
 }
 
@@ -21,7 +23,7 @@ export default function HistorialSection({ onShowToast }: HistorialSectionProps)
           <p className="text-sm text-slate-500 mt-1">Registro completo de todas las rentas del sistema</p>
         </div>
         <button
-          onClick={() => onShowToast('📄', 'Exportando', 'Descargando CSV del historial...')}
+          onClick={() => onShowToast('info', 'Exportando', 'Descargando CSV del historial...')}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

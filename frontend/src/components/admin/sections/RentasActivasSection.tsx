@@ -1,7 +1,9 @@
 // RentasActivasSection.tsx — contratos de renta en curso
 
+import type { ToastType } from '../../../types/ui.types'
+
 interface RentasActivasSectionProps {
-  onShowToast: (icon: string, title: string, msg: string) => void
+  onShowToast: (type: ToastType, title: string, msg: string) => void
   onOpenModal: (rentaId: string) => void
 }
 

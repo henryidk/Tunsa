@@ -1,6 +1,6 @@
 // RentaModal.tsx — modal de detalle de renta
 
-import type { ToastType } from '../../pages/admin/AdminDashboard'
+import type { ToastType } from '../../types/ui.types'
 
 interface RentaData {
   cliente: string

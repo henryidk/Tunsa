@@ -30,7 +30,8 @@ export type Section =
   | 'usuarios'
   | 'bitacoras'
 
-export type ToastType = 'success' | 'error' | 'info' | 'warning'
+import type { ToastType } from '../../types/ui.types'
+export type { ToastType }
 
 export interface ToastState {
   visible: boolean

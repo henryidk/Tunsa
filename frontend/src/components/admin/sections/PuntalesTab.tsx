@@ -4,10 +4,11 @@ import { useState, useEffect } from 'react';
 import { puntalesService } from '../../../services/puntales.service';
 import type { PuntalLote, PuntalesConfig } from '../../../services/puntales.service';
 import AgregarPuntalModal from '../AgregarPuntalModal';
-import type { ToastType } from '../../../pages/admin/AdminDashboard';
+import type { ToastType } from '../../../types/ui.types';
 
 interface Props {
-  onShowToast: (type: ToastType, title: string, msg: string) => void;
+  onShowToast?: (type: ToastType, title: string, msg: string) => void;
+  canEdit?: boolean;
 }
 
 function formatFecha(iso: string | null) {
@@ -19,7 +20,7 @@ function formatQ(n: number) {
   return `Q${n.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-export default function PuntalesTab({ onShowToast }: Props) {
+export default function PuntalesTab({ onShowToast = () => {}, canEdit = true }: Props) {
   const [lotes,      setLotes]      = useState<PuntalLote[]>([]);
   const [config,     setConfig]     = useState<PuntalesConfig | null>(null);
   const [stockTotal, setStockTotal] = useState(0);
@@ -51,13 +52,15 @@ export default function PuntalesTab({ onShowToast }: Props) {
         <div>
           <p className="text-sm text-slate-500 mt-1">Historial de lotes y stock disponible</p>
         </div>
-        <button onClick={() => setModalOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-          </svg>
-          Nuevo lote
-        </button>
+        {canEdit && (
+          <button onClick={() => setModalOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            Nuevo lote
+          </button>
+        )}
       </div>
 
       {/* Stats */}

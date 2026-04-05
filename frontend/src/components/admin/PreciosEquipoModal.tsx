@@ -1,4 +1,4 @@
-// PreciosEquipoModal.tsx — ver y editar tarifas de renta de un equipo
+// PreciosEquipoModal.tsx — editar tarifas de renta de un equipo (solo admin)
 
 import { useState, useEffect } from 'react';
 import type { ChangeEvent, MouseEvent } from 'react';
@@ -47,9 +47,9 @@ export default function PreciosEquipoModal({ equipo, open, onClose, onSave }: Pr
   };
 
   const handleSave = async () => {
-    const dia     = form.rentaDia    ? parseFloat(form.rentaDia)    : undefined;
-    const semana  = form.rentaSemana ? parseFloat(form.rentaSemana) : undefined;
-    const mes     = form.rentaMes    ? parseFloat(form.rentaMes)    : undefined;
+    const dia    = form.rentaDia    ? parseFloat(form.rentaDia)    : undefined;
+    const semana = form.rentaSemana ? parseFloat(form.rentaSemana) : undefined;
+    const mes    = form.rentaMes    ? parseFloat(form.rentaMes)    : undefined;
 
     if (dia    != null && (isNaN(dia)    || dia    < 0)) { setApiError('El precio por día no es válido.'); return; }
     if (semana != null && (isNaN(semana) || semana < 0)) { setApiError('El precio por semana no es válido.'); return; }
@@ -90,7 +90,9 @@ export default function PreciosEquipoModal({ equipo, open, onClose, onSave }: Pr
         <div className="flex items-center justify-between px-6 py-5 border-b border-slate-200">
           <div>
             <h2 className="font-bold text-slate-800 text-base">Precios de renta</h2>
-            <p className="text-xs text-slate-400 mt-0.5 font-mono">#{equipo.numeracion} · {equipo.descripcion.length > 32 ? equipo.descripcion.substring(0, 32) + '…' : equipo.descripcion}</p>
+            <p className="text-xs text-slate-400 mt-0.5 font-mono">
+              #{equipo.numeracion} · {equipo.descripcion.length > 32 ? equipo.descripcion.substring(0, 32) + '…' : equipo.descripcion}
+            </p>
           </div>
           <button onClick={onClose} disabled={isSaving}
             className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-40">

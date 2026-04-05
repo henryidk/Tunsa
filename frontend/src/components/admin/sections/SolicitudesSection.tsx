@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 
-import type { ToastType } from '../../../pages/admin/AdminDashboard'
+import type { ToastType } from '../../../types/ui.types'
 
 interface SolicitudesSectionProps {
   onShowToast: (type: ToastType, title: string, msg: string) => void

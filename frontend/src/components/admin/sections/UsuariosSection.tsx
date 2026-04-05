@@ -9,7 +9,7 @@ import ConfirmDesactivarModal from '../ConfirmDesactivarModal';
 import AgregarUsuarioModal from '../AgregarUsuarioModal';
 import ResetPasswordModal from '../ResetPasswordModal';
 
-import type { ToastType } from '../../../pages/admin/AdminDashboard'
+import type { ToastType } from '../../../types/ui.types'
 
 interface UsuariosSectionProps {
   onShowToast: (type: ToastType, title: string, msg: string) => void;

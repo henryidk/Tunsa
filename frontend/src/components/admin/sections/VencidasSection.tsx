@@ -1,6 +1,6 @@
 // VencidasSection.tsx — equipos no devueltos en fecha acordada
 
-import type { ToastType } from '../../../pages/admin/AdminDashboard'
+import type { ToastType } from '../../../types/ui.types'
 
 interface VencidasSectionProps {
   onShowToast: (type: ToastType, title: string, msg: string) => void

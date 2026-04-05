@@ -6,7 +6,7 @@ import type { Cliente } from '../../../services/clientes.service';
 import RegistrarClienteModal from '../RegistrarClienteModal';
 import EditarClienteModal from '../EditarClienteModal';
 
-import type { ToastType } from '../../../pages/admin/AdminDashboard'
+import type { ToastType } from '../../../types/ui.types'
 
 interface Props {
   onShowToast: (type: ToastType, title: string, msg: string) => void;

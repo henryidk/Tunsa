@@ -6,7 +6,7 @@ import { equiposService } from '../../../services/equipos.service';
 import EditarEquipoModal from '../EditarEquipoModal';
 import { categoriasService } from '../../../services/categorias.service';
 import type { TipoAdmin, CategoriaAdmin } from '../../../services/categorias.service';
-import type { ToastType } from '../../../pages/admin/AdminDashboard';
+import type { ToastType } from '../../../types/ui.types';
 import { generarReporteCategorias } from '../../../utils/categorias.pdf';
 
 interface CategoriasSectionProps {
@@ -884,10 +884,10 @@ export default function CategoriasSection({ onShowToast }: CategoriasSectionProp
 
               // Normal row
               return (
-                <button
+                <div
                   key={cat.id}
                   onClick={() => setCatActivaId(cat.id)}
-                  className={`w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors border-b border-slate-50 group ${
+                  className={`w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors border-b border-slate-50 group cursor-pointer ${
                     isActive ? 'bg-indigo-50' : 'hover:bg-slate-50'
                   }`}
                 >
@@ -929,7 +929,7 @@ export default function CategoriasSection({ onShowToast }: CategoriasSectionProp
                       </button>
                     </div>
                   </div>
-                </button>
+                </div>
               );
             })}
 

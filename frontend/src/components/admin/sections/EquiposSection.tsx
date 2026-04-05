@@ -11,8 +11,9 @@ import AgregarEquipoModal from '../AgregarEquipoModal';
 import EditarEquipoModal from '../EditarEquipoModal';
 import PreciosEquipoModal from '../PreciosEquipoModal';
 import BajaEquipoModal from '../BajaEquipoModal';
+import VerEquipoModal from '../VerEquipoModal';
 import PuntalesTab from './PuntalesTab';
-import type { ToastType } from '../../../pages/admin/AdminDashboard'
+import type { ToastType } from '../../../types/ui.types'
 
 interface EquiposSectionProps {
   onShowToast?: (type: ToastType, title: string, msg: string) => void;
@@ -46,6 +47,7 @@ export default function EquiposSection({ onShowToast = () => {}, canEdit = true 
   const [agregarOpen, setAgregarOpen]     = useState(false);
   const [editEquipo, setEditEquipo]       = useState<Equipo | null>(null);
   const [preciosEquipo, setPreciosEquipo] = useState<Equipo | null>(null);
+  const [verEquipo, setVerEquipo]         = useState<Equipo | null>(null);
   const [bajaEquipo, setBajaEquipo]       = useState<Equipo | null>(null);
   const [reactivandoId, setReactivandoId] = useState<string | null>(null);
   const [generando, setGenerando]         = useState(false);
@@ -183,7 +185,7 @@ export default function EquiposSection({ onShowToast = () => {}, canEdit = true 
       </div>
 
       {/* ── Puntales tab ──────────────────────────────────────────────────── */}
-      {sectionTab === 'puntales' && <PuntalesTab onShowToast={onShowToast} />}
+      {sectionTab === 'puntales' && <PuntalesTab onShowToast={onShowToast} canEdit={canEdit} />}
 
       {/* ── Maquinaria tab ────────────────────────────────────────────────── */}
       {sectionTab === 'maquinaria' && <>
@@ -372,36 +374,45 @@ export default function EquiposSection({ onShowToast = () => {}, canEdit = true 
                   {/* Acciones */}
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1.5">
-                      {e.isActive ? (
-                        <>
-                          <button onClick={() => setPreciosEquipo(e)}
-                            className="px-2.5 py-1 rounded-lg text-xs font-medium border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors">
-                            Precios
-                          </button>
-                          <button onClick={() => setEditEquipo(e)}
-                            className="px-2.5 py-1 rounded-lg text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors">
-                            Editar
-                          </button>
-                          <button onClick={() => setBajaEquipo(e)}
-                            className="px-2.5 py-1 rounded-lg text-xs font-medium bg-red-600 hover:bg-red-700 text-white transition-colors">
-                            Dar de baja
-                          </button>
-                        </>
+                      {canEdit ? (
+                        /* ── Admin: acciones completas ── */
+                        e.isActive ? (
+                          <>
+                            <button onClick={() => setPreciosEquipo(e)}
+                              className="px-2.5 py-1 rounded-lg text-xs font-medium border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors">
+                              Precios
+                            </button>
+                            <button onClick={() => setEditEquipo(e)}
+                              className="px-2.5 py-1 rounded-lg text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors">
+                              Editar
+                            </button>
+                            <button onClick={() => setBajaEquipo(e)}
+                              className="px-2.5 py-1 rounded-lg text-xs font-medium bg-red-600 hover:bg-red-700 text-white transition-colors">
+                              Dar de baja
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <div className="text-[11px] text-slate-400 max-w-[120px] truncate" title={e.motivoBaja ?? ''}>
+                              {e.motivoBaja ?? 'Sin motivo'}
+                            </div>
+                            <button
+                              disabled={reactivandoId === e.id}
+                              onClick={() => handleReactivar(e)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-green-600 hover:bg-green-700 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                            >
+                              {reactivandoId === e.id ? (
+                                <><svg className="animate-spin" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>...</>
+                              ) : 'Reactivar'}
+                            </button>
+                          </>
+                        )
                       ) : (
-                        <>
-                          <div className="text-[11px] text-slate-400 max-w-[120px] truncate" title={e.motivoBaja ?? ''}>
-                            {e.motivoBaja ?? 'Sin motivo'}
-                          </div>
-                          <button
-                            disabled={reactivandoId === e.id}
-                            onClick={() => handleReactivar(e)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-green-600 hover:bg-green-700 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                          >
-                            {reactivandoId === e.id ? (
-                              <><svg className="animate-spin" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>...</>
-                            ) : 'Reactivar'}
-                          </button>
-                        </>
+                        /* ── Encargado: solo lectura ── */
+                        <button onClick={() => setVerEquipo(e)}
+                          className="px-2.5 py-1 rounded-lg text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors">
+                          Ver
+                        </button>
                       )}
                     </div>
                   </td>
@@ -473,6 +484,12 @@ export default function EquiposSection({ onShowToast = () => {}, canEdit = true 
           setBajaEquipo(null);
           onShowToast('warning', 'Equipo dado de baja', `#${updated.numeracion} marcado como inactivo`);
         }}
+      />
+
+      <VerEquipoModal
+        equipo={verEquipo}
+        open={verEquipo !== null}
+        onClose={() => setVerEquipo(null)}
       />
 
     </div>

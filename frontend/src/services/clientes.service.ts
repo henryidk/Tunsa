@@ -24,6 +24,11 @@ export const clientesService = {
     return res.data.data;
   },
 
+  async checkDpi(dpi: string): Promise<{ exists: boolean }> {
+    const res = await api.get<{ exists: boolean }>('/clientes/check-dpi', { params: { dpi } });
+    return res.data;
+  },
+
   async create(data: CreateClienteData): Promise<Cliente> {
     const res = await api.post<Cliente>('/clientes', data);
     return res.data;

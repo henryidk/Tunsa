@@ -43,6 +43,11 @@ export class ClientesController {
     );
   }
 
+  @Get('check-dpi')
+  checkDpi(@Query('dpi') dpi: string) {
+    return this.clientesService.checkDpi(dpi);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.clientesService.findOne(id);

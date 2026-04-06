@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { puntalesService } from '../../../services/puntales.service';
 import type { PuntalLote, PuntalesConfig } from '../../../services/puntales.service';
 import AgregarPuntalModal from '../AgregarPuntalModal';
+import PreciosPuntalesModal from '../PreciosPuntalesModal';
 import type { ToastType } from '../../../types/ui.types';
 
 interface Props {
@@ -26,7 +27,8 @@ export default function PuntalesTab({ onShowToast = () => {}, canEdit = true }: 
   const [stockTotal, setStockTotal] = useState(0);
   const [isLoading,  setIsLoading]  = useState(true);
   const [error,      setError]      = useState<string | null>(null);
-  const [modalOpen,  setModalOpen]  = useState(false);
+  const [modalOpen,         setModalOpen]         = useState(false);
+  const [preciosModalOpen,  setPreciosModalOpen]  = useState(false);
 
   useEffect(() => {
     puntalesService.getAll()
@@ -45,6 +47,12 @@ export default function PuntalesTab({ onShowToast = () => {}, canEdit = true }: 
     onShowToast('success', 'Lote registrado', `Se agregaron ${lote.cantidad} unidades al inventario.`);
   };
 
+  const handlePreciosGuardados = (updated: PuntalesConfig) => {
+    setConfig(updated);
+    setPreciosModalOpen(false);
+    onShowToast('success', 'Precios actualizados', 'Las tarifas de renta de puntales fueron guardadas.');
+  };
+
   return (
     <div>
       {/* Header */}
@@ -53,18 +61,27 @@ export default function PuntalesTab({ onShowToast = () => {}, canEdit = true }: 
           <p className="text-sm text-slate-500 mt-1">Historial de lotes y stock disponible</p>
         </div>
         {canEdit && (
-          <button onClick={() => setModalOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-            </svg>
-            Nuevo lote
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setPreciosModalOpen(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium rounded-lg border border-slate-200 transition-colors">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+              </svg>
+              Editar precios
+            </button>
+            <button onClick={() => setModalOpen(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              Nuevo lote
+            </button>
+          </div>
         )}
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
         {/* Stock total */}
         <div className="col-span-2 bg-white border border-slate-200 rounded-xl px-5 py-4 shadow-sm flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center flex-shrink-0">
@@ -84,16 +101,17 @@ export default function PuntalesTab({ onShowToast = () => {}, canEdit = true }: 
         {/* Precios */}
         {config && (
           <>
-            <div className="bg-white border border-slate-200 rounded-xl px-4 py-3.5 shadow-sm">
-              <div className="text-xs text-slate-400 font-semibold uppercase tracking-wide mb-1">Por día</div>
-              <div className="text-lg font-bold text-slate-800 font-mono">{formatQ(config.rentaDia)}</div>
-              <div className="text-[11px] text-slate-400 mt-0.5">por unidad</div>
-            </div>
-            <div className="bg-white border border-slate-200 rounded-xl px-4 py-3.5 shadow-sm">
-              <div className="text-xs text-slate-400 font-semibold uppercase tracking-wide mb-1">Por semana</div>
-              <div className="text-lg font-bold text-slate-800 font-mono">{formatQ(config.rentaSemana)}</div>
-              <div className="text-[11px] text-slate-400 mt-0.5">por unidad</div>
-            </div>
+            {[
+              { label: 'Por día',    value: config.rentaDia },
+              { label: 'Por semana', value: config.rentaSemana },
+              { label: 'Por mes',    value: config.rentaMes },
+            ].map(({ label, value }) => (
+              <div key={label} className="bg-white border border-slate-200 rounded-xl px-4 py-3.5 shadow-sm">
+                <div className="text-xs text-slate-400 font-semibold uppercase tracking-wide mb-1">{label}</div>
+                <div className="text-lg font-bold text-slate-800 font-mono">{formatQ(value)}</div>
+                <div className="text-[11px] text-slate-400 mt-0.5">por unidad</div>
+              </div>
+            ))}
           </>
         )}
       </div>
@@ -156,6 +174,13 @@ export default function PuntalesTab({ onShowToast = () => {}, canEdit = true }: 
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onCreated={handleLoteCreado}
+      />
+
+      <PreciosPuntalesModal
+        config={config}
+        open={preciosModalOpen}
+        onClose={() => setPreciosModalOpen(false)}
+        onSave={handlePreciosGuardados}
       />
     </div>
   );

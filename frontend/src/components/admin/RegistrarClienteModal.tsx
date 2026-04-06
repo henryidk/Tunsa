@@ -28,10 +28,11 @@ const DOCS = [
 ];
 
 export default function RegistrarClienteModal({ open, onClose, onSave }: Props) {
-  const [step,     setStep]     = useState<1 | 2>(1);
-  const [form,     setForm]     = useState<FormState>(EMPTY);
-  const [isSaving, setIsSaving] = useState(false);
-  const [apiError, setApiError] = useState<string | null>(null);
+  const [step,       setStep]       = useState<1 | 2>(1);
+  const [form,       setForm]       = useState<FormState>(EMPTY);
+  const [isChecking, setIsChecking] = useState(false);
+  const [isSaving,   setIsSaving]   = useState(false);
+  const [apiError,   setApiError]   = useState<string | null>(null);
   const [file,        setFile]        = useState<File | null>(null);
   const [isDragging,  setIsDragging]  = useState(false);
   const [confirmSinDoc, setConfirmSinDoc] = useState(false);
@@ -57,7 +58,7 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
   const dpiDigits = form.dpi.replace(/\D/g, '').length;
 
   const handleOverlayClick = (e: MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget && !isSaving) handleClose();
+    if (e.target === e.currentTarget && !isSaving && !isChecking) handleClose();
   };
 
   const extractApiError = (err: unknown): string => {
@@ -80,13 +81,26 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
     onClose();
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     const dpiClean = form.dpi.replace(/\D/g, '');
     if (!form.nombre.trim())    { setApiError('El nombre es requerido.'); return; }
     if (!dpiClean)              { setApiError('El DPI es requerido.'); return; }
     if (dpiClean.length !== 13) { setApiError('El DPI debe tener exactamente 13 dígitos numéricos.'); return; }
+
+    setIsChecking(true);
     setApiError(null);
-    setStep(2);
+    try {
+      const { exists } = await clientesService.checkDpi(dpiClean);
+      if (exists) {
+        setApiError('Ya existe un cliente registrado con ese DPI.');
+        return;
+      }
+      setStep(2);
+    } catch {
+      setApiError('No se pudo verificar el DPI. Intenta de nuevo.');
+    } finally {
+      setIsChecking(false);
+    }
   };
 
   const registrarCliente = async (conDocumento: boolean) => {
@@ -360,12 +374,13 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
                 className="px-4 py-2 rounded-lg text-sm font-medium border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 transition-colors disabled:opacity-40">
                 Cancelar
               </button>
-              <button onClick={handleNext}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition-colors">
-                Siguiente
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
-                </svg>
+              <button onClick={handleNext} disabled={isChecking}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+                {isChecking ? (
+                  <><svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>Verificando...</>
+                ) : (
+                  <>Siguiente<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></>
+                )}
               </button>
             </>
           ) : (

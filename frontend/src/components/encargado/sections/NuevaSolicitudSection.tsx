@@ -4,8 +4,9 @@ import { useState, useMemo } from 'react';
 import ClienteSearchWidget from '../../ClienteSearchWidget';
 import MaquinariaPickerForm from '../MaquinariaPickerForm';
 import GranelPickerSection from '../GranelPickerSection';
+import PaymentModeSelector from '../PaymentModeSelector';
 import type { Cliente } from '../../../services/clientes.service';
-import type { ItemSolicitud, ItemMaquinaria } from '../../../types/solicitud.types';
+import type { ItemSolicitud, ItemMaquinaria, ModalidadPago } from '../../../types/solicitud.types';
 import { calcSubtotal, formatQ, formatFechaCorta, unidadLabel, rateSuffix, getRentaRate } from '../../../types/solicitud.types';
 import { useSolicitudData } from '../../../hooks/useSolicitudData';
 import { useSolicitudCart } from '../../../hooks/useSolicitudCart';
@@ -16,6 +17,7 @@ interface Props {
 
 export default function NuevaSolicitudSection(_props: Props) {
   const [clienteSeleccionado, setClienteSeleccionado] = useState<Cliente | null>(null);
+  const [modalidadPago,       setModalidadPago]       = useState<ModalidadPago>('CONTADO');
   const [notas,               setNotas]               = useState('');
   const [equipoTab, setEquipoTab] = useState<'maquinaria' | 'granel'>('maquinaria');
 
@@ -31,6 +33,7 @@ export default function NuevaSolicitudSection(_props: Props) {
   const handleLimpiar = () => {
     cart.clear();
     setClienteSeleccionado(null);
+    setModalidadPago('CONTADO');
     setNotas('');
     // Los sub-formularios manejan su propio estado y se limpian internamente al agregar;
     // el tab se mantiene donde estaba para no perder contexto del usuario.
@@ -125,7 +128,19 @@ export default function NuevaSolicitudSection(_props: Props) {
             <CartTable items={cart.items} onRemove={cart.removeAt} summary={cart.summary} />
           </SectionCard>
 
-          {/* 3. Notas */}
+          {/* 3. Condiciones de pago */}
+          <SectionCard
+            icon={<PagoIcon />}
+            iconBg="bg-violet-50"
+            iconColor="text-violet-600"
+            title="Condiciones de Pago"
+            subtitle="Define cómo y cuándo el cliente realizará el pago"
+            locked={!clienteSeleccionado}
+          >
+            <PaymentModeSelector value={modalidadPago} onChange={setModalidadPago} />
+          </SectionCard>
+
+          {/* 4. Notas */}
           <SectionCard
             icon={<NotasIcon />}
             iconBg="bg-slate-100"
@@ -150,6 +165,7 @@ export default function NuevaSolicitudSection(_props: Props) {
           cliente={clienteSeleccionado}
           items={cart.items}
           summary={cart.summary}
+          modalidadPago={modalidadPago}
           onLimpiar={handleLimpiar}
           canLimpiar={cart.items.length > 0 || !!clienteSeleccionado || !!notas}
           canEnviar={!!clienteSeleccionado && cart.items.length > 0}
@@ -330,15 +346,16 @@ function CartRow({ item, onRemove }: CartRowProps) {
 }
 
 interface SolicitudResumenProps {
-  cliente:     Cliente | null;
-  items:       ItemSolicitud[];
-  summary:     { total: number; countMaquinaria: number; countGranel: number };
-  onLimpiar:   () => void;
-  canLimpiar:  boolean;
-  canEnviar:   boolean;
+  cliente:       Cliente | null;
+  items:         ItemSolicitud[];
+  summary:       { total: number; countMaquinaria: number; countGranel: number };
+  modalidadPago: ModalidadPago;
+  onLimpiar:     () => void;
+  canLimpiar:    boolean;
+  canEnviar:     boolean;
 }
 
-function SolicitudResumen({ cliente, items, summary, onLimpiar, canLimpiar, canEnviar }: SolicitudResumenProps) {
+function SolicitudResumen({ cliente, items, summary, modalidadPago, onLimpiar, canLimpiar, canEnviar }: SolicitudResumenProps) {
   return (
     <div className="w-72 flex-shrink-0">
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden sticky top-20">
@@ -404,6 +421,26 @@ function SolicitudResumen({ cliente, items, summary, onLimpiar, canLimpiar, canE
                   </span>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+
+        {/* Modalidad de pago */}
+        <div className="px-5 py-3 border-b border-slate-100">
+          <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Pago</div>
+          {modalidadPago === 'CONTADO' ? (
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
+              <span className="text-sm font-semibold text-emerald-700">Contado</span>
+              <span className="text-xs text-slate-400 ml-1">— al entregar</span>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
+                <span className="text-sm font-semibold text-amber-700">A crédito</span>
+                <span className="text-xs text-slate-400 ml-1">— al devolver</span>
+              </div>
             </div>
           )}
         </div>
@@ -475,6 +512,15 @@ function NotasIcon() {
       <polyline points="14 2 14 8 20 8"/>
       <line x1="16" y1="13" x2="8" y2="13"/>
       <line x1="16" y1="17" x2="8" y2="17"/>
+    </svg>
+  );
+}
+
+function PagoIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="2" y="5" width="20" height="14" rx="2"/>
+      <line x1="2" y1="10" x2="22" y2="10"/>
     </svg>
   );
 }

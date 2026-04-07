@@ -1,7 +1,8 @@
 import type { Equipo } from './equipo.types';
 import type { TipoGranel, ConfigGranel } from '../services/granel.service';
 
-export type UnidadDuracion = 'dias' | 'semanas' | 'meses';
+export type UnidadDuracion  = 'dias' | 'semanas' | 'meses';
+export type ModalidadPago   = 'CONTADO' | 'CREDITO';
 
 export interface ItemMaquinaria {
   kind:        'maquinaria';

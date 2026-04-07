@@ -12,7 +12,7 @@ import EditarEquipoModal from '../EditarEquipoModal';
 import PreciosEquipoModal from '../PreciosEquipoModal';
 import BajaEquipoModal from '../BajaEquipoModal';
 import VerEquipoModal from '../VerEquipoModal';
-import PuntalesTab from './PuntalesTab';
+import LoteGranelTab from './LoteGranelTab';
 import type { ToastType } from '../../../types/ui.types'
 
 interface EquiposSectionProps {
@@ -23,7 +23,7 @@ interface EquiposSectionProps {
 }
 
 type TabId = 'activos' | 'baja';
-type SectionTab = 'maquinaria' | 'puntales';
+type SectionTab = 'maquinaria' | 'puntales' | 'andamio_simple' | 'andamio_ruedas';
 
 function formatMoneda(value: number | null | undefined): string {
   if (value == null) return '—';
@@ -167,11 +167,13 @@ export default function EquiposSection({ onShowToast = () => {}, canEdit = true 
         )}
       </div>
 
-      {/* Section tabs: Maquinaria / Puntales */}
+      {/* Section tabs: Maquinaria / Granel */}
       <div className="flex gap-1 p-1 bg-slate-100 rounded-xl mb-6 w-fit">
         {([
-          { id: 'maquinaria', label: 'Maquinaria' },
-          { id: 'puntales',   label: 'Puntales'   },
+          { id: 'maquinaria',    label: 'Maquinaria'         },
+          { id: 'puntales',      label: 'Puntales'           },
+          { id: 'andamio_simple', label: 'Andamios simples'  },
+          { id: 'andamio_ruedas', label: 'Andamios c/ ruedas'},
         ] as const).map(t => (
           <button key={t.id} onClick={() => setSectionTab(t.id)}
             className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
@@ -184,8 +186,16 @@ export default function EquiposSection({ onShowToast = () => {}, canEdit = true 
         ))}
       </div>
 
-      {/* ── Puntales tab ──────────────────────────────────────────────────── */}
-      {sectionTab === 'puntales' && <PuntalesTab onShowToast={onShowToast} canEdit={canEdit} />}
+      {/* ── Granel tabs ───────────────────────────────────────────────────── */}
+      {sectionTab === 'puntales' && (
+        <LoteGranelTab tipo="PUNTAL" tipoLabel="Puntales" onShowToast={onShowToast} canEdit={canEdit} />
+      )}
+      {sectionTab === 'andamio_simple' && (
+        <LoteGranelTab tipo="ANDAMIO_SIMPLE" tipoLabel="Andamios simples" onShowToast={onShowToast} canEdit={canEdit} />
+      )}
+      {sectionTab === 'andamio_ruedas' && (
+        <LoteGranelTab tipo="ANDAMIO_RUEDAS" tipoLabel="Andamios con ruedas" onShowToast={onShowToast} canEdit={canEdit} />
+      )}
 
       {/* ── Maquinaria tab ────────────────────────────────────────────────── */}
       {sectionTab === 'maquinaria' && <>

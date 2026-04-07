@@ -9,7 +9,7 @@ import { EquiposModule } from './equipos/equipos.module';
 import { CategoriasModule } from './categorias/categorias.module';
 import { BitacorasModule } from './bitacoras/bitacoras.module';
 import { ClientesModule } from './clientes/clientes.module';
-import { PuntalesModule } from './puntales/puntales.module';
+import { GranelModule } from './granel/granel.module';
 import { CleanupModule } from './cleanup/cleanup.module';
 import { R2Module } from './r2/r2.module';
 
@@ -68,7 +68,7 @@ import { R2Module } from './r2/r2.module';
     CategoriasModule,
     BitacorasModule,
     ClientesModule,
-    PuntalesModule,
+    GranelModule,
     CleanupModule,
     R2Module,
   ],

@@ -1,7 +1,11 @@
-import { IsString, IsNotEmpty, IsInt, IsNumber, IsOptional, IsDateString, MaxLength, Min } from 'class-validator';
+import { IsEnum, IsString, IsNotEmpty, IsInt, IsNumber, IsOptional, IsDateString, MaxLength, Min } from 'class-validator';
 import { Type } from 'class-transformer';
+import { TipoGranel } from '@prisma/client';
 
-export class CreatePuntalDto {
+export class CreateLoteDto {
+  @IsEnum(TipoGranel, { message: 'El tipo debe ser PUNTAL, ANDAMIO_SIMPLE o ANDAMIO_RUEDAS' })
+  tipo: TipoGranel;
+
   @IsString()
   @IsNotEmpty({ message: 'La descripción es requerida' })
   @MaxLength(300)

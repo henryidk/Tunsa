@@ -1,14 +1,14 @@
-// AgregarPuntalModal.tsx — registrar un nuevo lote de puntales
-
 import { useState } from 'react';
 import type { ChangeEvent, MouseEvent } from 'react';
-import { puntalesService } from '../../services/puntales.service';
-import type { PuntalLote } from '../../services/puntales.service';
+import { granelService } from '../../services/granel.service';
+import type { LoteGranel, TipoGranel } from '../../services/granel.service';
 
 interface Props {
+  tipo:      TipoGranel;
+  tipoLabel: string;
   open:      boolean;
   onClose:   () => void;
-  onCreated: (lote: PuntalLote) => void;
+  onCreated: (lote: LoteGranel) => void;
 }
 
 interface FormState {
@@ -32,7 +32,7 @@ const extractApiError = (err: unknown): string => {
   return 'Ocurrió un error inesperado.';
 };
 
-export default function AgregarPuntalModal({ open, onClose, onCreated }: Props) {
+export default function AgregarLoteGranelModal({ tipo, tipoLabel, open, onClose, onCreated }: Props) {
   const [form,     setForm]     = useState<FormState>(emptyForm);
   const [isSaving, setIsSaving] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -57,7 +57,7 @@ export default function AgregarPuntalModal({ open, onClose, onCreated }: Props) 
   };
 
   const montoTotal = (() => {
-    const cant  = parseInt(form.cantidad)        || 0;
+    const cant   = parseInt(form.cantidad)         || 0;
     const precio = parseFloat(form.precioUnitario) || 0;
     return cant * precio;
   })();
@@ -74,7 +74,8 @@ export default function AgregarPuntalModal({ open, onClose, onCreated }: Props) 
     setIsSaving(true);
     setApiError(null);
     try {
-      const lote = await puntalesService.create({
+      const lote = await granelService.create({
+        tipo,
         descripcion,
         cantidad,
         precioUnitario,
@@ -104,7 +105,7 @@ export default function AgregarPuntalModal({ open, onClose, onCreated }: Props) 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-slate-200">
           <div>
-            <h2 className="font-bold text-slate-800 text-base">Nuevo lote de puntales</h2>
+            <h2 className="font-bold text-slate-800 text-base">Nuevo lote — {tipoLabel}</h2>
             <p className="text-xs text-slate-400 mt-0.5">Registrar compra para el historial de inventario</p>
           </div>
           <button onClick={handleClose} disabled={isSaving}
@@ -121,7 +122,7 @@ export default function AgregarPuntalModal({ open, onClose, onCreated }: Props) 
           <div>
             <label className={labelCls}>Descripción <span className="text-red-400">*</span></label>
             <input type="text" value={form.descripcion} onChange={handleChange('descripcion')}
-              placeholder="Ej. Puntales metálicos" disabled={isSaving} className={inputCls} />
+              placeholder={`Ej. ${tipoLabel} metálicos`} disabled={isSaving} className={inputCls} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -139,7 +140,6 @@ export default function AgregarPuntalModal({ open, onClose, onCreated }: Props) 
             </div>
           </div>
 
-          {/* Monto total calculado */}
           {montoTotal > 0 && (
             <div className="flex items-center justify-between px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg">
               <span className="text-xs text-slate-500">Monto total del lote</span>

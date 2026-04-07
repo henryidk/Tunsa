@@ -135,33 +135,42 @@ model Equipo {
   @@index([isActive, createdAt])  // cubre ORDER BY isActive DESC, createdAt ASC (el @@index([isActive]) anterior era incompleto)
 }
 
-// ==================== PUNTALES ====================
+// ==================== INVENTARIO A GRANEL ====================
+// Instrumentos rentados por cantidad sin distinción individual de IDs.
+// Cada TipoGranel tiene su propio historial de lotes y su propia configuración de precios.
 
-model Puntal {
-  id             String    @id @default(cuid())
-  descripcion    String
-  cantidad       Int
-  precioUnitario Decimal   @db.Decimal(10, 2)
-  fechaCompra    DateTime?
-  ubicacion      String?
-  isActive       Boolean   @default(true)
-
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-
-  @@map("puntales")
-  @@index([isActive])
+enum TipoGranel {
+  PUNTAL
+  ANDAMIO_SIMPLE
+  ANDAMIO_RUEDAS
 }
 
-// Configuración global de precios de renta — registro único (id siempre = 1)
-model PuntalesConfig {
-  id          Int      @id @default(1)
-  rentaDia    Decimal  @db.Decimal(10, 2)
-  rentaSemana Decimal  @db.Decimal(10, 2)
-  rentaMes    Decimal  @db.Decimal(10, 2)
-  updatedAt   DateTime @updatedAt
+model LoteGranel {
+  id             String     @id @default(cuid())
+  tipo           TipoGranel
+  descripcion    String
+  cantidad       Int
+  precioUnitario Decimal    @db.Decimal(10, 2)
+  fechaCompra    DateTime?
+  ubicacion      String?
+  isActive       Boolean    @default(true)
 
-  @@map("puntales_config")
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@map("lotes_granel")
+  @@index([tipo, isActive])
+}
+
+// Un registro de precios por cada TipoGranel — la clave primaria es el tipo.
+model ConfigGranel {
+  tipo        TipoGranel @id
+  rentaDia    Decimal    @db.Decimal(10, 2)
+  rentaSemana Decimal    @db.Decimal(10, 2)
+  rentaMes    Decimal    @db.Decimal(10, 2)
+  updatedAt   DateTime   @updatedAt
+
+  @@map("config_granel")
 }
 
 // ==================== BITÁCORAS ====================

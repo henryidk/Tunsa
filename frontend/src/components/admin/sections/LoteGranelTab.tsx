@@ -1,13 +1,13 @@
-// PuntalesTab.tsx — inventario de puntales (lotes históricos + stock total)
-
 import { useState, useEffect } from 'react';
-import { puntalesService } from '../../../services/puntales.service';
-import type { PuntalLote, PuntalesConfig } from '../../../services/puntales.service';
-import AgregarPuntalModal from '../AgregarPuntalModal';
-import PreciosPuntalesModal from '../PreciosPuntalesModal';
+import { granelService } from '../../../services/granel.service';
+import type { LoteGranel, ConfigGranel, TipoGranel } from '../../../services/granel.service';
+import AgregarLoteGranelModal from '../AgregarLoteGranelModal';
+import PreciosGranelModal from '../PreciosGranelModal';
 import type { ToastType } from '../../../types/ui.types';
 
 interface Props {
+  tipo:      TipoGranel;
+  tipoLabel: string;
   onShowToast?: (type: ToastType, title: string, msg: string) => void;
   canEdit?: boolean;
 }
@@ -21,36 +21,38 @@ function formatQ(n: number) {
   return `Q${n.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-export default function PuntalesTab({ onShowToast = () => {}, canEdit = true }: Props) {
-  const [lotes,      setLotes]      = useState<PuntalLote[]>([]);
-  const [config,     setConfig]     = useState<PuntalesConfig | null>(null);
+export default function LoteGranelTab({ tipo, tipoLabel, onShowToast = () => {}, canEdit = true }: Props) {
+  const [lotes,      setLotes]      = useState<LoteGranel[]>([]);
+  const [config,     setConfig]     = useState<ConfigGranel | null>(null);
   const [stockTotal, setStockTotal] = useState(0);
   const [isLoading,  setIsLoading]  = useState(true);
   const [error,      setError]      = useState<string | null>(null);
-  const [modalOpen,         setModalOpen]         = useState(false);
-  const [preciosModalOpen,  setPreciosModalOpen]  = useState(false);
+  const [modalOpen,        setModalOpen]        = useState(false);
+  const [preciosModalOpen, setPreciosModalOpen] = useState(false);
 
   useEffect(() => {
-    puntalesService.getAll()
+    setIsLoading(true);
+    setError(null);
+    granelService.getAll(tipo)
       .then(data => {
         setLotes(data.lotes);
         setStockTotal(data.stockTotal);
         setConfig(data.config);
       })
-      .catch(() => setError('No se pudo cargar el inventario de puntales.'))
+      .catch(() => setError(`No se pudo cargar el inventario de ${tipoLabel.toLowerCase()}.`))
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [tipo]);
 
-  const handleLoteCreado = (lote: PuntalLote) => {
+  const handleLoteCreado = (lote: LoteGranel) => {
     setLotes(prev => [...prev, lote]);
     setStockTotal(prev => prev + lote.cantidad);
     onShowToast('success', 'Lote registrado', `Se agregaron ${lote.cantidad} unidades al inventario.`);
   };
 
-  const handlePreciosGuardados = (updated: PuntalesConfig) => {
+  const handlePreciosGuardados = (updated: ConfigGranel) => {
     setConfig(updated);
     setPreciosModalOpen(false);
-    onShowToast('success', 'Precios actualizados', 'Las tarifas de renta de puntales fueron guardadas.');
+    onShowToast('success', 'Precios actualizados', `Las tarifas de renta de ${tipoLabel.toLowerCase()} fueron guardadas.`);
   };
 
   return (
@@ -170,13 +172,17 @@ export default function PuntalesTab({ onShowToast = () => {}, canEdit = true }: 
         )}
       </div>
 
-      <AgregarPuntalModal
+      <AgregarLoteGranelModal
+        tipo={tipo}
+        tipoLabel={tipoLabel}
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onCreated={handleLoteCreado}
       />
 
-      <PreciosPuntalesModal
+      <PreciosGranelModal
+        tipo={tipo}
+        tipoLabel={tipoLabel}
         config={config}
         open={preciosModalOpen}
         onClose={() => setPreciosModalOpen(false)}

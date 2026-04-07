@@ -1,17 +1,18 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreatePuntalDto } from './dto/create-puntal.dto';
-import { UpdatePuntalDto } from './dto/update-puntal.dto';
-import { UpdatePuntalesConfigDto } from './dto/update-config.dto';
+import { TipoGranel } from '@prisma/client';
+import { CreateLoteDto } from './dto/create-lote.dto';
+import { UpdateLoteDto } from './dto/update-lote.dto';
+import { UpdateConfigGranelDto } from './dto/update-config.dto';
 
 @Injectable()
-export class PuntalesService {
+export class GranelService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private serialize(p: any) {
+  private serializeLote(l: any) {
     return {
-      ...p,
-      precioUnitario: p.precioUnitario != null ? parseFloat(p.precioUnitario.toString()) : null,
+      ...l,
+      precioUnitario: l.precioUnitario != null ? parseFloat(l.precioUnitario.toString()) : null,
     };
   }
 
@@ -24,29 +25,30 @@ export class PuntalesService {
     };
   }
 
-  async getAll() {
+  async getAll(tipo: TipoGranel) {
     const [lotes, aggregate, config] = await Promise.all([
-      this.prisma.puntal.findMany({
-        where:   { isActive: true },
+      this.prisma.loteGranel.findMany({
+        where:   { tipo, isActive: true },
         orderBy: { createdAt: 'asc' },
       }),
-      this.prisma.puntal.aggregate({
-        where: { isActive: true },
+      this.prisma.loteGranel.aggregate({
+        where: { tipo, isActive: true },
         _sum:  { cantidad: true },
       }),
-      this.prisma.puntalesConfig.findUnique({ where: { id: 1 } }),
+      this.prisma.configGranel.findUnique({ where: { tipo } }),
     ]);
 
     return {
-      lotes:      lotes.map(p => this.serialize(p)),
+      lotes:      lotes.map(l => this.serializeLote(l)),
       stockTotal: aggregate._sum.cantidad ?? 0,
       config:     config ? this.serializeConfig(config) : null,
     };
   }
 
-  async create(dto: CreatePuntalDto, requestingUsername: string) {
-    const puntal = await this.prisma.puntal.create({
+  async create(dto: CreateLoteDto, requestingUsername: string) {
+    const lote = await this.prisma.loteGranel.create({
       data: {
+        tipo:           dto.tipo,
         descripcion:    dto.descripcion,
         cantidad:       dto.cantidad,
         precioUnitario: dto.precioUnitario,
@@ -57,24 +59,24 @@ export class PuntalesService {
 
     await this.prisma.bitacora.create({
       data: {
-        modulo:        'puntal',
-        entidadId:     puntal.id,
-        entidadNombre: puntal.descripcion,
+        modulo:        'granel',
+        entidadId:     lote.id,
+        entidadNombre: `${lote.tipo} — ${lote.descripcion}`,
         campo:         'crear',
         valorAnterior: null,
-        valorNuevo:    `${puntal.cantidad} unidades`,
+        valorNuevo:    `${lote.cantidad} unidades`,
         realizadoPor:  requestingUsername,
       },
     });
 
-    return this.serialize(puntal);
+    return this.serializeLote(lote);
   }
 
-  async update(id: string, dto: UpdatePuntalDto, requestingUsername: string) {
-    const anterior = await this.prisma.puntal.findUnique({ where: { id } });
-    if (!anterior) throw new NotFoundException('Lote de puntales no encontrado');
+  async update(id: string, dto: UpdateLoteDto, requestingUsername: string) {
+    const anterior = await this.prisma.loteGranel.findUnique({ where: { id } });
+    if (!anterior) throw new NotFoundException('Lote no encontrado.');
 
-    const actualizado = await this.prisma.puntal.update({
+    const actualizado = await this.prisma.loteGranel.update({
       where: { id },
       data: {
         ...(dto.descripcion    !== undefined && { descripcion:    dto.descripcion }),
@@ -89,20 +91,20 @@ export class PuntalesService {
     const changes: { campo: string; va: string | null; vn: string | null }[] = [];
 
     if (dto.descripcion    !== undefined && dto.descripcion    !== anterior.descripcion)
-      changes.push({ campo: 'descripcion',    va: fmt(anterior.descripcion),                  vn: fmt(dto.descripcion) });
+      changes.push({ campo: 'descripcion',    va: fmt(anterior.descripcion),    vn: fmt(dto.descripcion) });
     if (dto.cantidad       !== undefined && dto.cantidad       !== anterior.cantidad)
-      changes.push({ campo: 'cantidad',       va: fmt(anterior.cantidad),                     vn: fmt(dto.cantidad) });
+      changes.push({ campo: 'cantidad',       va: fmt(anterior.cantidad),       vn: fmt(dto.cantidad) });
     if (dto.precioUnitario !== undefined && parseFloat(dto.precioUnitario.toString()) !== parseFloat(anterior.precioUnitario.toString()))
       changes.push({ campo: 'precioUnitario', va: fmt(parseFloat(anterior.precioUnitario.toString())), vn: fmt(dto.precioUnitario) });
-    if (dto.ubicacion !== undefined && (dto.ubicacion || null) !== anterior.ubicacion)
-      changes.push({ campo: 'ubicacion',      va: anterior.ubicacion,                         vn: dto.ubicacion || null });
+    if (dto.ubicacion      !== undefined && (dto.ubicacion || null) !== anterior.ubicacion)
+      changes.push({ campo: 'ubicacion',      va: anterior.ubicacion, vn: dto.ubicacion || null });
 
     if (changes.length > 0) {
       await this.prisma.bitacora.createMany({
         data: changes.map(c => ({
-          modulo:        'puntal',
+          modulo:        'granel',
           entidadId:     id,
-          entidadNombre: actualizado.descripcion,
+          entidadNombre: `${actualizado.tipo} — ${actualizado.descripcion}`,
           campo:         c.campo,
           valorAnterior: c.va,
           valorNuevo:    c.vn,
@@ -111,45 +113,45 @@ export class PuntalesService {
       });
     }
 
-    return this.serialize(actualizado);
+    return this.serializeLote(actualizado);
   }
 
   async darDeBaja(id: string, requestingUsername: string) {
-    const puntal = await this.prisma.puntal.findUnique({ where: { id } });
-    if (!puntal) throw new NotFoundException('Lote de puntales no encontrado');
+    const lote = await this.prisma.loteGranel.findUnique({ where: { id } });
+    if (!lote) throw new NotFoundException('Lote no encontrado.');
 
-    const actualizado = await this.prisma.puntal.update({
+    const actualizado = await this.prisma.loteGranel.update({
       where: { id },
       data:  { isActive: false },
     });
 
     await this.prisma.bitacora.create({
       data: {
-        modulo:        'puntal',
+        modulo:        'granel',
         entidadId:     id,
-        entidadNombre: puntal.descripcion,
+        entidadNombre: `${lote.tipo} — ${lote.descripcion}`,
         campo:         'baja',
-        valorAnterior: `${puntal.cantidad} unidades activas`,
+        valorAnterior: `${lote.cantidad} unidades activas`,
         valorNuevo:    null,
         realizadoPor:  requestingUsername,
       },
     });
 
-    return this.serialize(actualizado);
+    return this.serializeLote(actualizado);
   }
 
-  async updateConfig(dto: UpdatePuntalesConfigDto, requestingUsername: string) {
-    const config = await this.prisma.puntalesConfig.upsert({
-      where:  { id: 1 },
+  async updateConfig(dto: UpdateConfigGranelDto, requestingUsername: string) {
+    const config = await this.prisma.configGranel.upsert({
+      where:  { tipo: dto.tipo },
       update: { rentaDia: dto.rentaDia, rentaSemana: dto.rentaSemana, rentaMes: dto.rentaMes },
-      create: { id: 1, rentaDia: dto.rentaDia, rentaSemana: dto.rentaSemana, rentaMes: dto.rentaMes },
+      create: { tipo: dto.tipo, rentaDia: dto.rentaDia, rentaSemana: dto.rentaSemana, rentaMes: dto.rentaMes },
     });
 
     await this.prisma.bitacora.create({
       data: {
-        modulo:        'puntal',
-        entidadId:     'config',
-        entidadNombre: 'Configuración de precios',
+        modulo:        'granel',
+        entidadId:     dto.tipo,
+        entidadNombre: `Configuración de precios — ${dto.tipo}`,
         campo:         'precios_renta',
         valorAnterior: null,
         valorNuevo:    `Q${dto.rentaDia}/día · Q${dto.rentaSemana}/semana · Q${dto.rentaMes}/mes`,

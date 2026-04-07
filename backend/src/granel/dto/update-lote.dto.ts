@@ -1,7 +1,7 @@
 import { IsString, IsInt, IsNumber, IsOptional, IsDateString, MaxLength, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
-export class UpdatePuntalDto {
+export class UpdateLoteDto {
   @IsOptional()
   @IsString()
   @MaxLength(300)

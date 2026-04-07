@@ -1,15 +1,15 @@
-// PreciosPuntalesModal.tsx — editar tarifas globales de renta de puntales
-
 import { useState, useEffect } from 'react';
 import type { ChangeEvent, MouseEvent } from 'react';
-import { puntalesService } from '../../services/puntales.service';
-import type { PuntalesConfig } from '../../services/puntales.service';
+import { granelService } from '../../services/granel.service';
+import type { ConfigGranel, TipoGranel } from '../../services/granel.service';
 
 interface Props {
-  config:  PuntalesConfig | null;
-  open:    boolean;
-  onClose: () => void;
-  onSave:  (updated: PuntalesConfig) => void;
+  tipo:      TipoGranel;
+  tipoLabel: string;
+  config:    ConfigGranel | null;
+  open:      boolean;
+  onClose:   () => void;
+  onSave:    (updated: ConfigGranel) => void;
 }
 
 interface FormState {
@@ -18,7 +18,7 @@ interface FormState {
   rentaMes:    string;
 }
 
-export default function PreciosPuntalesModal({ config, open, onClose, onSave }: Props) {
+export default function PreciosGranelModal({ tipo, tipoLabel, config, open, onClose, onSave }: Props) {
   const [form,     setForm]     = useState<FormState>({ rentaDia: '', rentaSemana: '', rentaMes: '' });
   const [isSaving, setIsSaving] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -59,7 +59,7 @@ export default function PreciosPuntalesModal({ config, open, onClose, onSave }: 
     setApiError(null);
 
     try {
-      const updated = await puntalesService.updateConfig({ rentaDia: dia, rentaSemana: semana, rentaMes: mes });
+      const updated = await granelService.updateConfig({ tipo, rentaDia: dia, rentaSemana: semana, rentaMes: mes });
       onSave(updated);
     } catch (err: unknown) {
       const msg =
@@ -85,7 +85,7 @@ export default function PreciosPuntalesModal({ config, open, onClose, onSave }: 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-slate-200">
           <div>
-            <h2 className="font-bold text-slate-800 text-base">Precios de renta — Puntales</h2>
+            <h2 className="font-bold text-slate-800 text-base">Precios de renta — {tipoLabel}</h2>
             <p className="text-xs text-slate-400 mt-0.5">Aplica a todas las unidades del inventario</p>
           </div>
           <button onClick={onClose} disabled={isSaving}
@@ -99,7 +99,7 @@ export default function PreciosPuntalesModal({ config, open, onClose, onSave }: 
         {/* Body */}
         <div className="px-6 py-5 space-y-4">
           <p className="text-[11px] text-slate-400">
-            Cambiar estos valores afectará el cálculo de rentas futuras de puntales.
+            Cambiar estos valores afectará el cálculo de rentas futuras de {tipoLabel.toLowerCase()}.
           </p>
 
           {([

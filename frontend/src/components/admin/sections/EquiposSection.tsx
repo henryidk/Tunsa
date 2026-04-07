@@ -7,12 +7,14 @@ import { useEquipos } from '../../../hooks/useEquipos';
 import { useCategorias } from '../../../hooks/useCategorias';
 import { equiposService } from '../../../services/equipos.service';
 import { generarReporteInventario } from '../../../utils/equipos.pdf';
+import { formatMoneda, formatFecha } from '../../../utils/format';
 import AgregarEquipoModal from '../AgregarEquipoModal';
 import EditarEquipoModal from '../EditarEquipoModal';
 import PreciosEquipoModal from '../PreciosEquipoModal';
 import BajaEquipoModal from '../BajaEquipoModal';
 import VerEquipoModal from '../VerEquipoModal';
 import LoteGranelTab from './LoteGranelTab';
+import type { TipoGranel } from '../../../services/granel.service';
 import type { ToastType } from '../../../types/ui.types'
 
 interface EquiposSectionProps {
@@ -25,14 +27,18 @@ interface EquiposSectionProps {
 type TabId = 'activos' | 'baja';
 type SectionTab = 'maquinaria' | 'puntales' | 'andamio_simple' | 'andamio_ruedas';
 
-function formatMoneda(value: number | null | undefined): string {
-  if (value == null) return '—';
-  return `Q${value.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+interface GranelSectionTab {
+  id:        Exclude<SectionTab, 'maquinaria'>;
+  label:     string;
+  tipo:      TipoGranel;
+  tipoLabel: string;
 }
 
-function formatFecha(iso: string): string {
-  return new Date(iso).toLocaleDateString('es-GT', { day: '2-digit', month: '2-digit', year: 'numeric' });
-}
+const GRANEL_SECTION_TABS: GranelSectionTab[] = [
+  { id: 'puntales',       label: 'Puntales',            tipo: 'PUNTAL',         tipoLabel: 'Puntales'            },
+  { id: 'andamio_simple', label: 'Andamios simples',    tipo: 'ANDAMIO_SIMPLE', tipoLabel: 'Andamios simples'    },
+  { id: 'andamio_ruedas', label: 'Andamios c/ ruedas',  tipo: 'ANDAMIO_RUEDAS', tipoLabel: 'Andamios con ruedas' },
+];
 
 export default function EquiposSection({ onShowToast = () => {}, canEdit = true }: EquiposSectionProps) {
   const { equipos, isLoading, error, addEquipo, updateEquipo } = useEquipos();
@@ -88,9 +94,9 @@ export default function EquiposSection({ onShowToast = () => {}, canEdit = true 
   });
 
   // ── Stats ─────────────────────────────────────────────────────────────────
-  const activos   = equipos.filter(e => e.isActive);
-  const dadosBaja = equipos.filter(e => !e.isActive);
-  const valorTotal = activos.reduce((sum, e) => sum + e.montoCompra, 0);
+  const activos    = useMemo(() => equipos.filter(e =>  e.isActive), [equipos]);
+  const dadosBaja  = useMemo(() => equipos.filter(e => !e.isActive), [equipos]);
+  const valorTotal = useMemo(() => activos.reduce((sum, e) => sum + e.montoCompra, 0), [activos]);
 
   // ── Generar reporte PDF ────────────────────────────────────────────────────
   const handleGenerarReporte = async () => {
@@ -169,12 +175,7 @@ export default function EquiposSection({ onShowToast = () => {}, canEdit = true 
 
       {/* Section tabs: Maquinaria / Granel */}
       <div className="flex gap-1 p-1 bg-slate-100 rounded-xl mb-6 w-fit">
-        {([
-          { id: 'maquinaria',    label: 'Maquinaria'         },
-          { id: 'puntales',      label: 'Puntales'           },
-          { id: 'andamio_simple', label: 'Andamios simples'  },
-          { id: 'andamio_ruedas', label: 'Andamios c/ ruedas'},
-        ] as const).map(t => (
+        {([{ id: 'maquinaria' as const, label: 'Maquinaria' }, ...GRANEL_SECTION_TABS]).map(t => (
           <button key={t.id} onClick={() => setSectionTab(t.id)}
             className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
               sectionTab === t.id
@@ -186,16 +187,10 @@ export default function EquiposSection({ onShowToast = () => {}, canEdit = true 
         ))}
       </div>
 
-      {/* ── Granel tabs ───────────────────────────────────────────────────── */}
-      {sectionTab === 'puntales' && (
-        <LoteGranelTab tipo="PUNTAL" tipoLabel="Puntales" onShowToast={onShowToast} canEdit={canEdit} />
-      )}
-      {sectionTab === 'andamio_simple' && (
-        <LoteGranelTab tipo="ANDAMIO_SIMPLE" tipoLabel="Andamios simples" onShowToast={onShowToast} canEdit={canEdit} />
-      )}
-      {sectionTab === 'andamio_ruedas' && (
-        <LoteGranelTab tipo="ANDAMIO_RUEDAS" tipoLabel="Andamios con ruedas" onShowToast={onShowToast} canEdit={canEdit} />
-      )}
+      {/* ── Granel tabs (data-driven) ──────────────────────────────────────── */}
+      {GRANEL_SECTION_TABS.map(t => sectionTab === t.id && (
+        <LoteGranelTab key={t.id} tipo={t.tipo} tipoLabel={t.tipoLabel} onShowToast={onShowToast} canEdit={canEdit} />
+      ))}
 
       {/* ── Maquinaria tab ────────────────────────────────────────────────── */}
       {sectionTab === 'maquinaria' && <>

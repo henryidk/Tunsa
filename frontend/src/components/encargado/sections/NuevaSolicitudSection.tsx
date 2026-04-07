@@ -19,7 +19,8 @@ export default function NuevaSolicitudSection(_props: Props) {
   const [clienteSeleccionado, setClienteSeleccionado] = useState<Cliente | null>(null);
   const [modalidadPago,       setModalidadPago]       = useState<ModalidadPago>('CONTADO');
   const [notas,               setNotas]               = useState('');
-  const [equipoTab, setEquipoTab] = useState<'maquinaria' | 'granel'>('maquinaria');
+  const [equipoTab,           setEquipoTab]           = useState<'maquinaria' | 'granel'>('maquinaria');
+  const [clienteKey,          setClienteKey]          = useState(0);
 
   const { equiposLiviana, granelData, isLoading, error: dataError } = useSolicitudData();
   const cart = useSolicitudCart();
@@ -30,13 +31,18 @@ export default function NuevaSolicitudSection(_props: Props) {
     [equiposLiviana, cart.items],
   );
 
-  const handleLimpiar = () => {
+  const handleLimpiarItems = () => {
     cart.clear();
-    setClienteSeleccionado(null);
     setModalidadPago('CONTADO');
     setNotas('');
-    // Los sub-formularios manejan su propio estado y se limpian internamente al agregar;
-    // el tab se mantiene donde estaba para no perder contexto del usuario.
+  };
+
+  const handleCancelarSolicitud = () => {
+    cart.clear();
+    setClienteSeleccionado(null);
+    setClienteKey(k => k + 1);
+    setModalidadPago('CONTADO');
+    setNotas('');
   };
 
   return (
@@ -75,7 +81,7 @@ export default function NuevaSolicitudSection(_props: Props) {
               ? 'Cliente seleccionado — haz clic en × para cambiar'
               : 'Busca un cliente registrado o regístralo desde aquí'}
           >
-            <ClienteSearchWidget onSelect={setClienteSeleccionado} />
+            <ClienteSearchWidget key={clienteKey} onSelect={setClienteSeleccionado} />
           </SectionCard>
 
           {/* 2. Equipos */}
@@ -166,8 +172,10 @@ export default function NuevaSolicitudSection(_props: Props) {
           items={cart.items}
           summary={cart.summary}
           modalidadPago={modalidadPago}
-          onLimpiar={handleLimpiar}
-          canLimpiar={cart.items.length > 0 || !!clienteSeleccionado || !!notas}
+          onLimpiarItems={handleLimpiarItems}
+          canLimpiarItems={cart.items.length > 0 || !!notas}
+          onCancelar={handleCancelarSolicitud}
+          canCancelar={!!clienteSeleccionado}
           canEnviar={!!clienteSeleccionado && cart.items.length > 0}
         />
 
@@ -346,16 +354,19 @@ function CartRow({ item, onRemove }: CartRowProps) {
 }
 
 interface SolicitudResumenProps {
-  cliente:       Cliente | null;
-  items:         ItemSolicitud[];
-  summary:       { total: number; countMaquinaria: number; countGranel: number };
-  modalidadPago: ModalidadPago;
-  onLimpiar:     () => void;
-  canLimpiar:    boolean;
-  canEnviar:     boolean;
+  cliente:         Cliente | null;
+  items:           ItemSolicitud[];
+  summary:         { total: number; countMaquinaria: number; countGranel: number };
+  modalidadPago:   ModalidadPago;
+  onLimpiarItems:  () => void;
+  canLimpiarItems: boolean;
+  onCancelar:      () => void;
+  canCancelar:     boolean;
+  canEnviar:       boolean;
 }
 
-function SolicitudResumen({ cliente, items, summary, modalidadPago, onLimpiar, canLimpiar, canEnviar }: SolicitudResumenProps) {
+function SolicitudResumen({ cliente, items, summary, modalidadPago, onLimpiarItems, canLimpiarItems, onCancelar, canCancelar, canEnviar }: SolicitudResumenProps) {
+  const [confirmandoCancelar, setConfirmandoCancelar] = useState(false);
   return (
     <div className="w-72 flex-shrink-0">
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden sticky top-20">
@@ -400,7 +411,7 @@ function SolicitudResumen({ cliente, items, summary, modalidadPago, onLimpiar, c
             </div>
           ) : (
             <div className="space-y-2">
-              {items.map((item, idx) => (
+              {items.map((item) => (
                 <div key={item.kind === 'maquinaria' ? item.equipo.id : `granel-${item.tipo}`}
                   className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
@@ -461,23 +472,63 @@ function SolicitudResumen({ cliente, items, summary, modalidadPago, onLimpiar, c
         </div>
 
         {/* Actions */}
-        <div className="px-4 py-3 flex gap-2 border-t border-slate-100">
-          <button onClick={onLimpiar} disabled={!canLimpiar}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="1 4 1 10 7 10"/>
-              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
-            </svg>
-            Limpiar
-          </button>
-          <button disabled={!canEnviar}
-            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-              <polyline points="17 21 17 13 7 13 7 21"/>
-            </svg>
-            Enviar Solicitud
-          </button>
+        <div className="px-4 py-3 space-y-2 border-t border-slate-100">
+
+          {/* Fila principal: limpiar ítems + enviar */}
+          <div className="flex gap-2">
+            <button onClick={onLimpiarItems} disabled={!canLimpiarItems}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="1 4 1 10 7 10"/>
+                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+              </svg>
+              Limpiar
+            </button>
+            <button disabled={!canEnviar}
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                <polyline points="17 21 17 13 7 13 7 21"/>
+              </svg>
+              Enviar Solicitud
+            </button>
+          </div>
+
+          {/* Cancelar solicitud completa */}
+          {!confirmandoCancelar ? (
+            <button
+              onClick={() => setConfirmandoCancelar(true)}
+              disabled={!canCancelar}
+              className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-red-500 hover:text-red-600 text-sm font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="15" y1="9" x2="9" y2="15"/>
+                <line x1="9" y1="9" x2="15" y2="15"/>
+              </svg>
+              Cancelar solicitud
+            </button>
+          ) : (
+            <div className="flex flex-col gap-1.5 px-3 py-2.5 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-xs font-semibold text-red-700 text-center">¿Cancelar toda la solicitud?</p>
+              <p className="text-[11px] text-red-500 text-center leading-snug">Se borrará el cliente y todos los ítems.</p>
+              <div className="flex gap-2 mt-0.5">
+                <button
+                  onClick={() => setConfirmandoCancelar(false)}
+                  className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 text-xs font-medium hover:bg-slate-50 transition-colors"
+                >
+                  No, volver
+                </button>
+                <button
+                  onClick={() => { onCancelar(); setConfirmandoCancelar(false); }}
+                  className="flex-1 px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white text-xs font-medium transition-colors"
+                >
+                  Sí, cancelar
+                </button>
+              </div>
+            </div>
+          )}
+
         </div>
 
       </div>

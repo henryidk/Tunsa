@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { granelService } from '../../../services/granel.service';
 import type { LoteGranel, ConfigGranel, TipoGranel } from '../../../services/granel.service';
+import { formatQ, formatFecha } from '../../../utils/format';
 import AgregarLoteGranelModal from '../AgregarLoteGranelModal';
 import PreciosGranelModal from '../PreciosGranelModal';
 import type { ToastType } from '../../../types/ui.types';
@@ -10,15 +11,6 @@ interface Props {
   tipoLabel: string;
   onShowToast?: (type: ToastType, title: string, msg: string) => void;
   canEdit?: boolean;
-}
-
-function formatFecha(iso: string | null) {
-  if (!iso) return <span className="text-slate-300">—</span>;
-  return new Date(iso).toLocaleDateString('es-GT', { day: '2-digit', month: '2-digit', year: 'numeric' });
-}
-
-function formatQ(n: number) {
-  return `Q${n.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 export default function LoteGranelTab({ tipo, tipoLabel, onShowToast = () => {}, canEdit = true }: Props) {
@@ -41,7 +33,7 @@ export default function LoteGranelTab({ tipo, tipoLabel, onShowToast = () => {},
       })
       .catch(() => setError(`No se pudo cargar el inventario de ${tipoLabel.toLowerCase()}.`))
       .finally(() => setIsLoading(false));
-  }, [tipo]);
+  }, [tipo, tipoLabel]);
 
   const handleLoteCreado = (lote: LoteGranel) => {
     setLotes(prev => [...prev, lote]);
@@ -152,7 +144,11 @@ export default function LoteGranelTab({ tipo, tipoLabel, onShowToast = () => {},
                   <td className="px-4 py-3 font-mono font-semibold text-slate-800">
                     {formatQ(lote.cantidad * lote.precioUnitario)}
                   </td>
-                  <td className="px-4 py-3 text-xs text-slate-500">{formatFecha(lote.fechaCompra)}</td>
+                  <td className="px-4 py-3 text-xs text-slate-500">
+                    {lote.fechaCompra
+                      ? formatFecha(lote.fechaCompra)
+                      : <span className="text-slate-300">—</span>}
+                  </td>
                   <td className="px-4 py-3 text-xs text-slate-500">
                     {lote.ubicacion ?? <span className="text-slate-300">—</span>}
                   </td>

@@ -1,10 +1,11 @@
 export type EstadoSolicitud = 'PENDIENTE' | 'APROBADA' | 'RECHAZADA';
 export type ModalidadPago   = 'CONTADO' | 'CREDITO';
+export type UnidadDuracion  = 'dias' | 'semanas' | 'meses';
 
 interface ItemSnapshotBase {
   fechaInicio: string;
   duracion:    number;
-  unidad:      string;
+  unidad:      UnidadDuracion;
   tarifa:      number | null;
   subtotal:    number;
 }
@@ -25,8 +26,11 @@ export type ItemSnapshot =
     });
 
 export interface ClienteBasico {
-  id:     string;
-  nombre: string;
+  id:           string;
+  nombre:       string;
+  dpi:          string;
+  telefono?:    string | null;
+  documentoKey: string | null;
 }
 
 export interface SolicitudRenta {

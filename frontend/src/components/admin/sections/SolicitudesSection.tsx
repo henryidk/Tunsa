@@ -1,5 +1,8 @@
+import { useState } from 'react';
 import { useSolicitudes } from '../../../hooks/useSolicitudes';
+import { clientesService } from '../../../services/clientes.service';
 import type { SolicitudRenta, ItemSnapshot } from '../../../types/solicitud-renta.types';
+import { formatFechaCorta, unidadLabel } from '../../../types/solicitud.types';
 
 export default function SolicitudesSection() {
   const { solicitudes, isLoading, error } = useSolicitudes();
@@ -59,7 +62,7 @@ export default function SolicitudesSection() {
       {isLoading ? (
         <div className="space-y-3">
           {[1, 2, 3].map(i => (
-            <div key={i} className="h-40 bg-white border border-slate-200 rounded-xl animate-pulse" />
+            <div key={i} className="h-40 bg-white border border-l-4 border-slate-200 border-l-slate-300 rounded-lg shadow-md animate-pulse" />
           ))}
         </div>
       ) : solicitudes.length === 0 ? (
@@ -75,12 +78,18 @@ export default function SolicitudesSection() {
 
 // ── Solicitud Card ────────────────────────────────────────────────────────────
 
+const ESTADO_BORDER: Record<SolicitudRenta['estado'], string> = {
+  PENDIENTE: 'border-l-amber-400',
+  APROBADA:  'border-l-emerald-400',
+  RECHAZADA: 'border-l-red-400',
+};
+
 function SolicitudCard({ solicitud }: { solicitud: SolicitudRenta }) {
   const maquinaria = solicitud.items.filter(i => i.kind === 'maquinaria');
   const granel     = solicitud.items.filter(i => i.kind === 'granel');
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+    <div className={`bg-white border border-slate-200 border-l-4 ${ESTADO_BORDER[solicitud.estado]} rounded-lg shadow-md overflow-hidden`}>
 
       {/* Top bar */}
       <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-slate-50">
@@ -97,18 +106,34 @@ function SolicitudCard({ solicitud }: { solicitud: SolicitudRenta }) {
       <div className="px-5 py-4 grid grid-cols-1 md:grid-cols-3 gap-4">
 
         {/* Cliente */}
-        <div>
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Cliente</p>
-          <p className="text-sm font-semibold text-slate-800 leading-snug">{solicitud.cliente.nombre}</p>
-          <p className="text-xs font-mono text-slate-400 mt-0.5">{solicitud.cliente.id}</p>
+        <div className="space-y-2">
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Cliente</p>
+          <div>
+            <p className="text-sm font-semibold text-slate-800 leading-snug">{solicitud.cliente.nombre}</p>
+            <p className="text-xs font-mono text-slate-400 mt-0.5">{solicitud.cliente.id}</p>
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center gap-1.5 text-xs text-slate-600">
+              <span className="text-slate-400 font-medium">DPI</span>
+              <span className="font-mono">{solicitud.cliente.dpi}</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-xs text-slate-600">
+              <span className="text-slate-400 font-medium">Tel.</span>
+              {solicitud.cliente.telefono
+                ? <span>{solicitud.cliente.telefono}</span>
+                : <span className="text-slate-400 italic">No registrado</span>
+              }
+            </div>
+          </div>
+          <DocumentoButton clienteId={solicitud.cliente.id} tieneDocumento={!!solicitud.cliente.documentoKey} />
         </div>
 
         {/* Ítems */}
         <div>
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Ítems solicitados</p>
-          <div className="space-y-0.5">
-            {maquinaria.map((item, i) => <ItemLabel key={i} item={item} />)}
-            {granel.map((item, i)     => <ItemLabel key={i} item={item} />)}
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Ítems solicitados</p>
+          <div className="space-y-2">
+            {maquinaria.map((item, i) => <ItemRow key={i} item={item} />)}
+            {granel.map((item, i)     => <ItemRow key={i} item={item} />)}
           </div>
         </div>
 
@@ -146,21 +171,93 @@ function SolicitudCard({ solicitud }: { solicitud: SolicitudRenta }) {
   );
 }
 
-function ItemLabel({ item }: { item: ItemSnapshot }) {
+function ItemRow({ item }: { item: ItemSnapshot }) {
+  const tiempo = (
+    <span className="flex items-center gap-1 mt-0.5 text-[11px] text-slate-400">
+      <span className="inline-flex items-center gap-1 font-medium text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-md">
+        {unidadLabel(item.duracion, item.unidad)}
+      </span>
+      <span>desde {formatFechaCorta(item.fechaInicio)}</span>
+    </span>
+  );
+
   if (item.kind === 'maquinaria') {
     return (
-      <p className="text-xs text-slate-700">
-        <span className="font-mono text-slate-400 mr-1">#{item.numeracion}</span>
-        {item.descripcion}
-      </p>
+      <div>
+        <p className="text-xs text-slate-700">
+          <span className="font-mono text-slate-400 mr-1">#{item.numeracion}</span>
+          {item.descripcion}
+        </p>
+        {tiempo}
+      </div>
     );
   }
+
   return (
-    <p className="text-xs text-slate-700">
-      <span className="font-semibold text-slate-500 mr-1">{item.cantidad?.toLocaleString('es-GT')}</span>
-      {item.tipoLabel}
-      {item.conMadera && <span className="text-amber-600 ml-1">(c/madera)</span>}
-    </p>
+    <div>
+      <p className="text-xs text-slate-700">
+        <span className="font-semibold text-slate-500 mr-1">{item.cantidad.toLocaleString('es-GT')}</span>
+        {item.tipoLabel}
+        {item.conMadera && <span className="text-amber-600 ml-1">(c/madera)</span>}
+      </p>
+      {tiempo}
+    </div>
+  );
+}
+
+function DocumentoButton({ clienteId, tieneDocumento }: { clienteId: string; tieneDocumento: boolean }) {
+  const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState(false);
+
+  if (!tieneDocumento) {
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        Sin documento
+      </span>
+    );
+  }
+
+  const handleVerDocumento = async () => {
+    if (loading) return;
+    setError(false);
+    setLoading(true);
+    try {
+      const url = await clientesService.getDocumentoUrl(clienteId);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleVerDocumento}
+      disabled={loading}
+      className="inline-flex items-center gap-1.5 text-[11px] font-medium text-indigo-600 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md hover:bg-indigo-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+    >
+      {loading ? (
+        <svg className="animate-spin" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+        </svg>
+      ) : (
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+        </svg>
+      )}
+      {error ? 'Error al abrir' : 'Ver documento'}
+      {!loading && !error && (
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+          <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+        </svg>
+      )}
+    </button>
   );
 }
 
@@ -185,7 +282,7 @@ function StatCard({ label, value, icon, iconBg, iconColor }: {
   icon: React.ReactNode; iconBg: string; iconColor: string;
 }) {
   return (
-    <div className="bg-white border border-slate-200 rounded-xl px-5 py-4 shadow-sm flex items-center gap-4">
+    <div className="bg-white border border-slate-200 rounded-lg px-5 py-4 shadow-sm flex items-center gap-4">
       <div className={`w-10 h-10 rounded-xl ${iconBg} flex items-center justify-center flex-shrink-0 ${iconColor}`}>
         {icon}
       </div>

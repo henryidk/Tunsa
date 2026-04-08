@@ -9,7 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 
 @WebSocketGateway({
   namespace: '/solicitudes',
-  cors: { origin: '*', credentials: true },
+  cors: { origin: process.env.FRONTEND_URL, credentials: true },
 })
 export class SolicitudesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()

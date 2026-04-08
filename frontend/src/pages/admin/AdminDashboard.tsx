@@ -85,7 +85,7 @@ export default function AdminDashboard() {
             <DashboardSection onNavTo={navTo} onShowToast={showToast} onOpenModal={openModal} />
           )}
           {activeSection === 'rentas-solicitudes' && (
-            <SolicitudesSection onShowToast={showToast} onOpenModal={openModal} />
+            <SolicitudesSection />
           )}
           {activeSection === 'rentas-activas' && (
             <RentasActivasSection onShowToast={showToast} onOpenModal={openModal} />

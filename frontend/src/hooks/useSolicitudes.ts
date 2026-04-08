@@ -25,7 +25,9 @@ export function useSolicitudes() {
     });
 
     socket.on('solicitud:nueva', (nueva: SolicitudRenta) => {
-      setSolicitudes(prev => [nueva, ...prev]);
+      setSolicitudes(prev =>
+        prev.some(s => s.id === nueva.id) ? prev : [nueva, ...prev],
+      );
     });
 
     return () => { socket.disconnect(); };

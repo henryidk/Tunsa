@@ -1,24 +1,28 @@
 export type EstadoSolicitud = 'PENDIENTE' | 'APROBADA' | 'RECHAZADA';
 export type ModalidadPago   = 'CONTADO' | 'CREDITO';
 
-export interface ItemSnapshot {
-  kind:        'maquinaria' | 'granel';
-  // Maquinaria
-  equipoId?:   string;
-  numeracion?: string;
-  descripcion?:string;
-  // Granel
-  tipo?:       string;
-  tipoLabel?:  string;
-  cantidad?:   number;
-  conMadera?:  boolean;
-  // Común
+interface ItemSnapshotBase {
   fechaInicio: string;
   duracion:    number;
   unidad:      string;
   tarifa:      number | null;
   subtotal:    number;
 }
+
+export type ItemSnapshot =
+  | (ItemSnapshotBase & {
+      kind:        'maquinaria';
+      equipoId:    string;
+      numeracion:  string;
+      descripcion: string;
+    })
+  | (ItemSnapshotBase & {
+      kind:      'granel';
+      tipo:      string;
+      tipoLabel: string;
+      cantidad:  number;
+      conMadera: boolean;
+    });
 
 export interface ClienteBasico {
   id:     string;

@@ -1,13 +1,7 @@
 import { useSolicitudes } from '../../../hooks/useSolicitudes';
 import type { SolicitudRenta, ItemSnapshot } from '../../../types/solicitud-renta.types';
-import type { ToastType } from '../../../types/ui.types';
 
-interface Props {
-  onShowToast?: (type: ToastType, title: string, msg: string) => void;
-  onOpenModal?: (rentaId: string) => void;
-}
-
-export default function SolicitudesSection(_props: Props) {
+export default function SolicitudesSection() {
   const { solicitudes, isLoading, error } = useSolicitudes();
 
   return (
@@ -144,16 +138,6 @@ function SolicitudCard({ solicitud }: { solicitud: SolicitudRenta }) {
           <div className="text-right">
             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Solicitado por</p>
             <p className="text-xs font-semibold text-slate-600">{solicitud.creadaPor}</p>
-          </div>
-          <div className="flex gap-1.5">
-            <button disabled title="Próximamente"
-              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-100 text-emerald-400 cursor-not-allowed opacity-60">
-              Aprobar
-            </button>
-            <button disabled title="Próximamente"
-              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-100 text-red-400 cursor-not-allowed opacity-60">
-              Rechazar
-            </button>
           </div>
         </div>
       </div>

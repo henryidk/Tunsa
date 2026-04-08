@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSolicitudDto } from './dto/create-solicitud.dto';
+
+type SolicitudConCliente = Prisma.SolicitudGetPayload<{ include: { cliente: true } }>;
 
 @Injectable()
 export class SolicitudesService {
@@ -29,7 +32,7 @@ export class SolicitudesService {
     return solicitudes.map(s => this.serialize(s));
   }
 
-  private serialize(s: any) {
+  private serialize(s: SolicitudConCliente) {
     return {
       ...s,
       totalEstimado: parseFloat(s.totalEstimado.toString()),

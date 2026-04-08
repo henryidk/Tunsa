@@ -23,7 +23,7 @@ export class GranelController {
   }
 
   @Post()
-  @Roles('admin')
+  @Roles('admin', 'secretaria')
   create(
     @Body() dto: CreateLoteDto,
     @CurrentUser() currentUser: AuthenticatedUser,
@@ -33,7 +33,7 @@ export class GranelController {
 
   // Declarado antes de :id para que NestJS no lo trate como parámetro
   @Patch('config')
-  @Roles('admin')
+  @Roles('admin', 'secretaria')
   updateConfig(
     @Body() dto: UpdateConfigGranelDto,
     @CurrentUser() currentUser: AuthenticatedUser,
@@ -42,7 +42,7 @@ export class GranelController {
   }
 
   @Patch(':id')
-  @Roles('admin')
+  @Roles('admin', 'secretaria')
   update(
     @Param('id') id: string,
     @Body() dto: UpdateLoteDto,
@@ -52,7 +52,7 @@ export class GranelController {
   }
 
   @Patch(':id/baja')
-  @Roles('admin')
+  @Roles('admin', 'secretaria')
   darDeBaja(
     @Param('id') id: string,
     @CurrentUser() currentUser: AuthenticatedUser,

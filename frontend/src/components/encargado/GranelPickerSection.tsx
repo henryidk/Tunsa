@@ -15,6 +15,7 @@ interface GranelForm {
   fechaInicio: string;
   duracion:    string;
   unidad:      UnidadDuracion;
+  conMadera:   boolean;
 }
 
 const GRANEL_TIPOS: { tipo: TipoGranel; tipoLabel: string }[] = [
@@ -23,7 +24,7 @@ const GRANEL_TIPOS: { tipo: TipoGranel; tipoLabel: string }[] = [
   { tipo: 'ANDAMIO_RUEDAS', tipoLabel: 'Andamios con ruedas' },
 ];
 
-const emptyForm = (): GranelForm => ({ cantidad: '', fechaInicio: '', duracion: '', unidad: 'dias' });
+const emptyForm = (): GranelForm => ({ cantidad: '', fechaInicio: '', duracion: '', unidad: 'dias', conMadera: false });
 
 const inputCls  = 'w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50';
 const labelCls  = 'block text-xs font-semibold text-slate-600 mb-1.5';
@@ -38,7 +39,8 @@ export default function GranelPickerSection({ granelData, isLoading, inCart, onA
   const [errors, setErrors] = useState<Partial<Record<TipoGranel, string>>>({});
 
   const updateForm = (tipo: TipoGranel, field: keyof GranelForm, value: string) => {
-    setForms(prev => ({ ...prev, [tipo]: { ...prev[tipo], [field]: value } }));
+    const parsed = field === 'conMadera' ? value === 'true' : value;
+    setForms(prev => ({ ...prev, [tipo]: { ...prev[tipo], [field]: parsed } }));
     setErrors(prev => ({ ...prev, [tipo]: undefined }));
   };
 
@@ -58,7 +60,9 @@ export default function GranelPickerSection({ granelData, isLoading, inCart, onA
     if (!form.fechaInicio)  { setError(tipo, 'La fecha de inicio es requerida.'); return; }
     if (!dur || dur < 1)    { setError(tipo, 'La duración debe ser al menos 1.'); return; }
 
-    onAdd({ tipo, tipoLabel, cantidad: cant, fechaInicio: form.fechaInicio, duracion: dur, unidad: form.unidad, config: data?.config ?? null });
+    const conMadera = tipo === 'ANDAMIO_SIMPLE' ? form.conMadera : undefined;
+    const labelFinal = conMadera ? `${tipoLabel} (con madera)` : tipoLabel;
+    onAdd({ tipo, tipoLabel: labelFinal, cantidad: cant, fechaInicio: form.fechaInicio, duracion: dur, unidad: form.unidad, config: data?.config ?? null, conMadera });
     setForms(prev => ({ ...prev, [tipo]: emptyForm() }));
     setErrors(prev => ({ ...prev, [tipo]: undefined }));
   };
@@ -73,7 +77,12 @@ export default function GranelPickerSection({ granelData, isLoading, inCart, onA
         const alreadyIn  = inCart(tipo);
         const form       = forms[tipo];
         const err        = errors[tipo];
-        const ratePreview = config ? getRentaRate(form.unidad, config.rentaDia, config.rentaSemana, config.rentaMes) : null;
+        const esAndamioSimple = tipo === 'ANDAMIO_SIMPLE';
+        const ratePreview = config
+          ? (esAndamioSimple && form.conMadera
+              ? getRentaRate(form.unidad, config.rentaDiaConMadera, config.rentaSemanaConMadera, config.rentaMesConMadera)
+              : getRentaRate(form.unidad, config.rentaDia, config.rentaSemana, config.rentaMes))
+          : null;
 
         return (
           <div key={tipo}
@@ -126,6 +135,36 @@ export default function GranelPickerSection({ granelData, isLoading, inCart, onA
                       className={inputCls} />
                   </div>
                 </div>
+
+                {esAndamioSimple && (
+                  <div className="flex items-center gap-3 mb-2.5 px-3 py-2.5 bg-white border border-slate-200 rounded-lg">
+                    <span className="text-xs font-semibold text-slate-600 flex-1">Variante</span>
+                    <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
+                      <button
+                        type="button"
+                        disabled={!canAdd}
+                        onClick={() => updateForm(tipo, 'conMadera', 'false')}
+                        className={`px-3 py-1 text-xs font-medium rounded-md transition-colors disabled:opacity-50 ${
+                          !form.conMadera
+                            ? 'bg-white text-slate-800 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}>
+                        Sin madera
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!canAdd}
+                        onClick={() => updateForm(tipo, 'conMadera', 'true')}
+                        className={`px-3 py-1 text-xs font-medium rounded-md transition-colors disabled:opacity-50 ${
+                          form.conMadera
+                            ? 'bg-white text-slate-800 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}>
+                        Con madera
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex gap-2 items-end">
                   <div className="w-24 flex-shrink-0">

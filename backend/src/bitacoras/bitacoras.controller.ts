@@ -12,14 +12,14 @@ export class BitacorasController {
 
   /** GET /bitacoras/stats — conteos globales */
   @Get('stats')
-  @Roles('admin')
+  @Roles('admin', 'secretaria')
   getStats() {
     return this.bitacorasService.getStats();
   }
 
   /** GET /bitacoras?cursor=&modulo=&search= */
   @Get()
-  @Roles('admin')
+  @Roles('admin', 'secretaria')
   findAll(
     @Query('cursor') cursor?: string,
     @Query('modulo')  modulo?: string,

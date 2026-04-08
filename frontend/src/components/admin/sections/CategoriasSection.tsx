@@ -1,11 +1,12 @@
 // CategoriasSection.tsx — gestión de categorías y asignación de equipos
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import type { Equipo, TipoConCategorias } from '../../../types/equipo.types';
+import type { Equipo } from '../../../types/equipo.types';
 import { equiposService } from '../../../services/equipos.service';
 import EditarEquipoModal from '../EditarEquipoModal';
 import { categoriasService } from '../../../services/categorias.service';
 import type { TipoAdmin, CategoriaAdmin } from '../../../services/categorias.service';
+import { extractApiError, sortEquiposByNumeracion } from '../../../utils/format';
 import type { ToastType } from '../../../types/ui.types';
 import { generarReporteCategorias } from '../../../utils/categorias.pdf';
 
@@ -21,16 +22,9 @@ type CatAction =
   | { type: 'deleting' }
   | { type: 'saving' };
 
-function sortEquipos(list: Equipo[]): Equipo[] {
-  return [...list].sort((a, b) => {
-    const aNum = /^\d+$/.test(a.numeracion);
-    const bNum = /^\d+$/.test(b.numeracion);
-    if (aNum && bNum) return parseInt(a.numeracion) - parseInt(b.numeracion);
-    if (aNum) return -1;
-    if (bNum) return 1;
-    return a.numeracion.localeCompare(b.numeracion);
-  });
-}
+type GestionarView = 'list' | 'block' | 'warn' | 'confirm';
+
+const INPUT_CLS = 'w-full text-sm border border-indigo-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-100 disabled:opacity-60';
 
 export default function CategoriasSection({ onShowToast }: CategoriasSectionProps) {
   const [tipos,     setTipos]     = useState<TipoAdmin[]>([]);
@@ -55,7 +49,6 @@ export default function CategoriasSection({ onShowToast }: CategoriasSectionProp
   const [confirmDeleteCat, setConfirmDeleteCat] = useState<CategoriaAdmin | null>(null);
   const [isDeletingConfirm, setIsDeletingConfirm] = useState(false);
 
-  type GestionarView = 'list' | 'block' | 'warn' | 'confirm';
   const [gestionarOpen,   setGestionarOpen]   = useState(false);
   const [gestionarView,   setGestionarView]   = useState<GestionarView>('list');
   const [gestionarTipo,   setGestionarTipo]   = useState<TipoAdmin | null>(null);
@@ -200,11 +193,7 @@ export default function CategoriasSection({ onShowToast }: CategoriasSectionProp
       ));
       onShowToast('success', 'Eliminada', `Categoría "${cat.nombre}" eliminada.`);
     } catch (err: unknown) {
-      const msg =
-        err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
-          : undefined;
-      onShowToast('error', 'No se puede eliminar', msg ?? 'La categoría tiene equipos asignados.');
+      onShowToast('error', 'No se puede eliminar', extractApiError(err) ?? 'La categoría tiene equipos asignados.');
       setAction(cat.id, { type: 'idle' });
     }
   };
@@ -222,11 +211,7 @@ export default function CategoriasSection({ onShowToast }: CategoriasSectionProp
       onShowToast('success', 'Eliminada', `Categoría "${confirmDeleteCat.nombre}" eliminada.`);
       setConfirmDeleteCat(null);
     } catch (err: unknown) {
-      const msg =
-        err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
-          : undefined;
-      onShowToast('error', 'Error', msg ?? 'No se pudo eliminar la categoría.');
+      onShowToast('error', 'Error', extractApiError(err) ?? 'No se pudo eliminar la categoría.');
     } finally {
       setIsDeletingConfirm(false);
     }
@@ -243,11 +228,7 @@ export default function CategoriasSection({ onShowToast }: CategoriasSectionProp
       setAddingTipo('');
       onShowToast('success', 'Tipo creado', `Tipo "${nuevo.nombre}" creado correctamente.`);
     } catch (err: unknown) {
-      const msg =
-        err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
-          : undefined;
-      onShowToast('error', 'Error', msg ?? 'No se pudo crear el tipo.');
+      onShowToast('error', 'Error', extractApiError(err) ?? 'No se pudo crear el tipo.');
     } finally {
       setAddingTipoLoad(false);
     }
@@ -264,11 +245,7 @@ export default function CategoriasSection({ onShowToast }: CategoriasSectionProp
       setEditingTipoId(null);
       onShowToast('success', 'Renombrado', `Tipo renombrado a "${actualizado.nombre}".`);
     } catch (err: unknown) {
-      const msg =
-        err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
-          : undefined;
-      onShowToast('error', 'Error', msg ?? 'No se pudo renombrar el tipo.');
+      onShowToast('error', 'Error', extractApiError(err) ?? 'No se pudo renombrar el tipo.');
     } finally {
       setSavingTipoId(null);
     }
@@ -323,11 +300,7 @@ export default function CategoriasSection({ onShowToast }: CategoriasSectionProp
       setAddingNombre('');
       onShowToast('success', 'Creada', `Categoría "${nueva.nombre}" creada.`);
     } catch (err: unknown) {
-      const msg =
-        err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
-          : undefined;
-      onShowToast('error', 'Error', msg ?? 'No se pudo crear la categoría.');
+      onShowToast('error', 'Error', extractApiError(err) ?? 'No se pudo crear la categoría.');
     } finally {
       setAddingLoading(false);
     }
@@ -377,9 +350,6 @@ export default function CategoriasSection({ onShowToast }: CategoriasSectionProp
       setGenerando(false);
     }
   };
-
-  // ── Render helpers ────────────────────────────────────────────────────────────
-  const inputCls = 'w-full text-sm border border-indigo-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-100 disabled:opacity-60';
 
   if (isLoading) {
     return (
@@ -473,7 +443,7 @@ export default function CategoriasSection({ onShowToast }: CategoriasSectionProp
                 Quita o reasigna los siguientes equipos antes de eliminar la categoría:
               </p>
               <div className="max-h-48 overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-lg">
-                {sortEquipos(blockEquipos).map(e => (
+                {sortEquiposByNumeracion(blockEquipos).map(e => (
                   <div key={e.id} className="flex items-center gap-2.5 px-3 py-2">
                     <span className="font-mono text-xs font-bold text-slate-400 w-10 flex-shrink-0 text-right">
                       #{e.numeracion}
@@ -860,7 +830,7 @@ export default function CategoriasSection({ onShowToast }: CategoriasSectionProp
                         if (e.key === 'Enter')  handleEditSave(cat);
                         if (e.key === 'Escape') setAction(cat.id, { type: 'idle' });
                       }}
-                      className={inputCls}
+                      className={INPUT_CLS}
                     />
                     <div className="flex gap-1.5 mt-1.5">
                       <button
@@ -1027,7 +997,7 @@ export default function CategoriasSection({ onShowToast }: CategoriasSectionProp
               </div>
             ) : (
               <div className="divide-y divide-slate-50">
-                {sortEquipos(catActivaEquipos).map(equipo => {
+                {sortEquiposByNumeracion(catActivaEquipos).map(equipo => {
                   const loading = equipoLoading[equipo.id];
                   return (
                     <div
@@ -1111,7 +1081,7 @@ export default function CategoriasSection({ onShowToast }: CategoriasSectionProp
       <EditarEquipoModal
         equipo={editarEquipo}
         open={editarEquipo !== null}
-        tipos={tipos as unknown as TipoConCategorias[]}
+        tipos={tipos}
         onClose={() => setEditarEquipo(null)}
         onSave={updated => {
           setEquipos(prev => prev.map(e => e.id === updated.id ? updated : e));

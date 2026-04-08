@@ -1,4 +1,4 @@
-import { IsEnum, IsNumber, Min } from 'class-validator';
+import { IsEnum, IsNumber, IsOptional, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { TipoGranel } from '@prisma/client';
 
@@ -20,4 +20,23 @@ export class UpdateConfigGranelDto {
   @Min(0)
   @Type(() => Number)
   rentaMes: number;
+
+  // Solo aplica para ANDAMIO_SIMPLE (variante con madera)
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  rentaDiaConMadera?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  rentaSemanaConMadera?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  rentaMesConMadera?: number;
 }

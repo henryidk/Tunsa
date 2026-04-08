@@ -1,7 +1,7 @@
 import type { ModalidadPago } from '../../types/solicitud.types';
 
 interface Props {
-  value:    ModalidadPago;
+  value:    ModalidadPago | null;
   onChange: (mode: ModalidadPago) => void;
 }
 

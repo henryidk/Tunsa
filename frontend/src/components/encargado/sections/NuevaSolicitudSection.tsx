@@ -10,17 +10,24 @@ import type { ItemSolicitud, ItemMaquinaria, ModalidadPago } from '../../../type
 import { calcSubtotal, formatQ, formatFechaCorta, unidadLabel, rateSuffix, getRentaRate } from '../../../types/solicitud.types';
 import { useSolicitudData } from '../../../hooks/useSolicitudData';
 import { useSolicitudCart } from '../../../hooks/useSolicitudCart';
+import { solicitudesService } from '../../../services/solicitudes.service';
+import type { ItemSnapshot } from '../../../types/solicitud-renta.types';
+import type { ToastType } from '../../../types/ui.types';
 
 interface Props {
-  onNavTo?: (section: string) => void;
+  onNavTo?:     (section: string) => void;
+  onShowToast?: (type: ToastType, title: string, msg: string) => void;
 }
 
-export default function NuevaSolicitudSection(_props: Props) {
+export default function NuevaSolicitudSection({ onShowToast = () => {} }: Props) {
   const [clienteSeleccionado, setClienteSeleccionado] = useState<Cliente | null>(null);
-  const [modalidadPago,       setModalidadPago]       = useState<ModalidadPago>('CONTADO');
+  const [modalidadPago,       setModalidadPago]       = useState<ModalidadPago | null>(null);
   const [notas,               setNotas]               = useState('');
   const [equipoTab,           setEquipoTab]           = useState<'maquinaria' | 'granel'>('maquinaria');
   const [clienteKey,          setClienteKey]          = useState(0);
+  const [showNoPagoModal,     setShowNoPagoModal]     = useState(false);
+  const [showNoNotasModal,    setShowNoNotasModal]    = useState(false);
+  const [isSubmitting,        setIsSubmitting]        = useState(false);
 
   const { equiposLiviana, granelData, isLoading, error: dataError } = useSolicitudData();
   const cart = useSolicitudCart();
@@ -33,7 +40,7 @@ export default function NuevaSolicitudSection(_props: Props) {
 
   const handleLimpiarItems = () => {
     cart.clear();
-    setModalidadPago('CONTADO');
+    setModalidadPago(null);
     setNotas('');
   };
 
@@ -41,8 +48,72 @@ export default function NuevaSolicitudSection(_props: Props) {
     cart.clear();
     setClienteSeleccionado(null);
     setClienteKey(k => k + 1);
-    setModalidadPago('CONTADO');
+    setModalidadPago(null);
     setNotas('');
+  };
+
+  const handleEnviar = () => {
+    if (!modalidadPago) {
+      setShowNoPagoModal(true);
+      return;
+    }
+    if (!notas.trim()) {
+      setShowNoNotasModal(true);
+      return;
+    }
+    submitSolicitud();
+  };
+
+  const submitSolicitud = async () => {
+    if (!clienteSeleccionado || !modalidadPago) return;
+    setShowNoNotasModal(false);
+    setIsSubmitting(true);
+    try {
+      const items: ItemSnapshot[] = cart.items.map(item => {
+        if (item.kind === 'maquinaria') {
+          return {
+            kind:        'maquinaria',
+            equipoId:    item.equipo.id,
+            numeracion:  item.equipo.numeracion,
+            descripcion: item.equipo.descripcion,
+            fechaInicio: item.fechaInicio,
+            duracion:    item.duracion,
+            unidad:      item.unidad,
+            tarifa:      getRentaRate(item.unidad, item.equipo.rentaDia, item.equipo.rentaSemana, item.equipo.rentaMes),
+            subtotal:    calcSubtotal(item),
+          };
+        }
+        return {
+          kind:        'granel',
+          tipo:        item.tipo,
+          tipoLabel:   item.tipoLabel,
+          cantidad:    item.cantidad,
+          conMadera:   item.conMadera,
+          fechaInicio: item.fechaInicio,
+          duracion:    item.duracion,
+          unidad:      item.unidad,
+          tarifa:      item.conMadera
+            ? getRentaRate(item.unidad, item.config?.rentaDiaConMadera, item.config?.rentaSemanaConMadera, item.config?.rentaMesConMadera)
+            : getRentaRate(item.unidad, item.config?.rentaDia, item.config?.rentaSemana, item.config?.rentaMes),
+          subtotal:    calcSubtotal(item),
+        };
+      });
+
+      await solicitudesService.create({
+        clienteId:     clienteSeleccionado.id,
+        modalidad:     modalidadPago,
+        notas:         notas.trim(),
+        totalEstimado: cart.summary.total,
+        items,
+      });
+
+      onShowToast('success', 'Solicitud enviada', 'La solicitud fue registrada y notificada correctamente.');
+      handleCancelarSolicitud();
+    } catch {
+      onShowToast('error', 'Error al enviar', 'No se pudo enviar la solicitud. Inténtalo de nuevo.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -152,7 +223,7 @@ export default function NuevaSolicitudSection(_props: Props) {
             iconBg="bg-slate-100"
             iconColor="text-slate-500"
             title="Notas / Observaciones"
-            subtitle="Condiciones especiales o acuerdos adicionales (opcional)"
+            subtitle="Condiciones especiales o acuerdos adicionales de la renta"
             locked={!clienteSeleccionado}
           >
             <textarea
@@ -176,10 +247,64 @@ export default function NuevaSolicitudSection(_props: Props) {
           canLimpiarItems={cart.items.length > 0 || !!notas}
           onCancelar={handleCancelarSolicitud}
           canCancelar={!!clienteSeleccionado}
-          canEnviar={!!clienteSeleccionado && cart.items.length > 0}
+          canEnviar={!!clienteSeleccionado && cart.items.length > 0 && !isSubmitting}
+          onEnviar={handleEnviar}
+          isSubmitting={isSubmitting}
         />
 
       </div>
+
+      {/* ── Modal: sin observaciones ──────────────────────────────────────── */}
+      {showNoNotasModal && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+          onClick={() => setShowNoNotasModal(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 flex flex-col items-center gap-4"
+            onClick={e => e.stopPropagation()}>
+            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-red-500">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+              </svg>
+            </div>
+            <div className="text-center">
+              <p className="font-bold text-slate-800 text-base">Observaciones requeridas</p>
+              <p className="text-sm text-slate-500 mt-1">No es posible enviar la solicitud sin observaciones. Por favor agrega una nota antes de continuar.</p>
+            </div>
+            <button onClick={() => setShowNoNotasModal(false)}
+              className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors">
+              Entendido
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: sin tipo de pago ────────────────────────────────────────── */}
+      {showNoPagoModal && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+          onClick={() => setShowNoPagoModal(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 flex flex-col items-center gap-4"
+            onClick={e => e.stopPropagation()}>
+            <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-500">
+                <rect x="2" y="5" width="20" height="14" rx="2"/>
+                <line x1="2" y1="10" x2="22" y2="10"/>
+              </svg>
+            </div>
+            <div className="text-center">
+              <p className="font-bold text-slate-800 text-base">Selecciona el tipo de pago</p>
+              <p className="text-sm text-slate-500 mt-1">Debes indicar si la renta es de contado o a crédito antes de enviar la solicitud.</p>
+            </div>
+            <button onClick={() => setShowNoPagoModal(false)}
+              className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors">
+              Entendido
+            </button>
+          </div>
+        </div>
+      )}
+
+
     </div>
   );
 }
@@ -300,7 +425,9 @@ function CartRow({ item, onRemove }: CartRowProps) {
   const tarifa = item.kind === 'maquinaria'
     ? getRentaRate(item.unidad, item.equipo.rentaDia, item.equipo.rentaSemana, item.equipo.rentaMes)
     : item.config
-      ? getRentaRate(item.unidad, item.config.rentaDia, item.config.rentaSemana, item.config.rentaMes)
+      ? (item.conMadera
+          ? getRentaRate(item.unidad, item.config.rentaDiaConMadera, item.config.rentaSemanaConMadera, item.config.rentaMesConMadera)
+          : getRentaRate(item.unidad, item.config.rentaDia, item.config.rentaSemana, item.config.rentaMes))
       : null;
 
   return (
@@ -357,19 +484,21 @@ interface SolicitudResumenProps {
   cliente:         Cliente | null;
   items:           ItemSolicitud[];
   summary:         { total: number; countMaquinaria: number; countGranel: number };
-  modalidadPago:   ModalidadPago;
+  modalidadPago:   ModalidadPago | null;
   onLimpiarItems:  () => void;
   canLimpiarItems: boolean;
   onCancelar:      () => void;
   canCancelar:     boolean;
   canEnviar:       boolean;
+  onEnviar:        () => void;
+  isSubmitting:    boolean;
 }
 
-function SolicitudResumen({ cliente, items, summary, modalidadPago, onLimpiarItems, canLimpiarItems, onCancelar, canCancelar, canEnviar }: SolicitudResumenProps) {
+function SolicitudResumen({ cliente, items, summary, modalidadPago, onLimpiarItems, canLimpiarItems, onCancelar, canCancelar, canEnviar, onEnviar, isSubmitting }: SolicitudResumenProps) {
   const [confirmandoCancelar, setConfirmandoCancelar] = useState(false);
   return (
-    <div className="w-72 flex-shrink-0">
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden sticky top-20">
+    <div className="w-72 flex-shrink-0 sticky top-20 self-start">
+      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
 
         <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600 flex-shrink-0">
@@ -439,19 +568,22 @@ function SolicitudResumen({ cliente, items, summary, modalidadPago, onLimpiarIte
         {/* Modalidad de pago */}
         <div className="px-5 py-3 border-b border-slate-100">
           <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Pago</div>
-          {modalidadPago === 'CONTADO' ? (
+          {!modalidadPago ? (
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-slate-300 flex-shrink-0" />
+              <span className="text-sm text-slate-400 italic">Sin seleccionar</span>
+            </div>
+          ) : modalidadPago === 'CONTADO' ? (
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
               <span className="text-sm font-semibold text-emerald-700">Contado</span>
               <span className="text-xs text-slate-400 ml-1">— al entregar</span>
             </div>
           ) : (
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
-                <span className="text-sm font-semibold text-amber-700">A crédito</span>
-                <span className="text-xs text-slate-400 ml-1">— al devolver</span>
-              </div>
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
+              <span className="text-sm font-semibold text-amber-700">A crédito</span>
+              <span className="text-xs text-slate-400 ml-1">— al devolver</span>
             </div>
           )}
         </div>
@@ -484,13 +616,13 @@ function SolicitudResumen({ cliente, items, summary, modalidadPago, onLimpiarIte
               </svg>
               Limpiar
             </button>
-            <button disabled={!canEnviar}
+            <button onClick={onEnviar} disabled={!canEnviar}
               className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                <polyline points="17 21 17 13 7 13 7 21"/>
-              </svg>
-              Enviar Solicitud
+              {isSubmitting ? (
+                <><svg className="animate-spin" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>Enviando...</>
+              ) : (
+                <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>Enviar Solicitud</>
+              )}
             </button>
           </div>
 

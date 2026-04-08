@@ -92,7 +92,7 @@ export default function LoteGranelTab({ tipo, tipoLabel, onShowToast = () => {},
           </div>
         </div>
 
-        {/* Precios */}
+        {/* Precios sin madera */}
         {config && (
           <>
             {[
@@ -109,6 +109,31 @@ export default function LoteGranelTab({ tipo, tipoLabel, onShowToast = () => {},
           </>
         )}
       </div>
+
+      {/* Precios con madera — solo para ANDAMIO_SIMPLE */}
+      {tipo === 'ANDAMIO_SIMPLE' && config && (config.rentaDiaConMadera != null || config.rentaSemanaConMadera != null || config.rentaMesConMadera != null) && (
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Con madera</span>
+            <span className="h-px flex-1 bg-slate-200" />
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            {[
+              { label: 'Por día',    value: config.rentaDiaConMadera },
+              { label: 'Por semana', value: config.rentaSemanaConMadera },
+              { label: 'Por mes',    value: config.rentaMesConMadera },
+            ].map(({ label, value }) => (
+              <div key={label} className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3.5">
+                <div className="text-xs text-amber-600 font-semibold uppercase tracking-wide mb-1">{label}</div>
+                <div className="text-lg font-bold text-amber-800 font-mono">
+                  {value != null ? formatQ(value) : <span className="text-slate-300">—</span>}
+                </div>
+                <div className="text-[11px] text-amber-500 mt-0.5">por unidad</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Tabla de lotes */}
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">

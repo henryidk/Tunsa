@@ -43,7 +43,7 @@ export default function EncargadoDashboard() {
   const renderSection = () => {
     switch (activeSection) {
       case 'dashboard':       return <DashboardSection onNavTo={navTo} />;
-      case 'nueva-solicitud': return <NuevaSolicitudSection />;
+      case 'nueva-solicitud': return <NuevaSolicitudSection onShowToast={showToast} />;
       case 'pendientes':      return <PendientesSection />;
       case 'rentas-activas':  return <RentasActivasSection />;
       case 'vencidas':        return <VencidasSection />;
@@ -55,7 +55,7 @@ export default function EncargadoDashboard() {
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
+    <div className="flex h-screen bg-slate-50">
       <EncargadoSidebar
         activeSection={activeSection}
         onNavTo={navTo}

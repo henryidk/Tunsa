@@ -21,6 +21,8 @@ export interface ItemGranel {
   duracion:    number;
   unidad:      UnidadDuracion;
   config:      ConfigGranel | null;
+  /** Solo aplica a ANDAMIO_SIMPLE: indica si se rentan con madera */
+  conMadera?:  boolean;
 }
 
 export type ItemSolicitud = ItemMaquinaria | ItemGranel;
@@ -44,7 +46,9 @@ export function calcSubtotal(item: ItemSolicitud): number {
     return (rate ?? 0) * item.duracion;
   }
   if (!item.config) return 0;
-  const rate = getRentaRate(item.unidad, item.config.rentaDia, item.config.rentaSemana, item.config.rentaMes);
+  const rate = item.conMadera
+    ? getRentaRate(item.unidad, item.config.rentaDiaConMadera, item.config.rentaSemanaConMadera, item.config.rentaMesConMadera)
+    : getRentaRate(item.unidad, item.config.rentaDia, item.config.rentaSemana, item.config.rentaMes);
   return (rate ?? 0) * item.cantidad * item.duracion;
 }
 

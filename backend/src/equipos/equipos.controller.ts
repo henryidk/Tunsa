@@ -32,13 +32,13 @@ export class EquiposController {
   }
 
   @Post()
-  @Roles('admin')
+  @Roles('admin', 'secretaria')
   create(@Body() dto: CreateEquipoDto) {
     return this.equiposService.create(dto);
   }
 
   @Patch(':id')
-  @Roles('admin')
+  @Roles('admin', 'secretaria')
   update(
     @Param('id') id: string,
     @Body() dto: UpdateEquipoDto,
@@ -48,13 +48,13 @@ export class EquiposController {
   }
 
   @Patch(':id/baja')
-  @Roles('admin')
+  @Roles('admin', 'secretaria')
   darDeBaja(@Param('id') id: string, @Body() dto: BajaEquipoDto) {
     return this.equiposService.darDeBaja(id, dto);
   }
 
   @Patch(':id/reactivar')
-  @Roles('admin')
+  @Roles('admin', 'secretaria')
   reactivar(@Param('id') id: string) {
     return this.equiposService.reactivar(id);
   }

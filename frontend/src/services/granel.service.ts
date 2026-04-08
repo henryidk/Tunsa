@@ -16,11 +16,15 @@ export interface LoteGranel {
 }
 
 export interface ConfigGranel {
-  tipo:        TipoGranel;
-  rentaDia:    number;
-  rentaSemana: number;
-  rentaMes:    number;
-  updatedAt:   string;
+  tipo:                 TipoGranel;
+  rentaDia:             number;
+  rentaSemana:          number;
+  rentaMes:             number;
+  // Solo presente para ANDAMIO_SIMPLE
+  rentaDiaConMadera:    number | null;
+  rentaSemanaConMadera: number | null;
+  rentaMesConMadera:    number | null;
+  updatedAt:            string;
 }
 
 export interface GranelResponse {
@@ -47,10 +51,13 @@ interface UpdateLoteData {
 }
 
 interface UpdateConfigData {
-  tipo:        TipoGranel;
-  rentaDia:    number;
-  rentaSemana: number;
-  rentaMes:    number;
+  tipo:                 TipoGranel;
+  rentaDia:             number;
+  rentaSemana:          number;
+  rentaMes:             number;
+  rentaDiaConMadera?:    number;
+  rentaSemanaConMadera?: number;
+  rentaMesConMadera?:    number;
 }
 
 export const granelService = {

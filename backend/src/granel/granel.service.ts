@@ -19,9 +19,12 @@ export class GranelService {
   private serializeConfig(c: any) {
     return {
       ...c,
-      rentaDia:    parseFloat(c.rentaDia.toString()),
-      rentaSemana: parseFloat(c.rentaSemana.toString()),
-      rentaMes:    parseFloat(c.rentaMes.toString()),
+      rentaDia:             parseFloat(c.rentaDia.toString()),
+      rentaSemana:          parseFloat(c.rentaSemana.toString()),
+      rentaMes:             parseFloat(c.rentaMes.toString()),
+      rentaDiaConMadera:    c.rentaDiaConMadera    != null ? parseFloat(c.rentaDiaConMadera.toString())    : null,
+      rentaSemanaConMadera: c.rentaSemanaConMadera != null ? parseFloat(c.rentaSemanaConMadera.toString()) : null,
+      rentaMesConMadera:    c.rentaMesConMadera    != null ? parseFloat(c.rentaMesConMadera.toString())    : null,
     };
   }
 
@@ -141,10 +144,18 @@ export class GranelService {
   }
 
   async updateConfig(dto: UpdateConfigGranelDto, requestingUsername: string) {
+    const maderaFields = dto.tipo === 'ANDAMIO_SIMPLE'
+      ? {
+          rentaDiaConMadera:    dto.rentaDiaConMadera    ?? null,
+          rentaSemanaConMadera: dto.rentaSemanaConMadera ?? null,
+          rentaMesConMadera:    dto.rentaMesConMadera    ?? null,
+        }
+      : {};
+
     const config = await this.prisma.configGranel.upsert({
       where:  { tipo: dto.tipo },
-      update: { rentaDia: dto.rentaDia, rentaSemana: dto.rentaSemana, rentaMes: dto.rentaMes },
-      create: { tipo: dto.tipo, rentaDia: dto.rentaDia, rentaSemana: dto.rentaSemana, rentaMes: dto.rentaMes },
+      update: { rentaDia: dto.rentaDia, rentaSemana: dto.rentaSemana, rentaMes: dto.rentaMes, ...maderaFields },
+      create: { tipo: dto.tipo, rentaDia: dto.rentaDia, rentaSemana: dto.rentaSemana, rentaMes: dto.rentaMes, ...maderaFields },
     });
 
     await this.prisma.bitacora.create({

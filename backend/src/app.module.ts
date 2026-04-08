@@ -10,6 +10,7 @@ import { CategoriasModule } from './categorias/categorias.module';
 import { BitacorasModule } from './bitacoras/bitacoras.module';
 import { ClientesModule } from './clientes/clientes.module';
 import { GranelModule } from './granel/granel.module';
+import { SolicitudesModule } from './solicitudes/solicitudes.module';
 import { CleanupModule } from './cleanup/cleanup.module';
 import { R2Module } from './r2/r2.module';
 
@@ -69,6 +70,7 @@ import { R2Module } from './r2/r2.module';
     BitacorasModule,
     ClientesModule,
     GranelModule,
+    SolicitudesModule,
     CleanupModule,
     R2Module,
   ],

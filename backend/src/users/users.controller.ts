@@ -17,13 +17,13 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get()
-  @Roles('admin')
+  @Roles('admin', 'secretaria')
   findAll() {
     return this.usersService.findAll();
   }
 
   @Post()
-  @Roles('admin')
+  @Roles('admin', 'secretaria')
   create(
     @Body() createUserDto: CreateUserDto,
     @CurrentUser() currentUser: AuthenticatedUser,
@@ -41,7 +41,7 @@ export class UsersController {
   }
 
   @Patch(':id')
-  @Roles('admin')
+  @Roles('admin', 'secretaria')
   update(
     @Param('id') id: string,
     @Body() updateUserDto: UpdateUserDto,
@@ -51,7 +51,7 @@ export class UsersController {
   }
 
   @Patch(':id/reset-password')
-  @Roles('admin')
+  @Roles('admin', 'secretaria')
   resetPassword(
     @Param('id') id: string,
     @CurrentUser() currentUser: AuthenticatedUser,
@@ -62,13 +62,13 @@ export class UsersController {
   }
 
   @Patch(':id/deactivate')
-  @Roles('admin')
+  @Roles('admin', 'secretaria')
   deactivate(@Param('id') id: string, @CurrentUser() currentUser: AuthenticatedUser) {
     return this.usersService.setActive(id, false, currentUser.id, currentUser.username);
   }
 
   @Patch(':id/activate')
-  @Roles('admin')
+  @Roles('admin', 'secretaria')
   activate(@Param('id') id: string, @CurrentUser() currentUser: AuthenticatedUser) {
     return this.usersService.setActive(id, true, currentUser.id, currentUser.username);
   }

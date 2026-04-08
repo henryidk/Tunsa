@@ -2,13 +2,19 @@
 
 import { useState, useEffect } from 'react';
 import type { ChangeEvent, MouseEvent } from 'react';
-import type { Equipo, TipoConCategorias } from '../../types/equipo.types';
+import type { Equipo } from '../../types/equipo.types';
 import { equiposService } from '../../services/equipos.service';
+
+interface TipoParaSelector {
+  id:         string;
+  nombre:     string;
+  categorias: { id: string; nombre: string }[];
+}
 
 interface EditarEquipoModalProps {
   equipo:  Equipo | null;
   open:    boolean;
-  tipos:   TipoConCategorias[];
+  tipos:   TipoParaSelector[];
   onClose: () => void;
   onSave:  (updated: Equipo) => void;
 }

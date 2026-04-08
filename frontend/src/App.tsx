@@ -6,6 +6,7 @@ import { useAuthStore, selectIsAuthenticated, selectUserRole, selectIsLoading } 
 import type { RoleName } from './types/auth.types';
 import Login from './pages/Login';
 import AdminDashboard from './pages/admin/AdminDashboard';
+import SecretariaDashboard from './pages/secretaria/SecretariaDashboard';
 import EncargadoDashboard from './pages/encargado/EncargadoDashboard';
 import CambiarPasswordModal from './components/admin/CambiarPasswordModal';
 
@@ -93,8 +94,8 @@ function App() {
         </Route>
 
         {/* Secretaria */}
-        <Route element={<ProtectedRoute allowedRoles={['admin', 'secretaria']} />}>
-          <Route path="/secretaria" element={<SimplePage title="Secretaria" />} />
+        <Route element={<ProtectedRoute allowedRoles={['secretaria']} />}>
+          <Route path="/secretaria" element={<SecretariaDashboard />} />
         </Route>
 
         {/* Encargado Máquinas */}

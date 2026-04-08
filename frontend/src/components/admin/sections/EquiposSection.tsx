@@ -7,7 +7,7 @@ import { useEquipos } from '../../../hooks/useEquipos';
 import { useCategorias } from '../../../hooks/useCategorias';
 import { equiposService } from '../../../services/equipos.service';
 import { generarReporteInventario } from '../../../utils/equipos.pdf';
-import { formatMoneda, formatFecha } from '../../../utils/format';
+import { formatMoneda, formatFecha, sortEquiposByNumeracion } from '../../../utils/format';
 import AgregarEquipoModal from '../AgregarEquipoModal';
 import EditarEquipoModal from '../EditarEquipoModal';
 import PreciosEquipoModal from '../PreciosEquipoModal';
@@ -72,26 +72,19 @@ export default function EquiposSection({ onShowToast = () => {}, canEdit = true 
   // ── Filtrado ──────────────────────────────────────────────────────────────
   const base = equipos.filter(e => tab === 'activos' ? e.isActive : !e.isActive);
 
-  const filtered = base.filter(e => {
+  const filtered = sortEquiposByNumeracion(base.filter(e => {
     const q = search.toLowerCase();
     const matchSearch = !q ||
-      e.numeracion.toLowerCase().includes(q)             ||
-      e.descripcion.toLowerCase().includes(q)            ||
+      e.numeracion.toLowerCase().includes(q)                ||
+      e.descripcion.toLowerCase().includes(q)               ||
       (e.categoria?.nombre ?? '').toLowerCase().includes(q) ||
       (e.serie ?? '').toLowerCase().includes(q);
 
-    const matchTipo      = !filtroTipo      || e.tipo.nombre            === filtroTipo;
-    const matchCategoria = !filtroCategoria || e.categoria?.nombre       === filtroCategoria;
+    const matchTipo      = !filtroTipo      || e.tipo.nombre        === filtroTipo;
+    const matchCategoria = !filtroCategoria || e.categoria?.nombre  === filtroCategoria;
 
     return matchSearch && matchTipo && matchCategoria;
-  }).sort((a, b) => {
-    const aIsNum = /^\d+$/.test(a.numeracion);
-    const bIsNum = /^\d+$/.test(b.numeracion);
-    if (aIsNum && bIsNum) return parseInt(a.numeracion) - parseInt(b.numeracion);
-    if (aIsNum) return -1;
-    if (bIsNum) return 1;
-    return a.numeracion.localeCompare(b.numeracion);
-  });
+  }));
 
   // ── Stats ─────────────────────────────────────────────────────────────────
   const activos    = useMemo(() => equipos.filter(e =>  e.isActive), [equipos]);

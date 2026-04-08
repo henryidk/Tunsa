@@ -135,6 +135,38 @@ model Equipo {
   @@index([isActive, createdAt])  // cubre ORDER BY isActive DESC, createdAt ASC (el @@index([isActive]) anterior era incompleto)
 }
 
+// ==================== SOLICITUDES DE RENTA ====================
+
+enum ModalidadPago {
+  CONTADO
+  CREDITO
+}
+
+enum EstadoSolicitud {
+  PENDIENTE
+  APROBADA
+  RECHAZADA
+}
+
+model Solicitud {
+  id            String          @id @default(cuid())
+  clienteId     String
+  cliente       Cliente         @relation(fields: [clienteId], references: [id])
+  items         Json
+  modalidad     ModalidadPago
+  notas         String          @db.Text
+  totalEstimado Decimal         @db.Decimal(12, 2)
+  estado        EstadoSolicitud @default(PENDIENTE)
+  creadaPor     String          // username del encargado
+
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@map("solicitudes")
+  @@index([estado, createdAt])
+  @@index([clienteId])
+}
+
 // ==================== INVENTARIO A GRANEL ====================
 // Instrumentos rentados por cantidad sin distinción individual de IDs.
 // Cada TipoGranel tiene su propio historial de lotes y su propia configuración de precios.
@@ -163,12 +195,16 @@ model LoteGranel {
 }
 
 // Un registro de precios por cada TipoGranel — la clave primaria es el tipo.
+// Los campos *ConMadera son exclusivos de ANDAMIO_SIMPLE (nullable en los demás tipos).
 model ConfigGranel {
-  tipo        TipoGranel @id
-  rentaDia    Decimal    @db.Decimal(10, 2)
-  rentaSemana Decimal    @db.Decimal(10, 2)
-  rentaMes    Decimal    @db.Decimal(10, 2)
-  updatedAt   DateTime   @updatedAt
+  tipo                 TipoGranel @id
+  rentaDia             Decimal    @db.Decimal(10, 2)
+  rentaSemana          Decimal    @db.Decimal(10, 2)
+  rentaMes             Decimal    @db.Decimal(10, 2)
+  rentaDiaConMadera    Decimal?   @db.Decimal(10, 2)
+  rentaSemanaConMadera Decimal?   @db.Decimal(10, 2)
+  rentaMesConMadera    Decimal?   @db.Decimal(10, 2)
+  updatedAt            DateTime   @updatedAt
 
   @@map("config_granel")
 }
@@ -203,8 +239,10 @@ model Cliente {
   dpi          String   @unique
   telefono     String?
   documentoKey String?  // clave del objeto en R2: "clientes/CLI-0001/documento.pdf"
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  solicitudes  Solicitud[]
 
   @@map("clientes")
   @@index([nombre])

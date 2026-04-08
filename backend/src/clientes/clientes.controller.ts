@@ -64,7 +64,7 @@ export class ClientesController {
   }
 
   @Delete(':id')
-  @Roles('admin')
+  @Roles('admin', 'secretaria')
   remove(@Param('id') id: string) {
     return this.clientesService.remove(id);
   }

@@ -1,46 +1,14 @@
-// SolicitudesSection.tsx — revisión y aprobación de solicitudes
+import { useSolicitudes } from '../../../hooks/useSolicitudes';
+import type { SolicitudRenta, ItemSnapshot } from '../../../types/solicitud-renta.types';
+import type { ToastType } from '../../../types/ui.types';
 
-import { useState } from 'react'
-
-import type { ToastType } from '../../../types/ui.types'
-
-interface SolicitudesSectionProps {
-  onShowToast: (type: ToastType, title: string, msg: string) => void
-  onOpenModal: (rentaId: string) => void
+interface Props {
+  onShowToast?: (type: ToastType, title: string, msg: string) => void;
+  onOpenModal?: (rentaId: string) => void;
 }
 
-const EyeIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-  </svg>
-)
-
-const Avatar = ({ initials, gradient }: { initials: string; gradient?: string }) => (
-  <div
-    className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-    style={{ background: gradient ?? 'linear-gradient(135deg, #6366f1, #4f46e5)' }}
-  >
-    {initials}
-  </div>
-)
-
-const EquipTag = ({ label }: { label: string }) => (
-  <span className="text-[11.5px] font-semibold bg-slate-100 text-slate-600 border border-slate-200 px-2 py-0.5 rounded-md whitespace-nowrap">
-    {label}
-  </span>
-)
-
-type TabId = 'todas' | 'pendientes' | 'aprobadas' | 'rechazadas'
-
-export default function SolicitudesSection({ onShowToast, onOpenModal }: SolicitudesSectionProps) {
-  const [activeTab, setActiveTab] = useState<TabId>('todas')
-
-  const tabs: { id: TabId; label: string; count: string; countCls: string }[] = [
-    { id: 'todas', label: 'Todas', count: '12', countCls: 'bg-slate-200 text-slate-600' },
-    { id: 'pendientes', label: 'Pendientes', count: '5', countCls: 'bg-amber-100 text-amber-700' },
-    { id: 'aprobadas', label: 'Aprobadas', count: '6', countCls: 'bg-green-100 text-green-700' },
-    { id: 'rechazadas', label: 'Rechazadas', count: '1', countCls: 'bg-red-100 text-red-700' },
-  ]
+export default function SolicitudesSection(_props: Props) {
+  const { solicitudes, isLoading, error } = useSolicitudes();
 
   return (
     <div>
@@ -48,197 +16,246 @@ export default function SolicitudesSection({ onShowToast, onOpenModal }: Solicit
       <div className="flex items-start justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Solicitudes de Renta</h1>
-          <p className="text-sm text-slate-500 mt-1">Revisión y aprobación de solicitudes de los encargados</p>
+          <p className="text-sm text-slate-500 mt-1">
+            Solicitudes enviadas por los encargados de máquinas
+          </p>
         </div>
-        <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-            <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-          </svg>
-          Exportar
-        </button>
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-full">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-xs font-semibold text-emerald-700">En vivo</span>
+        </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex items-center gap-3 mb-5 flex-wrap">
-        <input
-          type="search"
-          placeholder="Buscar por ID, cliente o equipo..."
-          className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:border-indigo-400 min-w-[220px]"
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-4 mb-6">
+        <StatCard
+          label="Total"
+          value={isLoading ? '—' : solicitudes.length}
+          iconColor="text-indigo-600"
+          iconBg="bg-indigo-50"
+          icon={<TotalIcon />}
         />
-        <select className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white focus:outline-none focus:border-indigo-400">
-          <option>Todos los estados</option>
-          <option>Pendiente</option>
-          <option>Aprobada</option>
-          <option>Rechazada</option>
-        </select>
-        <select className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white focus:outline-none focus:border-indigo-400">
-          <option>Este mes</option>
-          <option>Semana actual</option>
-          <option>Mes pasado</option>
-        </select>
-        {/* Filter tabs */}
-        <div className="ml-auto flex bg-white border border-slate-200 rounded-lg overflow-hidden">
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium border-r border-slate-200 last:border-0 transition-colors whitespace-nowrap ${
-                activeTab === tab.id
-                  ? 'bg-indigo-50 text-indigo-700 font-semibold'
-                  : 'text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              {tab.label}
-              <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full ${tab.countCls}`}>
-                {tab.count}
-              </span>
-            </button>
+        <StatCard
+          label="Pendientes"
+          value={isLoading ? '—' : solicitudes.filter(s => s.estado === 'PENDIENTE').length}
+          iconColor="text-amber-600"
+          iconBg="bg-amber-50"
+          icon={<PendienteIcon />}
+        />
+        <StatCard
+          label="Aprobadas"
+          value={isLoading ? '—' : solicitudes.filter(s => s.estado === 'APROBADA').length}
+          iconColor="text-emerald-600"
+          iconBg="bg-emerald-50"
+          icon={<AprobadaIcon />}
+        />
+      </div>
+
+      {/* Error */}
+      {error && (
+        <div className="flex items-center gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 mb-4">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          {error}
+        </div>
+      )}
+
+      {/* Lista */}
+      {isLoading ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="h-40 bg-white border border-slate-200 rounded-xl animate-pulse" />
           ))}
         </div>
+      ) : solicitudes.length === 0 ? (
+        <EmptyState />
+      ) : (
+        <div className="space-y-3">
+          {solicitudes.map(s => <SolicitudCard key={s.id} solicitud={s} />)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Solicitud Card ────────────────────────────────────────────────────────────
+
+function SolicitudCard({ solicitud }: { solicitud: SolicitudRenta }) {
+  const maquinaria = solicitud.items.filter(i => i.kind === 'maquinaria');
+  const granel     = solicitud.items.filter(i => i.kind === 'granel');
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+
+      {/* Top bar */}
+      <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-slate-50">
+        <div className="flex items-center gap-3">
+          <EstadoBadge estado={solicitud.estado} />
+          <span className="text-xs font-mono text-slate-400">
+            {solicitud.id.slice(0, 12).toUpperCase()}
+          </span>
+        </div>
+        <span className="text-xs text-slate-400">{tiempoRelativo(solicitud.createdAt)}</span>
       </div>
 
-      {/* Table */}
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-50">
-                {['ID Solicitud', 'Cliente', 'Equipos', 'Fecha inicio', 'Duración', 'Total estimado', 'Estado', 'Solicitado por', 'Acciones'].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {/* Row 1 - Pendiente */}
-              <tr className="bg-amber-50 border-b border-slate-100 hover:bg-amber-100 transition-colors">
-                <td className="px-4 py-3 font-bold text-slate-800 font-mono">RNT-2024-089</td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <Avatar initials="JC" />
-                    <div>
-                      <div className="font-semibold text-slate-800">Juan Choc</div>
-                      <div className="text-xs text-slate-500">CLI-0042</div>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex flex-wrap gap-1">
-                    <EquipTag label="Compresor de Aire" /><EquipTag label="Martillo Neumático" /><EquipTag label="+1" />
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-slate-700 whitespace-nowrap">19 Feb 2026</td>
-                <td className="px-4 py-3 text-slate-700">5 días</td>
-                <td className="px-4 py-3 font-bold font-mono text-slate-800">Q2,900</td>
-                <td className="px-4 py-3">
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Pendiente</span>
-                </td>
-                <td className="px-4 py-3 text-xs text-slate-500">Juan Pérez</td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <button onClick={() => onShowToast('success', 'Aprobada', 'Solicitud RNT-2024-089 aprobada')} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-green-600 hover:bg-green-700 text-white transition-colors">Aprobar</button>
-                    <button onClick={() => onShowToast('error', 'Rechazada', 'Solicitud rechazada')} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-red-600 hover:bg-red-700 text-white transition-colors">Rechazar</button>
-                    <button onClick={() => onOpenModal('RNT-2024-089')} className="p-1.5 rounded-lg text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors"><EyeIcon /></button>
-                  </div>
-                </td>
-              </tr>
-              {/* Row 2 - Pendiente */}
-              <tr className="bg-amber-50 border-b border-slate-100 hover:bg-amber-100 transition-colors">
-                <td className="px-4 py-3 font-bold text-slate-800 font-mono">RNT-2024-087</td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <Avatar initials="CT" />
-                    <div>
-                      <div className="font-semibold text-slate-800">Carlos Tun</div>
-                      <div className="text-xs text-slate-500">CLI-0031</div>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-4 py-3"><div className="flex flex-wrap gap-1"><EquipTag label="Cortadora de Concreto" /></div></td>
-                <td className="px-4 py-3 text-slate-700 whitespace-nowrap">22 Feb 2026</td>
-                <td className="px-4 py-3 text-slate-700">5 días</td>
-                <td className="px-4 py-3 font-bold font-mono text-slate-800">Q1,250</td>
-                <td className="px-4 py-3"><span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Pendiente</span></td>
-                <td className="px-4 py-3 text-xs text-slate-500">Juan Pérez</td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <button onClick={() => onShowToast('success', 'Aprobada', 'Solicitud aprobada')} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-green-600 hover:bg-green-700 text-white transition-colors">Aprobar</button>
-                    <button onClick={() => onShowToast('error', 'Rechazada', 'Solicitud rechazada')} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-red-600 hover:bg-red-700 text-white transition-colors">Rechazar</button>
-                    <button onClick={() => onOpenModal('RNT-2024-087')} className="p-1.5 rounded-lg text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors"><EyeIcon /></button>
-                  </div>
-                </td>
-              </tr>
-              {/* Row 3 - Aprobada */}
-              <tr className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                <td className="px-4 py-3 font-bold text-slate-800 font-mono">RNT-2024-088</td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <Avatar initials="MG" />
-                    <div>
-                      <div className="font-semibold text-slate-800">María González</div>
-                      <div className="text-xs text-slate-500">CLI-0028</div>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-4 py-3"><div className="flex flex-wrap gap-1"><EquipTag label="Taladro Industrial" /></div></td>
-                <td className="px-4 py-3 text-slate-700 whitespace-nowrap">15 Feb 2026</td>
-                <td className="px-4 py-3 text-slate-700">3 días</td>
-                <td className="px-4 py-3 font-bold font-mono text-slate-800">Q450</td>
-                <td className="px-4 py-3"><span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">Aprobada</span></td>
-                <td className="px-4 py-3 text-xs text-slate-500">Ana López</td>
-                <td className="px-4 py-3">
-                  <button onClick={() => onOpenModal('RNT-2024-088')} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors"><EyeIcon /> Ver detalle</button>
-                </td>
-              </tr>
-              {/* Row 4 - Vencida */}
-              <tr className="bg-red-50 border-b border-slate-100 hover:bg-red-100 transition-colors">
-                <td className="px-4 py-3 font-bold text-slate-800 font-mono">RNT-2024-081</td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <Avatar initials="RA" />
-                    <div>
-                      <div className="font-semibold text-slate-800">Roberto Ajú</div>
-                      <div className="text-xs text-slate-500">CLI-0019</div>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-4 py-3"><div className="flex flex-wrap gap-1"><EquipTag label="Mezcladora de Concreto" /></div></td>
-                <td className="px-4 py-3 text-slate-700 whitespace-nowrap">10 Feb 2026</td>
-                <td className="px-4 py-3 text-slate-700">7 días</td>
-                <td className="px-4 py-3 font-bold font-mono text-slate-800">Q1,540</td>
-                <td className="px-4 py-3"><span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">Vencida</span></td>
-                <td className="px-4 py-3 text-xs text-slate-500">Juan Pérez</td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <button onClick={() => onShowToast('warning', 'Notificado', 'Aviso enviado al cliente')} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-500 hover:bg-amber-600 text-white transition-colors">Notificar</button>
-                    <button onClick={() => onOpenModal('RNT-2024-081')} className="p-1.5 rounded-lg text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors"><EyeIcon /></button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+      {/* Body */}
+      <div className="px-5 py-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+
+        {/* Cliente */}
+        <div>
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Cliente</p>
+          <p className="text-sm font-semibold text-slate-800 leading-snug">{solicitud.cliente.nombre}</p>
+          <p className="text-xs font-mono text-slate-400 mt-0.5">{solicitud.cliente.id}</p>
         </div>
 
-        {/* Pagination */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-t border-slate-200 bg-slate-50">
-          <span className="text-sm text-slate-500">Mostrando 1–4 de 12 solicitudes</span>
-          <div className="flex items-center gap-1">
-            {['←', '1', '2', '3', '→'].map((p, i) => (
-              <button
-                key={p + i}
-                disabled={p === '←'}
-                className={`min-w-[32px] h-8 px-2 text-sm font-semibold rounded-lg border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-                  p === '1'
-                    ? 'bg-indigo-600 border-indigo-600 text-white'
-                    : 'bg-white border-slate-200 text-slate-600 hover:bg-indigo-50 hover:border-indigo-400 hover:text-indigo-600'
-                }`}
-              >
-                {p}
-              </button>
-            ))}
+        {/* Ítems */}
+        <div>
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Ítems solicitados</p>
+          <div className="space-y-0.5">
+            {maquinaria.map((item, i) => <ItemLabel key={i} item={item} />)}
+            {granel.map((item, i)     => <ItemLabel key={i} item={item} />)}
+          </div>
+        </div>
+
+        {/* Pago y total */}
+        <div className="flex flex-col gap-1.5">
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Pago y total</p>
+          <span className={`w-fit text-xs font-semibold px-2 py-0.5 rounded-full ${
+            solicitud.modalidad === 'CONTADO'
+              ? 'bg-emerald-50 text-emerald-700'
+              : 'bg-amber-50 text-amber-700'
+          }`}>
+            {solicitud.modalidad === 'CONTADO' ? 'Contado' : 'Crédito'}
+          </span>
+          <p className="text-xl font-bold text-slate-800 font-mono">
+            Q {solicitud.totalEstimado.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </p>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100 bg-slate-50 gap-4">
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Observaciones</p>
+          <p className="text-xs text-slate-600 truncate">{solicitud.notas}</p>
+        </div>
+        <div className="flex items-center gap-4 flex-shrink-0">
+          <div className="text-right">
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Solicitado por</p>
+            <p className="text-xs font-semibold text-slate-600">{solicitud.creadaPor}</p>
+          </div>
+          <div className="flex gap-1.5">
+            <button disabled title="Próximamente"
+              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-100 text-emerald-400 cursor-not-allowed opacity-60">
+              Aprobar
+            </button>
+            <button disabled title="Próximamente"
+              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-100 text-red-400 cursor-not-allowed opacity-60">
+              Rechazar
+            </button>
           </div>
         </div>
       </div>
+
     </div>
-  )
+  );
+}
+
+function ItemLabel({ item }: { item: ItemSnapshot }) {
+  if (item.kind === 'maquinaria') {
+    return (
+      <p className="text-xs text-slate-700">
+        <span className="font-mono text-slate-400 mr-1">#{item.numeracion}</span>
+        {item.descripcion}
+      </p>
+    );
+  }
+  return (
+    <p className="text-xs text-slate-700">
+      <span className="font-semibold text-slate-500 mr-1">{item.cantidad?.toLocaleString('es-GT')}</span>
+      {item.tipoLabel}
+      {item.conMadera && <span className="text-amber-600 ml-1">(c/madera)</span>}
+    </p>
+  );
+}
+
+function EstadoBadge({ estado }: { estado: SolicitudRenta['estado'] }) {
+  const map = {
+    PENDIENTE: { cls: 'bg-amber-100 text-amber-700 border-amber-200',   label: 'Pendiente'  },
+    APROBADA:  { cls: 'bg-emerald-100 text-emerald-700 border-emerald-200', label: 'Aprobada' },
+    RECHAZADA: { cls: 'bg-red-100 text-red-700 border-red-200',          label: 'Rechazada'  },
+  };
+  const { cls, label } = map[estado];
+  return (
+    <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${cls}`}>
+      {label}
+    </span>
+  );
+}
+
+// ── Stat Card ─────────────────────────────────────────────────────────────────
+
+function StatCard({ label, value, icon, iconBg, iconColor }: {
+  label: string; value: number | string;
+  icon: React.ReactNode; iconBg: string; iconColor: string;
+}) {
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl px-5 py-4 shadow-sm flex items-center gap-4">
+      <div className={`w-10 h-10 rounded-xl ${iconBg} flex items-center justify-center flex-shrink-0 ${iconColor}`}>
+        {icon}
+      </div>
+      <div>
+        <div className="text-xl font-bold text-slate-800">{value}</div>
+        <div className="text-xs text-slate-500">{label}</div>
+      </div>
+    </div>
+  );
+}
+
+// ── Empty state ───────────────────────────────────────────────────────────────
+
+function EmptyState() {
+  return (
+    <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-400">
+      <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+      </svg>
+      <p className="text-sm font-medium">No hay solicitudes aún</p>
+      <p className="text-xs text-center max-w-xs leading-relaxed">
+        Cuando un encargado envíe una solicitud de renta, aparecerá aquí en tiempo real.
+      </p>
+    </div>
+  );
+}
+
+// ── Helpers y helpers ─────────────────────────────────────────────────────────
+
+function tiempoRelativo(fecha: string): string {
+  const diff = Date.now() - new Date(fecha).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1)  return 'hace un momento';
+  if (mins < 60) return `hace ${mins} min`;
+  const horas = Math.floor(mins / 60);
+  if (horas < 24) return `hace ${horas}h`;
+  return `hace ${Math.floor(horas / 24)}d`;
+}
+
+function TotalIcon() {
+  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+    <polyline points="14 2 14 8 20 8"/>
+  </svg>;
+}
+function PendienteIcon() {
+  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+  </svg>;
+}
+function AprobadaIcon() {
+  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <polyline points="20 6 9 17 4 12"/>
+  </svg>;
 }

@@ -13,22 +13,33 @@ interface Props {
 }
 
 interface FormState {
-  rentaDia:    string;
-  rentaSemana: string;
-  rentaMes:    string;
+  rentaDia:             string;
+  rentaSemana:          string;
+  rentaMes:             string;
+  rentaDiaConMadera:    string;
+  rentaSemanaConMadera: string;
+  rentaMesConMadera:    string;
 }
 
 export default function PreciosGranelModal({ tipo, tipoLabel, config, open, onClose, onSave }: Props) {
-  const [form,     setForm]     = useState<FormState>({ rentaDia: '', rentaSemana: '', rentaMes: '' });
+  const [form,     setForm]     = useState<FormState>({
+    rentaDia: '', rentaSemana: '', rentaMes: '',
+    rentaDiaConMadera: '', rentaSemanaConMadera: '', rentaMesConMadera: '',
+  });
   const [isSaving, setIsSaving] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+
+  const esAndamioSimple = tipo === 'ANDAMIO_SIMPLE';
 
   useEffect(() => {
     if (config) {
       setForm({
-        rentaDia:    config.rentaDia    != null ? config.rentaDia.toString()    : '',
-        rentaSemana: config.rentaSemana != null ? config.rentaSemana.toString() : '',
-        rentaMes:    config.rentaMes    != null ? config.rentaMes.toString()    : '',
+        rentaDia:             config.rentaDia    != null ? config.rentaDia.toString()    : '',
+        rentaSemana:          config.rentaSemana != null ? config.rentaSemana.toString() : '',
+        rentaMes:             config.rentaMes    != null ? config.rentaMes.toString()    : '',
+        rentaDiaConMadera:    config.rentaDiaConMadera    != null ? config.rentaDiaConMadera.toString()    : '',
+        rentaSemanaConMadera: config.rentaSemanaConMadera != null ? config.rentaSemanaConMadera.toString() : '',
+        rentaMesConMadera:    config.rentaMesConMadera    != null ? config.rentaMesConMadera.toString()    : '',
       });
       setApiError(null);
     }
@@ -55,11 +66,22 @@ export default function PreciosGranelModal({ tipo, tipoLabel, config, open, onCl
     if (isNaN(semana) || semana < 0) { setApiError('El precio por semana no es válido.'); return; }
     if (isNaN(mes)    || mes    < 0) { setApiError('El precio por mes no es válido.');    return; }
 
+    let maderaPayload: { rentaDiaConMadera?: number; rentaSemanaConMadera?: number; rentaMesConMadera?: number } = {};
+    if (esAndamioSimple) {
+      const diaMad    = parseFloat(form.rentaDiaConMadera);
+      const semanaMad = parseFloat(form.rentaSemanaConMadera);
+      const mesMad    = parseFloat(form.rentaMesConMadera);
+      if (isNaN(diaMad)    || diaMad    < 0) { setApiError('El precio con madera por día no es válido.');    return; }
+      if (isNaN(semanaMad) || semanaMad < 0) { setApiError('El precio con madera por semana no es válido.'); return; }
+      if (isNaN(mesMad)    || mesMad    < 0) { setApiError('El precio con madera por mes no es válido.');    return; }
+      maderaPayload = { rentaDiaConMadera: diaMad, rentaSemanaConMadera: semanaMad, rentaMesConMadera: mesMad };
+    }
+
     setIsSaving(true);
     setApiError(null);
 
     try {
-      const updated = await granelService.updateConfig({ tipo, rentaDia: dia, rentaSemana: semana, rentaMes: mes });
+      const updated = await granelService.updateConfig({ tipo, rentaDia: dia, rentaSemana: semana, rentaMes: mes, ...maderaPayload });
       onSave(updated);
     } catch (err: unknown) {
       const msg =
@@ -124,6 +146,38 @@ export default function PreciosGranelModal({ tipo, tipoLabel, config, open, onCl
               </div>
             </div>
           ))}
+
+          {esAndamioSimple && (
+            <>
+              <div className="border-t border-slate-200 pt-4">
+                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-3">
+                  Variante con madera
+                </p>
+                {([
+                  { field: 'rentaDiaConMadera'    as const, label: 'Precio por día (con madera)',    placeholder: '0.00' },
+                  { field: 'rentaSemanaConMadera' as const, label: 'Precio por semana (con madera)', placeholder: '0.00' },
+                  { field: 'rentaMesConMadera'    as const, label: 'Precio por mes (con madera)',    placeholder: '0.00' },
+                ]).map(({ field, label, placeholder }) => (
+                  <div key={field} className="mb-4 last:mb-0">
+                    <label className={labelCls}>{label} <span className="text-red-400">*</span></label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 font-mono select-none">Q</span>
+                      <input
+                        type="number"
+                        value={form[field]}
+                        onChange={handleChange(field)}
+                        disabled={isSaving}
+                        min="0"
+                        step="0.01"
+                        placeholder={placeholder}
+                        className={`${inputCls} pl-7`}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
 
           {apiError && (
             <div className="flex items-start gap-2.5 px-3.5 py-3 bg-red-50 border border-red-200 rounded-lg">

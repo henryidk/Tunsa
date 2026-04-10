@@ -2,6 +2,17 @@ import { api } from './auth.service';
 import type { SolicitudRenta } from '../types/solicitud-renta.types';
 import type { ItemSnapshot, ModalidadPago } from '../types/solicitud-renta.types';
 
+export interface RechazadasPage {
+  data:       SolicitudRenta[];
+  nextCursor: string | null;
+}
+
+export interface QueryRechazadas {
+  fechaDesde: string; // ISO date string
+  fechaHasta: string; // ISO date string
+  cursor?:    string;
+}
+
 interface CreateSolicitudPayload {
   clienteId:     string;
   modalidad:     ModalidadPago;
@@ -38,6 +49,11 @@ export const solicitudesService = {
 
   async getMiasHistorial(): Promise<SolicitudRenta[]> {
     const res = await api.get<SolicitudRenta[]>('/solicitudes/historial-mias');
+    return res.data;
+  },
+
+  async getRechazadas(params: QueryRechazadas): Promise<RechazadasPage> {
+    const res = await api.get<RechazadasPage>('/solicitudes/rechazadas', { params });
     return res.data;
   },
 };

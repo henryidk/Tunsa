@@ -3,11 +3,22 @@ import { useSolicitudes } from '../../../hooks/useSolicitudes';
 import { clientesService } from '../../../services/clientes.service';
 import { solicitudesService } from '../../../services/solicitudes.service';
 import { useSolicitudesStore } from '../../../store/solicitudes.store';
+import RechazadasTab from './RechazadasTab';
 import type { SolicitudRenta, ItemSnapshot } from '../../../types/solicitud-renta.types';
 import { formatFechaCorta, unidadLabel } from '../../../types/solicitud.types';
 
+type Tab = 'pendientes' | 'rechazadas';
+
 export default function SolicitudesSection() {
   const { solicitudes, isLoading, error } = useSolicitudes();
+  const [activeTab, setActiveTab] = useState<Tab>('pendientes');
+
+  // findAll() ya no incluye RECHAZADA — solo PENDIENTE y APROBADA
+  const pendientes = solicitudes.filter(s => s.estado === 'PENDIENTE');
+  // El conteo de rechazadas del store solo refleja rechazos de esta sesión
+  const storeRechazadasCount = useSolicitudesStore(
+    s => s.solicitudes.filter(sol => sol.estado === 'RECHAZADA').length,
+  );
 
   return (
     <div>
@@ -25,56 +36,80 @@ export default function SolicitudesSection() {
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <StatCard
-          label="Total"
-          value={isLoading ? '—' : solicitudes.length}
-          iconColor="text-indigo-600"
-          iconBg="bg-indigo-50"
-          icon={<TotalIcon />}
-        />
-        <StatCard
+      {/* Tabs */}
+      <div className="flex items-center gap-1 mb-6 border-b border-slate-200">
+        <TabButton
           label="Pendientes"
-          value={isLoading ? '—' : solicitudes.filter(s => s.estado === 'PENDIENTE').length}
-          iconColor="text-amber-600"
-          iconBg="bg-amber-50"
-          icon={<PendienteIcon />}
+          count={isLoading ? null : pendientes.length}
+          active={activeTab === 'pendientes'}
+          onClick={() => setActiveTab('pendientes')}
         />
-        <StatCard
-          label="Aprobadas"
-          value={isLoading ? '—' : solicitudes.filter(s => s.estado === 'APROBADA').length}
-          iconColor="text-emerald-600"
-          iconBg="bg-emerald-50"
-          icon={<AprobadaIcon />}
+        <TabButton
+          label="Rechazadas"
+          count={storeRechazadasCount > 0 ? storeRechazadasCount : null}
+          active={activeTab === 'rechazadas'}
+          onClick={() => setActiveTab('rechazadas')}
         />
       </div>
 
-      {/* Error */}
-      {error && (
-        <div className="flex items-center gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 mb-4">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0">
-            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-          </svg>
-          {error}
-        </div>
+      {/* Tab: Pendientes */}
+      {activeTab === 'pendientes' && (
+        <>
+          {error && (
+            <div className="flex items-center gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 mb-4">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              {error}
+            </div>
+          )}
+          {isLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="h-40 bg-white border border-l-4 border-slate-200 border-l-slate-300 rounded-lg shadow-md animate-pulse" />
+              ))}
+            </div>
+          ) : pendientes.length === 0 ? (
+            <EmptyState tab="pendientes" />
+          ) : (
+            <div className="space-y-3">
+              {pendientes.map(s => <SolicitudCard key={s.id} solicitud={s} />)}
+            </div>
+          )}
+        </>
       )}
 
-      {/* Lista */}
-      {isLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="h-40 bg-white border border-l-4 border-slate-200 border-l-slate-300 rounded-lg shadow-md animate-pulse" />
-          ))}
-        </div>
-      ) : solicitudes.length === 0 ? (
-        <EmptyState />
-      ) : (
-        <div className="space-y-3">
-          {solicitudes.map(s => <SolicitudCard key={s.id} solicitud={s} />)}
-        </div>
-      )}
+      {/* Tab: Rechazadas — componente independiente con paginación keyset */}
+      {activeTab === 'rechazadas' && <RechazadasTab />}
     </div>
+  );
+}
+
+// ── Tab Button ────────────────────────────────────────────────────────────────
+
+function TabButton({
+  label, count, active, onClick,
+}: {
+  label: string; count: number | null; active: boolean; onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`relative flex items-center gap-2 px-4 py-2.5 text-sm font-semibold transition-colors border-b-2 -mb-px ${
+        active
+          ? 'border-indigo-600 text-indigo-600'
+          : 'border-transparent text-slate-500 hover:text-slate-700'
+      }`}
+    >
+      {label}
+      {count !== null && count > 0 && (
+        <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full leading-none ${
+          active ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-500'
+        }`}>
+          {count}
+        </span>
+      )}
+    </button>
   );
 }
 
@@ -382,28 +417,9 @@ function EstadoBadge({ estado }: { estado: SolicitudRenta['estado'] }) {
   );
 }
 
-// ── Stat Card ─────────────────────────────────────────────────────────────────
-
-function StatCard({ label, value, icon, iconBg, iconColor }: {
-  label: string; value: number | string;
-  icon: React.ReactNode; iconBg: string; iconColor: string;
-}) {
-  return (
-    <div className="bg-white border border-slate-200 rounded-lg px-5 py-4 shadow-sm flex items-center gap-4">
-      <div className={`w-10 h-10 rounded-xl ${iconBg} flex items-center justify-center flex-shrink-0 ${iconColor}`}>
-        {icon}
-      </div>
-      <div>
-        <div className="text-xl font-bold text-slate-800">{value}</div>
-        <div className="text-xs text-slate-500">{label}</div>
-      </div>
-    </div>
-  );
-}
-
 // ── Empty state ───────────────────────────────────────────────────────────────
 
-function EmptyState() {
+function EmptyState({ tab }: { tab: Tab }) {
   return (
     <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-400">
       <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2">
@@ -411,9 +427,11 @@ function EmptyState() {
         <polyline points="14 2 14 8 20 8"/>
         <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
       </svg>
-      <p className="text-sm font-medium">No hay solicitudes aún</p>
+      <p className="text-sm font-medium">Sin solicitudes pendientes</p>
       <p className="text-xs text-center max-w-xs leading-relaxed">
-        Cuando un encargado envíe una solicitud de renta, aparecerá aquí en tiempo real.
+        {tab === 'pendientes'
+          ? 'Cuando un encargado envíe una solicitud, aparecerá aquí en tiempo real.'
+          : ''}
       </p>
     </div>
   );
@@ -431,19 +449,3 @@ function tiempoRelativo(fecha: string): string {
   return `hace ${Math.floor(horas / 24)}d`;
 }
 
-function TotalIcon() {
-  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-    <polyline points="14 2 14 8 20 8"/>
-  </svg>;
-}
-function PendienteIcon() {
-  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-  </svg>;
-}
-function AprobadaIcon() {
-  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <polyline points="20 6 9 17 4 12"/>
-  </svg>;
-}

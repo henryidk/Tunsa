@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Patch, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { SolicitudesService } from './solicitudes.service';
 import { SolicitudesGateway } from './solicitudes.gateway';
 import { CreateSolicitudDto } from './dto/create-solicitud.dto';
+import { QueryRechazadasDto } from './dto/query-rechazadas.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { MustChangePasswordGuard } from '../auth/guards/must-change-password.guard';
@@ -49,6 +50,16 @@ export class SolicitudesController {
   @Roles('encargado_maquinas')
   findMias(@CurrentUser() user: AuthenticatedUser) {
     return this.solicitudesService.findMias(user.username);
+  }
+
+  @Get('rechazadas')
+  @Roles('admin', 'secretaria')
+  findRechazadas(@Query() query: QueryRechazadasDto) {
+    return this.solicitudesService.findRechazadas({
+      fechaDesde: new Date(query.fechaDesde),
+      fechaHasta: new Date(query.fechaHasta),
+      cursor:     query.cursor,
+    });
   }
 
   @Get('historial-mias')

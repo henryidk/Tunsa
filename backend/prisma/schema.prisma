@@ -164,6 +164,7 @@ model Solicitud {
 
   @@map("solicitudes")
   @@index([estado, createdAt])
+  @@index([estado, updatedAt, id])
   @@index([clienteId])
 }
 

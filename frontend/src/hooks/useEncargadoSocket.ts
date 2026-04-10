@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { io } from 'socket.io-client';
 import { authService } from '../services/auth.service';
 import { usePendientesStore } from '../store/pendientes.store';
+import { useRechazadasStore } from '../store/rechazadas.store';
 import type { SolicitudRenta } from '../types/solicitud-renta.types';
 import type { ToastType } from '../types/ui.types';
 
@@ -32,6 +33,7 @@ export function useEncargadoSocket({ playSound, showToast }: UseEncargadoSocketO
 
     const handleSolicitudRechazada = (solicitud: SolicitudRenta) => {
       usePendientesStore.getState().removeSolicitud(solicitud.id);
+      useRechazadasStore.getState().addRechazada(solicitud);
       showToast(
         'error',
         'Solicitud rechazada',

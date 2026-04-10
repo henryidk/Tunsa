@@ -165,6 +165,7 @@ model Solicitud {
   @@map("solicitudes")
   @@index([estado, createdAt])
   @@index([estado, updatedAt, id])
+  @@index([creadaPor, estado, updatedAt, id])  // keyset pagination del encargado: historial-mias
   @@index([clienteId])
 }
 

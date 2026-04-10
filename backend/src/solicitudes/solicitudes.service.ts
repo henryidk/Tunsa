@@ -145,13 +145,45 @@ export class SolicitudesService {
     return solicitudes.map(s => this.serialize(s));
   }
 
-  async findHistorialMias(username: string) {
+  /**
+   * Paginación keyset sobre las solicitudes RECHAZADA del encargado autenticado,
+   * filtradas por rango de fecha (updatedAt = momento del rechazo).
+   *
+   * Usa el índice compuesto (creadaPor, estado, updatedAt, id) para seeks O(log n)
+   * independientemente del volumen acumulado de rechazadas por usuario.
+   */
+  async findHistorialMias(
+    username: string,
+    params: { fechaDesde: Date; fechaHasta: Date; cursor?: string },
+  ): Promise<RechazadasPage> {
+    const { fechaDesde, fechaHasta, cursor } = params;
+    const keysetClause = cursor ? this.decodeCursor(cursor) : null;
+
     const solicitudes = await this.prisma.solicitud.findMany({
-      where:   { creadaPor: username, estado: 'RECHAZADA' },
+      where: {
+        creadaPor: username,
+        estado:    'RECHAZADA',
+        updatedAt: { gte: fechaDesde, lte: fechaHasta },
+        ...(keysetClause && {
+          OR: [
+            { updatedAt: { lt: keysetClause.updatedAt } },
+            { updatedAt: keysetClause.updatedAt, id: { lt: keysetClause.id } },
+          ],
+        }),
+      },
       include: { cliente: true },
-      orderBy: { updatedAt: 'desc' },
+      orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+      take:    PAGE_SIZE + 1,
     });
-    return solicitudes.map(s => this.serialize(s));
+
+    const hasMore    = solicitudes.length > PAGE_SIZE;
+    const pageData   = hasMore ? solicitudes.slice(0, PAGE_SIZE) : solicitudes;
+    const last       = pageData.at(-1);
+    const nextCursor = hasMore && last
+      ? this.encodeCursor({ updatedAt: last.updatedAt.toISOString(), id: last.id })
+      : null;
+
+    return { data: pageData.map(s => this.serialize(s)), nextCursor };
   }
 
   async rechazar(id: string) {

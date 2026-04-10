@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useMisPendientes } from '../../../hooks/useMisPendientes';
-import { useMisRechazadas } from '../../../hooks/useMisRechazadas';
+import { useRechazadasStore } from '../../../store/rechazadas.store';
+import MisRechazadasTab from './MisRechazadasTab';
 import type { SolicitudRenta, ItemSnapshot } from '../../../types/solicitud-renta.types';
 import { formatFechaCorta, unidadLabel } from '../../../types/solicitud.types';
 
@@ -14,10 +15,9 @@ export default function MisSolicitudesSection({ onNavTo }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>('espera');
 
   const { solicitudes: pendientes, isLoading: loadingP, isRefreshing, error: errorP, refetch: refetchP } = useMisPendientes();
-  const { solicitudes: rechazadas, isLoading: loadingR, error: errorR, refetch: refetchR } = useMisRechazadas();
 
-  // Contar rechazadas para badge (primitivo — seguro como selector de Zustand)
-  const rechazadasCount = useMemo(() => rechazadas.length, [rechazadas]);
+  // Solo el conteo para el badge — selector primitivo, sin crear nuevos arrays
+  const rechazadasCount = useRechazadasStore(s => s.solicitudes.length);
 
   return (
     <div>
@@ -29,20 +29,22 @@ export default function MisSolicitudesSection({ onNavTo }: Props) {
             Historial de tus solicitudes de renta enviadas
           </p>
         </div>
-        <button
-          onClick={activeTab === 'espera' ? refetchP : refetchR}
-          disabled={isRefreshing || loadingR}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-        >
-          <svg
-            width="14" height="14" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" strokeWidth="2"
-            className={(activeTab === 'espera' ? isRefreshing : loadingR) ? 'animate-spin' : ''}
+        {activeTab === 'espera' && (
+          <button
+            onClick={refetchP}
+            disabled={isRefreshing}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
           >
-            <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-          </svg>
-          Actualizar
-        </button>
+            <svg
+              width="14" height="14" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2"
+              className={isRefreshing ? 'animate-spin' : ''}
+            >
+              <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+            </svg>
+            Actualizar
+          </button>
+        )}
       </div>
 
       {/* Tabs */}
@@ -74,13 +76,7 @@ export default function MisSolicitudesSection({ onNavTo }: Props) {
           onNavTo={onNavTo}
         />
       )}
-      {activeTab === 'rechazadas' && (
-        <TabRechazadas
-          solicitudes={rechazadas}
-          isLoading={loadingR}
-          error={errorR}
-        />
-      )}
+      {activeTab === 'rechazadas' && <MisRechazadasTab />}
     </div>
   );
 }
@@ -152,34 +148,7 @@ function TabEspera({
   );
 }
 
-// ── Tab Rechazadas ────────────────────────────────────────────────────────────
-
-function TabRechazadas({
-  solicitudes,
-  isLoading,
-  error,
-}: {
-  solicitudes: SolicitudRenta[];
-  isLoading:   boolean;
-  error:       string | null;
-}) {
-  return (
-    <>
-      {error && <ErrorBanner message={error} />}
-      {isLoading ? (
-        <SkeletonList />
-      ) : solicitudes.length === 0 ? (
-        <EmptyRechazadas />
-      ) : (
-        <div className="space-y-3">
-          {solicitudes.map(s => <SolicitudRechazadaCard key={s.id} solicitud={s} />)}
-        </div>
-      )}
-    </>
-  );
-}
-
-// ── Cards ─────────────────────────────────────────────────────────────────────
+// ── Card pendiente ────────────────────────────────────────────────────────────
 
 function SolicitudPendienteCard({ solicitud }: { solicitud: SolicitudRenta }) {
   return (
@@ -201,38 +170,7 @@ function SolicitudPendienteCard({ solicitud }: { solicitud: SolicitudRenta }) {
         </span>
       </div>
 
-      <CardBody solicitud={solicitud} />
-    </div>
-  );
-}
-
-function SolicitudRechazadaCard({ solicitud }: { solicitud: SolicitudRenta }) {
-  return (
-    <div className="bg-white border border-slate-200 border-l-4 border-l-red-400 rounded-lg shadow-md overflow-hidden">
-
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-5 py-2.5 bg-red-50 border-b border-red-100">
-        <div className="flex items-center gap-2.5">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-red-500 flex-shrink-0">
-            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-          <span className="text-xs font-bold text-red-700 uppercase tracking-wide">
-            Rechazada
-          </span>
-        </div>
-        <span className="text-xs text-slate-400 font-mono">
-          {tiempoRelativo(solicitud.updatedAt)}
-        </span>
-      </div>
-
-      <CardBody solicitud={solicitud} rechazada />
-    </div>
-  );
-}
-
-function CardBody({ solicitud, rechazada = false }: { solicitud: SolicitudRenta; rechazada?: boolean }) {
-  return (
-    <>
+      {/* Body */}
       <div className="px-5 py-4 grid grid-cols-1 md:grid-cols-[1fr_1.5fr_auto] gap-x-6 gap-y-3">
 
         {/* Cliente */}
@@ -259,7 +197,7 @@ function CardBody({ solicitud, rechazada = false }: { solicitud: SolicitudRenta;
           }`}>
             {solicitud.modalidad === 'CONTADO' ? 'Contado' : 'Crédito'}
           </span>
-          <p className={`text-xl font-bold font-mono ${rechazada ? 'text-slate-400 line-through decoration-red-300' : 'text-slate-800'}`}>
+          <p className="text-xl font-bold text-slate-800 font-mono">
             Q {solicitud.totalEstimado.toLocaleString('es-GT', {
               minimumFractionDigits: 2, maximumFractionDigits: 2,
             })}
@@ -275,7 +213,7 @@ function CardBody({ solicitud, rechazada = false }: { solicitud: SolicitudRenta;
           <p className="text-xs text-slate-600">{solicitud.notas}</p>
         </div>
       )}
-    </>
+    </div>
   );
 }
 
@@ -349,26 +287,6 @@ function EmptyEspera({ onNavTo }: { onNavTo?: (s: string) => void }) {
           Nueva solicitud
         </button>
       )}
-    </div>
-  );
-}
-
-function EmptyRechazadas() {
-  return (
-    <div className="flex flex-col items-center justify-center py-24 gap-4">
-      <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-slate-400">
-          <circle cx="12" cy="12" r="10"/>
-          <line x1="15" y1="9" x2="9" y2="15"/>
-          <line x1="9" y1="9" x2="15" y2="15"/>
-        </svg>
-      </div>
-      <div className="text-center space-y-1">
-        <p className="text-sm font-semibold text-slate-600">Sin rechazadas</p>
-        <p className="text-xs text-slate-400 max-w-xs leading-relaxed">
-          Las solicitudes que sean rechazadas por secretaría aparecerán aquí.
-        </p>
-      </div>
     </div>
   );
 }

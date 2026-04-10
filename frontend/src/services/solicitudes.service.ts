@@ -47,8 +47,8 @@ export const solicitudesService = {
     return res.data;
   },
 
-  async getMiasHistorial(): Promise<SolicitudRenta[]> {
-    const res = await api.get<SolicitudRenta[]>('/solicitudes/historial-mias');
+  async getMiasHistorial(params: QueryRechazadas): Promise<RechazadasPage> {
+    const res = await api.get<RechazadasPage>('/solicitudes/historial-mias', { params });
     return res.data;
   },
 

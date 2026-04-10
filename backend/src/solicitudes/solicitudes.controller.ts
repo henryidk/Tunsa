@@ -64,8 +64,15 @@ export class SolicitudesController {
 
   @Get('historial-mias')
   @Roles('encargado_maquinas')
-  findHistorialMias(@CurrentUser() user: AuthenticatedUser) {
-    return this.solicitudesService.findHistorialMias(user.username);
+  findHistorialMias(
+    @Query() query: QueryRechazadasDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.solicitudesService.findHistorialMias(user.username, {
+      fechaDesde: new Date(query.fechaDesde),
+      fechaHasta: new Date(query.fechaHasta),
+      cursor:     query.cursor,
+    });
   }
 
   @Patch(':id/rechazar')

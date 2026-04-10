@@ -1,7 +1,9 @@
 // EncargadoDashboard.tsx — layout principal del encargado de máquinas
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useAuthStore } from '../../store/auth.store';
+import { useNotificationSound } from '../../hooks/useNotificationSound';
+import { useEncargadoSocket } from '../../hooks/useEncargadoSocket';
 import EncargadoSidebar from '../../components/encargado/EncargadoSidebar';
 import EncargadoTopBar from '../../components/encargado/EncargadoTopBar';
 import Toast from '../../components/admin/Toast';
@@ -35,10 +37,13 @@ export default function EncargadoDashboard() {
 
   const navTo = (section: string) => setActiveSection(section as Section);
 
-  const showToast = (type: ToastType, title: string, msg: string) => {
+  const showToast = useCallback((type: ToastType, title: string, msg: string) => {
     setToast({ visible: true, type, title, msg });
     setTimeout(() => setToast(t => ({ ...t, visible: false })), 3500);
-  };
+  }, []);
+
+  const { playSound } = useNotificationSound();
+  useEncargadoSocket({ playSound, showToast });
 
   const renderSection = () => {
     switch (activeSection) {

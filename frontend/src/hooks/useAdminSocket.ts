@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { io } from 'socket.io-client';
 import { solicitudesService } from '../services/solicitudes.service';
+import { authService } from '../services/auth.service';
 import { useSolicitudesStore } from '../store/solicitudes.store';
 import { useNotificationsStore } from '../store/notifications.store';
 import type { SolicitudRenta } from '../types/solicitud-renta.types';
@@ -43,6 +44,24 @@ export function useAdminSocket({ playSound }: UseAdminSocketOptions): void {
     };
 
     socket.on('solicitud:nueva', handleNuevaSolicitud);
+
+    // El access token expira en 15 min. Si el servidor desconecta el socket
+    // (reason === 'io server disconnect'), socket.io NO reconecta automáticamente.
+    // Solución: refrescar el token y reconectar manualmente.
+    socket.on('disconnect', (reason) => {
+      if (reason === 'io server disconnect') {
+        authService.refreshToken()
+          .then(({ accessToken }) => {
+            localStorage.setItem('accessToken', accessToken);
+            socket.connect();
+          })
+          .catch(() => {
+            // Refresh token también expiró — sesión muerta
+            localStorage.removeItem('accessToken');
+            window.location.href = '/login';
+          });
+      }
+    });
 
     solicitudesService.getAll()
       .then(setSolicitudes)

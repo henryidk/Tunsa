@@ -30,4 +30,14 @@ export const solicitudesService = {
     const res = await api.get<string[]>('/solicitudes/equipos-reservados');
     return res.data;
   },
+
+  async rechazar(id: string): Promise<SolicitudRenta> {
+    const res = await api.patch<SolicitudRenta>(`/solicitudes/${id}/rechazar`);
+    return res.data;
+  },
+
+  async getMiasHistorial(): Promise<SolicitudRenta[]> {
+    const res = await api.get<SolicitudRenta[]>('/solicitudes/historial-mias');
+    return res.data;
+  },
 };

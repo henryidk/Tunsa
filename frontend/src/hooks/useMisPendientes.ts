@@ -1,14 +1,19 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { solicitudesService } from '../services/solicitudes.service';
-import type { SolicitudRenta } from '../types/solicitud-renta.types';
+import { usePendientesStore } from '../store/pendientes.store';
 
 const POLL_INTERVAL_MS = 30_000;
 
+/**
+ * Carga y refresca las solicitudes PENDIENTE del encargado.
+ * Escribe en `usePendientesStore` para que `useEncargadoSocket` pueda
+ * eliminar solicitudes en tiempo real sin recargar.
+ */
 export function useMisPendientes() {
-  const [solicitudes, setSolicitudes] = useState<SolicitudRenta[]>([]);
-  const [isLoading,   setIsLoading]   = useState(true);
+  const { solicitudes, setSolicitudes } = usePendientesStore();
+  const [isLoading,    setIsLoading]    = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [error,       setError]       = useState<string | null>(null);
+  const [error,        setError]        = useState<string | null>(null);
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -32,12 +37,12 @@ export function useMisPendientes() {
         setIsRefreshing(false);
       }
     }
-  }, []);
+  }, [setSolicitudes]);
 
   // Carga inicial
   useEffect(() => { cargar(); }, [cargar]);
 
-  // Polling automático para reflejar aprobaciones/rechazos del admin
+  // Polling automático — sincroniza con aprobaciones/rechazos no recibidos por socket
   useEffect(() => {
     const id = setInterval(() => cargar(true), POLL_INTERVAL_MS);
     return () => clearInterval(id);

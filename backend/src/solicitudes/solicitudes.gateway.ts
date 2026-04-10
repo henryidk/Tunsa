@@ -30,13 +30,16 @@ export class SolicitudesGateway implements OnGatewayConnection, OnGatewayDisconn
         return;
       }
 
-      const payload = this.jwtService.verify<{ sub: string; role: string }>(token);
-      const role = payload.role;
+      const payload = this.jwtService.verify<{ sub: string; username: string; role: string }>(token);
+      const { role, username } = payload;
       this.logger.log(`[WS] Conectado: ${client.id} | sub=${payload.sub} | role=${role}`);
 
       if (role === 'admin' || role === 'secretaria') {
         client.join(`rol:${role}`);
         this.logger.log(`[WS] ${client.id} unido a sala rol:${role}`);
+      } else if (role === 'encargado_maquinas') {
+        client.join(`user:${username}`);
+        this.logger.log(`[WS] ${client.id} unido a sala user:${username}`);
       } else {
         this.logger.warn(`[WS] Rol no permitido (${role}) — desconectando ${client.id}`);
         client.disconnect();
@@ -53,14 +56,19 @@ export class SolicitudesGateway implements OnGatewayConnection, OnGatewayDisconn
 
   emitNuevaSolicitud(solicitud: object) {
     try {
-      const rooms = ['rol:admin', 'rol:secretaria'];
-      this.logger.log(`[WS] Emitiendo solicitud:nueva a ${rooms.join(', ')}`);
-      this.server
-        .to('rol:admin')
-        .to('rol:secretaria')
-        .emit('solicitud:nueva', solicitud);
+      this.logger.log('[WS] Emitiendo solicitud:nueva a rol:admin, rol:secretaria');
+      this.server.to('rol:admin').to('rol:secretaria').emit('solicitud:nueva', solicitud);
     } catch (err) {
       this.logger.error(`[WS] Error emitiendo solicitud:nueva: ${(err as Error).message}`);
+    }
+  }
+
+  emitSolicitudRechazada(solicitud: object, username: string) {
+    try {
+      this.logger.log(`[WS] Emitiendo solicitud:rechazada a user:${username}`);
+      this.server.to(`user:${username}`).emit('solicitud:rechazada', solicitud);
+    } catch (err) {
+      this.logger.error(`[WS] Error emitiendo solicitud:rechazada: ${(err as Error).message}`);
     }
   }
 }

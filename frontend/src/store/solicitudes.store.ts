@@ -6,10 +6,11 @@ interface SolicitudesState {
   isLoading:   boolean;
   error:       string | null;
 
-  setSolicitudes: (data: SolicitudRenta[]) => void;
-  addSolicitud:   (nueva: SolicitudRenta) => void;
-  setLoading:     (v: boolean) => void;
-  setError:       (e: string | null) => void;
+  setSolicitudes:  (data: SolicitudRenta[]) => void;
+  addSolicitud:    (nueva: SolicitudRenta) => void;
+  updateEstado:    (id: string, estado: SolicitudRenta['estado']) => void;
+  setLoading:      (v: boolean) => void;
+  setError:        (e: string | null) => void;
 }
 
 export const useSolicitudesStore = create<SolicitudesState>((set) => ({
@@ -30,6 +31,11 @@ export const useSolicitudesStore = create<SolicitudesState>((set) => ({
       solicitudes: state.solicitudes.some(s => s.id === nueva.id)
         ? state.solicitudes
         : [nueva, ...state.solicitudes],
+    })),
+
+  updateEstado: (id, estado) =>
+    set((state) => ({
+      solicitudes: state.solicitudes.map(s => s.id === id ? { ...s, estado } : s),
     })),
 
   setLoading: (v) => set({ isLoading: v }),

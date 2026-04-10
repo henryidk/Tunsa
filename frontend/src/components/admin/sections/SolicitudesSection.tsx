@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useSolicitudes } from '../../../hooks/useSolicitudes';
 import { clientesService } from '../../../services/clientes.service';
+import { solicitudesService } from '../../../services/solicitudes.service';
+import { useSolicitudesStore } from '../../../store/solicitudes.store';
 import type { SolicitudRenta, ItemSnapshot } from '../../../types/solicitud-renta.types';
 import { formatFechaCorta, unidadLabel } from '../../../types/solicitud.types';
 
@@ -166,14 +168,30 @@ type Accion = 'aprobar' | 'rechazar';
 
 function AccionesFooter({ solicitud }: { solicitud: SolicitudRenta }) {
   const [confirmando, setConfirmando] = useState<Accion | null>(null);
+  const [procesando,  setProcesando]  = useState(false);
+  const [errorMsg,    setErrorMsg]    = useState<string | null>(null);
+  const { updateEstado } = useSolicitudesStore.getState();
 
-  const handleConfirmar = (_accion: Accion) => {
-    // TODO: implementar endpoints de aprobación/rechazo
-    setConfirmando(null);
+  const handleConfirmar = async (accion: Accion) => {
+    if (accion !== 'rechazar') return; // aprobar pendiente de implementar
+    setProcesando(true);
+    setErrorMsg(null);
+    try {
+      await solicitudesService.rechazar(solicitud.id);
+      updateEstado(solicitud.id, 'RECHAZADA');
+      setConfirmando(null);
+    } catch {
+      setErrorMsg('No se pudo rechazar la solicitud. Intenta de nuevo.');
+    } finally {
+      setProcesando(false);
+    }
   };
 
   return (
     <div className="border-t border-slate-100 overflow-hidden">
+      {errorMsg && (
+        <div className="px-5 py-2 bg-red-50 border-b border-red-100 text-xs text-red-700">{errorMsg}</div>
+      )}
       {confirmando ? (
         /* ── Estado de confirmación ── */
         <div className={`flex items-center justify-between px-5 py-3 gap-4 transition-colors ${
@@ -199,21 +217,27 @@ function AccionesFooter({ solicitud }: { solicitud: SolicitudRenta }) {
           <div className="flex items-center gap-2 flex-shrink-0">
             <button
               onClick={() => setConfirmando(null)}
-              className="px-3 py-1.5 text-xs font-semibold rounded-md text-slate-600 hover:bg-slate-200 transition-colors"
+              disabled={procesando}
+              className="px-3 py-1.5 text-xs font-semibold rounded-md text-slate-600 hover:bg-slate-200 transition-colors disabled:opacity-50"
             >
               Cancelar
             </button>
             <button
-              onClick={() => confirmando && handleConfirmar(confirmando)}
-              disabled
-              title="Próximamente"
-              className={`px-4 py-1.5 text-xs font-semibold rounded-md text-white transition-colors opacity-50 cursor-not-allowed ${
-                confirmando === 'aprobar'
-                  ? 'bg-emerald-500'
-                  : 'bg-red-500'
+              onClick={() => handleConfirmar(confirmando)}
+              disabled={procesando || confirmando === 'aprobar'}
+              title={confirmando === 'aprobar' ? 'Próximamente' : undefined}
+              className={`px-4 py-1.5 text-xs font-semibold rounded-md text-white transition-colors ${
+                procesando || confirmando === 'aprobar'
+                  ? 'opacity-50 cursor-not-allowed'
+                  : ''
+              } ${
+                confirmando === 'aprobar' ? 'bg-emerald-500' : 'bg-red-500 hover:bg-red-600'
               }`}
             >
-              {confirmando === 'aprobar' ? 'Sí, aprobar' : 'Sí, rechazar'}
+              {procesando
+                ? 'Procesando...'
+                : confirmando === 'aprobar' ? 'Sí, aprobar' : 'Sí, rechazar'
+              }
             </button>
           </div>
         </div>

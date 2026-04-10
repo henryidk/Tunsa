@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, UseGuards } from '@nestjs/common';
 import { SolicitudesService } from './solicitudes.service';
 import { SolicitudesGateway } from './solicitudes.gateway';
 import { CreateSolicitudDto } from './dto/create-solicitud.dto';
@@ -49,5 +49,19 @@ export class SolicitudesController {
   @Roles('encargado_maquinas')
   findMias(@CurrentUser() user: AuthenticatedUser) {
     return this.solicitudesService.findMias(user.username);
+  }
+
+  @Get('historial-mias')
+  @Roles('encargado_maquinas')
+  findHistorialMias(@CurrentUser() user: AuthenticatedUser) {
+    return this.solicitudesService.findHistorialMias(user.username);
+  }
+
+  @Patch(':id/rechazar')
+  @Roles('admin', 'secretaria')
+  async rechazar(@Param('id') id: string) {
+    const solicitud = await this.solicitudesService.rechazar(id);
+    this.solicitudesGateway.emitSolicitudRechazada(solicitud, solicitud.creadaPor);
+    return solicitud;
   }
 }

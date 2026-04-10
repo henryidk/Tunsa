@@ -84,6 +84,24 @@ export class SolicitudesService {
     return solicitudes.map(s => this.serialize(s));
   }
 
+  async findHistorialMias(username: string) {
+    const solicitudes = await this.prisma.solicitud.findMany({
+      where:   { creadaPor: username, estado: 'RECHAZADA' },
+      include: { cliente: true },
+      orderBy: { updatedAt: 'desc' },
+    });
+    return solicitudes.map(s => this.serialize(s));
+  }
+
+  async rechazar(id: string) {
+    const solicitud = await this.prisma.solicitud.update({
+      where:   { id },
+      data:    { estado: 'RECHAZADA' },
+      include: { cliente: true },
+    });
+    return this.serialize(solicitud);
+  }
+
   private serialize(s: SolicitudConCliente) {
     return {
       ...s,

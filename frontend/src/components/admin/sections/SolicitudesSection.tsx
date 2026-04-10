@@ -154,22 +154,105 @@ function SolicitudCard({ solicitud }: { solicitud: SolicitudRenta }) {
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100 bg-slate-50 gap-4">
-        <div className="flex-1 min-w-0">
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Observaciones</p>
-          <p className="text-xs text-slate-600 truncate">{solicitud.notas}</p>
-        </div>
-        <div className="flex items-center gap-4 flex-shrink-0">
-          <div className="text-right">
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Solicitado por</p>
-            <p className="text-xs font-semibold text-slate-600">{solicitud.creadaPor}</p>
-          </div>
-        </div>
-      </div>
+      <AccionesFooter solicitud={solicitud} />
 
     </div>
   );
 }
+
+// ── Acciones Footer ───────────────────────────────────────────────────────────
+
+type Accion = 'aprobar' | 'rechazar';
+
+function AccionesFooter({ solicitud }: { solicitud: SolicitudRenta }) {
+  const [confirmando, setConfirmando] = useState<Accion | null>(null);
+
+  const handleConfirmar = (_accion: Accion) => {
+    // TODO: implementar endpoints de aprobación/rechazo
+    setConfirmando(null);
+  };
+
+  return (
+    <div className="border-t border-slate-100 overflow-hidden">
+      {confirmando ? (
+        /* ── Estado de confirmación ── */
+        <div className={`flex items-center justify-between px-5 py-3 gap-4 transition-colors ${
+          confirmando === 'aprobar' ? 'bg-emerald-50' : 'bg-red-50'
+        }`}>
+          <div className="flex items-center gap-2 min-w-0">
+            {confirmando === 'aprobar' ? (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-emerald-600 flex-shrink-0">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            ) : (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-red-500 flex-shrink-0">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            )}
+            <p className={`text-sm font-medium ${confirmando === 'aprobar' ? 'text-emerald-800' : 'text-red-800'}`}>
+              {confirmando === 'aprobar'
+                ? '¿Confirmar aprobación de esta solicitud?'
+                : '¿Confirmar rechazo de esta solicitud?'
+              }
+            </p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              onClick={() => setConfirmando(null)}
+              className="px-3 py-1.5 text-xs font-semibold rounded-md text-slate-600 hover:bg-slate-200 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={() => confirmando && handleConfirmar(confirmando)}
+              disabled
+              title="Próximamente"
+              className={`px-4 py-1.5 text-xs font-semibold rounded-md text-white transition-colors opacity-50 cursor-not-allowed ${
+                confirmando === 'aprobar'
+                  ? 'bg-emerald-500'
+                  : 'bg-red-500'
+              }`}
+            >
+              {confirmando === 'aprobar' ? 'Sí, aprobar' : 'Sí, rechazar'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        /* ── Estado normal ── */
+        <div className="flex items-center justify-between px-5 py-3 bg-slate-50 gap-4">
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Observaciones</p>
+            <p className="text-xs text-slate-600 truncate">{solicitud.notas}</p>
+          </div>
+          <div className="flex items-center gap-4 flex-shrink-0">
+            <div className="text-right">
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Solicitado por</p>
+              <p className="text-xs font-semibold text-slate-600">{solicitud.creadaPor}</p>
+            </div>
+            {solicitud.estado === 'PENDIENTE' && (
+              <div className="flex items-center gap-2 pl-4 border-l border-slate-200">
+                <button
+                  onClick={() => setConfirmando('rechazar')}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-md border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 transition-colors"
+                >
+                  Rechazar
+                </button>
+                <button
+                  onClick={() => setConfirmando('aprobar')}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-md bg-emerald-500 text-white hover:bg-emerald-600 transition-colors"
+                >
+                  Aprobar
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Item Row ──────────────────────────────────────────────────────────────────
 
 function ItemRow({ item }: { item: ItemSnapshot }) {
   const tiempo = (

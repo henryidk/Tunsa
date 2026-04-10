@@ -2,6 +2,10 @@
 
 import { useState } from 'react'
 import { useAuthStore } from '../../store/auth.store'
+import { useAdminSocket } from '../../hooks/useAdminSocket'
+import { useNotificationSound } from '../../hooks/useNotificationSound'
+import { useSolicitudesStore, selectPendingCount, selectTodayCount } from '../../store/solicitudes.store'
+import { useNotificationsStore, selectUnreadCount } from '../../store/notifications.store'
 import Sidebar from '../../components/admin/Sidebar'
 import TopBar from '../../components/admin/TopBar'
 import Toast from '../../components/admin/Toast'
@@ -43,6 +47,13 @@ export interface ToastState {
 export default function AdminDashboard() {
   const { user, logout, mustChangePassword } = useAuthStore()
   const [activeSection, setActiveSection] = useState<Section>('dashboard')
+
+  const { playSound }  = useNotificationSound()
+  // Mantiene el socket activo durante toda la sesión y alimenta ambos stores
+  useAdminSocket({ playSound })
+  const pendienteCount = useSolicitudesStore(selectPendingCount)
+  const todayCount     = useSolicitudesStore(selectTodayCount)
+  const unreadCount    = useNotificationsStore(selectUnreadCount)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [toast, setToast] = useState<ToastState>({ visible: false, type: 'success', title: '', msg: '' })
   const [modalOpen, setModalOpen] = useState(false)
@@ -71,6 +82,7 @@ export default function AdminDashboard() {
         onToggle={() => setSidebarCollapsed(c => !c)}
         onLogout={logout}
         user={user}
+        badges={{ 'rentas-solicitudes': pendienteCount }}
       />
 
       <div
@@ -78,7 +90,7 @@ export default function AdminDashboard() {
           sidebarCollapsed ? 'ml-16' : 'ml-60'
         }`}
       >
-        <TopBar activeSection={activeSection} />
+        <TopBar activeSection={activeSection} onNavTo={navTo} unreadCount={unreadCount} todayCount={todayCount} />
 
         <main className="flex-1 p-6">
           {activeSection === 'dashboard' && (

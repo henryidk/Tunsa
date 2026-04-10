@@ -178,7 +178,7 @@ export default function DashboardSection({ onNavTo }: DashboardSectionProps) {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <StatCard
           icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}
           label="Solicitudes pendientes" value="5" trend="+2 desde ayer" trendUp colorCls=""
@@ -193,11 +193,6 @@ export default function DashboardSection({ onNavTo }: DashboardSectionProps) {
           icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>}
           label="Rentas vencidas" value="2" trend="Requieren atención" trendUp={false} colorCls=""
           iconBg="#fee2e2" iconColor="#dc2626"
-        />
-        <StatCard
-          icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>}
-          label="Ingresos del mes" value="Q14,820" trend="+12% vs mes anterior" trendUp colorCls=""
-          iconBg="#e0e7ff" iconColor="#4f46e5" mono
         />
       </div>
 

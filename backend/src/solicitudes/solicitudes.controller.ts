@@ -33,4 +33,21 @@ export class SolicitudesController {
   findAll() {
     return this.solicitudesService.findAll();
   }
+
+  /**
+   * IDs de equipos que están bloqueados en solicitudes PENDIENTE o APROBADA.
+   * El encargado lo usa para ocultar equipos no disponibles en el formulario.
+   * Debe declararse antes de @Get('mias') para que NestJS no lo interprete como param.
+   */
+  @Get('equipos-reservados')
+  @Roles('encargado_maquinas', 'admin', 'secretaria')
+  getEquiposReservados() {
+    return this.solicitudesService.getEquiposReservados();
+  }
+
+  @Get('mias')
+  @Roles('encargado_maquinas')
+  findMias(@CurrentUser() user: AuthenticatedUser) {
+    return this.solicitudesService.findMias(user.username);
+  }
 }

@@ -29,13 +29,13 @@ export default function NuevaSolicitudSection({ onShowToast = () => {} }: Props)
   const [showNoNotasModal,    setShowNoNotasModal]    = useState(false);
   const [isSubmitting,        setIsSubmitting]        = useState(false);
 
-  const { equiposLiviana, granelData, isLoading, error: dataError } = useSolicitudData();
+  const { equiposLiviana, granelData, reservedIds, isLoading, error: dataError } = useSolicitudData();
   const cart = useSolicitudCart();
 
-  // Equipos disponibles: activos, liviana, y no ya en el carrito
+  // Equipos disponibles: activos, liviana, no en el carrito actual y no reservados en otra solicitud activa
   const equiposDisponibles = useMemo(
-    () => equiposLiviana.filter(e => !cart.hasEquipo(e.id)),
-    [equiposLiviana, cart.items],
+    () => equiposLiviana.filter(e => !cart.hasEquipo(e.id) && !reservedIds.has(e.id)),
+    [equiposLiviana, cart.items, reservedIds],
   );
 
   const handleLimpiarItems = () => {

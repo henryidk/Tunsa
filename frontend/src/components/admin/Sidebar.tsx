@@ -6,8 +6,6 @@ import type { Usuario } from '../../types/auth.types';
 interface NavItem {
   id: string;
   label: string;
-  badge?: string;
-  badgeVariant?: 'default' | 'success' | 'danger';
   icon: ReactNode;
 }
 
@@ -23,6 +21,7 @@ interface SidebarProps {
   onToggle: () => void;
   onLogout: () => void;
   user: Usuario | null;
+  badges?: Partial<Record<string, number>>;
 }
 
 const rolLabels: Record<string, string> = {
@@ -73,8 +72,6 @@ const navGroups: NavGroup[] = [
       {
         id: 'rentas-solicitudes',
         label: 'Solicitudes',
-        badge: '5',
-        badgeVariant: 'default',
         icon: (
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
@@ -84,8 +81,6 @@ const navGroups: NavGroup[] = [
       {
         id: 'rentas-activas',
         label: 'Activas',
-        badge: '8',
-        badgeVariant: 'success',
         icon: (
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
@@ -105,8 +100,6 @@ const navGroups: NavGroup[] = [
       {
         id: 'rentas-vencidas',
         label: 'Vencidas',
-        badge: '2',
-        badgeVariant: 'danger',
         icon: (
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
@@ -177,13 +170,14 @@ const navGroups: NavGroup[] = [
   },
 ];
 
-const badgeCls: Record<string, string> = {
-  default: 'bg-amber-100 text-amber-700',
-  success: 'bg-green-100 text-green-700',
-  danger: 'bg-red-100 text-red-700',
+// Estilo de badge por sección — independiente de los datos
+const BADGE_STYLES: Record<string, string> = {
+  'rentas-solicitudes': 'bg-amber-100 text-amber-700',
+  'rentas-activas':     'bg-green-100 text-green-700',
+  'rentas-vencidas':    'bg-red-100 text-red-700',
 };
 
-export default function Sidebar({ activeSection, onNavTo, collapsed, onToggle, onLogout, user }: SidebarProps) {
+export default function Sidebar({ activeSection, onNavTo, collapsed, onToggle, onLogout, user, badges = {} }: SidebarProps) {
   const nombre = user?.nombre ?? '';
   const rolLabel = rolLabels[user?.role.nombre ?? ''] ?? 'Usuario';
 
@@ -265,13 +259,13 @@ export default function Sidebar({ activeSection, onNavTo, collapsed, onToggle, o
                     {!collapsed && (
                       <>
                         <span className="flex-1 text-left truncate">{item.label}</span>
-                        {item.badge && (
+                        {!!badges[item.id] && (
                           <span
                             className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${
-                              badgeCls[item.badgeVariant ?? 'default']
+                              BADGE_STYLES[item.id] ?? 'bg-amber-100 text-amber-700'
                             }`}
                           >
-                            {item.badge}
+                            {badges[item.id]}
                           </span>
                         )}
                       </>

@@ -44,7 +44,7 @@ export default function EncargadoDashboard() {
     switch (activeSection) {
       case 'dashboard':       return <DashboardSection onNavTo={navTo} />;
       case 'nueva-solicitud': return <NuevaSolicitudSection onShowToast={showToast} />;
-      case 'pendientes':      return <PendientesSection />;
+      case 'pendientes':      return <PendientesSection onNavTo={navTo} />;
       case 'rentas-activas':  return <RentasActivasSection />;
       case 'vencidas':        return <VencidasSection />;
       case 'historial':       return <HistorialSection />;

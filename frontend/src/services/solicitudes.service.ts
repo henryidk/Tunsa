@@ -20,4 +20,14 @@ export const solicitudesService = {
     const res = await api.get<SolicitudRenta[]>('/solicitudes');
     return res.data;
   },
+
+  async getMias(): Promise<SolicitudRenta[]> {
+    const res = await api.get<SolicitudRenta[]>('/solicitudes/mias');
+    return res.data;
+  },
+
+  async getEquiposReservados(): Promise<string[]> {
+    const res = await api.get<string[]>('/solicitudes/equipos-reservados');
+    return res.data;
+  },
 };

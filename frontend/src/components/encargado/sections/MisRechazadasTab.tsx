@@ -233,19 +233,18 @@ function SolicitudRechazadaCard({ solicitud }: { solicitud: SolicitudRenta }) {
       </div>
 
       {solicitud.motivoRechazo && (
-        <div className="px-5 py-2.5 border-t border-red-100 bg-red-50">
-          <p className="text-[10px] font-semibold text-red-400 uppercase tracking-wide mb-0.5">
-            Motivo de rechazo
-          </p>
-          <p className="text-xs text-red-700">{solicitud.motivoRechazo}</p>
-        </div>
-      )}
-      {solicitud.notas && (
-        <div className="px-5 py-2.5 border-t border-slate-100 bg-slate-50">
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">
-            Observaciones
-          </p>
-          <p className="text-xs text-slate-600">{solicitud.notas}</p>
+        <div className="mx-5 mb-4 flex gap-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-red-400 flex-shrink-0 mt-0.5">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <div>
+            <p className="text-[10px] font-semibold text-red-400 uppercase tracking-wide mb-0.5">
+              Motivo de rechazo
+            </p>
+            <p className="text-xs text-red-700 leading-relaxed">{solicitud.motivoRechazo}</p>
+          </div>
         </div>
       )}
     </div>

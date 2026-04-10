@@ -42,8 +42,8 @@ export const solicitudesService = {
     return res.data;
   },
 
-  async rechazar(id: string): Promise<SolicitudRenta> {
-    const res = await api.patch<SolicitudRenta>(`/solicitudes/${id}/rechazar`);
+  async rechazar(id: string, motivoRechazo: string): Promise<SolicitudRenta> {
+    const res = await api.patch<SolicitudRenta>(`/solicitudes/${id}/rechazar`, { motivoRechazo });
     return res.data;
   },
 

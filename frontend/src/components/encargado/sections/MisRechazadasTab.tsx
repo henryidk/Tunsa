@@ -232,6 +232,14 @@ function SolicitudRechazadaCard({ solicitud }: { solicitud: SolicitudRenta }) {
         </div>
       </div>
 
+      {solicitud.motivoRechazo && (
+        <div className="px-5 py-2.5 border-t border-red-100 bg-red-50">
+          <p className="text-[10px] font-semibold text-red-400 uppercase tracking-wide mb-0.5">
+            Motivo de rechazo
+          </p>
+          <p className="text-xs text-red-700">{solicitud.motivoRechazo}</p>
+        </div>
+      )}
       {solicitud.notas && (
         <div className="px-5 py-2.5 border-t border-slate-100 bg-slate-50">
           <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">

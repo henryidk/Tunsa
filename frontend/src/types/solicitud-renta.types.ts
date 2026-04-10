@@ -34,15 +34,16 @@ export interface ClienteBasico {
 }
 
 export interface SolicitudRenta {
-  id:            string;
-  clienteId:     string;
-  cliente:       ClienteBasico;
-  items:         ItemSnapshot[];
-  modalidad:     ModalidadPago;
-  notas:         string;
-  totalEstimado: number;
-  estado:        EstadoSolicitud;
-  creadaPor:     string;
-  createdAt:     string;
-  updatedAt:     string;
+  id:             string;
+  clienteId:      string;
+  cliente:        ClienteBasico;
+  items:          ItemSnapshot[];
+  modalidad:      ModalidadPago;
+  notas:          string;
+  motivoRechazo:  string | null;
+  totalEstimado:  number;
+  estado:         EstadoSolicitud;
+  creadaPor:      string;
+  createdAt:      string;
+  updatedAt:      string;
 }

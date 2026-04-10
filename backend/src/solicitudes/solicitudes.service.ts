@@ -186,10 +186,10 @@ export class SolicitudesService {
     return { data: pageData.map(s => this.serialize(s)), nextCursor };
   }
 
-  async rechazar(id: string) {
+  async rechazar(id: string, motivoRechazo: string) {
     const solicitud = await this.prisma.solicitud.update({
       where:   { id },
-      data:    { estado: 'RECHAZADA' },
+      data:    { estado: 'RECHAZADA', motivoRechazo },
       include: { cliente: true },
     });
     return this.serialize(solicitud);

@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useSolicitudes } from '../../../hooks/useSolicitudes';
 import { clientesService } from '../../../services/clientes.service';
-import { solicitudesService } from '../../../services/solicitudes.service';
 import { useSolicitudesStore } from '../../../store/solicitudes.store';
 import RechazadasTab from './RechazadasTab';
+import RechazarModal from '../RechazarModal';
 import type { SolicitudRenta, ItemSnapshot } from '../../../types/solicitud-renta.types';
 import { formatFechaCorta, unidadLabel } from '../../../types/solicitud.types';
 
@@ -12,6 +12,9 @@ type Tab = 'pendientes' | 'rechazadas';
 export default function SolicitudesSection() {
   const { solicitudes, isLoading, error } = useSolicitudes();
   const [activeTab, setActiveTab] = useState<Tab>('pendientes');
+  const [rechazando, setRechazando] = useState<SolicitudRenta | null>(null);
+
+  const { updateEstado } = useSolicitudesStore.getState();
 
   // findAll() ya no incluye RECHAZADA — solo PENDIENTE y APROBADA
   const pendientes = solicitudes.filter(s => s.estado === 'PENDIENTE');
@@ -19,6 +22,11 @@ export default function SolicitudesSection() {
   const storeRechazadasCount = useSolicitudesStore(
     s => s.solicitudes.filter(sol => sol.estado === 'RECHAZADA').length,
   );
+
+  const handleRechazarConfirm = (updated: SolicitudRenta) => {
+    updateEstado(updated.id, 'RECHAZADA');
+    setRechazando(null);
+  };
 
   return (
     <div>
@@ -73,7 +81,13 @@ export default function SolicitudesSection() {
             <EmptyState tab="pendientes" />
           ) : (
             <div className="space-y-3">
-              {pendientes.map(s => <SolicitudCard key={s.id} solicitud={s} />)}
+              {pendientes.map(s => (
+                <SolicitudCard
+                  key={s.id}
+                  solicitud={s}
+                  onRequestRechazar={() => setRechazando(s)}
+                />
+              ))}
             </div>
           )}
         </>
@@ -81,6 +95,13 @@ export default function SolicitudesSection() {
 
       {/* Tab: Rechazadas — componente independiente con paginación keyset */}
       {activeTab === 'rechazadas' && <RechazadasTab />}
+
+      <RechazarModal
+        solicitud={rechazando}
+        open={rechazando !== null}
+        onClose={() => setRechazando(null)}
+        onConfirm={handleRechazarConfirm}
+      />
     </div>
   );
 }
@@ -121,7 +142,7 @@ const ESTADO_BORDER: Record<SolicitudRenta['estado'], string> = {
   RECHAZADA: 'border-l-red-400',
 };
 
-function SolicitudCard({ solicitud }: { solicitud: SolicitudRenta }) {
+function SolicitudCard({ solicitud, onRequestRechazar }: { solicitud: SolicitudRenta; onRequestRechazar: () => void }) {
   const maquinaria = solicitud.items.filter(i => i.kind === 'maquinaria');
   const granel     = solicitud.items.filter(i => i.kind === 'granel');
 
@@ -191,7 +212,7 @@ function SolicitudCard({ solicitud }: { solicitud: SolicitudRenta }) {
       </div>
 
       {/* Footer */}
-      <AccionesFooter solicitud={solicitud} />
+      <AccionesFooter solicitud={solicitud} onRequestRechazar={onRequestRechazar} />
 
     </div>
   );
@@ -199,114 +220,44 @@ function SolicitudCard({ solicitud }: { solicitud: SolicitudRenta }) {
 
 // ── Acciones Footer ───────────────────────────────────────────────────────────
 
-type Accion = 'aprobar' | 'rechazar';
-
-function AccionesFooter({ solicitud }: { solicitud: SolicitudRenta }) {
-  const [confirmando, setConfirmando] = useState<Accion | null>(null);
-  const [procesando,  setProcesando]  = useState(false);
-  const [errorMsg,    setErrorMsg]    = useState<string | null>(null);
-  const { updateEstado } = useSolicitudesStore.getState();
-
-  const handleConfirmar = async (accion: Accion) => {
-    if (accion !== 'rechazar') return; // aprobar pendiente de implementar
-    setProcesando(true);
-    setErrorMsg(null);
-    try {
-      await solicitudesService.rechazar(solicitud.id);
-      updateEstado(solicitud.id, 'RECHAZADA');
-      setConfirmando(null);
-    } catch {
-      setErrorMsg('No se pudo rechazar la solicitud. Intenta de nuevo.');
-    } finally {
-      setProcesando(false);
-    }
-  };
-
+function AccionesFooter({
+  solicitud,
+  onRequestRechazar,
+}: {
+  solicitud:         SolicitudRenta;
+  onRequestRechazar: () => void;
+}) {
   return (
-    <div className="border-t border-slate-100 overflow-hidden">
-      {errorMsg && (
-        <div className="px-5 py-2 bg-red-50 border-b border-red-100 text-xs text-red-700">{errorMsg}</div>
-      )}
-      {confirmando ? (
-        /* ── Estado de confirmación ── */
-        <div className={`flex items-center justify-between px-5 py-3 gap-4 transition-colors ${
-          confirmando === 'aprobar' ? 'bg-emerald-50' : 'bg-red-50'
-        }`}>
-          <div className="flex items-center gap-2 min-w-0">
-            {confirmando === 'aprobar' ? (
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-emerald-600 flex-shrink-0">
-                <polyline points="20 6 9 17 4 12"/>
-              </svg>
-            ) : (
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-red-500 flex-shrink-0">
-                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-              </svg>
-            )}
-            <p className={`text-sm font-medium ${confirmando === 'aprobar' ? 'text-emerald-800' : 'text-red-800'}`}>
-              {confirmando === 'aprobar'
-                ? '¿Confirmar aprobación de esta solicitud?'
-                : '¿Confirmar rechazo de esta solicitud?'
-              }
-            </p>
-          </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <button
-              onClick={() => setConfirmando(null)}
-              disabled={procesando}
-              className="px-3 py-1.5 text-xs font-semibold rounded-md text-slate-600 hover:bg-slate-200 transition-colors disabled:opacity-50"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={() => handleConfirmar(confirmando)}
-              disabled={procesando || confirmando === 'aprobar'}
-              title={confirmando === 'aprobar' ? 'Próximamente' : undefined}
-              className={`px-4 py-1.5 text-xs font-semibold rounded-md text-white transition-colors ${
-                procesando || confirmando === 'aprobar'
-                  ? 'opacity-50 cursor-not-allowed'
-                  : ''
-              } ${
-                confirmando === 'aprobar' ? 'bg-emerald-500' : 'bg-red-500 hover:bg-red-600'
-              }`}
-            >
-              {procesando
-                ? 'Procesando...'
-                : confirmando === 'aprobar' ? 'Sí, aprobar' : 'Sí, rechazar'
-              }
-            </button>
-          </div>
+    <div className="border-t border-slate-100">
+      <div className="flex items-center justify-between px-5 py-3 bg-slate-50 gap-4">
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Observaciones</p>
+          <p className="text-xs text-slate-600 truncate">{solicitud.notas}</p>
         </div>
-      ) : (
-        /* ── Estado normal ── */
-        <div className="flex items-center justify-between px-5 py-3 bg-slate-50 gap-4">
-          <div className="flex-1 min-w-0">
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Observaciones</p>
-            <p className="text-xs text-slate-600 truncate">{solicitud.notas}</p>
+        <div className="flex items-center gap-4 flex-shrink-0">
+          <div className="text-right">
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Solicitado por</p>
+            <p className="text-xs font-semibold text-slate-600">{solicitud.creadaPor}</p>
           </div>
-          <div className="flex items-center gap-4 flex-shrink-0">
-            <div className="text-right">
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Solicitado por</p>
-              <p className="text-xs font-semibold text-slate-600">{solicitud.creadaPor}</p>
+          {solicitud.estado === 'PENDIENTE' && (
+            <div className="flex items-center gap-2 pl-4 border-l border-slate-200">
+              <button
+                onClick={onRequestRechazar}
+                className="px-3 py-1.5 text-xs font-semibold rounded-md border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 transition-colors"
+              >
+                Rechazar
+              </button>
+              <button
+                disabled
+                title="Próximamente"
+                className="px-3 py-1.5 text-xs font-semibold rounded-md bg-emerald-500 text-white opacity-50 cursor-not-allowed"
+              >
+                Aprobar
+              </button>
             </div>
-            {solicitud.estado === 'PENDIENTE' && (
-              <div className="flex items-center gap-2 pl-4 border-l border-slate-200">
-                <button
-                  onClick={() => setConfirmando('rechazar')}
-                  className="px-3 py-1.5 text-xs font-semibold rounded-md border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 transition-colors"
-                >
-                  Rechazar
-                </button>
-                <button
-                  onClick={() => setConfirmando('aprobar')}
-                  className="px-3 py-1.5 text-xs font-semibold rounded-md bg-emerald-500 text-white hover:bg-emerald-600 transition-colors"
-                >
-                  Aprobar
-                </button>
-              </div>
-            )}
-          </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

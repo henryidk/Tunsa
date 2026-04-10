@@ -3,6 +3,7 @@ import { SolicitudesService } from './solicitudes.service';
 import { SolicitudesGateway } from './solicitudes.gateway';
 import { CreateSolicitudDto } from './dto/create-solicitud.dto';
 import { QueryRechazadasDto } from './dto/query-rechazadas.dto';
+import { RechazarSolicitudDto } from './dto/rechazar-solicitud.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { MustChangePasswordGuard } from '../auth/guards/must-change-password.guard';
@@ -77,8 +78,11 @@ export class SolicitudesController {
 
   @Patch(':id/rechazar')
   @Roles('admin', 'secretaria')
-  async rechazar(@Param('id') id: string) {
-    const solicitud = await this.solicitudesService.rechazar(id);
+  async rechazar(
+    @Param('id') id: string,
+    @Body() dto: RechazarSolicitudDto,
+  ) {
+    const solicitud = await this.solicitudesService.rechazar(id, dto.motivoRechazo);
     this.solicitudesGateway.emitSolicitudRechazada(solicitud, solicitud.creadaPor);
     return solicitud;
   }

@@ -29,7 +29,7 @@ export default function NuevaSolicitudSection({ onShowToast = () => {} }: Props)
   const [showNoNotasModal,    setShowNoNotasModal]    = useState(false);
   const [isSubmitting,        setIsSubmitting]        = useState(false);
 
-  const { equiposLiviana, granelData, reservedIds, isLoading, error: dataError } = useSolicitudData();
+  const { equiposLiviana, granelData, reservedIds, isLoading, error: dataError, refreshReservedIds } = useSolicitudData();
   const cart = useSolicitudCart();
 
   // Equipos disponibles: activos, liviana, no en el carrito actual y no reservados en otra solicitud activa
@@ -109,6 +109,7 @@ export default function NuevaSolicitudSection({ onShowToast = () => {} }: Props)
 
       onShowToast('success', 'Solicitud enviada', 'La solicitud fue registrada y notificada correctamente.');
       handleCancelarSolicitud();
+      void refreshReservedIds();
     } catch {
       onShowToast('error', 'Error al enviar', 'No se pudo enviar la solicitud. Inténtalo de nuevo.');
     } finally {

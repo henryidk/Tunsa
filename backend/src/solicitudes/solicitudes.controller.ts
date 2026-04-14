@@ -4,6 +4,7 @@ import { SolicitudesGateway } from './solicitudes.gateway';
 import { CreateSolicitudDto } from './dto/create-solicitud.dto';
 import { QueryRechazadasDto } from './dto/query-rechazadas.dto';
 import { RechazarSolicitudDto } from './dto/rechazar-solicitud.dto';
+import { ConfirmarEntregaDto } from './dto/confirmar-entrega.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { MustChangePasswordGuard } from '../auth/guards/must-change-password.guard';
@@ -53,6 +54,18 @@ export class SolicitudesController {
     return this.solicitudesService.findMias(user.username);
   }
 
+  @Get('activas')
+  @Roles('admin', 'secretaria')
+  findActivas() {
+    return this.solicitudesService.findActivas();
+  }
+
+  @Get('activas-mias')
+  @Roles('encargado_maquinas')
+  findActivasMias(@CurrentUser() user: AuthenticatedUser) {
+    return this.solicitudesService.findActivasMias(user.username);
+  }
+
   @Get('rechazadas')
   @Roles('admin', 'secretaria')
   findRechazadas(@Query() query: QueryRechazadasDto) {
@@ -76,6 +89,17 @@ export class SolicitudesController {
     });
   }
 
+  @Patch(':id/aprobar')
+  @Roles('admin', 'secretaria')
+  async aprobar(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const solicitud = await this.solicitudesService.aprobar(id, user.username);
+    this.solicitudesGateway.emitSolicitudAprobada(solicitud, solicitud.creadaPor);
+    return solicitud;
+  }
+
   @Patch(':id/rechazar')
   @Roles('admin', 'secretaria')
   async rechazar(
@@ -84,6 +108,18 @@ export class SolicitudesController {
   ) {
     const solicitud = await this.solicitudesService.rechazar(id, dto.motivoRechazo);
     this.solicitudesGateway.emitSolicitudRechazada(solicitud, solicitud.creadaPor);
+    return solicitud;
+  }
+
+  @Patch(':id/confirmar-entrega')
+  @Roles('encargado_maquinas')
+  async confirmarEntrega(
+    @Param('id') id: string,
+    @Body() dto: ConfirmarEntregaDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const solicitud = await this.solicitudesService.confirmarEntrega(id, dto.firmaCliente, user.username);
+    this.solicitudesGateway.emitRentaActiva(solicitud);
     return solicitud;
   }
 }

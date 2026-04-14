@@ -1,16 +1,20 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { solicitudesService } from '../services/solicitudes.service';
 import { usePendientesStore } from '../store/pendientes.store';
+import { useAprobadasStore } from '../store/aprobadas.store';
 
 const POLL_INTERVAL_MS = 30_000;
 
 /**
- * Carga y refresca las solicitudes PENDIENTE del encargado.
- * Escribe en `usePendientesStore` para que `useEncargadoSocket` pueda
- * eliminar solicitudes en tiempo real sin recargar.
+ * Carga y refresca las solicitudes PENDIENTE y APROBADA del encargado.
+ * - PENDIENTE → usePendientesStore (gestionadas vía socket por admin)
+ * - APROBADA  → useAprobadasStore  (pendientes de entrega física)
+ *
+ * El polling garantiza sincronía aunque el socket se desconecte momentáneamente.
  */
 export function useMisPendientes() {
   const { solicitudes, setSolicitudes } = usePendientesStore();
+  const setAprobadas = useAprobadasStore(s => s.setSolicitudes);
   const [isLoading,    setIsLoading]    = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error,        setError]        = useState<string | null>(null);
@@ -26,7 +30,8 @@ export function useMisPendientes() {
     try {
       const data = await solicitudesService.getMias();
       if (!mountedRef.current) return;
-      setSolicitudes(data);
+      setSolicitudes(data.filter(s => s.estado === 'PENDIENTE'));
+      setAprobadas(data.filter(s => s.estado === 'APROBADA'));
       setError(null);
     } catch {
       if (!mountedRef.current) return;
@@ -37,7 +42,7 @@ export function useMisPendientes() {
         setIsRefreshing(false);
       }
     }
-  }, [setSolicitudes]);
+  }, [setSolicitudes, setAprobadas]);
 
   // Carga inicial
   useEffect(() => { cargar(); }, [cargar]);

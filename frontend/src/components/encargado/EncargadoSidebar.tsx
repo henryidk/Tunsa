@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 import type { Usuario } from '../../types/auth.types';
+import { useAprobadasStore } from '../../store/aprobadas.store';
 
 interface NavItem {
   id: string;
@@ -86,6 +87,16 @@ const navGroups: NavGroup[] = [
         ),
       },
       {
+        id: 'por-entregar',
+        label: 'Por Entregar',
+        badgeVariant: 'warning',
+        icon: (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M5 12h14"/><path d="M12 5l7 7-7 7"/>
+          </svg>
+        ),
+      },
+      {
         id: 'rentas-activas',
         label: 'Activas',
         badgeVariant: 'success',
@@ -152,10 +163,12 @@ const badgeCls: Record<string, string> = {
   default: 'bg-amber-100 text-amber-700',
   success: 'bg-green-100 text-green-700',
   danger:  'bg-red-100 text-red-700',
+  warning: 'bg-amber-100 text-amber-700',
 };
 
 export default function EncargadoSidebar({ activeSection, onNavTo, collapsed, onToggle, onLogout, user }: Props) {
   const nombre = user?.nombre ?? '';
+  const porEntregarCount = useAprobadasStore(s => s.solicitudes.length);
 
   const initials = nombre
     .split(' ')
@@ -235,7 +248,14 @@ export default function EncargadoSidebar({ activeSection, onNavTo, collapsed, on
                     {!collapsed && (
                       <>
                         <span className="flex-1 text-left truncate">{item.label}</span>
-                        {item.badge && (
+                        {/* Badge dinámico para "Por Entregar" */}
+                        {item.id === 'por-entregar' && porEntregarCount > 0 && (
+                          <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${badgeCls['warning']}`}>
+                            {porEntregarCount}
+                          </span>
+                        )}
+                        {/* Badge estático para otros ítems */}
+                        {item.id !== 'por-entregar' && item.badge && (
                           <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${badgeCls[item.badgeVariant ?? 'default']}`}>
                             {item.badge}
                           </span>

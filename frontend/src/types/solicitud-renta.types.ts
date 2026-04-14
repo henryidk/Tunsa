@@ -1,4 +1,4 @@
-export type EstadoSolicitud = 'PENDIENTE' | 'APROBADA' | 'RECHAZADA';
+export type EstadoSolicitud = 'PENDIENTE' | 'APROBADA' | 'RECHAZADA' | 'ACTIVA';
 export type ModalidadPago   = 'CONTADO' | 'CREDITO';
 export type UnidadDuracion  = 'dias' | 'semanas' | 'meses';
 
@@ -44,6 +44,10 @@ export interface SolicitudRenta {
   totalEstimado:  number;
   estado:         EstadoSolicitud;
   creadaPor:      string;
+  folio:          string | null;
+  aprobadaPor:    string | null;
+  firmaCliente:   string | null;
+  fechaEntrega:   string | null;
   createdAt:      string;
   updatedAt:      string;
 }

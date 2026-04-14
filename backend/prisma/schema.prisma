@@ -146,6 +146,7 @@ enum EstadoSolicitud {
   PENDIENTE
   APROBADA
   RECHAZADA
+  ACTIVA     // entregada al cliente y firmada — renta en curso
 }
 
 model Solicitud {
@@ -160,6 +161,16 @@ model Solicitud {
   motivoRechazo String?         @db.Text
   creadaPor     String          // username del encargado
 
+  // Folio — asignado al aprobar, nunca al crear
+  folio         String?         @unique   // "202604-0001" — identifica la renta en documentos
+
+  // Aprobación
+  aprobadaPor   String?         // username de quien aprobó
+
+  // Entrega y firma
+  firmaCliente  String?         @db.Text  // PNG en base64 — firma del cliente al recibir
+  fechaEntrega  DateTime?                 // momento exacto de entrega registrada
+
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 
@@ -168,6 +179,15 @@ model Solicitud {
   @@index([estado, updatedAt, id])
   @@index([creadaPor, estado, updatedAt, id])  // keyset pagination del encargado: historial-mias
   @@index([clienteId])
+}
+
+// Contador mensual de folios — garantiza secuencia atómica sin gaps por mes.
+// Una fila por mes (ej: "202604"). El campo `ultimo` es el último número asignado.
+model FolioSecuencia {
+  mesAnio String @id         // "202604"
+  ultimo  Int    @default(0)
+
+  @@map("folio_secuencias")
 }
 
 // ==================== INVENTARIO A GRANEL ====================

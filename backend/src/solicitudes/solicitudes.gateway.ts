@@ -63,12 +63,30 @@ export class SolicitudesGateway implements OnGatewayConnection, OnGatewayDisconn
     }
   }
 
+  emitSolicitudAprobada(solicitud: object, username: string) {
+    try {
+      this.logger.log(`[WS] Emitiendo solicitud:aprobada a user:${username}`);
+      this.server.to(`user:${username}`).emit('solicitud:aprobada', solicitud);
+    } catch (err) {
+      this.logger.error(`[WS] Error emitiendo solicitud:aprobada: ${(err as Error).message}`);
+    }
+  }
+
   emitSolicitudRechazada(solicitud: object, username: string) {
     try {
       this.logger.log(`[WS] Emitiendo solicitud:rechazada a user:${username}`);
       this.server.to(`user:${username}`).emit('solicitud:rechazada', solicitud);
     } catch (err) {
       this.logger.error(`[WS] Error emitiendo solicitud:rechazada: ${(err as Error).message}`);
+    }
+  }
+
+  emitRentaActiva(solicitud: object) {
+    try {
+      this.logger.log('[WS] Emitiendo renta:activa a rol:admin, rol:secretaria');
+      this.server.to('rol:admin').to('rol:secretaria').emit('renta:activa', solicitud);
+    } catch (err) {
+      this.logger.error(`[WS] Error emitiendo renta:activa: ${(err as Error).message}`);
     }
   }
 }

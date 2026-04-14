@@ -3,7 +3,9 @@ import { io } from 'socket.io-client';
 import { authService } from '../services/auth.service';
 import { usePendientesStore } from '../store/pendientes.store';
 import { useRechazadasStore } from '../store/rechazadas.store';
-import type { SolicitudRenta } from '../types/solicitud-renta.types';
+import { useReservadosStore } from '../store/reservados.store';
+import { useAprobadasStore } from '../store/aprobadas.store';
+import type { SolicitudRenta, ItemSnapshot } from '../types/solicitud-renta.types';
 import type { ToastType } from '../types/ui.types';
 
 const SOCKET_URL = (import.meta.env.VITE_API_URL || 'http://localhost:4000/api').replace('/api', '');
@@ -34,6 +36,15 @@ export function useEncargadoSocket({ playSound, showToast }: UseEncargadoSocketO
     const handleSolicitudRechazada = (solicitud: SolicitudRenta) => {
       usePendientesStore.getState().removeSolicitud(solicitud.id);
       useRechazadasStore.getState().addRechazada(solicitud);
+
+      // Liberar los equipos de tipo maquinaria para que vuelvan a aparecer como disponibles
+      const equipoIds = (solicitud.items as ItemSnapshot[])
+        .filter(i => i.kind === 'maquinaria' && 'equipoId' in i)
+        .map(i => (i as Extract<ItemSnapshot, { kind: 'maquinaria' }>).equipoId);
+      if (equipoIds.length > 0) {
+        useReservadosStore.getState().removeEquipos(equipoIds);
+      }
+
       showToast(
         'error',
         'Solicitud rechazada',
@@ -42,6 +53,18 @@ export function useEncargadoSocket({ playSound, showToast }: UseEncargadoSocketO
       playSound();
     };
 
+    const handleSolicitudAprobada = (solicitud: SolicitudRenta) => {
+      usePendientesStore.getState().removeSolicitud(solicitud.id);
+      useAprobadasStore.getState().addAprobada(solicitud);
+      showToast(
+        'success',
+        'Solicitud aprobada',
+        `Tu solicitud para ${solicitud.cliente.nombre} fue aprobada — pendiente de entrega.`,
+      );
+      playSound();
+    };
+
+    socket.on('solicitud:aprobada',  handleSolicitudAprobada);
     socket.on('solicitud:rechazada', handleSolicitudRechazada);
 
     // Igual que en useAdminSocket: reconectar si el servidor desconecta por token expirado.

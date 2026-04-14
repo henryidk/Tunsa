@@ -1,4 +1,4 @@
-import { Injectable, ConflictException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSolicitudDto } from './dto/create-solicitud.dto';
@@ -22,12 +22,12 @@ export class SolicitudesService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Devuelve los IDs de equipos que están en solicitudes PENDIENTE o APROBADA.
-   * Usado para validar nuevas solicitudes y para exponer al frontend del encargado.
+   * Devuelve los IDs de equipos bloqueados: PENDIENTE, APROBADA o ACTIVA.
+   * Un equipo en renta activa sigue ocupado hasta que la renta finalice.
    */
   async getEquiposReservados(): Promise<string[]> {
     const activas = await this.prisma.solicitud.findMany({
-      where:  { estado: { in: ['PENDIENTE', 'APROBADA'] } },
+      where:  { estado: { in: ['PENDIENTE', 'APROBADA', 'ACTIVA'] } },
       select: { items: true },
     });
 
@@ -138,9 +138,33 @@ export class SolicitudesService {
 
   async findMias(username: string) {
     const solicitudes = await this.prisma.solicitud.findMany({
-      where:   { creadaPor: username, estado: 'PENDIENTE' },
+      where:   { creadaPor: username, estado: { in: ['PENDIENTE', 'APROBADA'] } },
       include: { cliente: true },
       orderBy: { createdAt: 'desc' },
+    });
+    return solicitudes.map(s => this.serialize(s));
+  }
+
+  /**
+   * Todas las solicitudes en estado ACTIVA — vista del admin/secretaria.
+   */
+  async findActivas() {
+    const solicitudes = await this.prisma.solicitud.findMany({
+      where:   { estado: 'ACTIVA' },
+      include: { cliente: true },
+      orderBy: { fechaEntrega: 'desc' },
+    });
+    return solicitudes.map(s => this.serialize(s));
+  }
+
+  /**
+   * Solicitudes ACTIVA del encargado autenticado — su propia vista de rentas en curso.
+   */
+  async findActivasMias(username: string) {
+    const solicitudes = await this.prisma.solicitud.findMany({
+      where:   { creadaPor: username, estado: 'ACTIVA' },
+      include: { cliente: true },
+      orderBy: { fechaEntrega: 'desc' },
     });
     return solicitudes.map(s => this.serialize(s));
   }
@@ -186,6 +210,30 @@ export class SolicitudesService {
     return { data: pageData.map(s => this.serialize(s)), nextCursor };
   }
 
+  async aprobar(id: string, aprobadaPor: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const now     = new Date();
+      const mesAnio = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+      // Incremento atómico del contador mensual — INSERT ... ON CONFLICT DO UPDATE
+      const secuencia = await tx.folioSecuencia.upsert({
+        where:  { mesAnio },
+        create: { mesAnio, ultimo: 1 },
+        update: { ultimo: { increment: 1 } },
+      });
+
+      const folio = `${mesAnio}-${String(secuencia.ultimo).padStart(4, '0')}`;
+
+      const solicitud = await tx.solicitud.update({
+        where:   { id },
+        data:    { estado: 'APROBADA', aprobadaPor, folio },
+        include: { cliente: true },
+      });
+
+      return this.serialize(solicitud);
+    });
+  }
+
   async rechazar(id: string, motivoRechazo: string) {
     const solicitud = await this.prisma.solicitud.update({
       where:   { id },
@@ -193,6 +241,31 @@ export class SolicitudesService {
       include: { cliente: true },
     });
     return this.serialize(solicitud);
+  }
+
+  /**
+   * Confirma la entrega física: APROBADA → ACTIVA.
+   * Solo el encargado que creó la solicitud puede confirmarla.
+   */
+  async confirmarEntrega(id: string, firmaCliente: string, username: string) {
+    const solicitud = await this.prisma.solicitud.findUnique({ where: { id } });
+
+    if (!solicitud) {
+      throw new NotFoundException('Solicitud no encontrada.');
+    }
+    if (solicitud.creadaPor !== username) {
+      throw new ForbiddenException('Solo el encargado que creó la solicitud puede confirmar la entrega.');
+    }
+    if (solicitud.estado !== 'APROBADA') {
+      throw new ConflictException('Solo se puede confirmar la entrega de solicitudes aprobadas.');
+    }
+
+    const actualizada = await this.prisma.solicitud.update({
+      where:   { id },
+      data:    { estado: 'ACTIVA', firmaCliente, fechaEntrega: new Date() },
+      include: { cliente: true },
+    });
+    return this.serialize(actualizada);
   }
 
   // ── Helpers internos ────────────────────────────────────────────────────────

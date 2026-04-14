@@ -9,6 +9,7 @@ import EncargadoTopBar from '../../components/encargado/EncargadoTopBar';
 import Toast from '../../components/admin/Toast';
 import DashboardSection from '../../components/encargado/sections/DashboardSection';
 import NuevaSolicitudSection from '../../components/encargado/sections/NuevaSolicitudSection';
+import PorEntregarSection from '../../components/encargado/sections/PorEntregarSection';
 import MisSolicitudesSection from '../../components/encargado/sections/MisSolicitudesSection';
 import RentasActivasSection from '../../components/encargado/sections/RentasActivasSection';
 import VencidasSection from '../../components/encargado/sections/VencidasSection';
@@ -22,6 +23,7 @@ import type { ToastState } from '../admin/AdminDashboard';
 type Section =
   | 'dashboard'
   | 'nueva-solicitud'
+  | 'por-entregar'
   | 'mis-solicitudes'
   | 'rentas-activas'
   | 'vencidas'
@@ -49,6 +51,7 @@ export default function EncargadoDashboard() {
     switch (activeSection) {
       case 'dashboard':       return <DashboardSection onNavTo={navTo} />;
       case 'nueva-solicitud': return <NuevaSolicitudSection onShowToast={showToast} />;
+      case 'por-entregar':    return <PorEntregarSection onShowToast={showToast} />;
       case 'mis-solicitudes': return <MisSolicitudesSection onNavTo={navTo} />;
       case 'rentas-activas':  return <RentasActivasSection />;
       case 'vencidas':        return <VencidasSection />;

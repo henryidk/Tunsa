@@ -4,6 +4,7 @@ import { clientesService } from '../../../services/clientes.service';
 import { useSolicitudesStore } from '../../../store/solicitudes.store';
 import RechazadasTab from './RechazadasTab';
 import RechazarModal from '../RechazarModal';
+import AprobarModal from '../AprobarModal';
 import type { SolicitudRenta, ItemSnapshot } from '../../../types/solicitud-renta.types';
 import { formatFechaCorta, unidadLabel } from '../../../types/solicitud.types';
 
@@ -11,14 +12,14 @@ type Tab = 'pendientes' | 'rechazadas';
 
 export default function SolicitudesSection() {
   const { solicitudes, isLoading, error } = useSolicitudes();
-  const [activeTab, setActiveTab] = useState<Tab>('pendientes');
+  const [activeTab,  setActiveTab]  = useState<Tab>('pendientes');
   const [rechazando, setRechazando] = useState<SolicitudRenta | null>(null);
+  const [aprobando,  setAprobando]  = useState<SolicitudRenta | null>(null);
 
   const { updateEstado } = useSolicitudesStore.getState();
 
-  // findAll() ya no incluye RECHAZADA — solo PENDIENTE y APROBADA
+  // findAll() devuelve PENDIENTE y APROBADA — solo mostramos PENDIENTE en esta tab
   const pendientes = solicitudes.filter(s => s.estado === 'PENDIENTE');
-  // El conteo de rechazadas del store solo refleja rechazos de esta sesión
   const storeRechazadasCount = useSolicitudesStore(
     s => s.solicitudes.filter(sol => sol.estado === 'RECHAZADA').length,
   );
@@ -26,6 +27,11 @@ export default function SolicitudesSection() {
   const handleRechazarConfirm = (updated: SolicitudRenta) => {
     updateEstado(updated.id, 'RECHAZADA');
     setRechazando(null);
+  };
+
+  const handleAprobarConfirm = (updated: SolicitudRenta) => {
+    updateEstado(updated.id, 'APROBADA');
+    setAprobando(null);
   };
 
   return (
@@ -85,6 +91,7 @@ export default function SolicitudesSection() {
                 <SolicitudCard
                   key={s.id}
                   solicitud={s}
+                  onRequestAprobar={() => setAprobando(s)}
                   onRequestRechazar={() => setRechazando(s)}
                 />
               ))}
@@ -101,6 +108,13 @@ export default function SolicitudesSection() {
         open={rechazando !== null}
         onClose={() => setRechazando(null)}
         onConfirm={handleRechazarConfirm}
+      />
+
+      <AprobarModal
+        solicitud={aprobando}
+        open={aprobando !== null}
+        onClose={() => setAprobando(null)}
+        onConfirm={handleAprobarConfirm}
       />
     </div>
   );
@@ -140,9 +154,18 @@ const ESTADO_BORDER: Record<SolicitudRenta['estado'], string> = {
   PENDIENTE: 'border-l-amber-400',
   APROBADA:  'border-l-emerald-400',
   RECHAZADA: 'border-l-red-400',
+  ACTIVA:    'border-l-indigo-400',
 };
 
-function SolicitudCard({ solicitud, onRequestRechazar }: { solicitud: SolicitudRenta; onRequestRechazar: () => void }) {
+function SolicitudCard({
+  solicitud,
+  onRequestAprobar,
+  onRequestRechazar,
+}: {
+  solicitud:        SolicitudRenta;
+  onRequestAprobar: () => void;
+  onRequestRechazar: () => void;
+}) {
   const maquinaria = solicitud.items.filter(i => i.kind === 'maquinaria');
   const granel     = solicitud.items.filter(i => i.kind === 'granel');
 
@@ -153,11 +176,11 @@ function SolicitudCard({ solicitud, onRequestRechazar }: { solicitud: SolicitudR
       <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-slate-50">
         <div className="flex items-center gap-3">
           <EstadoBadge estado={solicitud.estado} />
-          <span className="text-xs font-mono text-slate-400">
-            {solicitud.id.slice(0, 12).toUpperCase()}
-          </span>
+          {solicitud.folio && (
+            <span className="text-xs font-mono font-semibold text-slate-600">{solicitud.folio}</span>
+          )}
         </div>
-        <span className="text-xs text-slate-400">{tiempoRelativo(solicitud.createdAt)}</span>
+        <span className="text-xs text-slate-400">{fechaHora(solicitud.createdAt)}</span>
       </div>
 
       {/* Body */}
@@ -212,7 +235,11 @@ function SolicitudCard({ solicitud, onRequestRechazar }: { solicitud: SolicitudR
       </div>
 
       {/* Footer */}
-      <AccionesFooter solicitud={solicitud} onRequestRechazar={onRequestRechazar} />
+      <AccionesFooter
+        solicitud={solicitud}
+        onRequestAprobar={onRequestAprobar}
+        onRequestRechazar={onRequestRechazar}
+      />
 
     </div>
   );
@@ -222,9 +249,11 @@ function SolicitudCard({ solicitud, onRequestRechazar }: { solicitud: SolicitudR
 
 function AccionesFooter({
   solicitud,
+  onRequestAprobar,
   onRequestRechazar,
 }: {
   solicitud:         SolicitudRenta;
+  onRequestAprobar:  () => void;
   onRequestRechazar: () => void;
 }) {
   return (
@@ -248,12 +277,18 @@ function AccionesFooter({
                 Rechazar
               </button>
               <button
-                disabled
-                title="Próximamente"
-                className="px-3 py-1.5 text-xs font-semibold rounded-md bg-emerald-500 text-white opacity-50 cursor-not-allowed"
+                onClick={onRequestAprobar}
+                className="px-3 py-1.5 text-xs font-semibold rounded-md bg-emerald-600 hover:bg-emerald-700 text-white transition-colors"
               >
                 Aprobar
               </button>
+            </div>
+          )}
+          {solicitud.estado === 'APROBADA' && (
+            <div className="pl-4 border-l border-slate-200">
+              <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
+                Aprobada — pendiente de entrega
+              </span>
             </div>
           )}
         </div>
@@ -355,10 +390,11 @@ function DocumentoButton({ clienteId, tieneDocumento }: { clienteId: string; tie
 }
 
 function EstadoBadge({ estado }: { estado: SolicitudRenta['estado'] }) {
-  const map = {
-    PENDIENTE: { cls: 'bg-amber-100 text-amber-700 border-amber-200',   label: 'Pendiente'  },
-    APROBADA:  { cls: 'bg-emerald-100 text-emerald-700 border-emerald-200', label: 'Aprobada' },
-    RECHAZADA: { cls: 'bg-red-100 text-red-700 border-red-200',          label: 'Rechazada'  },
+  const map: Record<SolicitudRenta['estado'], { cls: string; label: string }> = {
+    PENDIENTE: { cls: 'bg-amber-100 text-amber-700 border-amber-200',       label: 'Pendiente'  },
+    APROBADA:  { cls: 'bg-emerald-100 text-emerald-700 border-emerald-200', label: 'Aprobada'   },
+    RECHAZADA: { cls: 'bg-red-100 text-red-700 border-red-200',             label: 'Rechazada'  },
+    ACTIVA:    { cls: 'bg-indigo-100 text-indigo-700 border-indigo-200',    label: 'Activa'     },
   };
   const { cls, label } = map[estado];
   return (
@@ -390,13 +426,10 @@ function EmptyState({ tab }: { tab: Tab }) {
 
 // ── Helpers y helpers ─────────────────────────────────────────────────────────
 
-function tiempoRelativo(fecha: string): string {
-  const diff = Date.now() - new Date(fecha).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1)  return 'hace un momento';
-  if (mins < 60) return `hace ${mins} min`;
-  const horas = Math.floor(mins / 60);
-  if (horas < 24) return `hace ${horas}h`;
-  return `hace ${Math.floor(horas / 24)}d`;
+function fechaHora(fecha: string): string {
+  const d = new Date(fecha);
+  const dia  = d.toLocaleDateString('es-GT', { day: '2-digit', month: 'short', year: 'numeric' });
+  const hora = d.toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit', hour12: true });
+  return `${dia} · ${hora}`;
 }
 

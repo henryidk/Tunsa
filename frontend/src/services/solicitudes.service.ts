@@ -42,8 +42,28 @@ export const solicitudesService = {
     return res.data;
   },
 
+  async aprobar(id: string): Promise<SolicitudRenta> {
+    const res = await api.patch<SolicitudRenta>(`/solicitudes/${id}/aprobar`);
+    return res.data;
+  },
+
   async rechazar(id: string, motivoRechazo: string): Promise<SolicitudRenta> {
     const res = await api.patch<SolicitudRenta>(`/solicitudes/${id}/rechazar`, { motivoRechazo });
+    return res.data;
+  },
+
+  async confirmarEntrega(id: string, firmaCliente: string): Promise<SolicitudRenta> {
+    const res = await api.patch<SolicitudRenta>(`/solicitudes/${id}/confirmar-entrega`, { firmaCliente });
+    return res.data;
+  },
+
+  async getActivas(): Promise<SolicitudRenta[]> {
+    const res = await api.get<SolicitudRenta[]>('/solicitudes/activas');
+    return res.data;
+  },
+
+  async getActivasMias(): Promise<SolicitudRenta[]> {
+    const res = await api.get<SolicitudRenta[]>('/solicitudes/activas-mias');
     return res.data;
   },
 

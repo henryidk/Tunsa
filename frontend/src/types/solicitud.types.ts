@@ -56,9 +56,25 @@ export function formatQ(n: number): string {
   return `Q${n.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+/** Formatea una fecha ISO de solo día ("2026-04-14") — añade hora local para evitar desfase UTC. */
 export function formatFechaCorta(iso: string): string {
   return new Date(iso + 'T00:00:00').toLocaleDateString('es-GT', {
     day: '2-digit', month: '2-digit', year: '2-digit',
+  });
+}
+
+/** Formatea un datetime ISO completo como fecha corta ("14/04/26"). */
+export function formatDatetime(iso: string): string {
+  return new Date(iso).toLocaleDateString('es-GT', {
+    day: '2-digit', month: '2-digit', year: '2-digit',
+  });
+}
+
+/** Formatea un datetime ISO completo como fecha + hora ("14/04/26 · 09:32 a. m."). */
+export function formatFechaHora(iso: string): string {
+  return new Date(iso).toLocaleString('es-GT', {
+    day: '2-digit', month: '2-digit', year: '2-digit',
+    hour: '2-digit', minute: '2-digit',
   });
 }
 

@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useAprobadasStore } from '../../../store/aprobadas.store';
-import EntregaFirmaModal from '../EntregaFirmaModal';
+import SubirComprobanteModal from '../SubirComprobanteModal';
+import { generarComprobante } from '../../../utils/generarComprobante';
+import { solicitudesService } from '../../../services/solicitudes.service';
 import type { SolicitudRenta, ItemSnapshot } from '../../../types/solicitud-renta.types';
-import { formatFechaCorta, unidadLabel } from '../../../types/solicitud.types';
+import { unidadLabel } from '../../../types/solicitud.types';
 import type { ToastType } from '../../../types/ui.types';
 
 interface Props {
@@ -10,27 +12,51 @@ interface Props {
 }
 
 export default function PorEntregarSection({ onShowToast = () => {} }: Props) {
-  const solicitudes = useAprobadasStore(s => s.solicitudes);
+  const solicitudes     = useAprobadasStore(s => s.solicitudes);
   const removeSolicitud = useAprobadasStore(s => s.removeSolicitud);
 
-  const [entregando, setEntregando] = useState<SolicitudRenta | null>(null);
+  const updateSolicitud = useAprobadasStore(s => s.updateSolicitud);
+
+  const [entregando,   setEntregando]   = useState<SolicitudRenta | null>(null);
+  const [generandoPdf, setGenerandoPdf] = useState<string | null>(null);
 
   const handleEntregaConfirmada = (updated: SolicitudRenta) => {
     removeSolicitud(updated.id);
-    onShowToast(
-      'success',
-      'Entrega registrada',
-      `Renta para ${updated.cliente.nombre} está activa.`,
-    );
+    onShowToast('success', 'Entrega registrada', `Renta para ${updated.cliente.nombre} está activa.`);
+  };
+
+  const handleGenerarPdf = async (solicitud: SolicitudRenta) => {
+    setGenerandoPdf(solicitud.id);
+    try {
+      // Registra fechaInicioRenta en el primer clic — inmutable en clics posteriores
+      const conFecha = solicitud.fechaInicioRenta
+        ? solicitud
+        : await solicitudesService.iniciarEntrega(solicitud.id);
+
+      if (!solicitud.fechaInicioRenta) updateSolicitud(conFecha);
+
+      await generarComprobante(conFecha);
+    } catch {
+      onShowToast('error', 'Error al generar PDF', 'No se pudo generar el comprobante. Intenta de nuevo.');
+    } finally {
+      setGenerandoPdf(null);
+    }
   };
 
   return (
     <div>
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">Por Entregar</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-slate-800">Por Entregar</h1>
+          {solicitudes.length > 0 && (
+            <span className="inline-flex items-center justify-center min-w-[26px] h-[26px] px-2 rounded-full bg-amber-100 text-amber-700 text-xs font-bold border border-amber-200">
+              {solicitudes.length}
+            </span>
+          )}
+        </div>
         <p className="text-sm text-slate-500 mt-1">
-          Solicitudes aprobadas — coordina la entrega y captura la firma del cliente
+          Solicitudes aprobadas — genera el comprobante y registra la entrega al cliente
         </p>
       </div>
 
@@ -42,13 +68,15 @@ export default function PorEntregarSection({ onShowToast = () => {} }: Props) {
             <SolicitudAprobadaCard
               key={s.id}
               solicitud={s}
+              generandoPdf={generandoPdf === s.id}
+              onGenerarPdf={() => handleGenerarPdf(s)}
               onRegistrarEntrega={() => setEntregando(s)}
             />
           ))}
         </div>
       )}
 
-      <EntregaFirmaModal
+      <SubirComprobanteModal
         solicitud={entregando}
         open={entregando !== null}
         onClose={() => setEntregando(null)}
@@ -58,13 +86,17 @@ export default function PorEntregarSection({ onShowToast = () => {} }: Props) {
   );
 }
 
-// ── Card ─────────────────────────────────────────────────────────────────────
+// ── Card ──────────────────────────────────────────────────────────────────────
 
 function SolicitudAprobadaCard({
   solicitud,
+  generandoPdf,
+  onGenerarPdf,
   onRegistrarEntrega,
 }: {
-  solicitud:         SolicitudRenta;
+  solicitud:          SolicitudRenta;
+  generandoPdf:       boolean;
+  onGenerarPdf:       () => void;
   onRegistrarEntrega: () => void;
 }) {
   const maquinaria = solicitud.items.filter(i => i.kind === 'maquinaria') as Extract<ItemSnapshot, { kind: 'maquinaria' }>[];
@@ -120,7 +152,7 @@ function SolicitudAprobadaCard({
                   {item.descripcion}
                 </p>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  {unidadLabel(item.duracion, item.unidad)} desde {formatFechaCorta(item.fechaInicio)}
+                  {unidadLabel(item.duracion, item.unidad)}
                 </p>
               </div>
             ))}
@@ -132,14 +164,14 @@ function SolicitudAprobadaCard({
                   {item.conMadera && <span className="text-amber-600 ml-1">(c/madera)</span>}
                 </p>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  {unidadLabel(item.duracion, item.unidad)} desde {formatFechaCorta(item.fechaInicio)}
+                  {unidadLabel(item.duracion, item.unidad)}
                 </p>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Pago y acción */}
+        {/* Total y acciones */}
         <div className="flex flex-col gap-3">
           <div>
             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Total estimado</p>
@@ -155,22 +187,49 @@ function SolicitudAprobadaCard({
             </span>
           </div>
 
-          <button
-            onClick={onRegistrarEntrega}
-            className="mt-auto inline-flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
-            </svg>
-            Registrar Entrega
-          </button>
+          <div className="mt-auto flex flex-col gap-2">
+            <button
+              onClick={onGenerarPdf}
+              disabled={generandoPdf}
+              className="inline-flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm font-semibold transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {generandoPdf ? (
+                <>
+                  <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                  </svg>
+                  Generando...
+                </>
+              ) : (
+                <>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="12" y1="18" x2="12" y2="12"/>
+                    <line x1="9" y1="15" x2="15" y2="15"/>
+                  </svg>
+                  Generar Comprobante
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={onRegistrarEntrega}
+              className="inline-flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              Registrar Entrega
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Footer */}
       <div className="px-5 py-2.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
         <p className="text-[11px] text-slate-500 truncate max-w-xs">
-          <span className="font-medium text-slate-400">Obs:</span> {solicitud.notas}
+          <span className="font-medium text-slate-400">Obs:</span> {solicitud.notas || '—'}
         </p>
         {solicitud.aprobadaPor && (
           <p className="text-[11px] text-slate-400 flex-shrink-0 ml-4">

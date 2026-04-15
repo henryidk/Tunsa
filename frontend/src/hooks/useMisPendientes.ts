@@ -57,3 +57,5 @@ export function useMisPendientes() {
 
   return { solicitudes, isLoading, isRefreshing, error, refetch };
 }
+
+export type UseMisPendientesReturn = ReturnType<typeof useMisPendientes>;

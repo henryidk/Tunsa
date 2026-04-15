@@ -1,16 +1,22 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller, Get, Post, Patch, Body, Param, Query,
+  UseGuards, UseInterceptors, UploadedFile, ParseFilePipe,
+  MaxFileSizeValidator, FileTypeValidator,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { SolicitudesService } from './solicitudes.service';
 import { SolicitudesGateway } from './solicitudes.gateway';
 import { CreateSolicitudDto } from './dto/create-solicitud.dto';
 import { QueryRechazadasDto } from './dto/query-rechazadas.dto';
 import { RechazarSolicitudDto } from './dto/rechazar-solicitud.dto';
-import { ConfirmarEntregaDto } from './dto/confirmar-entrega.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { MustChangePasswordGuard } from '../auth/guards/must-change-password.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
+
+const MAX_PDF_SIZE = 10 * 1024 * 1024; // 10 MB
 
 @Controller('solicitudes')
 @UseGuards(JwtAuthGuard, RolesGuard, MustChangePasswordGuard)
@@ -111,15 +117,44 @@ export class SolicitudesController {
     return solicitud;
   }
 
-  @Patch(':id/confirmar-entrega')
+  @Patch(':id/iniciar-entrega')
   @Roles('encargado_maquinas')
-  async confirmarEntrega(
+  iniciarEntrega(
     @Param('id') id: string,
-    @Body() dto: ConfirmarEntregaDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    const solicitud = await this.solicitudesService.confirmarEntrega(id, dto.firmaCliente, user.username);
+    return this.solicitudesService.iniciarEntrega(id, user.username);
+  }
+
+  @Patch(':id/confirmar-entrega')
+  @Roles('encargado_maquinas')
+  @UseInterceptors(FileInterceptor('comprobante', { limits: { fileSize: MAX_PDF_SIZE } }))
+  async confirmarEntrega(
+    @Param('id') id: string,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: MAX_PDF_SIZE }),
+          new FileTypeValidator({ fileType: 'application/pdf' }),
+        ],
+      }),
+    )
+    file: Express.Multer.File,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const solicitud = await this.solicitudesService.confirmarEntrega(
+      id, file.buffer, file.mimetype, user.username,
+    );
     this.solicitudesGateway.emitRentaActiva(solicitud);
     return solicitud;
+  }
+
+  @Get(':id/comprobante')
+  @Roles('admin', 'secretaria', 'encargado_maquinas')
+  getComprobante(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.solicitudesService.getComprobanteUrl(id, user.username);
   }
 }

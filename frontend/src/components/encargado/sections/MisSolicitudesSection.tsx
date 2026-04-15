@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useMisPendientes } from '../../../hooks/useMisPendientes';
+import type { UseMisPendientesReturn } from '../../../hooks/useMisPendientes';
 import { useRechazadasStore } from '../../../store/rechazadas.store';
 import MisRechazadasTab from './MisRechazadasTab';
 import type { SolicitudRenta, ItemSnapshot } from '../../../types/solicitud-renta.types';
@@ -8,13 +8,14 @@ import { formatFechaCorta, unidadLabel } from '../../../types/solicitud.types';
 type Tab = 'espera' | 'rechazadas';
 
 interface Props {
-  onNavTo?: (section: string) => void;
+  onNavTo?:       (section: string) => void;
+  misPendientes:  UseMisPendientesReturn;
 }
 
-export default function MisSolicitudesSection({ onNavTo }: Props) {
+export default function MisSolicitudesSection({ onNavTo, misPendientes }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>('espera');
 
-  const { solicitudes: pendientes, isLoading: loadingP, isRefreshing, error: errorP, refetch: refetchP } = useMisPendientes();
+  const { solicitudes: pendientes, isLoading: loadingP, isRefreshing, error: errorP, refetch: refetchP } = misPendientes;
 
   // Solo el conteo para el badge — selector primitivo, sin crear nuevos arrays
   const rechazadasCount = useRechazadasStore(s => s.solicitudes.length);

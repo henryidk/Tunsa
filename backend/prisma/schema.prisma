@@ -164,20 +164,22 @@ model Solicitud {
   // Folio — asignado al aprobar, nunca al crear
   folio         String?         @unique   // "202604-0001" — identifica la renta en documentos
 
-  // Aprobación
+  // Aprobación / rechazo
   aprobadaPor   String?         // username de quien aprobó
+  fechaDecision DateTime?       // momento exacto en que admin aprobó o rechazó (inmutable)
 
-  // Entrega y firma
-  firmaCliente  String?         @db.Text  // PNG en base64 — firma del cliente al recibir
-  fechaEntrega  DateTime?                 // momento exacto de entrega registrada
+  // Entrega y comprobante
+  comprobanteKey   String?   // clave del objeto en R2: "clientes/CLI-XXXX/comprobantes/FOLIO.pdf"
+  fechaInicioRenta DateTime? // momento exacto del primer "Generar Comprobante" — inicio oficial de la renta
+  fechaEntrega     DateTime? // momento exacto en que se subió el comprobante firmado
 
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 
   @@map("solicitudes")
   @@index([estado, createdAt])
-  @@index([estado, updatedAt, id])
-  @@index([creadaPor, estado, updatedAt, id])  // keyset pagination del encargado: historial-mias
+  @@index([estado, fechaDecision, id])          // keyset pagination admin: rechazadas
+  @@index([creadaPor, estado, fechaDecision, id]) // keyset pagination encargado: historial-mias
   @@index([clienteId])
 }
 

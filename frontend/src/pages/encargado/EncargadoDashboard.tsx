@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import { useAuthStore } from '../../store/auth.store';
 import { useNotificationSound } from '../../hooks/useNotificationSound';
 import { useEncargadoSocket } from '../../hooks/useEncargadoSocket';
+import { useMisPendientes } from '../../hooks/useMisPendientes';
 import EncargadoSidebar from '../../components/encargado/EncargadoSidebar';
 import EncargadoTopBar from '../../components/encargado/EncargadoTopBar';
 import Toast from '../../components/admin/Toast';
@@ -47,12 +48,16 @@ export default function EncargadoDashboard() {
   const { playSound } = useNotificationSound();
   useEncargadoSocket({ playSound, showToast });
 
+  // Carga PENDIENTE + APROBADA en el montaje del dashboard, no en cada sección.
+  // Así el aprobadasStore está listo independientemente de qué sección visite primero.
+  const misPendientes = useMisPendientes();
+
   const renderSection = () => {
     switch (activeSection) {
       case 'dashboard':       return <DashboardSection onNavTo={navTo} />;
       case 'nueva-solicitud': return <NuevaSolicitudSection onShowToast={showToast} />;
       case 'por-entregar':    return <PorEntregarSection onShowToast={showToast} />;
-      case 'mis-solicitudes': return <MisSolicitudesSection onNavTo={navTo} />;
+      case 'mis-solicitudes': return <MisSolicitudesSection onNavTo={navTo} misPendientes={misPendientes} />;
       case 'rentas-activas':  return <RentasActivasSection />;
       case 'vencidas':        return <VencidasSection />;
       case 'historial':       return <HistorialSection />;

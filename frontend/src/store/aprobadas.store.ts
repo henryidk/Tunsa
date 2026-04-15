@@ -5,6 +5,7 @@ interface AprobadasState {
   solicitudes:     SolicitudRenta[];
   setSolicitudes:  (data: SolicitudRenta[]) => void;
   addAprobada:     (solicitud: SolicitudRenta) => void;
+  updateSolicitud: (solicitud: SolicitudRenta) => void;
   removeSolicitud: (id: string) => void;
 }
 
@@ -16,6 +17,11 @@ export const useAprobadasStore = create<AprobadasState>((set) => ({
   addAprobada: (solicitud) =>
     set((state) => ({
       solicitudes: [solicitud, ...state.solicitudes],
+    })),
+
+  updateSolicitud: (solicitud) =>
+    set((state) => ({
+      solicitudes: state.solicitudes.map(s => s.id === solicitud.id ? solicitud : s),
     })),
 
   removeSolicitud: (id) =>

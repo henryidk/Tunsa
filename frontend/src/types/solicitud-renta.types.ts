@@ -46,8 +46,10 @@ export interface SolicitudRenta {
   creadaPor:      string;
   folio:          string | null;
   aprobadaPor:    string | null;
-  firmaCliente:   string | null;
-  fechaEntrega:   string | null;
+  fechaDecision:    string | null;
+  comprobanteKey:   string | null;
+  fechaInicioRenta: string | null;
+  fechaEntrega:     string | null;
   createdAt:      string;
   updatedAt:      string;
 }

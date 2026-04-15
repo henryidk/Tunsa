@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Preview — Rentas Activas</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'ui-sans-serif', 'system-ui'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-slate-50 font-sans p-8">
+
+  <!-- Simula el contenedor del dashboard -->
+  <div class="max-w-5xl mx-auto">
+
+    <!-- Header -->
+    <div class="mb-6">
+      <h1 class="text-2xl font-bold text-slate-800">Rentas Activas</h1>
+      <p class="text-sm text-slate-500 mt-1">Equipos actualmente rentados por tus clientes</p>
+    </div>
+
+    <div class="space-y-4">
+
+      <!-- ── Tarjeta 1: normal (borde indigo) ─────────────────────────────── -->
+      <div class="bg-white border border-slate-200 border-l-4 border-l-indigo-400 rounded-xl shadow-sm overflow-hidden">
+
+        <!-- Top bar -->
+        <div class="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-slate-50">
+          <div class="flex items-center gap-3">
+            <span class="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200">
+              <span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+              Activa
+            </span>
+            <span class="text-xs font-mono font-semibold text-slate-600">202604-0001</span>
+          </div>
+          <span class="text-xs text-slate-400">Entregado 14/04/26</span>
+        </div>
+
+        <!-- Body -->
+        <div class="px-5 py-4 grid grid-cols-3 gap-4">
+
+          <!-- Cliente -->
+          <div class="space-y-1.5">
+            <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Cliente</p>
+            <p class="text-sm font-semibold text-slate-800">María García López</p>
+            <p class="text-xs font-mono text-slate-400">CLI-0006</p>
+            <p class="text-xs text-slate-500">4521-8832</p>
+          </div>
+
+          <!-- Ítems -->
+          <div>
+            <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Equipos rentados</p>
+            <div class="space-y-2">
+              <div>
+                <p class="text-xs text-slate-700">
+                  <span class="font-mono text-slate-400 mr-1">#A-012</span>
+                  Andamio tipo europeo 2m
+                </p>
+                <p class="text-[11px] text-slate-400 mt-0.5">2 semanas desde 07/04/26</p>
+              </div>
+              <div>
+                <p class="text-xs text-slate-700">
+                  <span class="font-mono text-slate-400 mr-1">#A-013</span>
+                  Andamio tipo europeo 2m
+                </p>
+                <p class="text-[11px] text-slate-400 mt-0.5">2 semanas desde 07/04/26</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Total -->
+          <div class="flex flex-col gap-3">
+            <div>
+              <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Total</p>
+              <p class="text-xl font-bold text-slate-800 font-mono">Q 1,400.00</p>
+            </div>
+            <button class="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-medium text-slate-600 transition-colors w-fit">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+              </svg>
+              Ver comprobante
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Tarjeta 2: alerta vencimiento (borde rojo) ───────────────────── -->
+      <div class="bg-white border border-slate-200 border-l-4 border-l-red-400 rounded-xl shadow-sm overflow-hidden">
+
+        <!-- Top bar -->
+        <div class="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-slate-50">
+          <div class="flex items-center gap-3">
+            <span class="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200">
+              <span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+              Activa
+            </span>
+            <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">
+              Vence en 2d
+            </span>
+            <span class="text-xs font-mono font-semibold text-slate-600">202604-0002</span>
+          </div>
+          <span class="text-xs text-slate-400">Entregado 07/04/26</span>
+        </div>
+
+        <!-- Body -->
+        <div class="px-5 py-4 grid grid-cols-3 gap-4">
+
+          <!-- Cliente -->
+          <div class="space-y-1.5">
+            <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Cliente</p>
+            <p class="text-sm font-semibold text-slate-800">Juan Pérez Caal</p>
+            <p class="text-xs font-mono text-slate-400">CLI-0012</p>
+          </div>
+
+          <!-- Ítems (granel) -->
+          <div>
+            <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Equipos rentados</p>
+            <div class="space-y-2">
+              <div>
+                <p class="text-xs text-slate-700">
+                  <span class="font-semibold text-slate-500 mr-1">150</span>
+                  Puntal
+                </p>
+                <p class="text-[11px] text-slate-400 mt-0.5">1 semana desde 07/04/26</p>
+              </div>
+              <div>
+                <p class="text-xs text-slate-700">
+                  <span class="font-semibold text-slate-500 mr-1">80</span>
+                  Andamio simple
+                  <span class="text-amber-600 ml-1">(c/madera)</span>
+                </p>
+                <p class="text-[11px] text-slate-400 mt-0.5">1 semana desde 07/04/26</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Total -->
+          <div class="flex flex-col gap-3">
+            <div>
+              <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Total</p>
+              <p class="text-xl font-bold text-slate-800 font-mono">Q 3,250.00</p>
+            </div>
+            <button class="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-medium text-slate-600 transition-colors w-fit">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+              </svg>
+              Ver comprobante
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Tarjeta 3: sin comprobante, mixta ────────────────────────────── -->
+      <div class="bg-white border border-slate-200 border-l-4 border-l-indigo-400 rounded-xl shadow-sm overflow-hidden">
+
+        <div class="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-slate-50">
+          <div class="flex items-center gap-3">
+            <span class="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200">
+              <span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+              Activa
+            </span>
+            <span class="text-xs font-mono font-semibold text-slate-600">202604-0003</span>
+          </div>
+          <span class="text-xs text-slate-400">Entregado 10/04/26</span>
+        </div>
+
+        <div class="px-5 py-4 grid grid-cols-3 gap-4">
+          <div class="space-y-1.5">
+            <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Cliente</p>
+            <p class="text-sm font-semibold text-slate-800">Roberto Xol Caal</p>
+            <p class="text-xs font-mono text-slate-400">CLI-0018</p>
+            <p class="text-xs text-slate-500">5588-1234</p>
+          </div>
+
+          <div>
+            <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Equipos rentados</p>
+            <div class="space-y-2">
+              <div>
+                <p class="text-xs text-slate-700">
+                  <span class="font-mono text-slate-400 mr-1">#C-004</span>
+                  Compactador de suelo
+                </p>
+                <p class="text-[11px] text-slate-400 mt-0.5">3 días desde 10/04/26</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-3">
+            <div>
+              <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Total</p>
+              <p class="text-xl font-bold text-slate-800 font-mono">Q 750.00</p>
+            </div>
+            <!-- Sin comprobante: no muestra botón -->
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /space-y-4 -->
+
+    <!-- Nota al pie -->
+    <p class="mt-8 text-xs text-slate-400 text-center">
+      Preview estático · datos ficticios · diseño actual de <code class="font-mono">RentasActivasSection.tsx</code>
+    </p>
+
+  </div>
+</body>
+</html>

@@ -52,8 +52,33 @@ export const solicitudesService = {
     return res.data;
   },
 
-  async confirmarEntrega(id: string, firmaCliente: string): Promise<SolicitudRenta> {
-    const res = await api.patch<SolicitudRenta>(`/solicitudes/${id}/confirmar-entrega`, { firmaCliente });
+  async iniciarEntrega(id: string): Promise<SolicitudRenta> {
+    const res = await api.patch<SolicitudRenta>(`/solicitudes/${id}/iniciar-entrega`);
+    return res.data;
+  },
+
+  async confirmarEntrega(
+    id:           string,
+    comprobante:  File,
+    onProgress?:  (pct: number) => void,
+  ): Promise<SolicitudRenta> {
+    const form = new FormData();
+    form.append('comprobante', comprobante);
+    const res = await api.patch<SolicitudRenta>(
+      `/solicitudes/${id}/confirmar-entrega`,
+      form,
+      {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: onProgress
+          ? (e) => { if (e.total) onProgress(Math.round((e.loaded * 100) / e.total)); }
+          : undefined,
+      },
+    );
+    return res.data;
+  },
+
+  async getComprobanteUrl(id: string): Promise<{ url: string }> {
+    const res = await api.get<{ url: string }>(`/solicitudes/${id}/comprobante`);
     return res.data;
   },
 

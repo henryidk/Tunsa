@@ -1,6 +1,7 @@
-import { Injectable, ConflictException, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { R2Service } from '../r2/r2.service';
 import { CreateSolicitudDto } from './dto/create-solicitud.dto';
 
 type SolicitudConCliente = Prisma.SolicitudGetPayload<{ include: { cliente: true } }>;
@@ -13,13 +14,28 @@ export interface RechazadasPage {
   nextCursor: string | null;
 }
 
-interface KeysetCursor { updatedAt: string; id: string }
+interface KeysetCursor { fechaDecision: string; id: string }
 
 const PAGE_SIZE = 20;
 
+const PDF_MAGIC_BYTES = Buffer.from([0x25, 0x50, 0x44, 0x46]); // %PDF
+
 @Injectable()
 export class SolicitudesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly r2:     R2Service,
+  ) {}
+
+  private buildComprobanteKey(clienteId: string, folio: string): string {
+    return `clientes/${clienteId}/comprobantes/${folio}.pdf`;
+  }
+
+  private validatePdfBuffer(buffer: Buffer): void {
+    if (buffer.length < 4 || !buffer.subarray(0, 4).equals(PDF_MAGIC_BYTES)) {
+      throw new BadRequestException('El archivo no es un PDF válido.');
+    }
+  }
 
   /**
    * Devuelve los IDs de equipos bloqueados: PENDIENTE, APROBADA o ACTIVA.
@@ -92,14 +108,8 @@ export class SolicitudesService {
   /**
    * Paginación keyset sobre solicitudes RECHAZADA filtradas por rango de fecha.
    *
-   * Orden: updatedAt DESC, id DESC (updatedAt = momento del rechazo).
-   * Cursor: { updatedAt, id } codificado en base64 — apunta al último registro
-   * de la página anterior para que la siguiente consulta salte directamente
-   * al siguiente registro sin escanear filas previas.
-   *
-   * Se solicita PAGE_SIZE + 1 registros; si devuelve PAGE_SIZE + 1 existe
-   * una página siguiente y se construye el nextCursor con el último registro
-   * devuelto (el elemento extra que no se incluye en data).
+   * Orden: fechaDecision DESC, id DESC.
+   * Cursor: { fechaDecision, id } codificado en base64.
    */
   async findRechazadas(params: {
     fechaDesde: Date;
@@ -112,25 +122,25 @@ export class SolicitudesService {
 
     const solicitudes = await this.prisma.solicitud.findMany({
       where: {
-        estado:    'RECHAZADA',
-        updatedAt: { gte: fechaDesde, lte: fechaHasta },
+        estado:        'RECHAZADA',
+        fechaDecision: { gte: fechaDesde, lte: fechaHasta },
         ...(keysetClause && {
           OR: [
-            { updatedAt: { lt: keysetClause.updatedAt } },
-            { updatedAt: keysetClause.updatedAt, id: { lt: keysetClause.id } },
+            { fechaDecision: { lt: keysetClause.fechaDecision } },
+            { fechaDecision: keysetClause.fechaDecision, id: { lt: keysetClause.id } },
           ],
         }),
       },
       include: { cliente: true },
-      orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+      orderBy: [{ fechaDecision: 'desc' }, { id: 'desc' }],
       take:    PAGE_SIZE + 1,
     });
 
-    const hasMore   = solicitudes.length > PAGE_SIZE;
-    const pageData  = hasMore ? solicitudes.slice(0, PAGE_SIZE) : solicitudes;
-    const last      = pageData.at(-1);
+    const hasMore    = solicitudes.length > PAGE_SIZE;
+    const pageData   = hasMore ? solicitudes.slice(0, PAGE_SIZE) : solicitudes;
+    const last       = pageData.at(-1);
     const nextCursor = hasMore && last
-      ? this.encodeCursor({ updatedAt: last.updatedAt.toISOString(), id: last.id })
+      ? this.encodeCursor({ fechaDecision: last.fechaDecision!.toISOString(), id: last.id })
       : null;
 
     return { data: pageData.map(s => this.serialize(s)), nextCursor };
@@ -171,10 +181,9 @@ export class SolicitudesService {
 
   /**
    * Paginación keyset sobre las solicitudes RECHAZADA del encargado autenticado,
-   * filtradas por rango de fecha (updatedAt = momento del rechazo).
+   * filtradas por rango de fecha (fechaDecision = momento del rechazo).
    *
-   * Usa el índice compuesto (creadaPor, estado, updatedAt, id) para seeks O(log n)
-   * independientemente del volumen acumulado de rechazadas por usuario.
+   * Usa el índice compuesto (creadaPor, estado, fechaDecision, id) para seeks O(log n).
    */
   async findHistorialMias(
     username: string,
@@ -185,18 +194,18 @@ export class SolicitudesService {
 
     const solicitudes = await this.prisma.solicitud.findMany({
       where: {
-        creadaPor: username,
-        estado:    'RECHAZADA',
-        updatedAt: { gte: fechaDesde, lte: fechaHasta },
+        creadaPor:     username,
+        estado:        'RECHAZADA',
+        fechaDecision: { gte: fechaDesde, lte: fechaHasta },
         ...(keysetClause && {
           OR: [
-            { updatedAt: { lt: keysetClause.updatedAt } },
-            { updatedAt: keysetClause.updatedAt, id: { lt: keysetClause.id } },
+            { fechaDecision: { lt: keysetClause.fechaDecision } },
+            { fechaDecision: keysetClause.fechaDecision, id: { lt: keysetClause.id } },
           ],
         }),
       },
       include: { cliente: true },
-      orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+      orderBy: [{ fechaDecision: 'desc' }, { id: 'desc' }],
       take:    PAGE_SIZE + 1,
     });
 
@@ -204,7 +213,7 @@ export class SolicitudesService {
     const pageData   = hasMore ? solicitudes.slice(0, PAGE_SIZE) : solicitudes;
     const last       = pageData.at(-1);
     const nextCursor = hasMore && last
-      ? this.encodeCursor({ updatedAt: last.updatedAt.toISOString(), id: last.id })
+      ? this.encodeCursor({ fechaDecision: last.fechaDecision!.toISOString(), id: last.id })
       : null;
 
     return { data: pageData.map(s => this.serialize(s)), nextCursor };
@@ -226,7 +235,7 @@ export class SolicitudesService {
 
       const solicitud = await tx.solicitud.update({
         where:   { id },
-        data:    { estado: 'APROBADA', aprobadaPor, folio },
+        data:    { estado: 'APROBADA', aprobadaPor, folio, fechaDecision: now },
         include: { cliente: true },
       });
 
@@ -237,17 +246,53 @@ export class SolicitudesService {
   async rechazar(id: string, motivoRechazo: string) {
     const solicitud = await this.prisma.solicitud.update({
       where:   { id },
-      data:    { estado: 'RECHAZADA', motivoRechazo },
+      data:    { estado: 'RECHAZADA', motivoRechazo, fechaDecision: new Date() },
       include: { cliente: true },
     });
     return this.serialize(solicitud);
   }
 
   /**
+   * Registra el inicio oficial de la renta: graba fechaInicioRenta = now() la primera
+   * vez que el encargado genera el comprobante. Si ya está fijada, devuelve la solicitud
+   * sin modificarla — la fecha de inicio es inmutable una vez establecida.
+   */
+  async iniciarEntrega(id: string, username: string) {
+    const solicitud = await this.prisma.solicitud.findUnique({ where: { id } });
+
+    if (!solicitud) throw new NotFoundException('Solicitud no encontrada.');
+    if (solicitud.creadaPor !== username)
+      throw new ForbiddenException('Solo el encargado que creó la solicitud puede iniciar la entrega.');
+    if (solicitud.estado !== 'APROBADA')
+      throw new ConflictException('Solo se puede iniciar la entrega de solicitudes aprobadas.');
+
+    // Inmutable: si ya se fijó, devolver sin modificar
+    if (solicitud.fechaInicioRenta) {
+      const actual = await this.prisma.solicitud.findUnique({
+        where: { id }, include: { cliente: true },
+      });
+      return this.serialize(actual!);
+    }
+
+    const actualizada = await this.prisma.solicitud.update({
+      where:   { id },
+      data:    { fechaInicioRenta: new Date() },
+      include: { cliente: true },
+    });
+    return this.serialize(actualizada);
+  }
+
+  /**
    * Confirma la entrega física: APROBADA → ACTIVA.
+   * Sube el comprobante PDF firmado a R2 y guarda la key en la solicitud.
    * Solo el encargado que creó la solicitud puede confirmarla.
    */
-  async confirmarEntrega(id: string, firmaCliente: string, username: string) {
+  async confirmarEntrega(
+    id:       string,
+    buffer:   Buffer,
+    mimetype: string,
+    username: string,
+  ) {
     const solicitud = await this.prisma.solicitud.findUnique({ where: { id } });
 
     if (!solicitud) {
@@ -259,13 +304,38 @@ export class SolicitudesService {
     if (solicitud.estado !== 'APROBADA') {
       throw new ConflictException('Solo se puede confirmar la entrega de solicitudes aprobadas.');
     }
+    if (!solicitud.folio) {
+      throw new ConflictException('La solicitud no tiene folio asignado.');
+    }
+
+    this.validatePdfBuffer(buffer);
+
+    const key = this.buildComprobanteKey(solicitud.clienteId, solicitud.folio);
+    await this.r2.uploadFile(key, buffer, mimetype);
 
     const actualizada = await this.prisma.solicitud.update({
       where:   { id },
-      data:    { estado: 'ACTIVA', firmaCliente, fechaEntrega: new Date() },
+      data:    { estado: 'ACTIVA', comprobanteKey: key, fechaEntrega: new Date() },
       include: { cliente: true },
     });
     return this.serialize(actualizada);
+  }
+
+  /**
+   * Genera una URL firmada temporal (15 min) para descargar el comprobante.
+   */
+  async getComprobanteUrl(id: string, username: string): Promise<{ url: string }> {
+    const solicitud = await this.prisma.solicitud.findUnique({ where: { id } });
+
+    if (!solicitud) {
+      throw new NotFoundException('Solicitud no encontrada.');
+    }
+    if (!solicitud.comprobanteKey) {
+      throw new NotFoundException('Esta solicitud no tiene comprobante subido.');
+    }
+
+    const url = await this.r2.getPresignedUrl(solicitud.comprobanteKey);
+    return { url };
   }
 
   // ── Helpers internos ────────────────────────────────────────────────────────
@@ -274,9 +344,9 @@ export class SolicitudesService {
     return Buffer.from(JSON.stringify(cursor)).toString('base64');
   }
 
-  private decodeCursor(raw: string): { updatedAt: Date; id: string } {
+  private decodeCursor(raw: string): { fechaDecision: Date; id: string } {
     const parsed = JSON.parse(Buffer.from(raw, 'base64').toString('utf8')) as KeysetCursor;
-    return { updatedAt: new Date(parsed.updatedAt), id: parsed.id };
+    return { fechaDecision: new Date(parsed.fechaDecision), id: parsed.id };
   }
 
   serialize(s: SolicitudConCliente) {

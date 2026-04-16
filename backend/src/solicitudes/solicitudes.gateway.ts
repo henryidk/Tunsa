@@ -81,6 +81,15 @@ export class SolicitudesGateway implements OnGatewayConnection, OnGatewayDisconn
     }
   }
 
+  emitRentaVencida(solicitud: object, username: string) {
+    try {
+      this.logger.log(`[WS] Emitiendo renta:vencida a user:${username}`);
+      this.server.to(`user:${username}`).emit('renta:vencida', solicitud);
+    } catch (err) {
+      this.logger.error(`[WS] Error emitiendo renta:vencida: ${(err as Error).message}`);
+    }
+  }
+
   emitRentaActiva(solicitud: object) {
     try {
       this.logger.log('[WS] Emitiendo renta:activa a rol:admin, rol:secretaria');

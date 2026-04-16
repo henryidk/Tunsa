@@ -1,0 +1,28 @@
+import { create } from 'zustand';
+import type { SolicitudRenta } from '../types/solicitud-renta.types';
+
+interface VencidasState {
+  solicitudes:    SolicitudRenta[];
+  setSolicitudes: (data: SolicitudRenta[]) => void;
+  addVencida:     (solicitud: SolicitudRenta) => void;
+  removeRenta:    (id: string) => void;
+}
+
+export const useVencidasStore = create<VencidasState>((set) => ({
+  solicitudes: [],
+
+  setSolicitudes: (data) => set({ solicitudes: data }),
+
+  addVencida: (solicitud) =>
+    set((state) => ({
+      // Evitar duplicados si llega un evento repetido
+      solicitudes: state.solicitudes.some(s => s.id === solicitud.id)
+        ? state.solicitudes
+        : [solicitud, ...state.solicitudes],
+    })),
+
+  removeRenta: (id) =>
+    set((state) => ({
+      solicitudes: state.solicitudes.filter(s => s.id !== id),
+    })),
+}));

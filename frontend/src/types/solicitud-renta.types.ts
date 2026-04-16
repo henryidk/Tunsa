@@ -1,4 +1,4 @@
-export type EstadoSolicitud = 'PENDIENTE' | 'APROBADA' | 'RECHAZADA' | 'ACTIVA';
+export type EstadoSolicitud = 'PENDIENTE' | 'APROBADA' | 'RECHAZADA' | 'ACTIVA' | 'DEVUELTA';
 export type ModalidadPago   = 'CONTADO' | 'CREDITO';
 export type UnidadDuracion  = 'dias' | 'semanas' | 'meses';
 
@@ -50,6 +50,9 @@ export interface SolicitudRenta {
   comprobanteKey:   string | null;
   fechaInicioRenta: string | null;
   fechaEntrega:     string | null;
+  fechaFinEstimada: string | null;
+  fechaDevolucion:  string | null;
+  recargoTotal:     number | null;
   createdAt:      string;
   updatedAt:      string;
 }

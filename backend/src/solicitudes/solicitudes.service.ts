@@ -3,11 +3,15 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { R2Service } from '../r2/r2.service';
 import { CreateSolicitudDto } from './dto/create-solicitud.dto';
+import { calcularFechaFinEstimada, calcularRecargoTotal } from './recargo.util';
 
 type SolicitudConCliente = Prisma.SolicitudGetPayload<{ include: { cliente: true } }>;
 
 // Shape mínima de un item para extraer equipoId sin asumir tipos extras
 interface ItemConKind { kind: string; equipoId?: string }
+
+// Shape mínima de un item para cálculos de tiempo y recargo
+interface ItemParaCalculo { duracion: number; unidad: string; tarifa: number | null }
 
 export interface RechazadasPage {
   data:       ReturnType<SolicitudesService['serialize']>[];
@@ -168,15 +172,74 @@ export class SolicitudesService {
   }
 
   /**
-   * Solicitudes ACTIVA del encargado autenticado — su propia vista de rentas en curso.
+   * Solicitudes ACTIVA del encargado autenticado que aún no han vencido.
+   * Las rentascon fechaFinEstimada < now se consultan vía findVencidasMias().
    */
   async findActivasMias(username: string) {
+    const now = new Date();
     const solicitudes = await this.prisma.solicitud.findMany({
-      where:   { creadaPor: username, estado: 'ACTIVA' },
+      where: {
+        creadaPor: username,
+        estado:    'ACTIVA',
+        OR: [
+          { fechaFinEstimada: null },
+          { fechaFinEstimada: { gte: now } },
+        ],
+      },
       include: { cliente: true },
       orderBy: { fechaEntrega: 'desc' },
     });
     return solicitudes.map(s => this.serialize(s));
+  }
+
+  /**
+   * Solicitudes ACTIVA del encargado autenticado que ya superaron su fechaFinEstimada.
+   * Estas requieren que el cliente devuelva el equipo — pueden tener recargo por atraso.
+   */
+  async findVencidasMias(username: string) {
+    const now = new Date();
+    const solicitudes = await this.prisma.solicitud.findMany({
+      where: {
+        creadaPor:        username,
+        estado:           'ACTIVA',
+        fechaFinEstimada: { lt: now },
+      },
+      include: { cliente: true },
+      orderBy: { fechaFinEstimada: 'asc' },
+    });
+    return solicitudes.map(s => this.serialize(s));
+  }
+
+  /**
+   * Registra la devolución de una renta vencida.
+   * Calcula el recargo según los días de atraso y cierra la renta (DEVUELTA).
+   * Solo el encargado que creó la solicitud puede registrar la devolución.
+   */
+  async registrarDevolucion(id: string, username: string) {
+    const solicitud = await this.prisma.solicitud.findUnique({ where: { id } });
+
+    if (!solicitud) throw new NotFoundException('Solicitud no encontrada.');
+    if (solicitud.creadaPor !== username)
+      throw new ForbiddenException('Solo el encargado que creó la solicitud puede registrar la devolución.');
+    if (solicitud.estado !== 'ACTIVA')
+      throw new ConflictException('Solo se puede registrar la devolución de rentas activas o vencidas.');
+    if (!solicitud.fechaInicioRenta)
+      throw new ConflictException('La solicitud no tiene fecha de inicio registrada.');
+
+    const fechaDevolucion = new Date();
+    const items = solicitud.items as unknown as ItemParaCalculo[];
+    const recargo = calcularRecargoTotal(items, solicitud.fechaInicioRenta, fechaDevolucion);
+
+    const actualizada = await this.prisma.solicitud.update({
+      where:   { id },
+      data:    {
+        estado:          'DEVUELTA',
+        fechaDevolucion,
+        recargoTotal:    recargo,
+      },
+      include: { cliente: true },
+    });
+    return this.serialize(actualizada);
   }
 
   /**
@@ -313,9 +376,14 @@ export class SolicitudesService {
     const key = this.buildComprobanteKey(solicitud.clienteId, solicitud.folio);
     await this.r2.uploadFile(key, buffer, mimetype);
 
+    const fechaEntrega   = new Date();
+    const fechaInicio    = solicitud.fechaInicioRenta ?? fechaEntrega;
+    const items          = solicitud.items as unknown as ItemParaCalculo[];
+    const fechaFinEstimada = calcularFechaFinEstimada(fechaInicio, items);
+
     const actualizada = await this.prisma.solicitud.update({
       where:   { id },
-      data:    { estado: 'ACTIVA', comprobanteKey: key, fechaEntrega: new Date() },
+      data:    { estado: 'ACTIVA', comprobanteKey: key, fechaEntrega, fechaFinEstimada },
       include: { cliente: true },
     });
     return this.serialize(actualizada);
@@ -353,6 +421,7 @@ export class SolicitudesService {
     return {
       ...s,
       totalEstimado: parseFloat(s.totalEstimado.toString()),
+      recargoTotal:  s.recargoTotal != null ? parseFloat(s.recargoTotal.toString()) : null,
     };
   }
 }

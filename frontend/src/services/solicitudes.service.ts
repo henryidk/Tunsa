@@ -92,6 +92,16 @@ export const solicitudesService = {
     return res.data;
   },
 
+  async getVencidasMias(): Promise<SolicitudRenta[]> {
+    const res = await api.get<SolicitudRenta[]>('/solicitudes/vencidas-mias');
+    return res.data;
+  },
+
+  async registrarDevolucion(id: string): Promise<SolicitudRenta> {
+    const res = await api.patch<SolicitudRenta>(`/solicitudes/${id}/registrar-devolucion`);
+    return res.data;
+  },
+
   async getMiasHistorial(params: QueryRechazadas): Promise<RechazadasPage> {
     const res = await api.get<RechazadasPage>('/solicitudes/historial-mias', { params });
     return res.data;

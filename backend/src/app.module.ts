@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ConfigModule } from '@nestjs/config';
 import * as Joi from 'joi';
 import { PrismaModule } from './prisma/prisma.module';
@@ -61,6 +62,7 @@ import { R2Module } from './r2/r2.module';
         abortEarly: false,
       },
     }),
+    ScheduleModule.forRoot(),
     PrismaModule,
     RedisModule,
     AuthModule,

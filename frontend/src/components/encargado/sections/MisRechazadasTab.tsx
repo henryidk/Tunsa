@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { solicitudesService } from '../../../services/solicitudes.service';
 import { useRechazadasStore } from '../../../store/rechazadas.store';
 import type { SolicitudRenta, ItemSnapshot } from '../../../types/solicitud-renta.types';
-import { formatFechaCorta, unidadLabel } from '../../../types/solicitud.types';
+import { formatFechaCorta, formatFechaHora, unidadLabel } from '../../../types/solicitud.types';
 
 // ── Helpers de fecha ──────────────────────────────────────────────────────────
 
@@ -192,8 +192,8 @@ function SolicitudRechazadaCard({ solicitud }: { solicitud: SolicitudRenta }) {
             Rechazada
           </span>
         </div>
-        <span className="text-xs text-slate-400 font-mono">
-          {tiempoRelativo(solicitud.updatedAt)}
+        <span className="text-xs text-slate-400">
+          {solicitud.fechaDecision ? formatFechaHora(solicitud.fechaDecision) : '—'}
         </span>
       </div>
 

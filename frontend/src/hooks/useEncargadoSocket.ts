@@ -5,6 +5,8 @@ import { usePendientesStore } from '../store/pendientes.store';
 import { useRechazadasStore } from '../store/rechazadas.store';
 import { useReservadosStore } from '../store/reservados.store';
 import { useAprobadasStore } from '../store/aprobadas.store';
+import { useActivasStore } from '../store/activas.store';
+import { useVencidasStore } from '../store/vencidas.store';
 import type { SolicitudRenta, ItemSnapshot } from '../types/solicitud-renta.types';
 import type { ToastType } from '../types/ui.types';
 
@@ -64,8 +66,20 @@ export function useEncargadoSocket({ playSound, showToast }: UseEncargadoSocketO
       playSound();
     };
 
+    const handleRentaVencida = (solicitud: SolicitudRenta) => {
+      useActivasStore.getState().removeRenta(solicitud.id);
+      useVencidasStore.getState().addVencida(solicitud);
+      showToast(
+        'warning',
+        'Renta vencida',
+        `La renta de ${solicitud.cliente.nombre} ha vencido — pendiente de devolución.`,
+      );
+      playSound();
+    };
+
     socket.on('solicitud:aprobada',  handleSolicitudAprobada);
     socket.on('solicitud:rechazada', handleSolicitudRechazada);
+    socket.on('renta:vencida',       handleRentaVencida);
 
     // Igual que en useAdminSocket: reconectar si el servidor desconecta por token expirado.
     socket.on('disconnect', (reason) => {

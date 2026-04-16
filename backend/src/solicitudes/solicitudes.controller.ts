@@ -72,6 +72,12 @@ export class SolicitudesController {
     return this.solicitudesService.findActivasMias(user.username);
   }
 
+  @Get('vencidas-mias')
+  @Roles('encargado_maquinas')
+  findVencidasMias(@CurrentUser() user: AuthenticatedUser) {
+    return this.solicitudesService.findVencidasMias(user.username);
+  }
+
   @Get('rechazadas')
   @Roles('admin', 'secretaria')
   findRechazadas(@Query() query: QueryRechazadasDto) {
@@ -147,6 +153,15 @@ export class SolicitudesController {
     );
     this.solicitudesGateway.emitRentaActiva(solicitud);
     return solicitud;
+  }
+
+  @Patch(':id/registrar-devolucion')
+  @Roles('encargado_maquinas')
+  async registrarDevolucion(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.solicitudesService.registrarDevolucion(id, user.username);
   }
 
   @Get(':id/comprobante')

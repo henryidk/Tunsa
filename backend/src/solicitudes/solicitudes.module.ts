@@ -5,6 +5,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { SolicitudesService } from './solicitudes.service';
 import { SolicitudesGateway } from './solicitudes.gateway';
 import { SolicitudesController } from './solicitudes.controller';
+import { RentaVencimientoScheduler } from './renta-vencimiento.scheduler';
 
 @Module({
   imports: [
@@ -17,6 +18,6 @@ import { SolicitudesController } from './solicitudes.controller';
     }),
   ],
   controllers: [SolicitudesController],
-  providers: [SolicitudesService, SolicitudesGateway],
+  providers: [SolicitudesService, SolicitudesGateway, RentaVencimientoScheduler],
 })
 export class SolicitudesModule {}

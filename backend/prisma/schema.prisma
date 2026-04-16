@@ -147,6 +147,7 @@ enum EstadoSolicitud {
   APROBADA
   RECHAZADA
   ACTIVA     // entregada al cliente y firmada — renta en curso
+  DEVUELTA   // cliente devolvió el equipo — renta cerrada
 }
 
 model Solicitud {
@@ -173,13 +174,19 @@ model Solicitud {
   fechaInicioRenta DateTime? // momento exacto del primer "Generar Comprobante" — inicio oficial de la renta
   fechaEntrega     DateTime? // momento exacto en que se subió el comprobante firmado
 
+  // Vencimiento y devolución
+  fechaFinEstimada DateTime? // vencimiento más temprano entre todos los ítems (calculado al confirmar entrega)
+  fechaDevolucion  DateTime? // momento en que el cliente entregó los equipos
+  recargoTotal     Decimal?  @db.Decimal(12, 2) // cargo extra por días de atraso (0 si dentro de gracia)
+
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 
   @@map("solicitudes")
   @@index([estado, createdAt])
-  @@index([estado, fechaDecision, id])          // keyset pagination admin: rechazadas
-  @@index([creadaPor, estado, fechaDecision, id]) // keyset pagination encargado: historial-mias
+  @@index([estado, fechaDecision, id])              // keyset pagination admin: rechazadas
+  @@index([creadaPor, estado, fechaDecision, id])   // keyset pagination encargado: historial-mias
+  @@index([creadaPor, estado, fechaFinEstimada])    // consulta encargado: activas-mias y vencidas-mias
   @@index([clienteId])
 }
 

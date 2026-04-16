@@ -11,6 +11,7 @@ import { calcSubtotal, formatQ, formatFechaCorta, unidadLabel, rateSuffix, getRe
 import { useSolicitudData } from '../../../hooks/useSolicitudData';
 import { useSolicitudCart } from '../../../hooks/useSolicitudCart';
 import { solicitudesService } from '../../../services/solicitudes.service';
+import { usePendientesStore } from '../../../store/pendientes.store';
 import type { ItemSnapshot } from '../../../types/solicitud-renta.types';
 import type { ToastType } from '../../../types/ui.types';
 
@@ -20,6 +21,7 @@ interface Props {
 }
 
 export default function NuevaSolicitudSection({ onShowToast = () => {} }: Props) {
+  const addPendiente = usePendientesStore(s => s.addSolicitud);
   const [clienteSeleccionado, setClienteSeleccionado] = useState<Cliente | null>(null);
   const [modalidadPago,       setModalidadPago]       = useState<ModalidadPago | null>(null);
   const [notas,               setNotas]               = useState('');
@@ -99,7 +101,7 @@ export default function NuevaSolicitudSection({ onShowToast = () => {} }: Props)
         };
       });
 
-      await solicitudesService.create({
+      const nuevaSolicitud = await solicitudesService.create({
         clienteId:     clienteSeleccionado.id,
         modalidad:     modalidadPago,
         notas:         notas.trim(),
@@ -107,6 +109,7 @@ export default function NuevaSolicitudSection({ onShowToast = () => {} }: Props)
         items,
       });
 
+      addPendiente(nuevaSolicitud);
       onShowToast('success', 'Solicitud enviada', 'La solicitud fue registrada y notificada correctamente.');
       handleCancelarSolicitud();
       void refreshReservedIds();

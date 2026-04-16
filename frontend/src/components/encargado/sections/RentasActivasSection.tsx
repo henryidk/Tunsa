@@ -1,5 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { solicitudesService } from '../../../services/solicitudes.service';
+import { useActivasStore } from '../../../store/activas.store';
+import { useVencidasStore } from '../../../store/vencidas.store';
 import type { SolicitudRenta, ItemSnapshot, UnidadDuracion } from '../../../types/solicitud-renta.types';
 import { formatFechaHora } from '../../../types/solicitud.types';
 
@@ -11,22 +13,41 @@ function calcularFin(inicio: Date, duracion: number, unidad: UnidadDuracion): Da
   return new Date(inicio.getTime() + duracion * 30 * 86_400_000);
 }
 
-function diasRestantesDesde(inicio: Date, duracion: number, unidad: UnidadDuracion): number {
-  return Math.ceil((calcularFin(inicio, duracion, unidad).getTime() - Date.now()) / 86_400_000);
+/** ms que quedan hasta el vencimiento (negativo si ya venció) */
+function msRestantes(inicio: Date, duracion: number, unidad: UnidadDuracion, ahora: number): number {
+  return calcularFin(inicio, duracion, unidad).getTime() - ahora;
 }
 
-function urgenciaMasProxima(items: ItemSnapshot[], inicio: Date): number | null {
-  if (items.length === 0) return null;
-  return Math.min(...items.map(i => diasRestantesDesde(inicio, i.duracion, i.unidad)));
+/** ms mínimos entre todos los ítems de una renta */
+function msMinimos(items: ItemSnapshot[], inicio: Date, ahora: number): number {
+  if (items.length === 0) return Infinity;
+  return Math.min(...items.map(i => msRestantes(inicio, i.duracion, i.unidad, ahora)));
 }
 
 type NivelUrgencia = 'vencido' | 'critico' | 'proximo' | 'ok';
 
-function nivelUrgencia(dias: number): NivelUrgencia {
-  if (dias <= 0) return 'vencido';
-  if (dias <= 3) return 'critico';
-  if (dias <= 7) return 'proximo';
+function nivelUrgencia(ms: number): NivelUrgencia {
+  if (ms <= 0)               return 'vencido';
+  if (ms < 24 * 3_600_000)   return 'critico'; // día de vencimiento (< 24 h)
+  if (ms <= 72 * 3_600_000)  return 'proximo'; // 1 – 3 días
   return 'ok';
+}
+
+/**
+ * Formatea el tiempo restante:
+ * - ≥ 2 días   → "Xd"
+ * - < 24 h     → "Xh Ym" (cuenta regresiva)
+ * - < 1 h      → "Ym"
+ * - vencido    → "Vencida"
+ */
+function formatTiempoRestante(ms: number): string {
+  if (ms <= 0) return 'Vencida';
+  const totalMin = Math.floor(ms / 60_000);
+  const horas    = Math.floor(totalMin / 60);
+  const mins     = totalMin % 60;
+  if (horas >= 24) return `${Math.floor(horas / 24)}d`;
+  if (horas === 0) return `${mins}min`;
+  return mins === 0 ? `${horas}h` : `${horas}h ${mins}min`;
 }
 
 const URGENCIA_BADGE: Record<NivelUrgencia, string> = {
@@ -43,17 +64,11 @@ const URGENCIA_BORDER: Record<NivelUrgencia, string> = {
   ok:      'border-l-indigo-400',
 };
 
-function DiasLabel({ dias }: { dias: number }) {
-  const nivel = nivelUrgencia(dias);
-  const texto = dias <= 0
-    ? 'Vencida'
-    : dias === 1
-    ? '1 día'
-    : `${dias} días`;
-
+function VenceLabel({ ms }: { ms: number }) {
+  const nivel = nivelUrgencia(ms);
   return (
     <span className={`inline-block text-[10px] font-bold px-1.5 py-0.5 rounded-md ${URGENCIA_BADGE[nivel]}`}>
-      {texto}
+      {formatTiempoRestante(ms)}
     </span>
   );
 }
@@ -61,17 +76,35 @@ function DiasLabel({ dias }: { dias: number }) {
 // ── Sección principal ─────────────────────────────────────────────────────────
 
 export default function RentasActivasSection() {
-  const [solicitudes, setSolicitudes] = useState<SolicitudRenta[]>([]);
-  const [isLoading,   setIsLoading]   = useState(true);
-  const [error,       setError]       = useState<string | null>(null);
-  const [abriendo,    setAbriendo]    = useState<string | null>(null);
+  const { solicitudes, setSolicitudes } = useActivasStore();
+  const [isLoading, setIsLoading] = useState(true);
+  const [error,     setError]     = useState<string | null>(null);
+  const [abriendo,  setAbriendo]  = useState<string | null>(null);
+  // Tick cada minuto — provoca re-render para actualizar cuentas regresivas
+  const [ahora,     setAhora]     = useState(() => Date.now());
 
   useEffect(() => {
     solicitudesService.getActivasMias()
       .then(setSolicitudes)
       .catch(() => setError('No se pudieron cargar las rentas activas.'))
       .finally(() => setIsLoading(false));
+  }, [setSolicitudes]);
+
+  useEffect(() => {
+    const id = setInterval(() => setAhora(Date.now()), 60_000);
+    return () => clearInterval(id);
   }, []);
+
+  // Cuando el tick actualiza ahora, detecta rentas que acaban de vencer y las mueve al store de vencidas
+  useEffect(() => {
+    const recienVencidas = solicitudes.filter(
+      s => s.fechaFinEstimada && new Date(s.fechaFinEstimada).getTime() < ahora,
+    );
+    if (recienVencidas.length === 0) return;
+    const { removeRenta }  = useActivasStore.getState();
+    const { addVencida }   = useVencidasStore.getState();
+    recienVencidas.forEach(s => { removeRenta(s.id); addVencida(s); });
+  }, [ahora, solicitudes]);
 
   const handleVerComprobante = async (id: string) => {
     setAbriendo(id);
@@ -156,6 +189,7 @@ export default function RentasActivasSection() {
             <RentaActivaCard
               key={s.id}
               solicitud={s}
+              ahora={ahora}
               abriendo={abriendo === s.id}
               onVerComprobante={() => handleVerComprobante(s.id)}
             />
@@ -170,19 +204,21 @@ export default function RentasActivasSection() {
 
 function RentaActivaCard({
   solicitud,
+  ahora,
   abriendo,
   onVerComprobante,
 }: {
   solicitud:        SolicitudRenta;
+  ahora:            number;
   abriendo:         boolean;
   onVerComprobante: () => void;
 }) {
   const maquinaria  = solicitud.items.filter(i => i.kind === 'maquinaria') as Extract<ItemSnapshot, { kind: 'maquinaria' }>[];
   const granel      = solicitud.items.filter(i => i.kind === 'granel')     as Extract<ItemSnapshot, { kind: 'granel' }>[];
 
-  const inicio  = solicitud.fechaInicioRenta ? new Date(solicitud.fechaInicioRenta) : new Date();
-  const diasMin = urgenciaMasProxima(solicitud.items, inicio);
-  const nivel   = diasMin !== null ? nivelUrgencia(diasMin) : 'ok';
+  const inicio = solicitud.fechaInicioRenta ? new Date(solicitud.fechaInicioRenta) : new Date();
+  const msMin  = msMinimos(solicitud.items, inicio, ahora);
+  const nivel  = nivelUrgencia(msMin);
 
   return (
     <div className={`bg-white border border-slate-200 border-l-4 rounded-xl shadow-sm overflow-hidden ${URGENCIA_BORDER[nivel]}`}>
@@ -194,9 +230,9 @@ function RentaActivaCard({
             <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
             Activa
           </span>
-          {diasMin !== null && nivel !== 'ok' && (
+          {nivel !== 'ok' && (
             <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${URGENCIA_BADGE[nivel]}`}>
-              {nivel === 'vencido' ? 'Vencida' : `Vence en ${diasMin}d`}
+              {nivel === 'vencido' ? 'Vencida' : `Vence en ${formatTiempoRestante(msMin)}`}
             </span>
           )}
           <span className="text-xs font-mono font-semibold text-slate-600">{solicitud.folio}</span>
@@ -241,8 +277,8 @@ function RentaActivaCard({
           <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Equipos rentados</p>
           <div className="space-y-2.5">
             {maquinaria.map((item, i) => {
-              const fin  = calcularFin(inicio, item.duracion, item.unidad);
-              const dias = diasRestantesDesde(inicio, item.duracion, item.unidad);
+              const fin = calcularFin(inicio, item.duracion, item.unidad);
+              const ms  = msRestantes(inicio, item.duracion, item.unidad, ahora);
               return (
                 <div key={i} className="flex items-start justify-between gap-2">
                   <p className="text-xs font-medium text-slate-700 leading-tight">
@@ -253,14 +289,14 @@ function RentaActivaCard({
                     <span className="text-[10px] text-slate-400 whitespace-nowrap">
                       Vence {formatFechaHora(fin.toISOString())}
                     </span>
-                    <DiasLabel dias={dias} />
+                    <VenceLabel ms={ms} />
                   </div>
                 </div>
               );
             })}
             {granel.map((item, i) => {
-              const fin  = calcularFin(inicio, item.duracion, item.unidad);
-              const dias = diasRestantesDesde(inicio, item.duracion, item.unidad);
+              const fin = calcularFin(inicio, item.duracion, item.unidad);
+              const ms  = msRestantes(inicio, item.duracion, item.unidad, ahora);
               return (
                 <div key={i} className="flex items-start justify-between gap-2">
                   <p className="text-xs font-medium text-slate-700 leading-tight">
@@ -272,7 +308,7 @@ function RentaActivaCard({
                     <span className="text-[10px] text-slate-400 whitespace-nowrap">
                       Vence {formatFechaHora(fin.toISOString())}
                     </span>
-                    <DiasLabel dias={dias} />
+                    <VenceLabel ms={ms} />
                   </div>
                 </div>
               );

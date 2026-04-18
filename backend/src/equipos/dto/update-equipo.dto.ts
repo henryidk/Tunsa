@@ -41,6 +41,12 @@ export class UpdateEquipoDto {
   @IsNumber()
   @Min(0)
   @Type(() => Number)
+  rentaHora?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
   rentaDia?: number;
 
   @IsOptional()

@@ -7,7 +7,7 @@ import GranelPickerSection from '../GranelPickerSection';
 import PaymentModeSelector from '../PaymentModeSelector';
 import type { Cliente } from '../../../services/clientes.service';
 import type { ItemSolicitud, ItemMaquinaria, ModalidadPago } from '../../../types/solicitud.types';
-import { calcSubtotal, formatQ, formatFechaCorta, unidadLabel, rateSuffix, getRentaRate } from '../../../types/solicitud.types';
+import { calcSubtotal, formatQ, formatFechaCorta, unidadLabel, rateSuffix, getRentaRate, descomponerDuracion, formatDesglose, esAdaptado } from '../../../types/solicitud.types';
 import { useSolicitudData } from '../../../hooks/useSolicitudData';
 import { useSolicitudCart } from '../../../hooks/useSolicitudCart';
 import { solicitudesService } from '../../../services/solicitudes.service';
@@ -81,7 +81,8 @@ export default function NuevaSolicitudSection({ onShowToast = () => {} }: Props)
             fechaInicio: item.fechaInicio,
             duracion:    item.duracion,
             unidad:      item.unidad,
-            tarifa:      getRentaRate(item.unidad, item.equipo.rentaDia, item.equipo.rentaSemana, item.equipo.rentaMes),
+            // Siempre tarifa diaria: el recargo por atraso se calcula en días
+            tarifa:      item.equipo.rentaDia ?? null,
             subtotal:    calcSubtotal(item),
           };
         }
@@ -94,9 +95,10 @@ export default function NuevaSolicitudSection({ onShowToast = () => {} }: Props)
           fechaInicio: item.fechaInicio,
           duracion:    item.duracion,
           unidad:      item.unidad,
+          // Siempre tarifa diaria: el recargo por atraso se calcula en días
           tarifa:      item.conMadera
-            ? getRentaRate(item.unidad, item.config?.rentaDiaConMadera, item.config?.rentaSemanaConMadera, item.config?.rentaMesConMadera)
-            : getRentaRate(item.unidad, item.config?.rentaDia, item.config?.rentaSemana, item.config?.rentaMes),
+            ? (item.config?.rentaDiaConMadera ?? null)
+            : (item.config?.rentaDia ?? null),
           subtotal:    calcSubtotal(item),
         };
       });
@@ -376,7 +378,7 @@ function CartTable({ items, onRemove, summary }: CartTableProps) {
         <table className="w-full text-sm">
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>
-              {['Equipo / Instrumento', 'Cant.', 'Inicio', 'Duración', 'Tarifa', 'Subtotal', ''].map(h => (
+              {['Equipo / Instrumento', 'Cant.', 'Inicio', 'Duración', 'Facturación', 'Subtotal', ''].map(h => (
                 <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 whitespace-nowrap">
                   {h}
                 </th>
@@ -426,7 +428,11 @@ interface CartRowProps {
 
 function CartRow({ item, onRemove }: CartRowProps) {
   const subtotal = calcSubtotal(item);
-  const tarifa = item.kind === 'maquinaria'
+  const decomp   = descomponerDuracion(item.fechaInicio, item.duracion, item.unidad);
+  const adapted  = esAdaptado(item.unidad, decomp);
+
+  // Tarifa base para mostrar cuando no hay adaptación
+  const tarifaBase = item.kind === 'maquinaria'
     ? getRentaRate(item.unidad, item.equipo.rentaDia, item.equipo.rentaSemana, item.equipo.rentaMes)
     : item.config
       ? (item.conMadera
@@ -464,10 +470,16 @@ function CartRow({ item, onRemove }: CartRowProps) {
       <td className="px-3 py-3 text-xs text-slate-700 whitespace-nowrap">
         {unidadLabel(item.duracion, item.unidad)}
       </td>
-      <td className="px-3 py-3 text-xs font-mono text-slate-600 whitespace-nowrap">
-        {tarifa !== null
-          ? <>{formatQ(tarifa)}<span className="text-slate-400">{rateSuffix(item.unidad)}{item.kind === 'granel' ? '/u' : ''}</span></>
-          : <span className="text-slate-300">—</span>}
+      <td className="px-3 py-3 text-xs whitespace-nowrap">
+        {adapted ? (
+          <span className="font-medium text-amber-600">{formatDesglose(decomp)}</span>
+        ) : tarifaBase !== null ? (
+          <span className="font-mono text-slate-600">
+            {formatQ(tarifaBase)}<span className="text-slate-400">{rateSuffix(item.unidad)}{item.kind === 'granel' ? '/u' : ''}</span>
+          </span>
+        ) : (
+          <span className="text-slate-300">—</span>
+        )}
       </td>
       <td className="px-3 py-3 text-xs font-mono font-bold text-slate-800 whitespace-nowrap">
         {formatQ(subtotal)}
@@ -559,6 +571,12 @@ function SolicitudResumen({ cliente, items, summary, modalidadPago, onLimpiarIte
                       </p>
                     )}
                     <p className="text-[10px] text-slate-400">{unidadLabel(item.duracion, item.unidad)}</p>
+                    {(() => {
+                      const d = descomponerDuracion(item.fechaInicio, item.duracion, item.unidad);
+                      return esAdaptado(item.unidad, d)
+                        ? <p className="text-[10px] text-amber-500 font-medium">→ {formatDesglose(d)}</p>
+                        : null;
+                    })()}
                   </div>
                   <span className="text-xs font-mono font-semibold text-slate-700 flex-shrink-0">
                     {formatQ(calcSubtotal(item))}

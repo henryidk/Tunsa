@@ -25,6 +25,7 @@ export class EquiposService {
     return {
       ...equipo,
       montoCompra: equipo.montoCompra != null ? parseFloat(equipo.montoCompra.toString()) : null,
+      rentaHora:   equipo.rentaHora   != null ? parseFloat(equipo.rentaHora.toString())   : null,
       rentaDia:    equipo.rentaDia    != null ? parseFloat(equipo.rentaDia.toString())    : null,
       rentaSemana: equipo.rentaSemana != null ? parseFloat(equipo.rentaSemana.toString()) : null,
       rentaMes:    equipo.rentaMes    != null ? parseFloat(equipo.rentaMes.toString())    : null,
@@ -36,8 +37,9 @@ export class EquiposService {
    * la categoría pertenezca al mismo tipo.
    * La DB ya lo refuerza con FK compuesta, pero esta validación da un mensaje
    * legible antes de llegar al driver.
+   * Devuelve el nombre del tipo para que el llamador pueda aplicar reglas de precio.
    */
-  private async validarTipoYCategoria(tipoId: string, categoriaId?: string | null) {
+  private async validarTipoYCategoria(tipoId: string, categoriaId?: string | null): Promise<string> {
     const tipo = await this.prisma.tipoEquipo.findUnique({ where: { id: tipoId } });
     if (!tipo) throw new BadRequestException(`Tipo de equipo no encontrado: "${tipoId}"`);
 
@@ -51,9 +53,37 @@ export class EquiposService {
         );
       }
     }
+
+    return tipo.nombre;
   }
 
-  private buildChanges(equipo: any, dto: UpdateEquipoDto, categoriaNuevaNombre?: string | null, tipoNuevoNombre?: string) {
+  /**
+   * Aplica las reglas de precio según el tipo:
+   *  - PESADA    → solo rentaHora; rentaDia/Semana/Mes siempre null.
+   *  - LIVIANA   → solo rentaDia/Semana/Mes; rentaHora siempre null.
+   *  - USO_PROPIO → sin precios de renta; todos null.
+   */
+  private normalizarPrecios(
+    tipoNombre: string,
+    precios: { rentaHora?: number | null; rentaDia?: number | null; rentaSemana?: number | null; rentaMes?: number | null },
+  ) {
+    if (tipoNombre === 'PESADA') {
+      return { rentaHora: precios.rentaHora ?? null, rentaDia: null, rentaSemana: null, rentaMes: null };
+    }
+    if (tipoNombre === 'LIVIANA') {
+      return { rentaHora: null, rentaDia: precios.rentaDia ?? null, rentaSemana: precios.rentaSemana ?? null, rentaMes: precios.rentaMes ?? null };
+    }
+    // USO_PROPIO u otros
+    return { rentaHora: null, rentaDia: null, rentaSemana: null, rentaMes: null };
+  }
+
+  private buildChanges(
+    equipo: any,
+    dto: UpdateEquipoDto,
+    categoriaNuevaNombre?: string | null,
+    tipoNuevoNombre?: string,
+    preciosEfectivos?: { rentaHora: number | null; rentaDia: number | null; rentaSemana: number | null; rentaMes: number | null },
+  ) {
     const changes: { campo: string; valorAnterior: string | null; valorNuevo: string | null }[] = [];
 
     const fmt    = (v: any): string | null => (v != null ? String(v) : null);
@@ -75,9 +105,20 @@ export class EquiposService {
     }
 
     if (dto.montoCompra !== undefined) track('montoCompra', fmtNum(equipo.montoCompra), fmtNum(dto.montoCompra));
-    if (dto.rentaDia    !== undefined) track('rentaDia',    fmtNum(equipo.rentaDia),    fmtNum(dto.rentaDia    ?? null));
-    if (dto.rentaSemana !== undefined) track('rentaSemana', fmtNum(equipo.rentaSemana), fmtNum(dto.rentaSemana ?? null));
-    if (dto.rentaMes    !== undefined) track('rentaMes',    fmtNum(equipo.rentaMes),    fmtNum(dto.rentaMes    ?? null));
+
+    // Usar los precios efectivos (ya normalizados por tipo) si están disponibles;
+    // de lo contrario, usar los valores del DTO directamente.
+    if (preciosEfectivos) {
+      track('rentaHora',   fmtNum(equipo.rentaHora),   fmtNum(preciosEfectivos.rentaHora));
+      track('rentaDia',    fmtNum(equipo.rentaDia),    fmtNum(preciosEfectivos.rentaDia));
+      track('rentaSemana', fmtNum(equipo.rentaSemana), fmtNum(preciosEfectivos.rentaSemana));
+      track('rentaMes',    fmtNum(equipo.rentaMes),    fmtNum(preciosEfectivos.rentaMes));
+    } else {
+      if (dto.rentaHora   !== undefined) track('rentaHora',   fmtNum(equipo.rentaHora),   fmtNum(dto.rentaHora   ?? null));
+      if (dto.rentaDia    !== undefined) track('rentaDia',    fmtNum(equipo.rentaDia),    fmtNum(dto.rentaDia    ?? null));
+      if (dto.rentaSemana !== undefined) track('rentaSemana', fmtNum(equipo.rentaSemana), fmtNum(dto.rentaSemana ?? null));
+      if (dto.rentaMes    !== undefined) track('rentaMes',    fmtNum(equipo.rentaMes),    fmtNum(dto.rentaMes    ?? null));
+    }
 
     return changes;
   }
@@ -117,7 +158,13 @@ export class EquiposService {
     const taken = await this.prisma.equipo.findUnique({ where: { numeracion: dto.numeracion } });
     if (taken) throw new ConflictException(`Ya existe un equipo con la numeración "${dto.numeracion}"`);
 
-    await this.validarTipoYCategoria(dto.tipoId, dto.categoriaId);
+    const tipoNombre = await this.validarTipoYCategoria(dto.tipoId, dto.categoriaId);
+    const precios = this.normalizarPrecios(tipoNombre, {
+      rentaHora:   dto.rentaHora,
+      rentaDia:    dto.rentaDia,
+      rentaSemana: dto.rentaSemana,
+      rentaMes:    dto.rentaMes,
+    });
 
     const equipo = await this.prisma.equipo.create({
       data: {
@@ -128,9 +175,7 @@ export class EquiposService {
         montoCompra: dto.montoCompra,
         tipoId:      dto.tipoId,
         categoriaId: dto.categoriaId ?? null,
-        rentaDia:    dto.rentaDia    ?? null,
-        rentaSemana: dto.rentaSemana ?? null,
-        rentaMes:    dto.rentaMes    ?? null,
+        ...precios,
       },
       include: EQUIPO_INCLUDE,
     });
@@ -161,8 +206,12 @@ export class EquiposService {
     }
 
     const categoriaIdEfectiva = dto.categoriaId !== undefined ? dto.categoriaId : equipo.categoriaId;
+    let tipoNombreEfectivo: string;
     if (dto.tipoId !== undefined || dto.categoriaId !== undefined) {
-      await this.validarTipoYCategoria(tipoIdEfectivo, categoriaIdEfectiva);
+      tipoNombreEfectivo = await this.validarTipoYCategoria(tipoIdEfectivo, categoriaIdEfectiva);
+    } else {
+      // El tipo no cambia — ya está disponible en equipo.tipo (incluido vía EQUIPO_INCLUDE)
+      tipoNombreEfectivo = equipo.tipo.nombre;
     }
 
     // Resolver nombres legibles para la bitácora.
@@ -184,7 +233,35 @@ export class EquiposService {
       }
     }
 
-    const changes = this.buildChanges(equipo, dto, categoriaNuevaNombre, tipoNuevoNombre);
+    // Normalizar precios cuando:
+    //   a) el DTO trae algún campo de precio, o
+    //   b) el tipo cambia — para limpiar precios incompatibles con el nuevo tipo
+    //      (ej: LIVIANA→PESADA debe nulificar rentaDia/Semana/Mes aunque no vengan en el DTO).
+    const tipoRealmEnteCambia = dto.tipoId !== undefined && dto.tipoId !== equipo.tipoId;
+    const algoPrecio = dto.rentaHora !== undefined || dto.rentaDia !== undefined
+                    || dto.rentaSemana !== undefined || dto.rentaMes !== undefined
+                    || tipoRealmEnteCambia;
+
+    // Prisma devuelve Decimal para los campos de precio; convertir a number para normalizarPrecios.
+    const toNum = (v: unknown): number | null =>
+      v != null ? parseFloat(String(v)) : null;
+
+    const preciosActualizados = algoPrecio
+      ? this.normalizarPrecios(tipoNombreEfectivo, {
+          rentaHora:   dto.rentaHora   !== undefined ? dto.rentaHora   : toNum(equipo.rentaHora),
+          rentaDia:    dto.rentaDia    !== undefined ? dto.rentaDia    : toNum(equipo.rentaDia),
+          rentaSemana: dto.rentaSemana !== undefined ? dto.rentaSemana : toNum(equipo.rentaSemana),
+          rentaMes:    dto.rentaMes    !== undefined ? dto.rentaMes    : toNum(equipo.rentaMes),
+        })
+      : {};
+
+    const changes = this.buildChanges(
+      equipo,
+      dto,
+      categoriaNuevaNombre,
+      tipoNuevoNombre,
+      algoPrecio ? (preciosActualizados as { rentaHora: number | null; rentaDia: number | null; rentaSemana: number | null; rentaMes: number | null }) : undefined,
+    );
 
     const updated = await this.prisma.equipo.update({
       where: { id },
@@ -196,9 +273,7 @@ export class EquiposService {
         ...(dto.serie       !== undefined && { serie:       dto.serie       || null }),
         ...(dto.fechaCompra !== undefined && { fechaCompra: new Date(dto.fechaCompra) }),
         ...(dto.montoCompra !== undefined && { montoCompra: dto.montoCompra }),
-        ...(dto.rentaDia    !== undefined && { rentaDia:    dto.rentaDia    ?? null }),
-        ...(dto.rentaSemana !== undefined && { rentaSemana: dto.rentaSemana ?? null }),
-        ...(dto.rentaMes    !== undefined && { rentaMes:    dto.rentaMes    ?? null }),
+        ...preciosActualizados,
       },
       include: EQUIPO_INCLUDE,
     });

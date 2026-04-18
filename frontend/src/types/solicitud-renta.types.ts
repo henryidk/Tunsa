@@ -1,6 +1,43 @@
 export type EstadoSolicitud = 'PENDIENTE' | 'APROBADA' | 'RECHAZADA' | 'ACTIVA' | 'DEVUELTA';
 export type ModalidadPago   = 'CONTADO' | 'CREDITO';
-export type UnidadDuracion  = 'dias' | 'semanas' | 'meses';
+export type UnidadDuracion  = 'dias' | 'semanas' | 'meses' | 'horas';
+
+/** Cargo adicional por condición del equipo (daños, faltantes, etc.). */
+export interface CargoAdicional {
+  descripcion: string;
+  monto:       number;
+}
+
+/** Detalle de facturación de un ítem dentro de una devolución. */
+export interface DevolucionItemEntry {
+  itemRef:       string;
+  kind:          'maquinaria' | 'granel';
+  diasCobrados:  number;
+  costoReal:     number;
+  recargoTiempo: number;
+}
+
+/** Registro de un evento de devolución (parcial o completo). */
+export interface DevolucionEntry {
+  fechaDevolucion:     string;
+  registradoPor:       string;
+  esParcial:           boolean;
+  tipoDevolucion:      'A_TIEMPO' | 'TARDIA';
+  items:               DevolucionItemEntry[];
+  recargosAdicionales: CargoAdicional[];
+  totalLote:           number;
+  liquidacionKey:      string | null;
+}
+
+/** Una extensión aplicada a un ítem de la renta. */
+export interface ExtensionEntry {
+  itemRef:        string;                    // equipoId para maquinaria; tipo para granel
+  kind:           'maquinaria' | 'granel';
+  duracion:       number;
+  unidad:         UnidadDuracion;
+  costoExtra:     number;
+  fechaExtension: string;                    // ISO timestamp
+}
 
 interface ItemSnapshotBase {
   fechaInicio: string;
@@ -53,6 +90,9 @@ export interface SolicitudRenta {
   fechaFinEstimada: string | null;
   fechaDevolucion:  string | null;
   recargoTotal:     number | null;
+  extensiones:           ExtensionEntry[]   | null;
+  devolucionesParciales: DevolucionEntry[]  | null;
+  totalFinal:            number             | null;
   createdAt:      string;
   updatedAt:      string;
 }

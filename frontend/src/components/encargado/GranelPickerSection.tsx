@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { TipoGranel, GranelResponse } from '../../services/granel.service';
 import type { UnidadDuracion, ItemGranel } from '../../types/solicitud.types';
-import { getRentaRate, formatQ, rateSuffix } from '../../types/solicitud.types';
+import { getRentaRate, formatQ, rateSuffix, descomponerDuracion, formatDesglose, esAdaptado } from '../../types/solicitud.types';
 
 interface Props {
   granelData: Partial<Record<TipoGranel, GranelResponse>>;
@@ -49,9 +49,10 @@ export default function GranelPickerSection({ granelData, isLoading, inCart, onA
     setErrors(prev => ({ ...prev, [tipo]: msg }));
 
   const handleAdd = (tipo: TipoGranel, tipoLabel: string) => {
-    const form  = forms[tipo];
-    const data  = granelData[tipo];
-    const stock = data?.stockTotal ?? 0;
+    const form   = forms[tipo];
+    const data   = granelData[tipo];
+    const config = data?.config ?? null;
+    const stock  = data?.stockTotal ?? 0;
 
     const cant = parseInt(form.cantidad);
     const dur  = parseInt(form.duracion);
@@ -60,6 +61,20 @@ export default function GranelPickerSection({ granelData, isLoading, inCart, onA
     if (cant > stock)       { setError(tipo, `Stock insuficiente (disponible: ${stock}).`); return; }
     // fechaInicio siempre es hoy — no puede estar vacío
     if (!dur || dur < 1)    { setError(tipo, 'La duración debe ser al menos 1.'); return; }
+
+    // Verificar tarifas requeridas por el desglose adaptativo
+    if (config) {
+      const conMadera = tipo === 'ANDAMIO_SIMPLE' ? form.conMadera : false;
+      const decomp = descomponerDuracion(form.fechaInicio, dur, form.unidad);
+      const faltantes: string[] = [];
+      if (decomp.meses   > 0 && (conMadera ? config.rentaMesConMadera    : config.rentaMes)    === null) faltantes.push('mes');
+      if (decomp.semanas > 0 && (conMadera ? config.rentaSemanaConMadera  : config.rentaSemana) === null) faltantes.push('semana');
+      if (decomp.dias    > 0 && (conMadera ? config.rentaDiaConMadera     : config.rentaDia)    === null) faltantes.push('día');
+      if (faltantes.length > 0) {
+        setError(tipo, `No hay precio configurado para renta por ${faltantes.join(', ')}.`);
+        return;
+      }
+    }
 
     const conMadera = tipo === 'ANDAMIO_SIMPLE' ? form.conMadera : undefined;
     const labelFinal = conMadera ? `${tipoLabel} (con madera)` : tipoLabel;
@@ -84,6 +99,13 @@ export default function GranelPickerSection({ granelData, isLoading, inCart, onA
               ? getRentaRate(form.unidad, config.rentaDiaConMadera, config.rentaSemanaConMadera, config.rentaMesConMadera)
               : getRentaRate(form.unidad, config.rentaDia, config.rentaSemana, config.rentaMes))
           : null;
+
+        const desglosePreview = (() => {
+          const dur = parseInt(form.duracion);
+          if (!dur || dur < 1 || !canAdd) return null;
+          const decomp = descomponerDuracion(form.fechaInicio, dur, form.unidad);
+          return esAdaptado(form.unidad, decomp) ? decomp : null;
+        })();
 
         return (
           <div key={tipo}
@@ -208,6 +230,20 @@ export default function GranelPickerSection({ granelData, isLoading, inCart, onA
                     Agregar
                   </button>
                 </div>
+
+                {desglosePreview && (
+                  <div className="mt-2.5 flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-lg">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                      className="text-amber-500 flex-shrink-0">
+                      <circle cx="12" cy="12" r="10"/>
+                      <line x1="12" y1="8" x2="12" y2="12"/>
+                      <line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                    <span className="text-xs text-amber-700">
+                      Se factura como: <span className="font-semibold">{formatDesglose(desglosePreview)}</span>
+                    </span>
+                  </div>
+                )}
 
                 {err && (
                   <div className="mt-2.5 flex items-start gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg">

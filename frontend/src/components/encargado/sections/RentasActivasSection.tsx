@@ -2,26 +2,44 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { solicitudesService } from '../../../services/solicitudes.service';
 import { useActivasStore } from '../../../store/activas.store';
 import { useVencidasStore } from '../../../store/vencidas.store';
-import type { SolicitudRenta, ItemSnapshot, UnidadDuracion } from '../../../types/solicitud-renta.types';
+import type { SolicitudRenta, ItemSnapshot, UnidadDuracion, ExtensionEntry } from '../../../types/solicitud-renta.types';
 import { formatFechaHora } from '../../../types/solicitud.types';
+import AmpliacionRentaModal from '../AmpliacionRentaModal';
+import DevolucionModal from '../DevolucionModal';
 
 // ── Helpers de tiempo ─────────────────────────────────────────────────────────
 
 function calcularFin(inicio: Date, duracion: number, unidad: UnidadDuracion): Date {
+  if (unidad === 'horas')   return new Date(inicio.getTime() + duracion * 3_600_000);
   if (unidad === 'dias')    return new Date(inicio.getTime() + duracion * 86_400_000);
   if (unidad === 'semanas') return new Date(inicio.getTime() + duracion * 7  * 86_400_000);
   return new Date(inicio.getTime() + duracion * 30 * 86_400_000);
 }
 
-/** ms que quedan hasta el vencimiento (negativo si ya venció) */
-function msRestantes(inicio: Date, duracion: number, unidad: UnidadDuracion, ahora: number): number {
-  return calcularFin(inicio, duracion, unidad).getTime() - ahora;
+/** Fecha de vencimiento efectiva de un ítem, apilando todas sus extensiones. */
+function calcularFinConExtensiones(
+  inicio:      Date,
+  item:        ItemSnapshot,
+  extensiones: ExtensionEntry[],
+): Date {
+  const ref  = item.kind === 'maquinaria' ? item.equipoId : item.tipo;
+  const exts = extensiones.filter(e => e.itemRef === ref);
+  let fin = calcularFin(inicio, item.duracion, item.unidad);
+  for (const ext of exts) {
+    fin = calcularFin(fin, ext.duracion, ext.unidad);
+  }
+  return fin;
 }
 
-/** ms mínimos entre todos los ítems de una renta */
-function msMinimos(items: ItemSnapshot[], inicio: Date, ahora: number): number {
+/** ms que quedan hasta el vencimiento efectivo (negativo si ya venció) */
+function msRestantes(inicio: Date, item: ItemSnapshot, extensiones: ExtensionEntry[], ahora: number): number {
+  return calcularFinConExtensiones(inicio, item, extensiones).getTime() - ahora;
+}
+
+/** ms mínimos entre todos los ítems de una renta (considerando extensiones) */
+function msMinimos(items: ItemSnapshot[], inicio: Date, extensiones: ExtensionEntry[], ahora: number): number {
   if (items.length === 0) return Infinity;
-  return Math.min(...items.map(i => msRestantes(inicio, i.duracion, i.unidad, ahora)));
+  return Math.min(...items.map(i => msRestantes(inicio, i, extensiones, ahora)));
 }
 
 type NivelUrgencia = 'vencido' | 'critico' | 'proximo' | 'ok';
@@ -34,20 +52,49 @@ function nivelUrgencia(ms: number): NivelUrgencia {
 }
 
 /**
- * Formatea el tiempo restante:
- * - ≥ 2 días   → "Xd"
- * - < 24 h     → "Xh Ym" (cuenta regresiva)
- * - < 1 h      → "Ym"
- * - vencido    → "Vencida"
+ * Formatea el tiempo restante con dos modos:
+ *
+ * - Mismo día calendario que fechaInicio → muestra los días totales de la renta
+ *   sin fracción de horas ("5 días"). El cliente aún tiene el día completo.
+ *
+ * - A partir del día siguiente (00:00:00) → muestra días + horas restantes
+ *   ("4 días 10 h") para reflejar el avance real del tiempo.
+ *
+ * - < 24 h → "Xh Ym"
+ * - < 1 h  → "Ym"
+ * - vencido → "Vencida"
  */
-function formatTiempoRestante(ms: number): string {
+function formatTiempoRestante(ms: number, fechaInicio: Date, ahoraTs: number): string {
   if (ms <= 0) return 'Vencida';
-  const totalMin = Math.floor(ms / 60_000);
-  const horas    = Math.floor(totalMin / 60);
-  const mins     = totalMin % 60;
-  if (horas >= 24) return `${Math.floor(horas / 24)}d`;
-  if (horas === 0) return `${mins}min`;
-  return mins === 0 ? `${horas}h` : `${horas}h ${mins}min`;
+
+  const ahora = new Date(ahoraTs);
+
+  // ¿Estamos aún en el mismo día calendario en que inició la renta?
+  const mismoDia =
+    fechaInicio.getFullYear() === ahora.getFullYear() &&
+    fechaInicio.getMonth()    === ahora.getMonth()    &&
+    fechaInicio.getDate()     === ahora.getDate();
+
+  if (mismoDia) {
+    // Mostrar la duración total de la renta en días enteros
+    const totalDias = Math.round((ms + ahoraTs - fechaInicio.getTime()) / 86_400_000);
+    return `${totalDias} ${totalDias === 1 ? 'día' : 'días'}`;
+  }
+
+  // A partir del día siguiente: desglose días + horas
+  const dias  = Math.floor(ms / 86_400_000);
+  const horas = Math.floor((ms % 86_400_000) / 3_600_000);
+  const mins  = Math.floor((ms % 3_600_000)  / 60_000);
+
+  if (dias >= 1) {
+    return horas > 0
+      ? `${dias} ${dias === 1 ? 'día' : 'días'} ${horas} h`
+      : `${dias} ${dias === 1 ? 'día' : 'días'}`;
+  }
+  if (horas >= 1) {
+    return mins > 0 ? `${horas} h ${mins} min` : `${horas} h`;
+  }
+  return `${mins} min`;
 }
 
 const URGENCIA_BADGE: Record<NivelUrgencia, string> = {
@@ -64,11 +111,11 @@ const URGENCIA_BORDER: Record<NivelUrgencia, string> = {
   ok:      'border-l-indigo-400',
 };
 
-function VenceLabel({ ms }: { ms: number }) {
+function VenceLabel({ ms, fechaInicio, ahora }: { ms: number; fechaInicio: Date; ahora: number }) {
   const nivel = nivelUrgencia(ms);
   return (
     <span className={`inline-block text-[10px] font-bold px-1.5 py-0.5 rounded-md ${URGENCIA_BADGE[nivel]}`}>
-      {formatTiempoRestante(ms)}
+      {formatTiempoRestante(ms, fechaInicio, ahora)}
     </span>
   );
 }
@@ -76,12 +123,14 @@ function VenceLabel({ ms }: { ms: number }) {
 // ── Sección principal ─────────────────────────────────────────────────────────
 
 export default function RentasActivasSection() {
-  const { solicitudes, setSolicitudes } = useActivasStore();
-  const [isLoading, setIsLoading] = useState(true);
-  const [error,     setError]     = useState<string | null>(null);
-  const [abriendo,  setAbriendo]  = useState<string | null>(null);
+  const { solicitudes, setSolicitudes, updateRenta, removeRenta } = useActivasStore();
+  const [isLoading,       setIsLoading]       = useState(true);
+  const [error,           setError]           = useState<string | null>(null);
+  const [abriendo,        setAbriendo]        = useState<string | null>(null);
+  const [modalAmpliar,    setModalAmpliar]    = useState<SolicitudRenta | null>(null);
+  const [modalDevolucion, setModalDevolucion] = useState<SolicitudRenta | null>(null);
   // Tick cada minuto — provoca re-render para actualizar cuentas regresivas
-  const [ahora,     setAhora]     = useState(() => Date.now());
+  const [ahora,           setAhora]           = useState(() => Date.now());
 
   useEffect(() => {
     solicitudesService.getActivasMias()
@@ -97,9 +146,13 @@ export default function RentasActivasSection() {
 
   // Cuando el tick actualiza ahora, detecta rentas que acaban de vencer y las mueve al store de vencidas
   useEffect(() => {
-    const recienVencidas = solicitudes.filter(
-      s => s.fechaFinEstimada && new Date(s.fechaFinEstimada).getTime() < ahora,
-    );
+    const recienVencidas = solicitudes.filter(s => {
+      if (!s.fechaFinEstimada) return false;
+      const extensiones = s.extensiones ?? [];
+      const inicio      = s.fechaInicioRenta ? new Date(s.fechaInicioRenta) : new Date();
+      const ms          = msMinimos(s.items, inicio, extensiones, ahora);
+      return ms < 0;
+    });
     if (recienVencidas.length === 0) return;
     const { removeRenta }  = useActivasStore.getState();
     const { addVencida }   = useVencidasStore.getState();
@@ -118,12 +171,40 @@ export default function RentasActivasSection() {
     }
   };
 
+  const handleAmpliar = (actualizada: SolicitudRenta) => {
+    setModalAmpliar(null);
+    updateRenta(actualizada);
+  };
+
+  const handleDevolucion = (actualizada: SolicitudRenta) => {
+    if (actualizada.estado === 'DEVUELTA') {
+      removeRenta(actualizada.id);
+    } else {
+      updateRenta(actualizada);
+    }
+  };
+
   const contratosActivos    = solicitudes.length;
   const equiposEnCampo      = solicitudes.reduce((sum, s) => sum + s.items.length, 0);
   const ingresosProyectados = solicitudes.reduce((sum, s) => sum + s.totalEstimado, 0);
 
   return (
     <div>
+      {modalAmpliar && (
+        <AmpliacionRentaModal
+          solicitud={modalAmpliar}
+          onClose={() => setModalAmpliar(null)}
+          onAmpliar={handleAmpliar}
+        />
+      )}
+      {modalDevolucion && (
+        <DevolucionModal
+          solicitud={modalDevolucion}
+          onClose={() => setModalDevolucion(null)}
+          onDevolucion={handleDevolucion}
+        />
+      )}
+
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-800">Rentas Activas</h1>
         <p className="text-sm text-slate-500 mt-1">Equipos actualmente rentados por tus clientes</p>
@@ -192,6 +273,8 @@ export default function RentasActivasSection() {
               ahora={ahora}
               abriendo={abriendo === s.id}
               onVerComprobante={() => handleVerComprobante(s.id)}
+              onAmpliar={() => setModalAmpliar(s)}
+              onDevolucion={() => setModalDevolucion(s)}
             />
           ))}
         </div>
@@ -207,17 +290,31 @@ function RentaActivaCard({
   ahora,
   abriendo,
   onVerComprobante,
+  onAmpliar,
+  onDevolucion,
 }: {
   solicitud:        SolicitudRenta;
   ahora:            number;
   abriendo:         boolean;
   onVerComprobante: () => void;
+  onAmpliar:        () => void;
+  onDevolucion:     () => void;
 }) {
-  const maquinaria  = solicitud.items.filter(i => i.kind === 'maquinaria') as Extract<ItemSnapshot, { kind: 'maquinaria' }>[];
-  const granel      = solicitud.items.filter(i => i.kind === 'granel')     as Extract<ItemSnapshot, { kind: 'granel' }>[];
+  // Mostrar solo ítems pendientes (no devueltos aún en parciales previas)
+  const yaDevueltos = new Set<string>(
+    (solicitud.devolucionesParciales ?? []).flatMap(d => d.items.map(i => i.itemRef)),
+  );
+  const itemsPendientes = solicitud.items.filter(item => {
+    const ref = item.kind === 'maquinaria' ? item.equipoId : item.tipo;
+    return !yaDevueltos.has(ref);
+  });
+
+  const maquinaria  = itemsPendientes.filter(i => i.kind === 'maquinaria') as Extract<ItemSnapshot, { kind: 'maquinaria' }>[];
+  const granel      = itemsPendientes.filter(i => i.kind === 'granel')     as Extract<ItemSnapshot, { kind: 'granel' }>[];
+  const extensiones = solicitud.extensiones ?? [];
 
   const inicio = solicitud.fechaInicioRenta ? new Date(solicitud.fechaInicioRenta) : new Date();
-  const msMin  = msMinimos(solicitud.items, inicio, ahora);
+  const msMin  = msMinimos(itemsPendientes, inicio, extensiones, ahora);
   const nivel  = nivelUrgencia(msMin);
 
   return (
@@ -232,7 +329,7 @@ function RentaActivaCard({
           </span>
           {nivel !== 'ok' && (
             <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${URGENCIA_BADGE[nivel]}`}>
-              {nivel === 'vencido' ? 'Vencida' : `Vence en ${formatTiempoRestante(msMin)}`}
+              {nivel === 'vencido' ? 'Vencida' : `Vence en ${formatTiempoRestante(msMin, inicio, ahora)}`}
             </span>
           )}
           <span className="text-xs font-mono font-semibold text-slate-600">{solicitud.folio}</span>
@@ -277,8 +374,8 @@ function RentaActivaCard({
           <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Equipos rentados</p>
           <div className="space-y-2.5">
             {maquinaria.map((item, i) => {
-              const fin = calcularFin(inicio, item.duracion, item.unidad);
-              const ms  = msRestantes(inicio, item.duracion, item.unidad, ahora);
+              const fin = calcularFinConExtensiones(inicio, item, extensiones);
+              const ms  = msRestantes(inicio, item, extensiones, ahora);
               return (
                 <div key={i} className="flex items-start justify-between gap-2">
                   <p className="text-xs font-medium text-slate-700 leading-tight">
@@ -289,14 +386,14 @@ function RentaActivaCard({
                     <span className="text-[10px] text-slate-400 whitespace-nowrap">
                       Vence {formatFechaHora(fin.toISOString())}
                     </span>
-                    <VenceLabel ms={ms} />
+                    <VenceLabel ms={ms} fechaInicio={inicio} ahora={ahora} />
                   </div>
                 </div>
               );
             })}
             {granel.map((item, i) => {
-              const fin = calcularFin(inicio, item.duracion, item.unidad);
-              const ms  = msRestantes(inicio, item.duracion, item.unidad, ahora);
+              const fin = calcularFinConExtensiones(inicio, item, extensiones);
+              const ms  = msRestantes(inicio, item, extensiones, ahora);
               return (
                 <div key={i} className="flex items-start justify-between gap-2">
                   <p className="text-xs font-medium text-slate-700 leading-tight">
@@ -308,7 +405,7 @@ function RentaActivaCard({
                     <span className="text-[10px] text-slate-400 whitespace-nowrap">
                       Vence {formatFechaHora(fin.toISOString())}
                     </span>
-                    <VenceLabel ms={ms} />
+                    <VenceLabel ms={ms} fechaInicio={inicio} ahora={ahora} />
                   </div>
                 </div>
               );
@@ -347,9 +444,8 @@ function RentaActivaCard({
         {/* Acciones primarias (derecha) */}
         <div className="flex items-center gap-2">
           <button
-            disabled
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-200 bg-white hover:bg-indigo-50 text-xs font-semibold text-indigo-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            title="Próximamente"
+            onClick={onAmpliar}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-200 bg-white hover:bg-indigo-50 text-xs font-semibold text-indigo-600 transition-colors"
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
@@ -362,9 +458,8 @@ function RentaActivaCard({
             Ampliar renta
           </button>
           <button
-            disabled
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            title="Próximamente"
+            onClick={onDevolucion}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-white transition-colors"
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <polyline points="9 14 4 9 9 4"/>

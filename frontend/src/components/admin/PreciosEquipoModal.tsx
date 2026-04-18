@@ -13,19 +13,23 @@ interface PreciosEquipoModalProps {
 }
 
 interface FormState {
+  rentaHora:   string;
   rentaDia:    string;
   rentaSemana: string;
   rentaMes:    string;
 }
 
 export default function PreciosEquipoModal({ equipo, open, onClose, onSave }: PreciosEquipoModalProps) {
-  const [form, setForm]         = useState<FormState>({ rentaDia: '', rentaSemana: '', rentaMes: '' });
+  const [form, setForm]         = useState<FormState>({ rentaHora: '', rentaDia: '', rentaSemana: '', rentaMes: '' });
   const [isSaving, setIsSaving] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+
+  const esPesada = equipo?.tipo.nombre === 'PESADA';
 
   useEffect(() => {
     if (equipo) {
       setForm({
+        rentaHora:   equipo.rentaHora   != null ? equipo.rentaHora.toString()   : '',
         rentaDia:    equipo.rentaDia    != null ? equipo.rentaDia.toString()    : '',
         rentaSemana: equipo.rentaSemana != null ? equipo.rentaSemana.toString() : '',
         rentaMes:    equipo.rentaMes    != null ? equipo.rentaMes.toString()    : '',
@@ -47,10 +51,12 @@ export default function PreciosEquipoModal({ equipo, open, onClose, onSave }: Pr
   };
 
   const handleSave = async () => {
+    const hora   = form.rentaHora   ? parseFloat(form.rentaHora)   : undefined;
     const dia    = form.rentaDia    ? parseFloat(form.rentaDia)    : undefined;
     const semana = form.rentaSemana ? parseFloat(form.rentaSemana) : undefined;
     const mes    = form.rentaMes    ? parseFloat(form.rentaMes)    : undefined;
 
+    if (hora   != null && (isNaN(hora)   || hora   < 0)) { setApiError('El precio por hora no es válido.'); return; }
     if (dia    != null && (isNaN(dia)    || dia    < 0)) { setApiError('El precio por día no es válido.'); return; }
     if (semana != null && (isNaN(semana) || semana < 0)) { setApiError('El precio por semana no es válido.'); return; }
     if (mes    != null && (isNaN(mes)    || mes    < 0)) { setApiError('El precio por mes no es válido.'); return; }
@@ -60,6 +66,7 @@ export default function PreciosEquipoModal({ equipo, open, onClose, onSave }: Pr
 
     try {
       const updated = await equiposService.update(equipo.id, {
+        rentaHora:   hora,
         rentaDia:    dia,
         rentaSemana: semana,
         rentaMes:    mes,
@@ -106,28 +113,51 @@ export default function PreciosEquipoModal({ equipo, open, onClose, onSave }: Pr
         <div className="px-6 py-5 space-y-4">
           <p className="text-[11px] text-slate-400">Deja vacío el campo si la tarifa no aplica para este equipo.</p>
 
-          {([
-            { field: 'rentaDia'    as const, label: 'Precio por día',    placeholder: '0.00' },
-            { field: 'rentaSemana' as const, label: 'Precio por semana', placeholder: '0.00' },
-            { field: 'rentaMes'    as const, label: 'Precio por mes',    placeholder: '0.00' },
-          ]).map(({ field, label, placeholder }) => (
-            <div key={field}>
-              <label className={labelCls}>{label}</label>
+          {esPesada ? (
+            // Maquinaria pesada: solo tarifa por hora
+            <div>
+              <label className={labelCls}>Precio por hora</label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 font-mono select-none">Q</span>
                 <input
                   type="number"
-                  value={form[field]}
-                  onChange={handleChange(field)}
+                  value={form.rentaHora}
+                  onChange={handleChange('rentaHora')}
                   disabled={isSaving}
                   min="0"
                   step="0.01"
-                  placeholder={placeholder}
+                  placeholder="0.00"
                   className={`${inputCls} pl-7`}
                 />
               </div>
             </div>
-          ))}
+          ) : (
+            // Maquinaria liviana: día / semana / mes
+            <>
+              {([
+                { field: 'rentaDia'    as const, label: 'Precio por día'    },
+                { field: 'rentaSemana' as const, label: 'Precio por semana' },
+                { field: 'rentaMes'    as const, label: 'Precio por mes'    },
+              ]).map(({ field, label }) => (
+                <div key={field}>
+                  <label className={labelCls}>{label}</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 font-mono select-none">Q</span>
+                    <input
+                      type="number"
+                      value={form[field]}
+                      onChange={handleChange(field)}
+                      disabled={isSaving}
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      className={`${inputCls} pl-7`}
+                    />
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
 
           {apiError && (
             <div className="flex items-start gap-2.5 px-3.5 py-3 bg-red-50 border border-red-200 rounded-lg">

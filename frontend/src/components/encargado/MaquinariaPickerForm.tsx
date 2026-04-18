@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import type { Equipo } from '../../types/equipo.types';
 import type { UnidadDuracion, ItemMaquinaria } from '../../types/solicitud.types';
-import { getRentaRate } from '../../types/solicitud.types';
+import { getRentaRate, descomponerDuracion, formatDesglose, esAdaptado } from '../../types/solicitud.types';
 
 interface Props {
   equiposDisponibles: Equipo[];   // ya filtrados: liviana + activos + no en carrito
@@ -59,11 +59,14 @@ export default function MaquinariaPickerForm({ equiposDisponibles, isLoading, on
     const dur = parseInt(duracion);
     if (!dur || dur < 1) { setError('La duración debe ser al menos 1.'); return; }
 
-    // Verificar que existe precio para la unidad elegida (null = no configurado, distinto de 0)
-    const rate = getRentaRate(unidad, seleccionado.rentaDia, seleccionado.rentaSemana, seleccionado.rentaMes);
-    if (rate === null) {
-      const u = unidad === 'dias' ? 'día' : unidad === 'semanas' ? 'semana' : 'mes';
-      setError(`Este equipo no tiene precio configurado para renta por ${u}.`);
+    // Verificar que existen las tarifas requeridas por el desglose adaptativo
+    const decomp = descomponerDuracion(fechaInicio, dur, unidad);
+    const faltantes: string[] = [];
+    if (decomp.meses   > 0 && seleccionado.rentaMes    === null) faltantes.push('mes');
+    if (decomp.semanas > 0 && seleccionado.rentaSemana  === null) faltantes.push('semana');
+    if (decomp.dias    > 0 && seleccionado.rentaDia     === null) faltantes.push('día');
+    if (faltantes.length > 0) {
+      setError(`Este equipo no tiene precio configurado para renta por ${faltantes.join(', ')}.`);
       return;
     }
 
@@ -73,6 +76,13 @@ export default function MaquinariaPickerForm({ equiposDisponibles, isLoading, on
     setUnidad('dias');
     setError(null);
   };
+
+  const desglosePreview = useMemo(() => {
+    const dur = parseInt(duracion);
+    if (!dur || dur < 1 || !seleccionado) return null;
+    const decomp = descomponerDuracion(fechaInicio, dur, unidad);
+    return esAdaptado(unidad, decomp) ? decomp : null;
+  }, [duracion, unidad, fechaInicio, seleccionado]);
 
   return (
     <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
@@ -180,6 +190,20 @@ export default function MaquinariaPickerForm({ equiposDisponibles, isLoading, on
           Agregar
         </button>
       </div>
+
+      {desglosePreview && (
+        <div className="mt-2.5 flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-lg">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+            className="text-amber-500 flex-shrink-0">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <span className="text-xs text-amber-700">
+            Se factura como: <span className="font-semibold">{formatDesglose(desglosePreview)}</span>
+          </span>
+        </div>
+      )}
 
       {error && (
         <div className="mt-2.5 flex items-start gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg">

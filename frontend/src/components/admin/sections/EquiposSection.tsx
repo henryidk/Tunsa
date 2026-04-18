@@ -287,7 +287,9 @@ export default function EquiposSection({ onShowToast = () => {}, canEdit = true 
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50">
-                {['No.', 'Equipo', 'Series', 'Tipo', 'Monto compra', 'Renta / día', 'Fecha compra', 'Acciones'].map(h => (
+                {['No.', 'Equipo', 'Series', 'Tipo', 'Monto compra',
+                  filtroTipo === 'PESADA' ? 'Renta / hora' : filtroTipo === 'USO_PROPIO' ? 'Renta' : 'Renta ref.',
+                  'Fecha compra', 'Acciones'].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">
                     {h}
                   </th>
@@ -359,9 +361,19 @@ export default function EquiposSection({ onShowToast = () => {}, canEdit = true 
                     {formatMoneda(e.montoCompra)}
                   </td>
 
-                  {/* Renta / día */}
-                  <td className="px-4 py-3 font-mono text-xs text-indigo-600 whitespace-nowrap">
-                    {e.rentaDia != null ? `Q${e.rentaDia.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : <span className="text-slate-300">—</span>}
+                  {/* Renta — valor y sufijo según tipo del equipo */}
+                  <td className="px-4 py-3 font-mono text-xs whitespace-nowrap">
+                    {e.tipo.nombre === 'PESADA' ? (
+                      e.rentaHora != null
+                        ? <><span className="text-indigo-600">Q{e.rentaHora.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span><span className="text-slate-400 font-sans">/hr</span></>
+                        : <span className="text-slate-300">—</span>
+                    ) : e.tipo.nombre === 'USO_PROPIO' ? (
+                      <span className="text-slate-300">—</span>
+                    ) : (
+                      e.rentaDia != null
+                        ? <><span className="text-indigo-600">Q{e.rentaDia.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>{!filtroTipo && <span className="text-slate-400 font-sans">/día</span>}</>
+                        : <span className="text-slate-300">—</span>
+                    )}
                   </td>
 
                   {/* Fecha compra */}

@@ -30,6 +30,7 @@ export interface Equipo {
   categoriaId: string | null;
   categoria:   Categoria | null;
 
+  rentaHora:   number | null;
   rentaDia:    number | null;
   rentaSemana: number | null;
   rentaMes:    number | null;

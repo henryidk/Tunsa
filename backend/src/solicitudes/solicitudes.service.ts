@@ -3,15 +3,38 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { R2Service } from '../r2/r2.service';
 import { CreateSolicitudDto } from './dto/create-solicitud.dto';
-import { calcularFechaFinEstimada, calcularRecargoTotal } from './recargo.util';
+import { AmpliacionRentaDto } from './dto/ampliar-renta.dto';
+import { RegistrarDevolucionDto } from './dto/registrar-devolucion.dto';
+import {
+  ExtensionEntry,
+  DevolucionEntry,
+  DevolucionItemEntry,
+  CargoAdicional,
+  calcularFechaFinEstimada,
+  calcularFechaFinEstimadaConExtensiones,
+  calcularRecargoTotalConExtensiones,
+  calcularFinItemConExtensiones,
+  calcularRecargoItem,
+  calcularCostoAdaptativo,
+  calcularDevolucionItem,
+} from './recargo.util';
 
 type SolicitudConCliente = Prisma.SolicitudGetPayload<{ include: { cliente: true } }>;
 
 // Shape mínima de un item para extraer equipoId sin asumir tipos extras
 interface ItemConKind { kind: string; equipoId?: string }
 
-// Shape mínima de un item para cálculos de tiempo y recargo
-interface ItemParaCalculo { duracion: number; unidad: string; tarifa: number | null }
+// Shape mínima de un item del snapshot para cálculos de tiempo y recargo
+interface ItemParaCalculo {
+  kind:      string;
+  duracion:  number;
+  unidad:    string;
+  tarifa:    number | null;
+  equipoId?: string;
+  tipo?:     string;
+  conMadera?: boolean;
+  cantidad?:  number;
+}
 
 export interface RechazadasPage {
   data:       ReturnType<SolicitudesService['serialize']>[];
@@ -48,14 +71,20 @@ export class SolicitudesService {
   async getEquiposReservados(): Promise<string[]> {
     const activas = await this.prisma.solicitud.findMany({
       where:  { estado: { in: ['PENDIENTE', 'APROBADA', 'ACTIVA'] } },
-      select: { items: true },
+      select: { items: true, devolucionesParciales: true },
     });
 
     const reservados = new Set<string>();
     for (const s of activas) {
+      // Construir el set de itemRefs ya devueltos en devoluciones parciales
+      const devoluciones = (s.devolucionesParciales as unknown as DevolucionEntry[]) ?? [];
+      const yaDevueltos  = new Set<string>(
+        devoluciones.flatMap(d => d.items.map(i => i.itemRef)),
+      );
+
       const items = s.items as unknown as ItemConKind[];
       for (const item of items) {
-        if (item.kind === 'maquinaria' && item.equipoId) {
+        if (item.kind === 'maquinaria' && item.equipoId && !yaDevueltos.has(item.equipoId)) {
           reservados.add(item.equipoId);
         }
       }
@@ -211,34 +240,345 @@ export class SolicitudesService {
   }
 
   /**
-   * Registra la devolución de una renta vencida.
-   * Calcula el recargo según los días de atraso y cierra la renta (DEVUELTA).
-   * Solo el encargado que creó la solicitud puede registrar la devolución.
+   * Registra la devolución de una renta (activa o vencida), parcial o completa.
+   *
+   * Lógica:
+   *  - Si dto.itemRefs está vacío, se devuelven todos los ítems pendientes (devolución completa).
+   *  - Para cada ítem devuelto se calcula el costo real con precios actuales de DB usando
+   *    la lógica adaptive (meses + semanas + días sobre días reales usados).
+   *  - El cargo por atraso se aplica solo a los ítems cuya fecha efectiva ya pasó.
+   *  - Si quedan ítems pendientes tras la devolución, la solicitud permanece ACTIVA y
+   *    se recalcula fechaFinEstimada para los ítems restantes.
+   *  - Si todos los ítems fueron devueltos, la solicitud pasa a DEVUELTA y se fija totalFinal.
+   *  - El PDF de liquidación se sube en un paso separado (PATCH :id/liquidacion).
    */
-  async registrarDevolucion(id: string, username: string) {
+  async registrarDevolucion(id: string, dto: RegistrarDevolucionDto, username: string) {
     const solicitud = await this.prisma.solicitud.findUnique({ where: { id } });
 
-    if (!solicitud) throw new NotFoundException('Solicitud no encontrada.');
+    if (!solicitud)
+      throw new NotFoundException('Solicitud no encontrada.');
     if (solicitud.creadaPor !== username)
       throw new ForbiddenException('Solo el encargado que creó la solicitud puede registrar la devolución.');
     if (solicitud.estado !== 'ACTIVA')
-      throw new ConflictException('Solo se puede registrar la devolución de rentas activas o vencidas.');
+      throw new ConflictException('Solo se puede registrar la devolución de rentas activas.');
     if (!solicitud.fechaInicioRenta)
       throw new ConflictException('La solicitud no tiene fecha de inicio registrada.');
 
-    const fechaDevolucion = new Date();
-    const items = solicitud.items as unknown as ItemParaCalculo[];
-    const recargo = calcularRecargoTotal(items, solicitud.fechaInicioRenta, fechaDevolucion);
+    const fechaDevolucion   = new Date();
+    const fechaInicio       = solicitud.fechaInicioRenta;
+    const snapshotItems     = solicitud.items       as unknown as ItemParaCalculo[];
+    const extensiones       = (solicitud.extensiones ?? []) as unknown as ExtensionEntry[];
+    const devolucionesViejas = (solicitud.devolucionesParciales ?? []) as unknown as DevolucionEntry[];
+
+    // ── Determinar ítems ya devueltos y ítems pendientes ──────────────────────
+    const yaDevueltosRefs = new Set<string>(
+      devolucionesViejas.flatMap(d => d.items.map(i => i.itemRef)),
+    );
+    const itemsPendientes = snapshotItems.filter(item => {
+      const ref = item.equipoId ?? item.tipo ?? '';
+      return !yaDevueltosRefs.has(ref);
+    });
+
+    if (itemsPendientes.length === 0)
+      throw new ConflictException('Todos los ítems de esta solicitud ya fueron devueltos.');
+
+    // ── Determinar ítems a devolver en esta operación ─────────────────────────
+    const refsADevolver = dto.itemRefs && dto.itemRefs.length > 0
+      ? new Set(dto.itemRefs)
+      : new Set(itemsPendientes.map(i => i.equipoId ?? i.tipo ?? ''));
+
+    const itemsADevolver = itemsPendientes.filter(i => refsADevolver.has(i.equipoId ?? i.tipo ?? ''));
+
+    if (itemsADevolver.length === 0)
+      throw new BadRequestException('Ninguno de los ítems indicados está pendiente de devolución.');
+
+    const toNum = (v: unknown): number | null =>
+      v != null ? parseFloat(String(v)) : null;
+
+    // ── Calcular costo y recargo por ítem ─────────────────────────────────────
+    const devolucionItems: DevolucionItemEntry[] = [];
+
+    for (const item of itemsADevolver) {
+      const itemRef  = item.equipoId ?? item.tipo ?? '';
+      const extsItem = extensiones.filter(e => e.itemRef === itemRef);
+      const finEfectivo = calcularFinItemConExtensiones(fechaInicio, item, extsItem);
+
+      // Recargo por atraso (aplica cuando la fecha efectiva ya pasó)
+      const recargoTiempo = item.tarifa != null
+        ? calcularRecargoItem(item.tarifa, finEfectivo, fechaDevolucion)
+        : 0;
+
+      // Costo real basado en días reales de uso con precios actuales de DB
+      let costoReal = 0;
+
+      if (item.kind === 'maquinaria' && item.equipoId) {
+        const equipo = await this.prisma.equipo.findUnique({ where: { id: item.equipoId } });
+        if (equipo) {
+          const precios = {
+            dia:    toNum(equipo.rentaDia),
+            semana: toNum(equipo.rentaSemana),
+            mes:    toNum(equipo.rentaMes),
+          };
+          ({ costoReal } = calcularDevolucionItem(fechaInicio, fechaDevolucion, precios));
+        }
+      } else if (item.kind === 'granel' && item.tipo) {
+        const config = await this.prisma.configGranel.findUnique({
+          where: { tipo: item.tipo as any },
+        });
+        if (config) {
+          const conMadera = item.conMadera ?? false;
+          const cantidad  = item.cantidad  ?? 1;
+          const precios   = conMadera
+            ? { dia: toNum(config.rentaDiaConMadera), semana: toNum(config.rentaSemanaConMadera), mes: toNum(config.rentaMesConMadera) }
+            : { dia: toNum(config.rentaDia),          semana: toNum(config.rentaSemana),          mes: toNum(config.rentaMes)          };
+          ({ costoReal } = calcularDevolucionItem(fechaInicio, fechaDevolucion, precios, cantidad));
+        }
+      }
+
+      devolucionItems.push({ itemRef, kind: item.kind as 'maquinaria' | 'granel', diasCobrados: 0, costoReal, recargoTiempo });
+    }
+
+    // diasCobrados es uniforme (todos los ítems comparten fechaInicio y fechaDevolucion)
+    const rentedMs      = fechaDevolucion.getTime() - fechaInicio.getTime();
+    const diasCompletos = Math.floor(rentedMs / 86_400_000);
+    const excesoMs      = rentedMs - diasCompletos * 86_400_000;
+    const diasCobrados  = Math.max(excesoMs <= 3_600_000 ? diasCompletos : diasCompletos + 1, 1);
+    devolucionItems.forEach(i => { i.diasCobrados = diasCobrados; });
+
+    // ── Construir entrada de devolución ───────────────────────────────────────
+    const recargosAdicionales: CargoAdicional[] = (dto.recargosAdicionales ?? []).map(c => ({
+      descripcion: c.descripcion,
+      monto:       c.monto,
+    }));
+
+    const subtotalItems    = devolucionItems.reduce((s, i) => s + i.costoReal,     0);
+    const subtotalRecargos = devolucionItems.reduce((s, i) => s + i.recargoTiempo, 0);
+    const subtotalAdicionales = recargosAdicionales.reduce((s, c) => s + c.monto, 0);
+    const totalLote        = subtotalItems + subtotalRecargos + subtotalAdicionales;
+
+    const tipoDevolucion: 'A_TIEMPO' | 'TARDIA' =
+      devolucionItems.some(i => i.recargoTiempo > 0) ? 'TARDIA' : 'A_TIEMPO';
+
+    const esParcial = itemsADevolver.length < itemsPendientes.length;
+
+    const nuevaEntrada: DevolucionEntry = {
+      fechaDevolucion:     fechaDevolucion.toISOString(),
+      registradoPor:       username,
+      esParcial,
+      tipoDevolucion,
+      items:               devolucionItems,
+      recargosAdicionales,
+      totalLote,
+      liquidacionKey:      null,
+    };
+
+    const todasLasDevoluciones = [...devolucionesViejas, nuevaEntrada];
+    const devolucionCompleta   = !esParcial;
+
+    // ── Persistir en transacción ──────────────────────────────────────────────
+    const updateData: Prisma.SolicitudUpdateInput = {
+      devolucionesParciales: todasLasDevoluciones as object[],
+    };
+
+    if (devolucionCompleta) {
+      const totalFinal    = todasLasDevoluciones.reduce((s, d) => s + d.totalLote, 0);
+      const recargoTotal  = todasLasDevoluciones.reduce(
+        (s, d) => s + d.items.reduce((si, i) => si + i.recargoTiempo, 0), 0,
+      );
+      updateData.estado          = 'DEVUELTA';
+      updateData.fechaDevolucion = fechaDevolucion;
+      updateData.recargoTotal    = recargoTotal;
+      updateData.totalFinal      = totalFinal;
+    } else {
+      // Recalcular fechaFinEstimada para los ítems que quedan pendientes
+      const refsDevueltosAhora = new Set([...yaDevueltosRefs, ...devolucionItems.map(i => i.itemRef)]);
+      const itemsRestantes     = snapshotItems.filter(i => !refsDevueltosAhora.has(i.equipoId ?? i.tipo ?? ''));
+      const nuevaFechaFin      = calcularFechaFinEstimadaConExtensiones(fechaInicio, itemsRestantes, extensiones);
+      updateData.fechaFinEstimada = nuevaFechaFin;
+    }
 
     const actualizada = await this.prisma.solicitud.update({
       where:   { id },
-      data:    {
-        estado:          'DEVUELTA',
-        fechaDevolucion,
-        recargoTotal:    recargo,
+      data:    updateData,
+      include: { cliente: true },
+    });
+
+    return this.serialize(actualizada);
+  }
+
+  /**
+   * Recibe el PDF de liquidación generado en el frontend, lo sube a R2 y actualiza
+   * la `liquidacionKey` de la última entrada en `devolucionesParciales`.
+   * Devuelve la URL firmada temporal del documento.
+   */
+  async subirLiquidacion(
+    id:       string,
+    buffer:   Buffer,
+    mimetype: string,
+    username: string,
+  ): Promise<{ url: string }> {
+    const solicitud = await this.prisma.solicitud.findUnique({ where: { id } });
+
+    if (!solicitud)
+      throw new NotFoundException('Solicitud no encontrada.');
+    if (solicitud.creadaPor !== username)
+      throw new ForbiddenException('Solo el encargado que creó la solicitud puede subir la liquidación.');
+
+    const devoluciones = (solicitud.devolucionesParciales as unknown as DevolucionEntry[]) ?? [];
+    if (devoluciones.length === 0)
+      throw new ConflictException('No hay devolución registrada para esta solicitud.');
+
+    this.validatePdfBuffer(buffer);
+
+    const loteIndex = devoluciones.length; // 1-based para el nombre del archivo
+    const key       = `clientes/${solicitud.clienteId}/liquidaciones/${solicitud.folio ?? solicitud.id}-${loteIndex}.pdf`;
+    await this.r2.uploadFile(key, buffer, mimetype);
+
+    // Actualizar la última entrada con la key del PDF
+    devoluciones[devoluciones.length - 1].liquidacionKey = key;
+
+    await this.prisma.solicitud.update({
+      where: { id },
+      data:  { devolucionesParciales: devoluciones as object[] },
+    });
+
+    const url = await this.r2.getPresignedUrl(key);
+    return { url };
+  }
+
+  /**
+   * Amplía una o más ítems de una renta activa.
+   *
+   * Reglas:
+   *  - Solo el encargado que creó la solicitud puede ampliarla.
+   *  - La solicitud debe estar en estado ACTIVA.
+   *  - Cada ítem se identifica por `itemRef` (equipoId para maquinaria, tipo para granel).
+   *  - El costo de la extensión se calcula con precios ACTUALES del equipo/granel.
+   *  - El JSON original de `items` queda inmutable; las extensiones se acumulan en `extensiones`.
+   *  - `totalEstimado` se incrementa en el costo total de todas las extensiones.
+   *  - `fechaFinEstimada` se recalcula como el mínimo de todas las fechas de vencimiento efectivas.
+   *  - Para rentas vencidas: la extensión empieza desde la `fechaFinEstimada` actual,
+   *    lo que puede mover la renta de nuevo a "activa" si la nueva fecha queda en el futuro.
+   */
+  async ampliar(id: string, dto: AmpliacionRentaDto, username: string) {
+    const solicitud = await this.prisma.solicitud.findUnique({ where: { id } });
+
+    if (!solicitud)
+      throw new NotFoundException('Solicitud no encontrada.');
+    if (solicitud.creadaPor !== username)
+      throw new ForbiddenException('Solo el encargado que creó la solicitud puede ampliarla.');
+    if (solicitud.estado !== 'ACTIVA')
+      throw new ConflictException('Solo se pueden ampliar rentas activas.');
+    if (!solicitud.fechaInicioRenta)
+      throw new ConflictException('La solicitud no tiene fecha de inicio registrada.');
+
+    const fechaInicio   = solicitud.fechaInicioRenta;
+    const snapshotItems = solicitud.items as unknown as ItemParaCalculo[];
+    const extensionesActuales = (solicitud.extensiones ?? []) as unknown as ExtensionEntry[];
+
+    const nuevasExtensiones: ExtensionEntry[] = [];
+    let   costoTotalExtra = 0;
+
+    for (const extDto of dto.items) {
+      // Buscar el ítem correspondiente en el snapshot
+      const snapItem = snapshotItems.find(i =>
+        extDto.kind === 'maquinaria'
+          ? i.kind === 'maquinaria' && i.equipoId === extDto.itemRef
+          : i.kind === 'granel'    && i.tipo     === extDto.itemRef,
+      );
+
+      if (!snapItem) {
+        throw new BadRequestException(
+          `Ítem "${extDto.itemRef}" no encontrado en la solicitud.`,
+        );
+      }
+
+      // Calcular la fecha de inicio de esta extensión = fin efectivo del ítem (incluyendo extensiones previas)
+      const extsPrevias = extensionesActuales.filter(e => e.itemRef === extDto.itemRef);
+      const fechaInicioExt = calcularFinItemConExtensiones(fechaInicio, snapItem, extsPrevias);
+
+      // Obtener precios actuales y calcular costo adaptativo
+      let costoExtra = 0;
+
+      if (extDto.kind === 'maquinaria') {
+        const equipo = await this.prisma.equipo.findUnique({
+          where: { id: extDto.itemRef },
+        });
+        if (!equipo) throw new BadRequestException(`Equipo "${extDto.itemRef}" no encontrado.`);
+
+        const toNum = (v: unknown): number | null =>
+          v != null ? parseFloat(String(v)) : null;
+
+        costoExtra = calcularCostoAdaptativo(
+          fechaInicioExt,
+          extDto.duracion,
+          extDto.unidad,
+          {
+            dia:    toNum(equipo.rentaDia),
+            semana: toNum(equipo.rentaSemana),
+            mes:    toNum(equipo.rentaMes),
+          },
+        );
+      } else {
+        // granel
+        const config = await this.prisma.configGranel.findUnique({
+          where: { tipo: extDto.itemRef as any },
+        });
+        if (!config) throw new BadRequestException(`Configuración de granel "${extDto.itemRef}" no encontrada.`);
+
+        const toNum = (v: unknown): number | null =>
+          v != null ? parseFloat(String(v)) : null;
+
+        const conMadera = snapItem.conMadera ?? false;
+        const cantidad  = snapItem.cantidad  ?? 1;
+        const precios   = conMadera
+          ? { dia: toNum(config.rentaDiaConMadera), semana: toNum(config.rentaSemanaConMadera), mes: toNum(config.rentaMesConMadera) }
+          : { dia: toNum(config.rentaDia),          semana: toNum(config.rentaSemana),          mes: toNum(config.rentaMes)          };
+
+        costoExtra = calcularCostoAdaptativo(
+          fechaInicioExt, extDto.duracion, extDto.unidad, precios, cantidad,
+        );
+      }
+
+      costoTotalExtra += costoExtra;
+
+      nuevasExtensiones.push({
+        itemRef:        extDto.itemRef,
+        kind:           extDto.kind as 'maquinaria' | 'granel',
+        duracion:       extDto.duracion,
+        unidad:         extDto.unidad,
+        costoExtra,
+        fechaExtension: new Date().toISOString(),
+      });
+    }
+
+    // Calcular nueva fechaFinEstimada con todas las extensiones (anteriores + nuevas)
+    const todasLasExtensiones = [...extensionesActuales, ...nuevasExtensiones];
+    const itemsParaFin = snapshotItems.map(i => ({
+      duracion:  i.duracion,
+      unidad:    i.unidad,
+      equipoId:  i.equipoId,
+      tipo:      i.tipo,
+    }));
+    const nuevaFechaFin = (() => {
+      const fins = itemsParaFin.map(item => {
+        const itemRef  = item.equipoId ?? item.tipo ?? '';
+        const extsItem = todasLasExtensiones.filter(e => e.itemRef === itemRef);
+        return calcularFinItemConExtensiones(fechaInicio, item, extsItem).getTime();
+      });
+      return new Date(Math.min(...fins));
+    })();
+
+    const actualizada = await this.prisma.solicitud.update({
+      where: { id },
+      data:  {
+        extensiones:      todasLasExtensiones as object[],
+        totalEstimado:    { increment: costoTotalExtra },
+        fechaFinEstimada: nuevaFechaFin,
       },
       include: { cliente: true },
     });
+
     return this.serialize(actualizada);
   }
 
@@ -420,8 +760,11 @@ export class SolicitudesService {
   serialize(s: SolicitudConCliente) {
     return {
       ...s,
-      totalEstimado: parseFloat(s.totalEstimado.toString()),
-      recargoTotal:  s.recargoTotal != null ? parseFloat(s.recargoTotal.toString()) : null,
+      totalEstimado:        parseFloat(s.totalEstimado.toString()),
+      recargoTotal:         s.recargoTotal  != null ? parseFloat(s.recargoTotal.toString())  : null,
+      totalFinal:           s.totalFinal    != null ? parseFloat((s.totalFinal as any).toString()) : null,
+      extensiones:          (s.extensiones          ?? null) as ExtensionEntry[]   | null,
+      devolucionesParciales:(s.devolucionesParciales ?? null) as DevolucionEntry[] | null,
     };
   }
 }

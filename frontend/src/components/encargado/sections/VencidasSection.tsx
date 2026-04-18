@@ -1,8 +1,12 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { solicitudesService } from '../../../services/solicitudes.service';
 import { useVencidasStore } from '../../../store/vencidas.store';
-import type { SolicitudRenta, ItemSnapshot, UnidadDuracion } from '../../../types/solicitud-renta.types';
+import { useActivasStore } from '../../../store/activas.store';
+import type { SolicitudRenta, ItemSnapshot, UnidadDuracion, ExtensionEntry } from '../../../types/solicitud-renta.types';
 import { formatFechaHora } from '../../../types/solicitud.types';
+import AmpliacionRentaModal from '../AmpliacionRentaModal';
+import TiempoGraciaModal    from '../TiempoGraciaModal';
+import DevolucionModal      from '../DevolucionModal';
 
 // ── Constantes de negocio ─────────────────────────────────────────────────────
 
@@ -12,13 +16,29 @@ const DAY_MS     = 86_400_000;
 // ── Helpers de tiempo y recargo ───────────────────────────────────────────────
 
 function calcularFin(inicio: Date, duracion: number, unidad: UnidadDuracion): Date {
+  if (unidad === 'horas')   return new Date(inicio.getTime() + duracion * 3_600_000);
   if (unidad === 'dias')    return new Date(inicio.getTime() + duracion * DAY_MS);
   if (unidad === 'semanas') return new Date(inicio.getTime() + duracion * 7 * DAY_MS);
   return new Date(inicio.getTime() + duracion * 30 * DAY_MS);
 }
 
-function calcularFinEstimado(items: ItemSnapshot[], inicio: Date): Date {
-  const fins = items.map(i => calcularFin(inicio, i.duracion, i.unidad).getTime());
+/** Fecha de vencimiento efectiva de un ítem, apilando todas sus extensiones. */
+function calcularFinConExtensiones(
+  inicio:      Date,
+  item:        ItemSnapshot,
+  extensiones: ExtensionEntry[],
+): Date {
+  const ref  = item.kind === 'maquinaria' ? item.equipoId : item.tipo;
+  const exts = extensiones.filter(e => e.itemRef === ref);
+  let fin = calcularFin(inicio, item.duracion, item.unidad);
+  for (const ext of exts) {
+    fin = calcularFin(fin, ext.duracion, ext.unidad);
+  }
+  return fin;
+}
+
+function calcularFinEstimado(items: ItemSnapshot[], inicio: Date, extensiones: ExtensionEntry[]): Date {
+  const fins = items.map(i => calcularFinConExtensiones(inicio, i, extensiones).getTime());
   return new Date(Math.min(...fins));
 }
 
@@ -29,12 +49,12 @@ function calcularRecargoItem(tarifa: number, finItem: Date, ahora: number): numb
   return Math.ceil(excesoMs / DAY_MS) * tarifa;
 }
 
-/** Recargo total proyectado al momento actual, sumando todos los ítems con tarifa. */
-function calcularRecargoActual(items: ItemSnapshot[], inicio: Date, ahora: number): number {
+/** Recargo total proyectado al momento actual, sumando todos los ítems con tarifa (con extensiones). */
+function calcularRecargoActual(items: ItemSnapshot[], inicio: Date, ahora: number, extensiones: ExtensionEntry[]): number {
   return items.reduce((suma, item) => {
     const tarifa = (item as { tarifa?: number | null }).tarifa ?? null;
     if (tarifa === null) return suma;
-    const fin = calcularFin(inicio, item.duracion, item.unidad);
+    const fin = calcularFinConExtensiones(inicio, item, extensiones);
     return suma + calcularRecargoItem(tarifa, fin, ahora);
   }, 0);
 }
@@ -63,9 +83,10 @@ function proximoCambioRecargo(vencimiento: Date, ahora: number): number {
 function proximoCambioGlobal(solicitudes: SolicitudRenta[], ahora: number): number {
   return solicitudes.reduce((min, s) => {
     const inicio      = s.fechaInicioRenta ? new Date(s.fechaInicioRenta) : new Date();
+    const extensiones = s.extensiones ?? [];
     const vencimiento = s.fechaFinEstimada
       ? new Date(s.fechaFinEstimada)
-      : calcularFinEstimado(s.items, inicio);
+      : calcularFinEstimado(s.items, inicio, extensiones);
     return Math.min(min, proximoCambioRecargo(vencimiento, ahora));
   }, Infinity);
 }
@@ -79,16 +100,21 @@ function formatAtraso(ms: number): string {
   return `${dias}d ${horas % 24}h`;
 }
 
+
 // ── Sección principal ─────────────────────────────────────────────────────────
 
 export default function VencidasSection() {
-  const { solicitudes, setSolicitudes, removeRenta } = useVencidasStore();
-  const [isLoading,   setIsLoading]   = useState(true);
-  const [error,       setError]       = useState<string | null>(null);
-  const [ahora,       setAhora]       = useState(() => Date.now());
-  const [confirmando, setConfirmando] = useState<string | null>(null);
-  const [procesando,  setProcesando]  = useState<string | null>(null);
-  const [abriendo,    setAbriendo]    = useState<string | null>(null);
+  const { solicitudes, setSolicitudes, removeRenta, updateRenta } = useVencidasStore();
+  const [isLoading,       setIsLoading]       = useState(true);
+  const [error,           setError]           = useState<string | null>(null);
+  // ahora       → tick de 60s, mantiene el display de atraso actualizado minuto a minuto
+  // ahoraRecargo → tick inteligente, solo despierta cuando cambia el monto del recargo
+  const [ahora,           setAhora]           = useState(() => Date.now());
+  const [ahoraRecargo,    setAhoraRecargo]    = useState(() => Date.now());
+  const [abriendo,        setAbriendo]        = useState<string | null>(null);
+  const [modalAmpliar,    setModalAmpliar]    = useState<SolicitudRenta | null>(null);
+  const [modalGracia,     setModalGracia]     = useState<SolicitudRenta | null>(null);
+  const [modalDevolucion, setModalDevolucion] = useState<SolicitudRenta | null>(null);
 
   useEffect(() => {
     solicitudesService.getVencidasMias()
@@ -97,15 +123,21 @@ export default function VencidasSection() {
       .finally(() => setIsLoading(false));
   }, [setSolicitudes]);
 
-  // Tick inteligente: duerme hasta el próximo cambio de recargo en lugar de cada 60s
+  // Tick de 60s — actualiza el display de atraso ("Vencida hace Xh Ymin") minuto a minuto
+  useEffect(() => {
+    const id = setInterval(() => setAhora(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Tick inteligente — duerme hasta el próximo cambio de recargo (cada 24h tras la gracia)
   useEffect(() => {
     if (solicitudes.length === 0) return;
-    const next  = proximoCambioGlobal(solicitudes, ahora);
+    const next  = proximoCambioGlobal(solicitudes, ahoraRecargo);
     const delay = next - Date.now();
-    if (delay <= 0) { setAhora(Date.now()); return; }
-    const id = setTimeout(() => setAhora(Date.now()), delay);
+    if (delay <= 0) { setAhoraRecargo(Date.now()); return; }
+    const id = setTimeout(() => setAhoraRecargo(Date.now()), delay);
     return () => clearTimeout(id);
-  }, [solicitudes, ahora]);
+  }, [solicitudes, ahoraRecargo]);
 
   const handleVerComprobante = async (id: string) => {
     setAbriendo(id);
@@ -119,28 +151,72 @@ export default function VencidasSection() {
     }
   };
 
-  const handleRegistrarDevolucion = async (id: string) => {
-    setProcesando(id);
-    setConfirmando(null);
-    try {
-      const actualizada = await solicitudesService.registrarDevolucion(id);
+  const transicionarTrasExtension = (actualizada: SolicitudRenta) => {
+    const ahora    = Date.now();
+    const nuevaFin = actualizada.fechaFinEstimada ? new Date(actualizada.fechaFinEstimada).getTime() : 0;
+    if (nuevaFin > ahora) {
       removeRenta(actualizada.id);
-    } catch {
-      setError('No se pudo registrar la devolución. Intenta de nuevo.');
-    } finally {
-      setProcesando(null);
+      useActivasStore.getState().addRenta(actualizada);
+    } else {
+      updateRenta(actualizada);
+    }
+  };
+
+  const handleAmpliarVencida = (actualizada: SolicitudRenta) => {
+    setModalAmpliar(null);
+    transicionarTrasExtension(actualizada);
+  };
+
+  const handleGracia = (actualizada: SolicitudRenta) => {
+    setModalGracia(null);
+    transicionarTrasExtension(actualizada);
+  };
+
+  /**
+   * Post-devolución: si la renta quedó DEVUELTA la sacamos de vencidas.
+   * Si fue parcial, usamos la misma lógica de transición que las extensiones:
+   * nueva fechaFinEstimada > ahora → pasa a activas; si no → se queda en vencidas.
+   */
+  const handleDevolucionVencida = (actualizada: SolicitudRenta) => {
+    if (actualizada.estado === 'DEVUELTA') {
+      removeRenta(actualizada.id);
+    } else {
+      transicionarTrasExtension(actualizada);
     }
   };
 
   const totalRecargo = solicitudes.reduce((suma, s) => {
-    const inicio = s.fechaInicioRenta ? new Date(s.fechaInicioRenta) : new Date();
-    return suma + calcularRecargoActual(s.items, inicio, ahora);
+    const inicio      = s.fechaInicioRenta ? new Date(s.fechaInicioRenta) : new Date();
+    const extensiones = s.extensiones ?? [];
+    return suma + calcularRecargoActual(s.items, inicio, ahoraRecargo, extensiones);
   }, 0);
 
   const equiposPendientes = solicitudes.reduce((sum, s) => sum + s.items.length, 0);
 
   return (
     <div>
+      {modalAmpliar && (
+        <AmpliacionRentaModal
+          solicitud={modalAmpliar}
+          onClose={() => setModalAmpliar(null)}
+          onAmpliar={handleAmpliarVencida}
+        />
+      )}
+      {modalGracia && (
+        <TiempoGraciaModal
+          solicitud={modalGracia}
+          onClose={() => setModalGracia(null)}
+          onGracia={handleGracia}
+        />
+      )}
+      {modalDevolucion && (
+        <DevolucionModal
+          solicitud={modalDevolucion}
+          onClose={() => setModalDevolucion(null)}
+          onDevolucion={handleDevolucionVencida}
+        />
+      )}
+
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-800">Rentas Vencidas</h1>
         <p className="text-sm text-slate-500 mt-1">
@@ -206,13 +282,12 @@ export default function VencidasSection() {
               key={s.id}
               solicitud={s}
               ahora={ahora}
+              ahoraRecargo={ahoraRecargo}
               abriendo={abriendo === s.id}
-              confirmando={confirmando === s.id}
-              procesando={procesando === s.id}
               onVerComprobante={() => handleVerComprobante(s.id)}
-              onSolicitarConfirmacion={() => setConfirmando(s.id)}
-              onCancelarConfirmacion={() => setConfirmando(null)}
-              onConfirmarDevolucion={() => handleRegistrarDevolucion(s.id)}
+              onAmpliar={() => setModalAmpliar(s)}
+              onGracia={() => setModalGracia(s)}
+              onDevolucion={() => setModalDevolucion(s)}
             />
           ))}
         </div>
@@ -226,32 +301,31 @@ export default function VencidasSection() {
 function RentaVencidaCard({
   solicitud,
   ahora,
+  ahoraRecargo,
   abriendo,
-  confirmando,
-  procesando,
   onVerComprobante,
-  onSolicitarConfirmacion,
-  onCancelarConfirmacion,
-  onConfirmarDevolucion,
+  onAmpliar,
+  onGracia,
+  onDevolucion,
 }: {
-  solicitud:               SolicitudRenta;
-  ahora:                   number;
-  abriendo:                boolean;
-  confirmando:             boolean;
-  procesando:              boolean;
-  onVerComprobante:        () => void;
-  onSolicitarConfirmacion: () => void;
-  onCancelarConfirmacion:  () => void;
-  onConfirmarDevolucion:   () => void;
+  solicitud:        SolicitudRenta;
+  ahora:            number; // tick 60s — para display de atraso
+  ahoraRecargo:     number; // tick inteligente — para cálculo de montos
+  abriendo:         boolean;
+  onVerComprobante: () => void;
+  onAmpliar:        () => void;
+  onGracia:         () => void;
+  onDevolucion:     () => void;
 }) {
-  const inicio     = solicitud.fechaInicioRenta ? new Date(solicitud.fechaInicioRenta) : new Date();
+  const extensiones = solicitud.extensiones ?? [];
+  const inicio      = solicitud.fechaInicioRenta ? new Date(solicitud.fechaInicioRenta) : new Date();
   const vencimiento = solicitud.fechaFinEstimada
     ? new Date(solicitud.fechaFinEstimada)
-    : calcularFinEstimado(solicitud.items, inicio);
+    : calcularFinEstimado(solicitud.items, inicio, extensiones);
 
-  const atrasoMs   = msAtraso(vencimiento, ahora);
-  const enGracia   = atrasoMs <= GRACE_MS;
-  const recargo    = calcularRecargoActual(solicitud.items, inicio, ahora);
+  const atrasoMs = msAtraso(vencimiento, ahora);         // usa tick 60s
+  const enGracia = atrasoMs <= GRACE_MS;
+  const recargo  = calcularRecargoActual(solicitud.items, inicio, ahoraRecargo, extensiones); // usa tick inteligente
   const total      = solicitud.totalEstimado + recargo;
 
   const maquinaria = solicitud.items.filter(i => i.kind === 'maquinaria') as Extract<ItemSnapshot, { kind: 'maquinaria' }>[];
@@ -276,9 +350,11 @@ function RentaVencidaCard({
               Vencida
             </span>
           )}
-          <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
-            Atraso: {formatAtraso(atrasoMs)}
-          </span>
+          {!enGracia && (
+            <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+              Atraso: {formatAtraso(atrasoMs)}
+            </span>
+          )}
           <span className="text-xs font-mono font-semibold text-slate-600">{solicitud.folio}</span>
         </div>
         <div className="text-right">
@@ -340,8 +416,8 @@ function RentaVencidaCard({
           <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Equipos a devolver</p>
           <div className="space-y-2">
             {maquinaria.map((item, i) => {
-              const fin     = calcularFin(inicio, item.duracion, item.unidad);
-              const itemRec = calcularRecargoItem((item as { tarifa?: number | null }).tarifa ?? 0, fin, ahora);
+              const fin     = calcularFinConExtensiones(inicio, item, extensiones);
+              const itemRec = calcularRecargoItem((item as { tarifa?: number | null }).tarifa ?? 0, fin, ahoraRecargo);
               return (
                 <div key={i} className="flex items-start justify-between gap-2 py-1.5 border-b border-slate-100 last:border-0">
                   <p className="text-xs font-medium text-slate-700 leading-tight">
@@ -362,9 +438,9 @@ function RentaVencidaCard({
               );
             })}
             {granel.map((item, i) => {
-              const fin     = calcularFin(inicio, item.duracion, item.unidad);
+              const fin     = calcularFinConExtensiones(inicio, item, extensiones);
               const tarifa  = (item as { tarifa?: number | null }).tarifa ?? 0;
-              const itemRec = calcularRecargoItem(tarifa, fin, ahora);
+              const itemRec = calcularRecargoItem(tarifa, fin, ahoraRecargo);
               return (
                 <div key={i} className="flex items-start justify-between gap-2 py-1.5 border-b border-slate-100 last:border-0">
                   <p className="text-xs font-medium text-slate-700 leading-tight">
@@ -392,68 +468,55 @@ function RentaVencidaCard({
 
       {/* Footer de acciones */}
       <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/70">
-        {confirmando ? (
-          /* Panel de confirmación */
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <p className="text-xs text-slate-700 font-medium">
-              ¿Confirmar devolución?
-              {recargo > 0 && (
-                <span className="text-red-600 ml-1">
-                  Se registrará un recargo de Q {recargo.toLocaleString('es-GT', { minimumFractionDigits: 2 })}.
-                </span>
-              )}
-            </p>
-            <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            {solicitud.comprobanteKey && (
               <button
-                onClick={onCancelarConfirmacion}
-                className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-medium text-slate-600 transition-colors"
+                onClick={onVerComprobante}
+                disabled={abriendo}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-medium text-slate-600 transition-colors disabled:opacity-60"
               >
-                Cancelar
-              </button>
-              <button
-                onClick={onConfirmarDevolucion}
-                disabled={procesando}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-xs font-semibold text-white transition-colors disabled:opacity-60"
-              >
-                {procesando ? (
+                {abriendo ? (
                   <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
                   </svg>
                 ) : (
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polyline points="20 6 9 17 4 12"/>
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
                   </svg>
                 )}
-                Sí, registrar
+                Ver comprobante
               </button>
-            </div>
+            )}
           </div>
-        ) : (
-          /* Acciones normales */
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div className="flex items-center gap-2">
-              {solicitud.comprobanteKey && (
-                <button
-                  onClick={onVerComprobante}
-                  disabled={abriendo}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-medium text-slate-600 transition-colors disabled:opacity-60"
-                >
-                  {abriendo ? (
-                    <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-                    </svg>
-                  ) : (
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                      <polyline points="14 2 14 8 20 8"/>
-                    </svg>
-                  )}
-                  Ver comprobante
-                </button>
-              )}
-            </div>
+          <div className="flex items-center gap-2">
             <button
-              onClick={onSolicitarConfirmacion}
+              onClick={onGracia}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-200 bg-white hover:bg-amber-50 text-xs font-semibold text-amber-600 transition-colors"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+              </svg>
+              Tiempo de gracia
+            </button>
+            <button
+              onClick={onAmpliar}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-200 bg-white hover:bg-indigo-50 text-xs font-semibold text-indigo-600 transition-colors"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                <line x1="16" y1="2" x2="16" y2="6"/>
+                <line x1="8" y1="2" x2="8" y2="6"/>
+                <line x1="3" y1="10" x2="21" y2="10"/>
+                <line x1="12" y1="14" x2="12" y2="18"/>
+                <line x1="10" y1="16" x2="14" y2="16"/>
+              </svg>
+              Ampliar renta
+            </button>
+            <button
+              onClick={onDevolucion}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-xs font-semibold text-white transition-colors"
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -463,7 +526,7 @@ function RentaVencidaCard({
               Registrar devolución
             </button>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

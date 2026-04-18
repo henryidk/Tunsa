@@ -1,6 +1,13 @@
 import { api } from './auth.service';
-import type { SolicitudRenta } from '../types/solicitud-renta.types';
+import type { SolicitudRenta, UnidadDuracion } from '../types/solicitud-renta.types';
 import type { ItemSnapshot, ModalidadPago } from '../types/solicitud-renta.types';
+
+export interface ExtensionItemPayload {
+  itemRef:  string;
+  kind:     'maquinaria' | 'granel';
+  duracion: number;
+  unidad:   UnidadDuracion;
+}
 
 export interface RechazadasPage {
   data:       SolicitudRenta[];
@@ -97,8 +104,33 @@ export const solicitudesService = {
     return res.data;
   },
 
-  async registrarDevolucion(id: string): Promise<SolicitudRenta> {
-    const res = await api.patch<SolicitudRenta>(`/solicitudes/${id}/registrar-devolucion`);
+  async ampliar(id: string, items: ExtensionItemPayload[]): Promise<SolicitudRenta> {
+    const res = await api.patch<SolicitudRenta>(`/solicitudes/${id}/ampliar`, { items });
+    return res.data;
+  },
+
+  async registrarDevolucion(
+    id:   string,
+    data?: {
+      itemRefs?:             string[];
+      recargosAdicionales?:  { descripcion: string; monto: number }[];
+    },
+  ): Promise<SolicitudRenta> {
+    const res = await api.patch<SolicitudRenta>(
+      `/solicitudes/${id}/registrar-devolucion`,
+      data ?? {},
+    );
+    return res.data;
+  },
+
+  async subirLiquidacion(id: string, pdfBlob: Blob): Promise<{ url: string }> {
+    const form = new FormData();
+    form.append('liquidacion', pdfBlob, 'liquidacion.pdf');
+    const res = await api.patch<{ url: string }>(
+      `/solicitudes/${id}/liquidacion`,
+      form,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    );
     return res.data;
   },
 

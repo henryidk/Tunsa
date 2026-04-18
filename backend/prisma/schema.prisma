@@ -118,6 +118,7 @@ model Equipo {
   categoriaId String?    @map("categoria_id")
   categoria   Categoria? @relation(fields: [categoriaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
+  rentaHora    Decimal?   @db.Decimal(10, 2)  // Exclusivo de PESADA
   rentaDia     Decimal?   @db.Decimal(10, 2)
   rentaSemana  Decimal?   @db.Decimal(10, 2)
   rentaMes     Decimal?   @db.Decimal(10, 2)
@@ -178,6 +179,19 @@ model Solicitud {
   fechaFinEstimada DateTime? // vencimiento más temprano entre todos los ítems (calculado al confirmar entrega)
   fechaDevolucion  DateTime? // momento en que el cliente entregó los equipos
   recargoTotal     Decimal?  @db.Decimal(12, 2) // cargo extra por días de atraso (0 si dentro de gracia)
+
+  // Extensiones de renta — se acumulan sin mutar el JSON original de `items`.
+  // Cada entrada identifica un ítem (por equipoId o tipo granel), la duración adicional y su costo adaptativo.
+  extensiones           Json?     // ExtensionEntry[]
+
+  // Devoluciones — puede haber múltiples entradas si la devolución es parcial.
+  // Cada entrada registra qué ítems se devolvieron, cuándo, quién lo registró,
+  // los cargos adicionales y la key del PDF de liquidación en R2.
+  devolucionesParciales Json?     // DevolucionEntry[]
+
+  // Monto real cobrado al cerrar la renta (suma de todos los totalLote de devolucionesParciales).
+  // Puede diferir de totalEstimado en devoluciones anticipadas o por recargos adicionales.
+  totalFinal            Decimal?  @db.Decimal(12, 2)
 
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt

@@ -7,6 +7,8 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { SolicitudesService } from './solicitudes.service';
 import { SolicitudesGateway } from './solicitudes.gateway';
 import { CreateSolicitudDto } from './dto/create-solicitud.dto';
+import { AmpliacionRentaDto } from './dto/ampliar-renta.dto';
+import { RegistrarDevolucionDto } from './dto/registrar-devolucion.dto';
 import { QueryRechazadasDto } from './dto/query-rechazadas.dto';
 import { RechazarSolicitudDto } from './dto/rechazar-solicitud.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -155,13 +157,43 @@ export class SolicitudesController {
     return solicitud;
   }
 
-  @Patch(':id/registrar-devolucion')
+  @Patch(':id/ampliar')
   @Roles('encargado_maquinas')
-  async registrarDevolucion(
+  ampliar(
     @Param('id') id: string,
+    @Body() dto: AmpliacionRentaDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.solicitudesService.registrarDevolucion(id, user.username);
+    return this.solicitudesService.ampliar(id, dto, user.username);
+  }
+
+  @Patch(':id/registrar-devolucion')
+  @Roles('encargado_maquinas')
+  registrarDevolucion(
+    @Param('id') id: string,
+    @Body() dto: RegistrarDevolucionDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.solicitudesService.registrarDevolucion(id, dto, user.username);
+  }
+
+  @Patch(':id/liquidacion')
+  @Roles('encargado_maquinas')
+  @UseInterceptors(FileInterceptor('liquidacion', { limits: { fileSize: MAX_PDF_SIZE } }))
+  subirLiquidacion(
+    @Param('id') id: string,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: MAX_PDF_SIZE }),
+          new FileTypeValidator({ fileType: 'application/pdf' }),
+        ],
+      }),
+    )
+    file: Express.Multer.File,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.solicitudesService.subirLiquidacion(id, file.buffer, file.mimetype, user.username);
   }
 
   @Get(':id/comprobante')

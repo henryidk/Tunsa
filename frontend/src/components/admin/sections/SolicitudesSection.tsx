@@ -155,6 +155,7 @@ const ESTADO_BORDER: Record<SolicitudRenta['estado'], string> = {
   APROBADA:  'border-l-emerald-400',
   RECHAZADA: 'border-l-red-400',
   ACTIVA:    'border-l-indigo-400',
+  DEVUELTA:  'border-l-slate-400',
 };
 
 function SolicitudCard({
@@ -395,6 +396,7 @@ function EstadoBadge({ estado }: { estado: SolicitudRenta['estado'] }) {
     APROBADA:  { cls: 'bg-emerald-100 text-emerald-700 border-emerald-200', label: 'Aprobada'   },
     RECHAZADA: { cls: 'bg-red-100 text-red-700 border-red-200',             label: 'Rechazada'  },
     ACTIVA:    { cls: 'bg-indigo-100 text-indigo-700 border-indigo-200',    label: 'Activa'     },
+    DEVUELTA:  { cls: 'bg-slate-100 text-slate-600 border-slate-200',       label: 'Devuelta'   },
   };
   const { cls, label } = map[estado];
   return (

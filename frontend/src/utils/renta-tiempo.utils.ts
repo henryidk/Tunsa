@@ -1,4 +1,4 @@
-import type { ItemSnapshot, ExtensionEntry, UnidadDuracion } from '../types/solicitud-renta.types';
+import type { SolicitudRenta, ItemSnapshot, ExtensionEntry, UnidadDuracion } from '../types/solicitud-renta.types';
 
 export type NivelUrgencia = 'vencido' | 'critico' | 'proximo' | 'ok';
 
@@ -60,6 +60,83 @@ export function nivelUrgencia(ms: number): NivelUrgencia {
   if (ms <= 72 * 3_600_000) return 'proximo';
   return 'ok';
 }
+
+// ── Helpers exclusivos de rentas vencidas ────────────────────────────────────
+
+const GRACE_MS = 3_600_000; // 1 hora de gracia antes de que corran cargos
+const DAY_MS   = 86_400_000;
+
+/** Fecha de vencimiento más próxima entre todos los ítems de una renta. */
+export function calcularFinEstimado(
+  items:       ItemSnapshot[],
+  inicio:      Date,
+  extensiones: ExtensionEntry[],
+): Date {
+  const fins = items.map(i => calcularFinConExtensiones(inicio, i, extensiones).getTime());
+  return new Date(Math.min(...fins));
+}
+
+/** Recargo de un ítem individual en el instante `ahora`. */
+export function calcularRecargoItem(tarifa: number, finItem: Date, ahora: number): number {
+  const excesoMs = ahora - finItem.getTime() - GRACE_MS;
+  if (excesoMs <= 0) return 0;
+  return Math.ceil(excesoMs / DAY_MS) * tarifa;
+}
+
+/** Recargo total proyectado al instante `ahora`, sumando todos los ítems con tarifa. */
+export function calcularRecargoActual(
+  items:       ItemSnapshot[],
+  inicio:      Date,
+  ahora:       number,
+  extensiones: ExtensionEntry[],
+): number {
+  return items.reduce((suma, item) => {
+    const tarifa = (item as { tarifa?: number | null }).tarifa ?? null;
+    if (tarifa === null) return suma;
+    const fin = calcularFinConExtensiones(inicio, item, extensiones);
+    return suma + calcularRecargoItem(tarifa, fin, ahora);
+  }, 0);
+}
+
+/** Milisegundos de atraso respecto al vencimiento (negativo = dentro de gracia). */
+export function msAtraso(fechaVencimiento: Date, ahora: number): number {
+  return ahora - fechaVencimiento.getTime();
+}
+
+/**
+ * Momento exacto en que cambiará el recargo para una renta.
+ * - Dentro de gracia → cambia cuando termina la gracia.
+ * - Pasada la gracia → siguiente múltiplo de 24h desde el fin de la gracia.
+ */
+export function proximoCambioRecargo(vencimiento: Date, ahora: number): number {
+  const graceEnd = vencimiento.getTime() + GRACE_MS;
+  if (ahora < graceEnd) return graceEnd;
+  const excesoMs = ahora - graceEnd;
+  return graceEnd + Math.ceil(excesoMs / DAY_MS) * DAY_MS;
+}
+
+/** Próximo cambio de recargo entre todas las rentas de la lista. */
+export function proximoCambioGlobal(solicitudes: SolicitudRenta[], ahora: number): number {
+  return solicitudes.reduce((min, s) => {
+    const inicio      = s.fechaInicioRenta ? new Date(s.fechaInicioRenta) : new Date();
+    const extensiones = s.extensiones ?? [];
+    const vencimiento = s.fechaFinEstimada
+      ? new Date(s.fechaFinEstimada)
+      : calcularFinEstimado(s.items, inicio, extensiones);
+    return Math.min(min, proximoCambioRecargo(vencimiento, ahora));
+  }, Infinity);
+}
+
+export function formatAtraso(ms: number): string {
+  if (ms <= GRACE_MS) return 'En gracia';
+  const totalMin = Math.floor((ms - GRACE_MS) / 60_000);
+  const horas    = Math.floor(totalMin / 60);
+  if (horas < 24) return `${horas}h ${totalMin % 60}min`;
+  const dias = Math.floor(horas / 24);
+  return `${dias}d ${horas % 24}h`;
+}
+
+// ── Helpers de tiempo restante (rentas activas) ───────────────────────────────
 
 /**
  * Mismo día que inicio → muestra la duración total en días enteros.

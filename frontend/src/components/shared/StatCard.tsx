@@ -1,11 +1,13 @@
 import type { ReactNode } from 'react';
 
-export type StatCardColor = 'indigo' | 'amber' | 'emerald';
+export type StatCardColor = 'indigo' | 'amber' | 'emerald' | 'red' | 'orange';
 
 const COLOR_MAP: Record<StatCardColor, { bg: string; icon: string; value: string }> = {
   indigo:  { bg: 'bg-indigo-50',  icon: 'text-indigo-500',  value: 'text-indigo-700'  },
   amber:   { bg: 'bg-amber-50',   icon: 'text-amber-500',   value: 'text-amber-700'   },
   emerald: { bg: 'bg-emerald-50', icon: 'text-emerald-500', value: 'text-emerald-700' },
+  red:     { bg: 'bg-red-50',     icon: 'text-red-500',     value: 'text-red-700'     },
+  orange:  { bg: 'bg-orange-50',  icon: 'text-orange-500',  value: 'text-orange-700'  },
 };
 
 interface StatCardProps {

@@ -106,7 +106,7 @@ export default function AdminDashboard() {
             <HistorialSection onShowToast={showToast} onOpenModal={openModal} />
           )}
           {activeSection === 'rentas-vencidas' && (
-            <VencidasSection onShowToast={showToast} onOpenModal={openModal} />
+            <VencidasSection />
           )}
           {activeSection === 'equipos' && (
             <EquiposSection onShowToast={showToast} />

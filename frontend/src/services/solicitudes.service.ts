@@ -94,6 +94,11 @@ export const solicitudesService = {
     return res.data;
   },
 
+  async getVencidas(): Promise<SolicitudRenta[]> {
+    const res = await api.get<SolicitudRenta[]>('/solicitudes/vencidas');
+    return res.data;
+  },
+
   async getActivasMias(): Promise<SolicitudRenta[]> {
     const res = await api.get<SolicitudRenta[]>('/solicitudes/activas-mias');
     return res.data;

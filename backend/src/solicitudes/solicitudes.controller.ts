@@ -62,6 +62,12 @@ export class SolicitudesController {
     return this.solicitudesService.findMias(user.username);
   }
 
+  @Get('vencidas')
+  @Roles('admin', 'secretaria')
+  findVencidas() {
+    return this.solicitudesService.findVencidas();
+  }
+
   @Get('activas')
   @Roles('admin', 'secretaria')
   findActivas() {
@@ -158,27 +164,27 @@ export class SolicitudesController {
   }
 
   @Patch(':id/ampliar')
-  @Roles('encargado_maquinas')
+  @Roles('encargado_maquinas', 'admin', 'secretaria')
   ampliar(
     @Param('id') id: string,
     @Body() dto: AmpliacionRentaDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.solicitudesService.ampliar(id, dto, user.username);
+    return this.solicitudesService.ampliar(id, dto, user);
   }
 
   @Patch(':id/registrar-devolucion')
-  @Roles('encargado_maquinas')
+  @Roles('encargado_maquinas', 'admin', 'secretaria')
   registrarDevolucion(
     @Param('id') id: string,
     @Body() dto: RegistrarDevolucionDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.solicitudesService.registrarDevolucion(id, dto, user.username);
+    return this.solicitudesService.registrarDevolucion(id, dto, user);
   }
 
   @Patch(':id/liquidacion')
-  @Roles('encargado_maquinas')
+  @Roles('encargado_maquinas', 'admin', 'secretaria')
   @UseInterceptors(FileInterceptor('liquidacion', { limits: { fileSize: MAX_PDF_SIZE } }))
   subirLiquidacion(
     @Param('id') id: string,
@@ -193,7 +199,7 @@ export class SolicitudesController {
     file: Express.Multer.File,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.solicitudesService.subirLiquidacion(id, file.buffer, file.mimetype, user.username);
+    return this.solicitudesService.subirLiquidacion(id, file.buffer, file.mimetype, user);
   }
 
   @Get(':id/comprobante')
@@ -206,12 +212,12 @@ export class SolicitudesController {
   }
 
   @Get(':id/liquidacion/:loteIndex')
-  @Roles('encargado_maquinas')
+  @Roles('encargado_maquinas', 'admin', 'secretaria')
   getLiquidacion(
     @Param('id') id: string,
     @Param('loteIndex') loteIndex: string,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.solicitudesService.getLiquidacionUrl(id, parseInt(loteIndex, 10), user.username);
+    return this.solicitudesService.getLiquidacionUrl(id, parseInt(loteIndex, 10), user);
   }
 }

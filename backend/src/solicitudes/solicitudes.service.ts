@@ -5,6 +5,7 @@ import { R2Service } from '../r2/r2.service';
 import { CreateSolicitudDto } from './dto/create-solicitud.dto';
 import { AmpliacionRentaDto } from './dto/ampliar-renta.dto';
 import { RegistrarDevolucionDto } from './dto/registrar-devolucion.dto';
+import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
 import {
   ExtensionEntry,
   DevolucionEntry,
@@ -20,6 +21,13 @@ import {
 } from './recargo.util';
 
 type SolicitudConCliente = Prisma.SolicitudGetPayload<{ include: { cliente: true } }>;
+
+const ROLES_CON_ACCESO_GLOBAL = new Set(['admin', 'secretaria']);
+
+/** Admin y secretaria pueden operar sobre cualquier solicitud sin importar quién la creó. */
+function tieneAccesoGlobal(user: AuthenticatedUser): boolean {
+  return ROLES_CON_ACCESO_GLOBAL.has(user.role);
+}
 
 // Shape mínima de un item para extraer equipoId sin asumir tipos extras
 interface ItemConKind { kind: string; equipoId?: string }
@@ -190,6 +198,19 @@ export class SolicitudesService {
   }
 
   /**
+   * Todas las solicitudes ACTIVA cuya fechaFinEstimada ya pasó — vista del admin/secretaria.
+   */
+  async findVencidas() {
+    const now = new Date();
+    const solicitudes = await this.prisma.solicitud.findMany({
+      where:   { estado: 'ACTIVA', fechaFinEstimada: { lt: now } },
+      include: { cliente: true },
+      orderBy: { fechaFinEstimada: 'asc' },
+    });
+    return solicitudes.map(s => this.serialize(s));
+  }
+
+  /**
    * Todas las solicitudes en estado ACTIVA — vista del admin/secretaria.
    */
   async findActivas() {
@@ -253,12 +274,12 @@ export class SolicitudesService {
    *  - Si todos los ítems fueron devueltos, la solicitud pasa a DEVUELTA y se fija totalFinal.
    *  - El PDF de liquidación se sube en un paso separado (PATCH :id/liquidacion).
    */
-  async registrarDevolucion(id: string, dto: RegistrarDevolucionDto, username: string) {
+  async registrarDevolucion(id: string, dto: RegistrarDevolucionDto, user: AuthenticatedUser) {
     const solicitud = await this.prisma.solicitud.findUnique({ where: { id } });
 
     if (!solicitud)
       throw new NotFoundException('Solicitud no encontrada.');
-    if (solicitud.creadaPor !== username)
+    if (!tieneAccesoGlobal(user) && solicitud.creadaPor !== user.username)
       throw new ForbiddenException('Solo el encargado que creó la solicitud puede registrar la devolución.');
     if (solicitud.estado !== 'ACTIVA')
       throw new ConflictException('Solo se puede registrar la devolución de rentas activas.');
@@ -364,7 +385,7 @@ export class SolicitudesService {
 
     const nuevaEntrada: DevolucionEntry = {
       fechaDevolucion:     fechaDevolucion.toISOString(),
-      registradoPor:       username,
+      registradoPor:       user.username,
       esParcial,
       tipoDevolucion,
       items:               devolucionItems,
@@ -419,13 +440,13 @@ export class SolicitudesService {
     id:       string,
     buffer:   Buffer,
     mimetype: string,
-    username: string,
+    user:     AuthenticatedUser,
   ): Promise<{ url: string }> {
     const solicitud = await this.prisma.solicitud.findUnique({ where: { id } });
 
     if (!solicitud)
       throw new NotFoundException('Solicitud no encontrada.');
-    if (solicitud.creadaPor !== username)
+    if (!tieneAccesoGlobal(user) && solicitud.creadaPor !== user.username)
       throw new ForbiddenException('Solo el encargado que creó la solicitud puede subir la liquidación.');
 
     const devoluciones = (solicitud.devolucionesParciales as unknown as DevolucionEntry[]) ?? [];
@@ -464,12 +485,12 @@ export class SolicitudesService {
    *  - Para rentas vencidas: la extensión empieza desde la `fechaFinEstimada` actual,
    *    lo que puede mover la renta de nuevo a "activa" si la nueva fecha queda en el futuro.
    */
-  async ampliar(id: string, dto: AmpliacionRentaDto, username: string) {
+  async ampliar(id: string, dto: AmpliacionRentaDto, user: AuthenticatedUser) {
     const solicitud = await this.prisma.solicitud.findUnique({ where: { id } });
 
     if (!solicitud)
       throw new NotFoundException('Solicitud no encontrada.');
-    if (solicitud.creadaPor !== username)
+    if (!tieneAccesoGlobal(user) && solicitud.creadaPor !== user.username)
       throw new ForbiddenException('Solo el encargado que creó la solicitud puede ampliarla.');
     if (solicitud.estado !== 'ACTIVA')
       throw new ConflictException('Solo se pueden ampliar rentas activas.');
@@ -638,12 +659,12 @@ export class SolicitudesService {
    * Devuelve la URL firmada del PDF de liquidación de un lote específico.
    * loteIndex es el índice 0-based dentro de devolucionesParciales.
    */
-  async getLiquidacionUrl(id: string, loteIndex: number, username: string): Promise<{ url: string }> {
+  async getLiquidacionUrl(id: string, loteIndex: number, user: AuthenticatedUser): Promise<{ url: string }> {
     const solicitud = await this.prisma.solicitud.findUnique({ where: { id } });
 
     if (!solicitud)
       throw new NotFoundException('Solicitud no encontrada.');
-    if (solicitud.creadaPor !== username)
+    if (!tieneAccesoGlobal(user) && solicitud.creadaPor !== user.username)
       throw new ForbiddenException('No tienes acceso a esta solicitud.');
 
     const devoluciones = (solicitud.devolucionesParciales ?? []) as unknown as DevolucionEntry[];

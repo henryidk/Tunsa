@@ -100,7 +100,7 @@ export default function AdminDashboard() {
             <SolicitudesSection />
           )}
           {activeSection === 'rentas-activas' && (
-            <RentasActivasSection onShowToast={showToast} onOpenModal={openModal} />
+            <RentasActivasSection />
           )}
           {activeSection === 'rentas-historial' && (
             <HistorialSection onShowToast={showToast} onOpenModal={openModal} />

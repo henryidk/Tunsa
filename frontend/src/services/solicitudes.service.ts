@@ -139,6 +139,11 @@ export const solicitudesService = {
     return res.data;
   },
 
+  async getLiquidacionUrl(id: string, loteIndex: number): Promise<{ url: string }> {
+    const res = await api.get<{ url: string }>(`/solicitudes/${id}/liquidacion/${loteIndex}`);
+    return res.data;
+  },
+
   async getRechazadas(params: QueryRechazadas): Promise<RechazadasPage> {
     const res = await api.get<RechazadasPage>('/solicitudes/rechazadas', { params });
     return res.data;

@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import type { SolicitudRenta, DevolucionEntry, DevolucionItemEntry } from '../types/solicitud-renta.types';
+import type { SolicitudRenta, DevolucionEntry } from '../types/solicitud-renta.types';
+import { resolverLabelItem } from './devolucion.helpers';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -66,27 +67,6 @@ function formatFechaHoraLarga(iso: string): string {
 
 function formatQ(n: number): string {
   return `Q ${n.toLocaleString('es-GT', { minimumFractionDigits: 2 })}`;
-}
-
-// ── Item label resolver ───────────────────────────────────────────────────────
-
-/** Encuentra el label de un ítem dado su itemRef y kind dentro de la solicitud. */
-function resolverLabelItem(
-  solicitud:  SolicitudRenta,
-  entry:      DevolucionItemEntry,
-): string {
-  const item = solicitud.items.find(i => {
-    if (entry.kind === 'maquinaria') return i.kind === 'maquinaria' && i.equipoId === entry.itemRef;
-    return i.kind === 'granel' && i.tipo === entry.itemRef;
-  });
-
-  if (!item) return entry.itemRef;
-
-  if (item.kind === 'maquinaria') {
-    return `#${item.numeracion} ${item.descripcion}`;
-  }
-  const label = item.tipoLabel + (item.conMadera ? ' (con madera)' : '');
-  return `${item.cantidad.toLocaleString('es-GT')} × ${label}`;
 }
 
 // ── Main generator ────────────────────────────────────────────────────────────

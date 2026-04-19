@@ -93,6 +93,7 @@ export interface SolicitudRenta {
   extensiones:           ExtensionEntry[]   | null;
   devolucionesParciales: DevolucionEntry[]  | null;
   totalFinal:            number             | null;
+  fechaUltimaDevolucion: string             | null;
   createdAt:      string;
   updatedAt:      string;
 }

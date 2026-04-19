@@ -1,138 +1,192 @@
-// RentasActivasSection.tsx — contratos de renta en curso
+import { useEffect, useState } from 'react';
+import { solicitudesService } from '../../../services/solicitudes.service';
+import { useAdminActivasStore } from '../../../store/activas.store';
+import { useAdminVencidasStore } from '../../../store/vencidas.store';
+import { useActivasVencidasSync } from '../../../hooks/useActivasVencidasSync';
+import type { SolicitudRenta } from '../../../types/solicitud-renta.types';
+import RentaActivaCard from '../../shared/RentaActivaCard';
+import AmpliacionRentaModal from '../../shared/AmpliacionRentaModal';
+import DevolucionModal from '../../shared/DevolucionModal';
+import StatCard from '../../shared/StatCard';
 
-import type { ToastType } from '../../../types/ui.types'
+export default function RentasActivasSection() {
+  const { solicitudes, setSolicitudes, updateRenta, removeRenta } = useAdminActivasStore();
+  const addVencida = useAdminVencidasStore(s => s.addVencida);
 
-interface RentasActivasSectionProps {
-  onShowToast: (type: ToastType, title: string, msg: string) => void
-  onOpenModal: (rentaId: string) => void
-}
+  const [isLoading,       setIsLoading]       = useState(true);
+  const [error,           setError]           = useState<string | null>(null);
+  const [busqueda,        setBusqueda]        = useState('');
+  const [abriendo,        setAbriendo]        = useState<string | null>(null);
+  const [modalAmpliar,    setModalAmpliar]    = useState<SolicitudRenta | null>(null);
+  const [modalDevolucion, setModalDevolucion] = useState<SolicitudRenta | null>(null);
+  const [ahora,           setAhora]           = useState(() => Date.now());
 
-const Avatar = ({ initials }: { initials: string }) => (
-  <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-    style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}>
-    {initials}
-  </div>
-)
+  useEffect(() => {
+    solicitudesService.getActivas()
+      .then(setSolicitudes)
+      .catch(() => setError('No se pudieron cargar las rentas activas.'))
+      .finally(() => setIsLoading(false));
+  }, [setSolicitudes]);
 
-const EquipTag = ({ label }: { label: string }) => (
-  <span className="text-[11.5px] font-semibold bg-slate-100 text-slate-600 border border-slate-200 px-2 py-0.5 rounded-md whitespace-nowrap">
-    {label}
-  </span>
-)
+  useEffect(() => {
+    const id = setInterval(() => setAhora(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
-function DaysBar({ pct, color, days }: { pct: number; color: string; days: string }) {
-  return (
-    <div className="flex items-center gap-2">
-      <div className="w-20 h-1.5 bg-slate-200 rounded-full overflow-hidden flex-shrink-0">
-        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
-      </div>
-      <span className="text-sm font-semibold" style={{ color }}>{days}</span>
-    </div>
-  )
-}
+  useActivasVencidasSync(solicitudes, ahora, removeRenta, addVencida);
 
-export default function RentasActivasSection({ onOpenModal }: RentasActivasSectionProps) {
+  const handleVerComprobante = async (id: string) => {
+    setAbriendo(id);
+    try {
+      const { url } = await solicitudesService.getComprobanteUrl(id);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch {
+      setError('No se pudo obtener el comprobante. Intenta de nuevo.');
+    } finally {
+      setAbriendo(null);
+    }
+  };
+
+  const handleAmpliar = (actualizada: SolicitudRenta) => {
+    setModalAmpliar(null);
+    updateRenta(actualizada);
+  };
+
+  const handleDevolucion = (actualizada: SolicitudRenta) => {
+    if (actualizada.estado === 'DEVUELTA') removeRenta(actualizada.id);
+    else updateRenta(actualizada);
+    setModalDevolucion(null);
+  };
+
+  const solicitudesFiltradas = busqueda.trim()
+    ? solicitudes.filter(s =>
+        s.cliente.nombre.toLowerCase().includes(busqueda.toLowerCase().trim()),
+      )
+    : solicitudes;
+
+  const contratosActivos    = solicitudes.length;
+  const equiposEnCampo      = solicitudes.reduce((sum, s) => sum + s.items.length, 0);
+  const ingresosProyectados = solicitudes.reduce((sum, s) => sum + s.totalEstimado, 0);
+
   return (
     <div>
-      {/* Header */}
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Rentas Activas</h1>
-          <p className="text-sm text-slate-500 mt-1">Contratos de renta en curso actualmente</p>
-        </div>
+      {modalAmpliar && (
+        <AmpliacionRentaModal
+          solicitud={modalAmpliar}
+          onClose={() => setModalAmpliar(null)}
+          onAmpliar={handleAmpliar}
+        />
+      )}
+      {modalDevolucion && (
+        <DevolucionModal
+          solicitud={modalDevolucion}
+          onClose={() => setModalDevolucion(null)}
+          onDevolucion={handleDevolucion}
+        />
+      )}
+
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-slate-800">Rentas Activas</h1>
+        <p className="text-sm text-slate-500 mt-1">Todos los contratos de renta en curso</p>
       </div>
 
-      {/* Mini KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white border border-slate-200 rounded-xl p-5 flex items-center gap-4 shadow-sm">
-          <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#dcfce7', color: '#16a34a' }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-          </div>
-          <div><div className="text-sm font-medium text-slate-500">Contratos activos</div><div className="text-3xl font-bold text-slate-800">8</div></div>
-        </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-5 flex items-center gap-4 shadow-sm">
-          <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#e0e7ff', color: '#4f46e5' }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2"/></svg>
-          </div>
-          <div><div className="text-sm font-medium text-slate-500">Equipos en campo</div><div className="text-3xl font-bold text-slate-800">14</div></div>
-        </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-5 flex items-center gap-4 shadow-sm">
-          <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#fef3c7', color: '#d97706' }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-          </div>
-          <div><div className="text-sm font-medium text-slate-500">Ingresos proyectados</div><div className="text-2xl font-bold font-mono text-slate-800">Q6,240</div></div>
-        </div>
+        <StatCard
+          label="Contratos activos"
+          value={isLoading ? null : contratosActivos.toString()}
+          color="indigo"
+          icon={
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+              <polyline points="10 9 9 9 8 9"/>
+            </svg>
+          }
+        />
+        <StatCard
+          label="Equipos en campo"
+          value={isLoading ? null : equiposEnCampo.toString()}
+          color="amber"
+          icon={
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+              <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+            </svg>
+          }
+        />
+        <StatCard
+          label="Ingresos proyectados"
+          value={isLoading ? null : `Q ${ingresosProyectados.toLocaleString('es-GT', { minimumFractionDigits: 2 })}`}
+          color="emerald"
+          icon={
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <line x1="12" y1="1" x2="12" y2="23"/>
+              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            </svg>
+          }
+        />
       </div>
 
-      {/* Table */}
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-          <span className="font-bold text-slate-800">Contratos en curso</span>
-          <input
-            type="search"
-            placeholder="Buscar..."
-            className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:border-indigo-400 min-w-[200px]"
-          />
+      {error && (
+        <div className="flex items-center gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 mb-4">
+          {error}
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-50">
-                {['Contrato', 'Cliente', 'Equipos rentados', 'Inicio', 'Vence', 'Días restantes', 'Total', ''].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {/* RNT-2024-088 */}
-              <tr className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                <td className="px-4 py-3 font-bold font-mono text-slate-800">RNT-2024-088</td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2"><Avatar initials="MG" /><span className="font-semibold text-slate-800">María González</span></div>
-                </td>
-                <td className="px-4 py-3"><div className="flex flex-wrap gap-1"><EquipTag label="Taladro Industrial" /></div></td>
-                <td className="px-4 py-3 text-slate-700 whitespace-nowrap">15 Feb</td>
-                <td className="px-4 py-3 text-slate-700 whitespace-nowrap">25 Feb</td>
-                <td className="px-4 py-3"><DaysBar pct={40} color="#16a34a" days="6 días" /></td>
-                <td className="px-4 py-3 font-bold font-mono text-slate-800">Q450</td>
-                <td className="px-4 py-3">
-                  <button onClick={() => onOpenModal('RNT-2024-088')} className="px-3 py-1 rounded-lg text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors">Ver detalle</button>
-                </td>
-              </tr>
-              {/* RNT-2024-085 */}
-              <tr className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                <td className="px-4 py-3 font-bold font-mono text-slate-800">RNT-2024-085</td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2"><Avatar initials="FP" /><span className="font-semibold text-slate-800">Ferretería El Progreso</span></div>
-                </td>
-                <td className="px-4 py-3"><div className="flex flex-wrap gap-1"><EquipTag label="Generador" /><EquipTag label="Sierra Circular" /></div></td>
-                <td className="px-4 py-3 text-slate-700 whitespace-nowrap">12 Feb</td>
-                <td className="px-4 py-3 text-slate-700 whitespace-nowrap">22 Feb</td>
-                <td className="px-4 py-3"><DaysBar pct={75} color="#d97706" days="3 días" /></td>
-                <td className="px-4 py-3 font-bold font-mono text-slate-800">Q3,220</td>
-                <td className="px-4 py-3">
-                  <button onClick={() => onOpenModal('RNT-2024-085')} className="px-3 py-1 rounded-lg text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors">Ver detalle</button>
-                </td>
-              </tr>
-              {/* RNT-2024-086 */}
-              <tr className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                <td className="px-4 py-3 font-bold font-mono text-slate-800">RNT-2024-086</td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2"><Avatar initials="CA" /><span className="font-semibold text-slate-800">Construcciones Ajú</span></div>
-                </td>
-                <td className="px-4 py-3"><div className="flex flex-wrap gap-1"><EquipTag label="Andamio x4" /><EquipTag label="Mezcladora" /></div></td>
-                <td className="px-4 py-3 text-slate-700 whitespace-nowrap">19 Feb</td>
-                <td className="px-4 py-3 text-slate-700 whitespace-nowrap">01 Mar</td>
-                <td className="px-4 py-3"><DaysBar pct={10} color="#16a34a" days="10 días" /></td>
-                <td className="px-4 py-3 font-bold font-mono text-slate-800">Q2,420</td>
-                <td className="px-4 py-3">
-                  <button onClick={() => onOpenModal('RNT-2024-086')} className="px-3 py-1 rounded-lg text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors">Ver detalle</button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+      )}
+
+      {/* Buscador */}
+      <div className="mb-4">
+        <input
+          type="search"
+          value={busqueda}
+          onChange={e => setBusqueda(e.target.value)}
+          placeholder="Buscar por cliente..."
+          className="w-full sm:w-72 border border-slate-200 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+        />
       </div>
+
+      {isLoading ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="h-32 bg-white border border-slate-200 rounded-xl animate-pulse" />
+          ))}
+        </div>
+      ) : solicitudesFiltradas.length === 0 ? (
+        <EmptyState hayFiltro={busqueda.trim().length > 0} />
+      ) : (
+        <div className="space-y-4">
+          {solicitudesFiltradas.map(s => (
+            <RentaActivaCard
+              key={s.id}
+              solicitud={s}
+              ahora={ahora}
+              abriendo={abriendo === s.id}
+              showEncargado
+              onVerComprobante={() => handleVerComprobante(s.id)}
+              onAmpliar={() => setModalAmpliar(s)}
+              onDevolucion={() => setModalDevolucion(s)}
+            />
+          ))}
+        </div>
+      )}
     </div>
-  )
+  );
+}
+
+function EmptyState({ hayFiltro }: { hayFiltro: boolean }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-400">
+      <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+      </svg>
+      <p className="text-sm font-medium">
+        {hayFiltro ? 'Sin resultados para esa búsqueda' : 'Sin rentas activas'}
+      </p>
+      <p className="text-xs text-center max-w-xs leading-relaxed">
+        {hayFiltro
+          ? 'Intenta con otro nombre de cliente.'
+          : 'Cuando un encargado confirme la entrega de una renta, aparecerá aquí.'}
+      </p>
+    </div>
+  );
 }

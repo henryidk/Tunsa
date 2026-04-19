@@ -9,25 +9,30 @@ interface ActivasState {
   removeRenta:    (id: string) => void;
 }
 
-export const useActivasStore = create<ActivasState>((set) => ({
-  solicitudes: [],
+function createActivasStore() {
+  return create<ActivasState>((set) => ({
+    solicitudes: [],
 
-  setSolicitudes: (data) => set({ solicitudes: data }),
+    setSolicitudes: (data) => set({ solicitudes: data }),
 
-  addRenta: (solicitud) =>
-    set((state) => ({
-      solicitudes: state.solicitudes.some(s => s.id === solicitud.id)
-        ? state.solicitudes
-        : [solicitud, ...state.solicitudes],
-    })),
+    addRenta: (solicitud) =>
+      set((state) => ({
+        solicitudes: state.solicitudes.some(s => s.id === solicitud.id)
+          ? state.solicitudes
+          : [solicitud, ...state.solicitudes],
+      })),
 
-  updateRenta: (solicitud) =>
-    set((state) => ({
-      solicitudes: state.solicitudes.map(s => s.id === solicitud.id ? solicitud : s),
-    })),
+    updateRenta: (solicitud) =>
+      set((state) => ({
+        solicitudes: state.solicitudes.map(s => s.id === solicitud.id ? solicitud : s),
+      })),
 
-  removeRenta: (id) =>
-    set((state) => ({
-      solicitudes: state.solicitudes.filter(s => s.id !== id),
-    })),
-}));
+    removeRenta: (id) =>
+      set((state) => ({
+        solicitudes: state.solicitudes.filter(s => s.id !== id),
+      })),
+  }));
+}
+
+export const useActivasStore      = createActivasStore();
+export const useAdminActivasStore = createActivasStore();

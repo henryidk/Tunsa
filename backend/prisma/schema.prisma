@@ -193,14 +193,20 @@ model Solicitud {
   // Puede diferir de totalEstimado en devoluciones anticipadas o por recargos adicionales.
   totalFinal            Decimal?  @db.Decimal(12, 2)
 
+  // Fecha de la última devolución registrada (parcial o completa).
+  // Se actualiza en cada llamada a registrarDevolucion. Permite filtrar el historial
+  // por fecha de devolución sin hacer queries sobre el JSONB devolucionesParciales.
+  fechaUltimaDevolucion DateTime?
+
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 
   @@map("solicitudes")
   @@index([estado, createdAt])
-  @@index([estado, fechaDecision, id])              // keyset pagination admin: rechazadas
-  @@index([creadaPor, estado, fechaDecision, id])   // keyset pagination encargado: historial-mias
-  @@index([creadaPor, estado, fechaFinEstimada])    // consulta encargado: activas-mias y vencidas-mias
+  @@index([estado, fechaDecision, id])                          // keyset pagination admin: rechazadas
+  @@index([creadaPor, estado, fechaDecision, id])               // keyset pagination encargado: historial-mias (rechazadas)
+  @@index([creadaPor, fechaUltimaDevolucion, id])               // keyset pagination encargado: historial devueltas
+  @@index([creadaPor, estado, fechaFinEstimada])                // consulta encargado: activas-mias y vencidas-mias
   @@index([clienteId])
 }
 

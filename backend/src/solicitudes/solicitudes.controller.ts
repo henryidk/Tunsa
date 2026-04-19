@@ -204,4 +204,14 @@ export class SolicitudesController {
   ) {
     return this.solicitudesService.getComprobanteUrl(id, user.username);
   }
+
+  @Get(':id/liquidacion/:loteIndex')
+  @Roles('encargado_maquinas')
+  getLiquidacion(
+    @Param('id') id: string,
+    @Param('loteIndex') loteIndex: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.solicitudesService.getLiquidacionUrl(id, parseInt(loteIndex, 10), user.username);
+  }
 }

@@ -41,7 +41,8 @@ export interface RechazadasPage {
   nextCursor: string | null;
 }
 
-interface KeysetCursor { fechaDecision: string; id: string }
+interface KeysetCursor          { fechaDecision:         string; id: string }
+interface HistorialCursor       { fechaUltimaDevolucion: string; id: string }
 
 const PAGE_SIZE = 20;
 
@@ -380,6 +381,9 @@ export class SolicitudesService {
       devolucionesParciales: todasLasDevoluciones as object[],
     };
 
+    // Siempre actualizamos fechaUltimaDevolucion para que el historial pueda filtrar por fecha
+    updateData.fechaUltimaDevolucion = fechaDevolucion;
+
     if (devolucionCompleta) {
       const totalFinal    = todasLasDevoluciones.reduce((s, d) => s + d.totalLote, 0);
       const recargoTotal  = todasLasDevoluciones.reduce(
@@ -588,27 +592,32 @@ export class SolicitudesService {
    *
    * Usa el índice compuesto (creadaPor, estado, fechaDecision, id) para seeks O(log n).
    */
+  /**
+   * Historial de rentas del encargado: solicitudes con al menos una devolución registrada
+   * (parcial o completa), filtradas por la fecha de la última devolución.
+   * Incluye tanto ACTIVA (con parciales pendientes) como DEVUELTA (cerradas).
+   */
   async findHistorialMias(
     username: string,
     params: { fechaDesde: Date; fechaHasta: Date; cursor?: string },
   ): Promise<RechazadasPage> {
     const { fechaDesde, fechaHasta, cursor } = params;
-    const keysetClause = cursor ? this.decodeCursor(cursor) : null;
+    const keysetClause = cursor ? this.decodeHistorialCursor(cursor) : null;
 
     const solicitudes = await this.prisma.solicitud.findMany({
       where: {
-        creadaPor:     username,
-        estado:        'RECHAZADA',
-        fechaDecision: { gte: fechaDesde, lte: fechaHasta },
+        creadaPor:            username,
+        estado:               { in: ['ACTIVA', 'DEVUELTA'] },
+        fechaUltimaDevolucion: { not: null, gte: fechaDesde, lte: fechaHasta },
         ...(keysetClause && {
           OR: [
-            { fechaDecision: { lt: keysetClause.fechaDecision } },
-            { fechaDecision: keysetClause.fechaDecision, id: { lt: keysetClause.id } },
+            { fechaUltimaDevolucion: { lt: keysetClause.fechaUltimaDevolucion } },
+            { fechaUltimaDevolucion: keysetClause.fechaUltimaDevolucion, id: { lt: keysetClause.id } },
           ],
         }),
       },
       include: { cliente: true },
-      orderBy: [{ fechaDecision: 'desc' }, { id: 'desc' }],
+      orderBy: [{ fechaUltimaDevolucion: 'desc' }, { id: 'desc' }],
       take:    PAGE_SIZE + 1,
     });
 
@@ -616,10 +625,38 @@ export class SolicitudesService {
     const pageData   = hasMore ? solicitudes.slice(0, PAGE_SIZE) : solicitudes;
     const last       = pageData.at(-1);
     const nextCursor = hasMore && last
-      ? this.encodeCursor({ fechaDecision: last.fechaDecision!.toISOString(), id: last.id })
+      ? this.encodeHistorialCursor({
+          fechaUltimaDevolucion: last.fechaUltimaDevolucion!.toISOString(),
+          id: last.id,
+        })
       : null;
 
     return { data: pageData.map(s => this.serialize(s)), nextCursor };
+  }
+
+  /**
+   * Devuelve la URL firmada del PDF de liquidación de un lote específico.
+   * loteIndex es el índice 0-based dentro de devolucionesParciales.
+   */
+  async getLiquidacionUrl(id: string, loteIndex: number, username: string): Promise<{ url: string }> {
+    const solicitud = await this.prisma.solicitud.findUnique({ where: { id } });
+
+    if (!solicitud)
+      throw new NotFoundException('Solicitud no encontrada.');
+    if (solicitud.creadaPor !== username)
+      throw new ForbiddenException('No tienes acceso a esta solicitud.');
+
+    const devoluciones = (solicitud.devolucionesParciales ?? []) as unknown as DevolucionEntry[];
+
+    if (loteIndex < 0 || loteIndex >= devoluciones.length)
+      throw new NotFoundException('Lote de devolución no encontrado.');
+
+    const key = devoluciones[loteIndex].liquidacionKey;
+    if (!key)
+      throw new NotFoundException('Este lote no tiene liquidación generada.');
+
+    const url = await this.r2.getPresignedUrl(key);
+    return { url };
   }
 
   async aprobar(id: string, aprobadaPor: string) {
@@ -757,14 +794,24 @@ export class SolicitudesService {
     return { fechaDecision: new Date(parsed.fechaDecision), id: parsed.id };
   }
 
+  private encodeHistorialCursor(cursor: HistorialCursor): string {
+    return Buffer.from(JSON.stringify(cursor)).toString('base64');
+  }
+
+  private decodeHistorialCursor(raw: string): { fechaUltimaDevolucion: Date; id: string } {
+    const parsed = JSON.parse(Buffer.from(raw, 'base64').toString('utf8')) as HistorialCursor;
+    return { fechaUltimaDevolucion: new Date(parsed.fechaUltimaDevolucion), id: parsed.id };
+  }
+
   serialize(s: SolicitudConCliente) {
     return {
       ...s,
-      totalEstimado:        parseFloat(s.totalEstimado.toString()),
-      recargoTotal:         s.recargoTotal  != null ? parseFloat(s.recargoTotal.toString())  : null,
-      totalFinal:           s.totalFinal    != null ? parseFloat((s.totalFinal as any).toString()) : null,
-      extensiones:          (s.extensiones          ?? null) as ExtensionEntry[]   | null,
-      devolucionesParciales:(s.devolucionesParciales ?? null) as DevolucionEntry[] | null,
+      totalEstimado:         parseFloat(s.totalEstimado.toString()),
+      recargoTotal:          s.recargoTotal != null ? parseFloat(s.recargoTotal.toString())           : null,
+      totalFinal:            s.totalFinal   != null ? parseFloat((s.totalFinal as any).toString())    : null,
+      extensiones:           (s.extensiones          ?? null) as ExtensionEntry[]   | null,
+      devolucionesParciales: (s.devolucionesParciales ?? null) as DevolucionEntry[] | null,
+      fechaUltimaDevolucion: s.fechaUltimaDevolucion?.toISOString() ?? null,
     };
   }
 }

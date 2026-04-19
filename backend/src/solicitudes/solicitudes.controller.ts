@@ -96,6 +96,16 @@ export class SolicitudesController {
     });
   }
 
+  @Get('historial')
+  @Roles('admin', 'secretaria')
+  findHistorial(@Query() query: QueryRechazadasDto) {
+    return this.solicitudesService.findHistorial({
+      fechaDesde: new Date(query.fechaDesde),
+      fechaHasta: new Date(query.fechaHasta),
+      cursor:     query.cursor,
+    });
+  }
+
   @Get('historial-mias')
   @Roles('encargado_maquinas')
   findHistorialMias(

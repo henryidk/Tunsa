@@ -139,6 +139,11 @@ export const solicitudesService = {
     return res.data;
   },
 
+  async getHistorial(params: QueryRechazadas): Promise<RechazadasPage> {
+    const res = await api.get<RechazadasPage>('/solicitudes/historial', { params });
+    return res.data;
+  },
+
   async getMiasHistorial(params: QueryRechazadas): Promise<RechazadasPage> {
     const res = await api.get<RechazadasPage>('/solicitudes/historial-mias', { params });
     return res.data;

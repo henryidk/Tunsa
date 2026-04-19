@@ -656,6 +656,46 @@ export class SolicitudesService {
   }
 
   /**
+   * Historial global de rentas (admin / secretaria): igual que findHistorialMias
+   * pero sin filtro de encargado — devuelve todos los contratos con al menos
+   * una devolución registrada, paginados por fechaUltimaDevolucion.
+   */
+  async findHistorial(
+    params: { fechaDesde: Date; fechaHasta: Date; cursor?: string },
+  ): Promise<RechazadasPage> {
+    const { fechaDesde, fechaHasta, cursor } = params;
+    const keysetClause = cursor ? this.decodeHistorialCursor(cursor) : null;
+
+    const solicitudes = await this.prisma.solicitud.findMany({
+      where: {
+        estado:                { in: ['ACTIVA', 'DEVUELTA'] },
+        fechaUltimaDevolucion: { not: null, gte: fechaDesde, lte: fechaHasta },
+        ...(keysetClause && {
+          OR: [
+            { fechaUltimaDevolucion: { lt: keysetClause.fechaUltimaDevolucion } },
+            { fechaUltimaDevolucion: keysetClause.fechaUltimaDevolucion, id: { lt: keysetClause.id } },
+          ],
+        }),
+      },
+      include: { cliente: true },
+      orderBy: [{ fechaUltimaDevolucion: 'desc' }, { id: 'desc' }],
+      take:    PAGE_SIZE + 1,
+    });
+
+    const hasMore    = solicitudes.length > PAGE_SIZE;
+    const pageData   = hasMore ? solicitudes.slice(0, PAGE_SIZE) : solicitudes;
+    const last       = pageData.at(-1);
+    const nextCursor = hasMore && last
+      ? this.encodeHistorialCursor({
+          fechaUltimaDevolucion: last.fechaUltimaDevolucion!.toISOString(),
+          id: last.id,
+        })
+      : null;
+
+    return { data: pageData.map(s => this.serialize(s)), nextCursor };
+  }
+
+  /**
    * Devuelve la URL firmada del PDF de liquidación de un lote específico.
    * loteIndex es el índice 0-based dentro de devolucionesParciales.
    */

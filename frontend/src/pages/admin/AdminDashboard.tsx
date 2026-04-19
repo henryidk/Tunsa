@@ -103,7 +103,7 @@ export default function AdminDashboard() {
             <RentasActivasSection />
           )}
           {activeSection === 'rentas-historial' && (
-            <HistorialSection onShowToast={showToast} onOpenModal={openModal} />
+            <HistorialSection />
           )}
           {activeSection === 'rentas-vencidas' && (
             <VencidasSection />

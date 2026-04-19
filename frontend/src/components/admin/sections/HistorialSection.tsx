@@ -1,137 +1,221 @@
-// HistorialSection.tsx — registro completo de rentas
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { solicitudesService } from '../../../services/solicitudes.service';
+import type { SolicitudRenta } from '../../../types/solicitud-renta.types';
+import RentaHistorialCard from '../../shared/RentaHistorialCard';
 
-import type { ToastType } from '../../../types/ui.types'
+// ── Helpers de fecha ──────────────────────────────────────────────────────────
 
-interface HistorialSectionProps {
-  onShowToast: (type: ToastType, title: string, msg: string) => void
-  onOpenModal: (rentaId: string) => void
+function toDateInput(d: Date): string {
+  return d.toISOString().slice(0, 10);
 }
 
-const EquipTag = ({ label }: { label: string }) => (
-  <span className="text-[11.5px] font-semibold bg-slate-100 text-slate-600 border border-slate-200 px-2 py-0.5 rounded-md whitespace-nowrap">
-    {label}
-  </span>
-)
+function hoy(): string {
+  return toDateInput(new Date());
+}
 
-export default function HistorialSection({ onShowToast }: HistorialSectionProps) {
+function inicioMes(): string {
+  const d = new Date();
+  d.setDate(1);
+  return toDateInput(d);
+}
+
+function startOfDay(dateStr: string): string {
+  return `${dateStr}T00:00:00.000Z`;
+}
+
+function endOfDay(dateStr: string): string {
+  return `${dateStr}T23:59:59.999Z`;
+}
+
+// ── Sección principal ─────────────────────────────────────────────────────────
+
+export default function HistorialSection() {
+  const [fechaDesde,    setFechaDesde]    = useState(inicioMes());
+  const [fechaHasta,    setFechaHasta]    = useState(hoy());
+  const [filtroActivo,  setFiltroActivo]  = useState({ desde: inicioMes(), hasta: hoy() });
+  const [solicitudes,   setSolicitudes]   = useState<SolicitudRenta[]>([]);
+  const [nextCursor,    setNextCursor]    = useState<string | null>(null);
+  const [isLoading,     setIsLoading]     = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [error,         setError]         = useState<string | null>(null);
+
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  const buscar = useCallback(async (desde: string, hasta: string) => {
+    setIsLoading(true);
+    setError(null);
+    setSolicitudes([]);
+    setNextCursor(null);
+    setFiltroActivo({ desde, hasta });
+    try {
+      const res = await solicitudesService.getHistorial({
+        fechaDesde: startOfDay(desde),
+        fechaHasta: endOfDay(hasta),
+      });
+      setSolicitudes(res.data);
+      setNextCursor(res.nextCursor);
+    } catch {
+      setError('No se pudo cargar el historial. Intenta de nuevo.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const cargarMas = useCallback(async (cursor: string, desde: string, hasta: string) => {
+    setIsLoadingMore(true);
+    try {
+      const res = await solicitudesService.getHistorial({
+        fechaDesde: startOfDay(desde),
+        fechaHasta: endOfDay(hasta),
+        cursor,
+      });
+      setSolicitudes(prev => [...prev, ...res.data]);
+      setNextCursor(res.nextCursor);
+    } catch {
+      setError('No se pudo cargar más registros.');
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    buscar(inicioMes(), hoy());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!sentinelRef.current || !nextCursor || isLoadingMore) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) cargarMas(nextCursor, filtroActivo.desde, filtroActivo.hasta);
+      },
+      { threshold: 0.1 },
+    );
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [nextCursor, isLoadingMore, filtroActivo, cargarMas]);
+
   return (
     <div>
-      {/* Header */}
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Historial de Rentas</h1>
-          <p className="text-sm text-slate-500 mt-1">Registro completo de todas las rentas del sistema</p>
-        </div>
-        <button
-          onClick={() => onShowToast('info', 'Exportando', 'Descargando CSV del historial...')}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-            <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-          </svg>
-          Exportar CSV
-        </button>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-slate-800">Historial de Rentas</h1>
+        <p className="text-sm text-slate-500 mt-1">
+          Registro de devoluciones parciales y rentas finalizadas de todos los encargados
+        </p>
       </div>
 
-      {/* Filters */}
-      <div className="flex items-center gap-3 mb-5 flex-wrap">
-        <input
-          type="search"
-          placeholder="Buscar en historial..."
-          className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:border-indigo-400 min-w-[220px]"
-        />
-        <select className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white focus:outline-none focus:border-indigo-400">
-          <option>Todos los estados</option>
-          <option>Completada</option>
-          <option>Vencida</option>
-          <option>Rechazada</option>
-        </select>
-        <select className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white focus:outline-none focus:border-indigo-400">
-          <option>Todo el tiempo</option>
-          <option>Este mes</option>
-          <option>Mes pasado</option>
-          <option>2025</option>
-        </select>
-      </div>
+      <FiltroFechas
+        fechaDesde={fechaDesde}
+        fechaHasta={fechaHasta}
+        isLoading={isLoading}
+        onChangeDe={setFechaDesde}
+        onChangeHasta={setFechaHasta}
+        onBuscar={() => buscar(fechaDesde, fechaHasta)}
+      />
 
-      {/* Table */}
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-50">
-                {['ID', 'Cliente', 'Equipos', 'Período', 'Total cobrado', 'Estado', 'Encargado', ''].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {/* Completada */}
-              <tr className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                <td className="px-4 py-3 font-bold font-mono text-slate-800">RNT-2024-080</td>
-                <td className="px-4 py-3 text-slate-800 font-medium">Pedro Caal Tun</td>
-                <td className="px-4 py-3"><div className="flex flex-wrap gap-1"><EquipTag label="Niveladora Láser" /></div></td>
-                <td className="px-4 py-3 text-slate-700 whitespace-nowrap">01–08 Feb</td>
-                <td className="px-4 py-3 font-bold font-mono text-slate-800">Q840</td>
-                <td className="px-4 py-3"><span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">Completada</span></td>
-                <td className="px-4 py-3 text-xs text-slate-500">Juan Pérez</td>
-                <td className="px-4 py-3"><button className="px-3 py-1 rounded-lg text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors">Ver</button></td>
-              </tr>
-              {/* Completada 2 */}
-              <tr className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                <td className="px-4 py-3 font-bold font-mono text-slate-800">RNT-2024-079</td>
-                <td className="px-4 py-3 text-slate-800 font-medium">Marta López</td>
-                <td className="px-4 py-3"><div className="flex flex-wrap gap-1"><EquipTag label="Compresor" /><EquipTag label="Taladro" /></div></td>
-                <td className="px-4 py-3 text-slate-700 whitespace-nowrap">28 Ene–04 Feb</td>
-                <td className="px-4 py-3 font-bold font-mono text-slate-800">Q2,450</td>
-                <td className="px-4 py-3"><span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">Completada</span></td>
-                <td className="px-4 py-3 text-xs text-slate-500">Ana López</td>
-                <td className="px-4 py-3"><button className="px-3 py-1 rounded-lg text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors">Ver</button></td>
-              </tr>
-              {/* Devolución tardía */}
-              <tr className="bg-red-50 border-b border-slate-100 hover:bg-red-100 transition-colors">
-                <td className="px-4 py-3 font-bold font-mono text-slate-800">RNT-2024-075</td>
-                <td className="px-4 py-3 text-slate-800 font-medium">Luis Cucul</td>
-                <td className="px-4 py-3"><div className="flex flex-wrap gap-1"><EquipTag label="Mezcladora" /></div></td>
-                <td className="px-4 py-3 text-slate-700 whitespace-nowrap">15–28 Ene</td>
-                <td className="px-4 py-3 font-bold font-mono text-slate-800">Q3,080</td>
-                <td className="px-4 py-3">
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold" style={{ background: '#fce7f3', color: '#9d174d' }}>
-                    Dev. tardía
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-xs text-slate-500">Juan Pérez</td>
-                <td className="px-4 py-3"><button className="px-3 py-1 rounded-lg text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors">Ver</button></td>
-              </tr>
-            </tbody>
-          </table>
+      {error && (
+        <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 mb-4">
+          {error}
         </div>
+      )}
 
-        {/* Pagination */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-t border-slate-200 bg-slate-50">
-          <span className="text-sm text-slate-500">Mostrando 1–3 de 76 registros</span>
-          <div className="flex items-center gap-1">
-            {['←', '1', '2', '3', '...', '26', '→'].map((p, i) => (
-              p === '...' ? (
-                <span key={i} className="text-sm px-1.5 text-slate-400">...</span>
-              ) : (
-                <button
-                  key={p + i}
-                  disabled={p === '←'}
-                  className={`min-w-[32px] h-8 px-2 text-sm font-semibold rounded-lg border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-                    p === '1'
-                      ? 'bg-indigo-600 border-indigo-600 text-white'
-                      : 'bg-white border-slate-200 text-slate-600 hover:bg-indigo-50 hover:border-indigo-400 hover:text-indigo-600'
-                  }`}
-                >
-                  {p}
-                </button>
-              )
-            ))}
+      {isLoading ? (
+        <Skeletons />
+      ) : solicitudes.length === 0 ? (
+        <SinResultados />
+      ) : (
+        <div className="space-y-4">
+          {solicitudes.map(s => (
+            <RentaHistorialCard key={s.id} solicitud={s} showEncargado />
+          ))}
+          <div ref={sentinelRef} className="flex justify-center py-4">
+            {isLoadingMore && <Spinner />}
           </div>
         </div>
-      </div>
+      )}
     </div>
-  )
+  );
+}
+
+// ── Sub-componentes de UI ─────────────────────────────────────────────────────
+
+function FiltroFechas({
+  fechaDesde, fechaHasta, isLoading, onChangeDe, onChangeHasta, onBuscar,
+}: {
+  fechaDesde:    string;
+  fechaHasta:    string;
+  isLoading:     boolean;
+  onChangeDe:    (v: string) => void;
+  onChangeHasta: (v: string) => void;
+  onBuscar:      () => void;
+}) {
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl px-5 py-4 mb-6 flex flex-wrap items-end gap-4 shadow-sm">
+      <div>
+        <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-1">Desde</label>
+        <input
+          type="date"
+          value={fechaDesde}
+          max={fechaHasta}
+          onChange={e => onChangeDe(e.target.value)}
+          className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+        />
+      </div>
+      <div>
+        <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-1">Hasta</label>
+        <input
+          type="date"
+          value={fechaHasta}
+          min={fechaDesde}
+          onChange={e => onChangeHasta(e.target.value)}
+          className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+        />
+      </div>
+      <button
+        onClick={onBuscar}
+        disabled={isLoading}
+        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-sm font-semibold text-white transition-colors disabled:opacity-60"
+      >
+        {isLoading ? <Spinner size={14} /> : (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+        )}
+        Buscar
+      </button>
+    </div>
+  );
+}
+
+function Skeletons() {
+  return (
+    <div className="space-y-4">
+      {[1, 2, 3].map(i => (
+        <div key={i} className="h-40 bg-white border border-slate-200 rounded-xl animate-pulse" />
+      ))}
+    </div>
+  );
+}
+
+function Spinner({ size = 20 }: { size?: number }) {
+  return (
+    <svg className="animate-spin text-slate-400" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+    </svg>
+  );
+}
+
+function SinResultados() {
+  return (
+    <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-400">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2">
+        <path d="M12 20h9"/>
+        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+      </svg>
+      <p className="text-sm font-medium">Sin registros en este período</p>
+      <p className="text-xs text-center max-w-xs leading-relaxed">
+        No hay devoluciones en las fechas seleccionadas.
+      </p>
+    </div>
+  );
 }

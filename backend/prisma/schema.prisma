@@ -118,10 +118,11 @@ model Equipo {
   categoriaId String?    @map("categoria_id")
   categoria   Categoria? @relation(fields: [categoriaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
-  rentaHora    Decimal?   @db.Decimal(10, 2)  // Exclusivo de PESADA
-  rentaDia     Decimal?   @db.Decimal(10, 2)
-  rentaSemana  Decimal?   @db.Decimal(10, 2)
-  rentaMes     Decimal?   @db.Decimal(10, 2)
+  rentaHora         Decimal?   @db.Decimal(10, 2)  // Exclusivo de PESADA
+  rentaHoraMartillo Decimal?   @db.Decimal(10, 2)  // Exclusivo de retroexcavadoras (PESADA con martillo)
+  rentaDia          Decimal?   @db.Decimal(10, 2)
+  rentaSemana       Decimal?   @db.Decimal(10, 2)
+  rentaMes          Decimal?   @db.Decimal(10, 2)
 
   isActive     Boolean    @default(true)
   motivoBaja   String?
@@ -130,10 +131,12 @@ model Equipo {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
+  lecturas      LecturaHorometro[]
+
   @@map("equipos")
   @@index([tipoId])
   @@index([categoriaId])
-  @@index([isActive, createdAt])  // cubre ORDER BY isActive DESC, createdAt ASC (el @@index([isActive]) anterior era incompleto)
+  @@index([isActive, createdAt])
 }
 
 // ==================== SOLICITUDES DE RENTA ====================
@@ -189,6 +192,9 @@ model Solicitud {
   // los cargos adicionales y la key del PDF de liquidación en R2.
   devolucionesParciales Json?     // DevolucionEntry[]
 
+  // Flag: true cuando todos los ítems son PESADA (cobro por horómetro, sin totalEstimado real).
+  esPesada              Boolean   @default(false)
+
   // Monto real cobrado al cerrar la renta (suma de todos los totalLote de devolucionesParciales).
   // Puede diferir de totalEstimado en devoluciones anticipadas o por recargos adicionales.
   totalFinal            Decimal?  @db.Decimal(12, 2)
@@ -197,6 +203,8 @@ model Solicitud {
   // Se actualiza en cada llamada a registrarDevolucion. Permite filtrar el historial
   // por fecha de devolución sin hacer queries sobre el JSONB devolucionesParciales.
   fechaUltimaDevolucion DateTime?
+
+  lecturas              LecturaHorometro[]
 
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
@@ -298,6 +306,56 @@ model Cliente {
 
   @@map("clientes")
   @@index([nombre])
+}
+
+// ==================== HORÓMETRO (MAQUINARIA PESADA) ====================
+
+/**
+ * Registro diario de horómetro para maquinaria pesada en renta.
+ * Una fila por (solicitud, equipo, fecha).
+ *
+ * Flujo de llenado:
+ *  1. Mañana: se registra horometroInicio (crea la fila).
+ *  2. 5 PM:   se registra horometroFin5pm; se calculan horasDiurnas y costos provisionales.
+ *  3. Al registrar el horometroInicio del día siguiente:
+ *     → si difiere de horometroFin5pm del día anterior, se actualiza horasNocturnas
+ *       en la fila del día anterior y se recalculan sus costos definitivos.
+ *  4. En la devolución: el horometroDevolucion cierra el último día igual que en (3).
+ */
+model LecturaHorometro {
+  id            String    @id @default(cuid())
+  solicitudId   String
+  solicitud     Solicitud @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
+  equipoId      String
+  equipo        Equipo    @relation(fields: [equipoId], references: [id])
+
+  fecha           DateTime  @db.Date    // Día al que pertenece la lectura
+
+  horometroInicio Decimal?  @db.Decimal(10, 1)  // Lectura de inicio del día
+  horometroFin5pm Decimal?  @db.Decimal(10, 1)  // Lectura a las 5 PM
+
+  // Horas nocturnas de ESTE día — se conocen cuando se registra el inicio del día siguiente
+  // (o en la devolución si es el último día).
+  horasNocturnas  Decimal?  @db.Decimal(6, 1)
+
+  // Calculados y persistidos al cerrar nocturnas (para evitar recalcular en cada consulta)
+  horasDiurnasRaw        Decimal?  @db.Decimal(6, 1)   // horometroFin5pm − horometroInicio
+  horasDiurnasFacturadas Decimal?  @db.Decimal(6, 1)   // horasDiurnasRaw + ajusteMinimo
+  ajusteMinimo           Decimal?  @db.Decimal(6, 1)   // horas diurnas añadidas para llegar a 5 h/día
+  tarifaEfectiva         Decimal?  @db.Decimal(10, 2)  // Q/hora aplicada (con o sin martillo)
+  costoDiurno            Decimal?  @db.Decimal(10, 2)
+  costoNocturno          Decimal?  @db.Decimal(10, 2)
+  costoTotal             Decimal?  @db.Decimal(10, 2)
+
+  registradoInicioBy  String?
+  registradoFinBy     String?
+
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([solicitudId, equipoId, fecha])
+  @@index([solicitudId, equipoId])
+  @@map("lecturas_horometro")
 }
 
 // ==================== AUDIT LOG ====================

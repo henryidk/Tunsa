@@ -6,9 +6,12 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { SolicitudesService } from './solicitudes.service';
 import { SolicitudesGateway } from './solicitudes.gateway';
+import { HorometroService } from './horometro.service';
 import { CreateSolicitudDto } from './dto/create-solicitud.dto';
 import { AmpliacionRentaDto } from './dto/ampliar-renta.dto';
 import { RegistrarDevolucionDto } from './dto/registrar-devolucion.dto';
+import { RegistrarLecturaDto } from './dto/lectura-horometro.dto';
+import { RegistrarDevolucionPesadaDto } from './dto/registrar-devolucion-pesada.dto';
 import { QueryRechazadasDto } from './dto/query-rechazadas.dto';
 import { RechazarSolicitudDto } from './dto/rechazar-solicitud.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -26,6 +29,7 @@ export class SolicitudesController {
   constructor(
     private readonly solicitudesService: SolicitudesService,
     private readonly solicitudesGateway: SolicitudesGateway,
+    private readonly horometroService:   HorometroService,
   ) {}
 
   @Post()
@@ -229,5 +233,36 @@ export class SolicitudesController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.solicitudesService.getLiquidacionUrl(id, parseInt(loteIndex, 10), user);
+  }
+
+  // ── Horómetro (maquinaria pesada) ────────────────────────────────────────────
+
+  @Post(':id/horometro/lecturas')
+  @Roles('encargado_maquinas')
+  registrarLectura(
+    @Param('id') id: string,
+    @Body() dto: RegistrarLecturaDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.horometroService.registrarLectura(id, dto, user);
+  }
+
+  @Get(':id/horometro')
+  @Roles('encargado_maquinas', 'admin', 'secretaria')
+  getLecturas(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.horometroService.getLecturas(id, user);
+  }
+
+  @Patch(':id/registrar-devolucion-pesada')
+  @Roles('encargado_maquinas', 'admin', 'secretaria')
+  registrarDevolucionPesada(
+    @Param('id') id: string,
+    @Body() dto: RegistrarDevolucionPesadaDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.horometroService.registrarDevolucionPesada(id, dto, user);
   }
 }

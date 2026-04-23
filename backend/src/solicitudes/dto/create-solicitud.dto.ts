@@ -6,13 +6,17 @@ import { Type } from 'class-transformer';
 import { ModalidadPago } from '@prisma/client';
 
 export class ItemSolicitudDto {
-  @IsIn(['maquinaria', 'granel'])
-  kind: 'maquinaria' | 'granel';
+  @IsIn(['maquinaria', 'granel', 'pesada'])
+  kind: 'maquinaria' | 'granel' | 'pesada';
 
-  // Maquinaria
+  // Maquinaria / Pesada
   @IsOptional() @IsString() equipoId?: string;
   @IsOptional() @IsString() numeracion?: string;
   @IsOptional() @IsString() descripcion?: string;
+
+  // Pesada: martillo y días solicitados
+  @IsOptional() @IsBoolean() conMartillo?: boolean;
+  @IsOptional() @IsNumber() @Min(1) diasSolicitados?: number;
 
   // Granel
   @IsOptional() @IsString() tipo?: string;
@@ -22,8 +26,8 @@ export class ItemSolicitudDto {
 
   // Común
   @IsString() fechaInicio: string;
-  @IsNumber() @Min(1) duracion: number;
-  @IsIn(['dias', 'semanas', 'meses']) unidad: string;
+  @IsOptional() @IsNumber() @Min(1) duracion?: number;
+  @IsOptional() @IsIn(['dias', 'semanas', 'meses']) unidad?: string;
   @IsOptional() @IsNumber() tarifa?: number | null;
   @IsNumber() @Min(0) subtotal: number;
 }
@@ -38,10 +42,11 @@ export class CreateSolicitudDto {
   @IsString()
   notas: string;
 
+  @IsOptional()
   @IsNumber()
   @Min(0)
   @Type(() => Number)
-  totalEstimado: number;
+  totalEstimado?: number;
 
   @IsArray()
   @ArrayMinSize(1)

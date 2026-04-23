@@ -17,7 +17,7 @@ export interface RentaActivaCardProps {
   abriendo:         boolean;
   showEncargado?:   boolean;
   onVerComprobante: () => void;
-  onAmpliar:        () => void;
+  onAmpliar?:       () => void;
   onDevolucion:     () => void;
 }
 
@@ -34,12 +34,13 @@ export default function RentaActivaCard({
     (solicitud.devolucionesParciales ?? []).flatMap(d => d.items.map(i => i.itemRef)),
   );
   const itemsPendientes = solicitud.items.filter(item => {
-    const ref = item.kind === 'maquinaria' ? item.equipoId : item.tipo;
+    const ref = item.kind === 'maquinaria' || item.kind === 'pesada' ? item.equipoId : item.tipo;
     return !yaDevueltos.has(ref);
   });
 
   const maquinaria  = itemsPendientes.filter((i): i is Extract<typeof i, { kind: 'maquinaria' }> => i.kind === 'maquinaria');
   const granel      = itemsPendientes.filter((i): i is Extract<typeof i, { kind: 'granel' }>     => i.kind === 'granel');
+  const pesada      = itemsPendientes.filter((i): i is Extract<typeof i, { kind: 'pesada' }>     => i.kind === 'pesada');
   const extensiones = solicitud.extensiones ?? [];
   const inicio      = solicitud.fechaInicioRenta ? new Date(solicitud.fechaInicioRenta) : new Date();
   const msMin       = msMinimos(itemsPendientes, inicio, extensiones, ahora);
@@ -55,6 +56,11 @@ export default function RentaActivaCard({
             <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
             Activa
           </span>
+          {solicitud.esPesada && (
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
+              PESADA
+            </span>
+          )}
           {nivel !== 'ok' && (
             <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${URGENCIA_BADGE[nivel]}`}>
               {nivel === 'vencido' ? 'Vencida' : `Vence en ${formatTiempoRestante(msMin, inicio, ahora)}`}
@@ -113,6 +119,9 @@ export default function RentaActivaCard({
             {granel.map((item, i) => (
               <GranelRow key={i} item={item} inicio={inicio} extensiones={extensiones} ahora={ahora} />
             ))}
+            {pesada.map((item, i) => (
+              <PesadaRow key={i} item={item} />
+            ))}
           </div>
         </div>
 
@@ -137,17 +146,19 @@ export default function RentaActivaCard({
           )}
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={onAmpliar}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-200 bg-white hover:bg-indigo-50 text-xs font-semibold text-indigo-600 transition-colors"
-          >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-              <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-              <line x1="12" y1="14" x2="12" y2="18"/><line x1="10" y1="16" x2="14" y2="16"/>
-            </svg>
-            Ampliar renta
-          </button>
+          {onAmpliar && (
+            <button
+              onClick={onAmpliar}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-200 bg-white hover:bg-indigo-50 text-xs font-semibold text-indigo-600 transition-colors"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                <line x1="12" y1="14" x2="12" y2="18"/><line x1="10" y1="16" x2="14" y2="16"/>
+              </svg>
+              Ampliar renta
+            </button>
+          )}
           <button
             onClick={onDevolucion}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-white transition-colors"
@@ -210,6 +221,22 @@ function GranelRow({ item, inicio, extensiones, ahora }: {
           Vence {formatFechaHora(fin.toISOString())}
         </span>
         <VenceLabel ms={ms} fechaInicio={inicio} ahora={ahora} />
+      </div>
+    </div>
+  );
+}
+
+function PesadaRow({ item }: { item: Extract<ItemSnapshot, { kind: 'pesada' }> }) {
+  return (
+    <div className="flex items-start justify-between gap-2">
+      <p className="text-xs font-medium text-slate-700 leading-tight">
+        <span className="font-mono text-slate-400 mr-1">#{item.numeracion}</span>
+        {item.descripcion}
+        {item.conMartillo && <span className="text-orange-600 ml-1">(+martillo)</span>}
+      </p>
+      <div className="flex-shrink-0 flex flex-col items-end gap-0.5">
+        <span className="text-[10px] text-slate-400">{item.diasSolicitados} días sol.</span>
+        <span className="text-[10px] font-bold text-amber-600">{item.tarifaEfectiva.toFixed(2)}/hr</span>
       </div>
     </div>
   );

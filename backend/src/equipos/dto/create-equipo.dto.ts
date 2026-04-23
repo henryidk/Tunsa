@@ -49,6 +49,12 @@ export class CreateEquipoDto {
   @IsNumber()
   @Min(0)
   @Type(() => Number)
+  rentaHoraMartillo?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
   rentaDia?: number;
 
   @IsOptional()

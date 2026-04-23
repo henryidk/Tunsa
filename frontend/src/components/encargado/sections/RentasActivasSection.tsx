@@ -7,18 +7,22 @@ import type { SolicitudRenta } from '../../../types/solicitud-renta.types';
 import RentaActivaCard from '../../shared/RentaActivaCard';
 import AmpliacionRentaModal from '../../shared/AmpliacionRentaModal';
 import DevolucionModal from '../../shared/DevolucionModal';
+import HorometroPanel from '../HorometroPanel';
+import DevolucionPesadaModal from '../DevolucionPesadaModal';
 import StatCard from '../../shared/StatCard';
 
 export default function RentasActivasSection() {
   const { solicitudes, setSolicitudes, updateRenta, removeRenta } = useActivasStore();
   const addVencida = useVencidasStore(s => s.addVencida);
 
-  const [isLoading,       setIsLoading]       = useState(true);
-  const [error,           setError]           = useState<string | null>(null);
-  const [abriendo,        setAbriendo]        = useState<string | null>(null);
-  const [modalAmpliar,    setModalAmpliar]    = useState<SolicitudRenta | null>(null);
-  const [modalDevolucion, setModalDevolucion] = useState<SolicitudRenta | null>(null);
-  const [ahora,           setAhora]           = useState(() => Date.now());
+  const [isLoading,          setIsLoading]          = useState(true);
+  const [error,              setError]              = useState<string | null>(null);
+  const [abriendo,           setAbriendo]           = useState<string | null>(null);
+  const [modalAmpliar,       setModalAmpliar]       = useState<SolicitudRenta | null>(null);
+  const [modalDevolucion,    setModalDevolucion]    = useState<SolicitudRenta | null>(null);
+  const [modalHorometro,     setModalHorometro]     = useState<SolicitudRenta | null>(null);
+  const [modalDevPesada,     setModalDevPesada]     = useState<SolicitudRenta | null>(null);
+  const [ahora,              setAhora]              = useState(() => Date.now());
 
   useEffect(() => {
     solicitudesService.getActivasMias()
@@ -57,6 +61,12 @@ export default function RentasActivasSection() {
     setModalDevolucion(null);
   };
 
+  const handleDevolucionPesada = (actualizada: SolicitudRenta) => {
+    if (actualizada.estado === 'DEVUELTA') removeRenta(actualizada.id);
+    else updateRenta(actualizada);
+    setModalDevPesada(null);
+  };
+
   const contratosActivos    = solicitudes.length;
   const equiposEnCampo      = solicitudes.reduce((sum, s) => sum + s.items.length, 0);
   const ingresosProyectados = solicitudes.reduce((sum, s) => sum + s.totalEstimado, 0);
@@ -75,6 +85,19 @@ export default function RentasActivasSection() {
           solicitud={modalDevolucion}
           onClose={() => setModalDevolucion(null)}
           onDevolucion={handleDevolucion}
+        />
+      )}
+      {modalHorometro && (
+        <HorometroPanel
+          solicitud={modalHorometro}
+          onClose={() => setModalHorometro(null)}
+        />
+      )}
+      {modalDevPesada && (
+        <DevolucionPesadaModal
+          solicitud={modalDevPesada}
+          onClose={() => setModalDevPesada(null)}
+          onDevolucion={handleDevolucionPesada}
         />
       )}
 
@@ -138,15 +161,29 @@ export default function RentasActivasSection() {
       ) : (
         <div className="space-y-4">
           {solicitudes.map(s => (
-            <RentaActivaCard
-              key={s.id}
-              solicitud={s}
-              ahora={ahora}
-              abriendo={abriendo === s.id}
-              onVerComprobante={() => handleVerComprobante(s.id)}
-              onAmpliar={() => setModalAmpliar(s)}
-              onDevolucion={() => setModalDevolucion(s)}
-            />
+            <div key={s.id}>
+              <RentaActivaCard
+                solicitud={s}
+                ahora={ahora}
+                abriendo={abriendo === s.id}
+                onVerComprobante={() => handleVerComprobante(s.id)}
+                onAmpliar={s.esPesada ? undefined : () => setModalAmpliar(s)}
+                onDevolucion={s.esPesada ? () => setModalDevPesada(s) : () => setModalDevolucion(s)}
+              />
+              {s.esPesada && (
+                <div className="mt-1 flex justify-end px-1">
+                  <button
+                    onClick={() => setModalHorometro(s)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-700 text-xs font-semibold transition-colors"
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                    </svg>
+                    Horómetro
+                  </button>
+                </div>
+              )}
+            </div>
           ))}
         </div>
       )}

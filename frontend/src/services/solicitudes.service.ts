@@ -21,11 +21,32 @@ export interface QueryRechazadas {
 }
 
 interface CreateSolicitudPayload {
-  clienteId:     string;
-  modalidad:     ModalidadPago;
-  notas:         string;
-  totalEstimado: number;
-  items:         ItemSnapshot[];
+  clienteId:      string;
+  modalidad:      ModalidadPago;
+  notas:          string;
+  totalEstimado?: number;
+  items:          ItemSnapshot[];
+}
+
+export interface LecturaHorometro {
+  id:                    string;
+  solicitudId:           string;
+  equipoId:              string;
+  fecha:                 string;
+  horometroInicio:       number | null;
+  horometroFin5pm:       number | null;
+  horasNocturnas:        number | null;
+  horasDiurnasRaw:       number | null;
+  horasDiurnasFacturadas: number | null;
+  ajusteMinimo:          number | null;
+  tarifaEfectiva:        number | null;
+  costoDiurno:           number | null;
+  costoNocturno:         number | null;
+  costoTotal:            number | null;
+  registradoInicioBy:    string | null;
+  registradoFinBy:       string | null;
+  createdAt:             string;
+  updatedAt:             string;
 }
 
 export const solicitudesService = {
@@ -156,6 +177,38 @@ export const solicitudesService = {
 
   async getRechazadas(params: QueryRechazadas): Promise<RechazadasPage> {
     const res = await api.get<RechazadasPage>('/solicitudes/rechazadas', { params });
+    return res.data;
+  },
+
+  // ── Horómetro (maquinaria pesada) ─────────────────────────────────────────
+
+  async registrarLectura(
+    solicitudId: string,
+    data: { equipoId: string; fecha: string; tipo: 'inicio' | 'fin5pm'; valor: number },
+  ): Promise<LecturaHorometro> {
+    const res = await api.post<LecturaHorometro>(
+      `/solicitudes/${solicitudId}/horometro/lecturas`,
+      data,
+    );
+    return res.data;
+  },
+
+  async getLecturas(solicitudId: string): Promise<LecturaHorometro[]> {
+    const res = await api.get<LecturaHorometro[]>(`/solicitudes/${solicitudId}/horometro`);
+    return res.data;
+  },
+
+  async registrarDevolucionPesada(
+    solicitudId: string,
+    data: {
+      items?: { equipoId: string; horometroDevolucion: number }[];
+      recargosAdicionales?: { descripcion: string; monto: number }[];
+    },
+  ): Promise<SolicitudRenta> {
+    const res = await api.patch<SolicitudRenta>(
+      `/solicitudes/${solicitudId}/registrar-devolucion-pesada`,
+      data,
+    );
     return res.data;
   },
 };

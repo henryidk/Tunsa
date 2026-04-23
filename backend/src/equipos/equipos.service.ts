@@ -24,11 +24,12 @@ export class EquiposService {
   private serialize(equipo: any) {
     return {
       ...equipo,
-      montoCompra: equipo.montoCompra != null ? parseFloat(equipo.montoCompra.toString()) : null,
-      rentaHora:   equipo.rentaHora   != null ? parseFloat(equipo.rentaHora.toString())   : null,
-      rentaDia:    equipo.rentaDia    != null ? parseFloat(equipo.rentaDia.toString())    : null,
-      rentaSemana: equipo.rentaSemana != null ? parseFloat(equipo.rentaSemana.toString()) : null,
-      rentaMes:    equipo.rentaMes    != null ? parseFloat(equipo.rentaMes.toString())    : null,
+      montoCompra:       equipo.montoCompra       != null ? parseFloat(equipo.montoCompra.toString())       : null,
+      rentaHora:         equipo.rentaHora         != null ? parseFloat(equipo.rentaHora.toString())         : null,
+      rentaHoraMartillo: equipo.rentaHoraMartillo != null ? parseFloat(equipo.rentaHoraMartillo.toString()) : null,
+      rentaDia:          equipo.rentaDia          != null ? parseFloat(equipo.rentaDia.toString())          : null,
+      rentaSemana:       equipo.rentaSemana       != null ? parseFloat(equipo.rentaSemana.toString())       : null,
+      rentaMes:          equipo.rentaMes          != null ? parseFloat(equipo.rentaMes.toString())          : null,
     };
   }
 
@@ -65,16 +66,16 @@ export class EquiposService {
    */
   private normalizarPrecios(
     tipoNombre: string,
-    precios: { rentaHora?: number | null; rentaDia?: number | null; rentaSemana?: number | null; rentaMes?: number | null },
+    precios: { rentaHora?: number | null; rentaHoraMartillo?: number | null; rentaDia?: number | null; rentaSemana?: number | null; rentaMes?: number | null },
   ) {
     if (tipoNombre === 'PESADA') {
-      return { rentaHora: precios.rentaHora ?? null, rentaDia: null, rentaSemana: null, rentaMes: null };
+      return { rentaHora: precios.rentaHora ?? null, rentaHoraMartillo: precios.rentaHoraMartillo ?? null, rentaDia: null, rentaSemana: null, rentaMes: null };
     }
     if (tipoNombre === 'LIVIANA') {
-      return { rentaHora: null, rentaDia: precios.rentaDia ?? null, rentaSemana: precios.rentaSemana ?? null, rentaMes: precios.rentaMes ?? null };
+      return { rentaHora: null, rentaHoraMartillo: null, rentaDia: precios.rentaDia ?? null, rentaSemana: precios.rentaSemana ?? null, rentaMes: precios.rentaMes ?? null };
     }
     // USO_PROPIO u otros
-    return { rentaHora: null, rentaDia: null, rentaSemana: null, rentaMes: null };
+    return { rentaHora: null, rentaHoraMartillo: null, rentaDia: null, rentaSemana: null, rentaMes: null };
   }
 
   private buildChanges(
@@ -109,15 +110,17 @@ export class EquiposService {
     // Usar los precios efectivos (ya normalizados por tipo) si están disponibles;
     // de lo contrario, usar los valores del DTO directamente.
     if (preciosEfectivos) {
-      track('rentaHora',   fmtNum(equipo.rentaHora),   fmtNum(preciosEfectivos.rentaHora));
-      track('rentaDia',    fmtNum(equipo.rentaDia),    fmtNum(preciosEfectivos.rentaDia));
-      track('rentaSemana', fmtNum(equipo.rentaSemana), fmtNum(preciosEfectivos.rentaSemana));
-      track('rentaMes',    fmtNum(equipo.rentaMes),    fmtNum(preciosEfectivos.rentaMes));
+      track('rentaHora',         fmtNum(equipo.rentaHora),         fmtNum(preciosEfectivos.rentaHora));
+      track('rentaHoraMartillo', fmtNum(equipo.rentaHoraMartillo), fmtNum((preciosEfectivos as any).rentaHoraMartillo));
+      track('rentaDia',          fmtNum(equipo.rentaDia),          fmtNum(preciosEfectivos.rentaDia));
+      track('rentaSemana',       fmtNum(equipo.rentaSemana),       fmtNum(preciosEfectivos.rentaSemana));
+      track('rentaMes',          fmtNum(equipo.rentaMes),          fmtNum(preciosEfectivos.rentaMes));
     } else {
-      if (dto.rentaHora   !== undefined) track('rentaHora',   fmtNum(equipo.rentaHora),   fmtNum(dto.rentaHora   ?? null));
-      if (dto.rentaDia    !== undefined) track('rentaDia',    fmtNum(equipo.rentaDia),    fmtNum(dto.rentaDia    ?? null));
-      if (dto.rentaSemana !== undefined) track('rentaSemana', fmtNum(equipo.rentaSemana), fmtNum(dto.rentaSemana ?? null));
-      if (dto.rentaMes    !== undefined) track('rentaMes',    fmtNum(equipo.rentaMes),    fmtNum(dto.rentaMes    ?? null));
+      if (dto.rentaHora         !== undefined) track('rentaHora',         fmtNum(equipo.rentaHora),         fmtNum(dto.rentaHora         ?? null));
+      if (dto.rentaHoraMartillo !== undefined) track('rentaHoraMartillo', fmtNum(equipo.rentaHoraMartillo), fmtNum(dto.rentaHoraMartillo ?? null));
+      if (dto.rentaDia          !== undefined) track('rentaDia',          fmtNum(equipo.rentaDia),          fmtNum(dto.rentaDia          ?? null));
+      if (dto.rentaSemana       !== undefined) track('rentaSemana',       fmtNum(equipo.rentaSemana),       fmtNum(dto.rentaSemana       ?? null));
+      if (dto.rentaMes          !== undefined) track('rentaMes',          fmtNum(equipo.rentaMes),          fmtNum(dto.rentaMes          ?? null));
     }
 
     return changes;
@@ -160,10 +163,11 @@ export class EquiposService {
 
     const tipoNombre = await this.validarTipoYCategoria(dto.tipoId, dto.categoriaId);
     const precios = this.normalizarPrecios(tipoNombre, {
-      rentaHora:   dto.rentaHora,
-      rentaDia:    dto.rentaDia,
-      rentaSemana: dto.rentaSemana,
-      rentaMes:    dto.rentaMes,
+      rentaHora:         dto.rentaHora,
+      rentaHoraMartillo: dto.rentaHoraMartillo,
+      rentaDia:          dto.rentaDia,
+      rentaSemana:       dto.rentaSemana,
+      rentaMes:          dto.rentaMes,
     });
 
     const equipo = await this.prisma.equipo.create({
@@ -238,9 +242,9 @@ export class EquiposService {
     //   b) el tipo cambia — para limpiar precios incompatibles con el nuevo tipo
     //      (ej: LIVIANA→PESADA debe nulificar rentaDia/Semana/Mes aunque no vengan en el DTO).
     const tipoRealmEnteCambia = dto.tipoId !== undefined && dto.tipoId !== equipo.tipoId;
-    const algoPrecio = dto.rentaHora !== undefined || dto.rentaDia !== undefined
-                    || dto.rentaSemana !== undefined || dto.rentaMes !== undefined
-                    || tipoRealmEnteCambia;
+    const algoPrecio = dto.rentaHora !== undefined || dto.rentaHoraMartillo !== undefined
+                    || dto.rentaDia !== undefined || dto.rentaSemana !== undefined
+                    || dto.rentaMes !== undefined || tipoRealmEnteCambia;
 
     // Prisma devuelve Decimal para los campos de precio; convertir a number para normalizarPrecios.
     const toNum = (v: unknown): number | null =>
@@ -248,10 +252,11 @@ export class EquiposService {
 
     const preciosActualizados = algoPrecio
       ? this.normalizarPrecios(tipoNombreEfectivo, {
-          rentaHora:   dto.rentaHora   !== undefined ? dto.rentaHora   : toNum(equipo.rentaHora),
-          rentaDia:    dto.rentaDia    !== undefined ? dto.rentaDia    : toNum(equipo.rentaDia),
-          rentaSemana: dto.rentaSemana !== undefined ? dto.rentaSemana : toNum(equipo.rentaSemana),
-          rentaMes:    dto.rentaMes    !== undefined ? dto.rentaMes    : toNum(equipo.rentaMes),
+          rentaHora:         dto.rentaHora         !== undefined ? dto.rentaHora         : toNum(equipo.rentaHora),
+          rentaHoraMartillo: dto.rentaHoraMartillo !== undefined ? dto.rentaHoraMartillo : toNum(equipo.rentaHoraMartillo),
+          rentaDia:          dto.rentaDia          !== undefined ? dto.rentaDia          : toNum(equipo.rentaDia),
+          rentaSemana:       dto.rentaSemana       !== undefined ? dto.rentaSemana       : toNum(equipo.rentaSemana),
+          rentaMes:          dto.rentaMes          !== undefined ? dto.rentaMes          : toNum(equipo.rentaMes),
         })
       : {};
 

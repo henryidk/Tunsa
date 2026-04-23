@@ -6,6 +6,8 @@ import { SolicitudesService } from './solicitudes.service';
 import { SolicitudesGateway } from './solicitudes.gateway';
 import { SolicitudesController } from './solicitudes.controller';
 import { RentaVencimientoScheduler } from './renta-vencimiento.scheduler';
+import { HorometroService } from './horometro.service';
+import { HorometroCalcService } from './horometro-calc.service';
 
 @Module({
   imports: [
@@ -18,6 +20,12 @@ import { RentaVencimientoScheduler } from './renta-vencimiento.scheduler';
     }),
   ],
   controllers: [SolicitudesController],
-  providers: [SolicitudesService, SolicitudesGateway, RentaVencimientoScheduler],
+  providers: [
+    SolicitudesService,
+    SolicitudesGateway,
+    RentaVencimientoScheduler,
+    HorometroService,
+    HorometroCalcService,
+  ],
 })
 export class SolicitudesModule {}

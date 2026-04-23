@@ -28,9 +28,13 @@ export function calcularFinConExtensiones(
   item:        ItemSnapshot,
   extensiones: ExtensionEntry[],
 ): Date {
-  const ref  = item.kind === 'maquinaria' ? item.equipoId : item.tipo;
+  const ref  = item.kind === 'maquinaria' || item.kind === 'pesada'
+    ? item.equipoId
+    : item.tipo;
   const exts = extensiones.filter(e => e.itemRef === ref);
-  let fin = calcularFin(inicio, item.duracion, item.unidad);
+  const dur  = item.kind === 'pesada' ? item.diasSolicitados : item.duracion;
+  const uni  = item.kind === 'pesada' ? 'dias' : item.unidad;
+  let fin = calcularFin(inicio, dur, uni as UnidadDuracion);
   for (const ext of exts) fin = calcularFin(fin, ext.duracion, ext.unidad);
   return fin;
 }

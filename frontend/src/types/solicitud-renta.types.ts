@@ -11,7 +11,7 @@ export interface CargoAdicional {
 /** Detalle de facturación de un ítem dentro de una devolución. */
 export interface DevolucionItemEntry {
   itemRef:       string;
-  kind:          'maquinaria' | 'granel';
+  kind:          'maquinaria' | 'granel' | 'pesada';
   diasCobrados:  number;
   costoReal:     number;
   recargoTiempo: number;
@@ -60,7 +60,19 @@ export type ItemSnapshot =
       tipoLabel: string;
       cantidad:  number;
       conMadera: boolean;
-    });
+    })
+  | {
+      kind:            'pesada';
+      equipoId:        string;
+      numeracion:      string;
+      descripcion:     string;
+      conMartillo:     boolean;
+      diasSolicitados: number;
+      tarifaEfectiva:  number;
+      duracion:        number;
+      unidad:          string;
+      subtotal:        number;
+    };
 
 export interface ClienteBasico {
   id:           string;
@@ -79,6 +91,7 @@ export interface SolicitudRenta {
   notas:          string;
   motivoRechazo:  string | null;
   totalEstimado:  number;
+  esPesada:       boolean;
   estado:         EstadoSolicitud;
   creadaPor:      string;
   folio:          string | null;

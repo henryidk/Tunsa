@@ -112,19 +112,21 @@ async function main() {
   console.log('\nCreando tipos, categorías y equipos...');
 
   interface EquipoSeed {
-    numeracion:  string;
-    descripcion: string;
-    categoria:   string;   // clave de lookup — debe existir en categoriasPorTipo[tipo]
-    serie:       string | null;
-    fechaCompra: Date;
-    montoCompra: number;
-    tipo:        string;   // 'LIVIANA' | 'PESADA' | 'USO_PROPIO'
-    rentaDia:    number | null;
-    rentaSemana: number | null;
-    rentaMes:    number | null;
-    isActive?:   boolean;
-    motivoBaja?: string | null;
-    fechaBaja?:  Date | null;
+    numeracion:        string;
+    descripcion:       string;
+    categoria:         string;
+    serie:             string | null;
+    fechaCompra:       Date;
+    montoCompra:       number;
+    tipo:              string;
+    rentaHora?:        number | null;
+    rentaHoraMartillo?: number | null;
+    rentaDia:          number | null;
+    rentaSemana:       number | null;
+    rentaMes:          number | null;
+    isActive?:         boolean;
+    motivoBaja?:       string | null;
+    fechaBaja?:        Date | null;
   }
 
   const equiposData: EquipoSeed[] = [
@@ -243,12 +245,12 @@ async function main() {
     // ══════════════════════════════════════════
     //  MAQUINARIA PESADA
     // ══════════════════════════════════════════
-    { numeracion: 'MP01', descripcion: 'Retroexcavadora CASE 580N',   categoria: 'Retroexcavadora', serie: 'serie: JJGN58NRCLC771510 & motor: 1728119',                                   fechaCompra: new Date('2020-12-04'), montoCompra: 500000.00, tipo: 'PESADA', rentaDia: null, rentaSemana: null, rentaMes: null },
-    { numeracion: 'MP02', descripcion: 'Rodo compactador CASE DV36',  categoria: 'Rodo compactador', serie: 'serie: NHNTV0108 & motor: W7885',                                             fechaCompra: new Date('2022-02-24'), montoCompra: 250000.00, tipo: 'PESADA', rentaDia: null, rentaSemana: null, rentaMes: null },
-    { numeracion: 'MP04', descripcion: 'Montacarga',                   categoria: 'Montacarga',       serie: null,                                                                          fechaCompra: new Date('2023-10-04'), montoCompra: 327600.00, tipo: 'PESADA', rentaDia: null, rentaSemana: null, rentaMes: null },
-    { numeracion: 'MP05', descripcion: 'Minicargador CASE SR250B',     categoria: 'Minicargador',     serie: 'MODELO: SR250B SERIE: JAFSR250VPM446786 & MOTOR: 1025722',                  fechaCompra: new Date('2024-07-04'), montoCompra: 472420.00, tipo: 'PESADA', rentaDia: null, rentaSemana: null, rentaMes: null },
-    { numeracion: 'MP06', descripcion: 'Minicargador CASE SR220B',     categoria: 'Minicargador',     serie: 'MODELO: SR220B SERIE: JAFSR220CPM450582 MOTOR: 1035944',                    fechaCompra: new Date('2025-03-25'), montoCompra: 429112.20, tipo: 'PESADA', rentaDia: null, rentaSemana: null, rentaMes: null },
-    { numeracion: 'MP07', descripcion: 'Retroexcavadora Case 580N',   categoria: 'Retroexcavadora', serie: 'serie: JJGN58NRJRC787598 No. de Motor: 2194620',                              fechaCompra: new Date('2025-08-08'), montoCompra: 890000.00, tipo: 'PESADA', rentaDia: null, rentaSemana: null, rentaMes: null },
+    { numeracion: 'MP01', descripcion: 'Retroexcavadora CASE 580N',   categoria: 'Retroexcavadora', serie: 'serie: JJGN58NRCLC771510 & motor: 1728119',           fechaCompra: new Date('2020-12-04'), montoCompra: 500000.00, tipo: 'PESADA', rentaHora: 475, rentaHoraMartillo: 650, rentaDia: null, rentaSemana: null, rentaMes: null },
+    { numeracion: 'MP02', descripcion: 'Rodo compactador CASE DV36',  categoria: 'Rodo compactador', serie: 'serie: NHNTV0108 & motor: W7885',                             fechaCompra: new Date('2022-02-24'), montoCompra: 250000.00, tipo: 'PESADA', rentaHora: 325, rentaDia: null, rentaSemana: null, rentaMes: null },
+    { numeracion: 'MP04', descripcion: 'Montacarga',                   categoria: 'Montacarga',       serie: null,                                                         fechaCompra: new Date('2023-10-04'), montoCompra: 327600.00, tipo: 'PESADA', rentaHora: 350, rentaDia: null, rentaSemana: null, rentaMes: null },
+    { numeracion: 'MP05', descripcion: 'Minicargador CASE SR250B',     categoria: 'Minicargador',     serie: 'MODELO: SR250B SERIE: JAFSR250VPM446786 & MOTOR: 1025722',  fechaCompra: new Date('2024-07-04'), montoCompra: 472420.00, tipo: 'PESADA', rentaHora: 350, rentaDia: null, rentaSemana: null, rentaMes: null },
+    { numeracion: 'MP06', descripcion: 'Minicargador CASE SR220B',     categoria: 'Minicargador',     serie: 'MODELO: SR220B SERIE: JAFSR220CPM450582 MOTOR: 1035944',    fechaCompra: new Date('2025-03-25'), montoCompra: 429112.20, tipo: 'PESADA', rentaHora: 350, rentaDia: null, rentaSemana: null, rentaMes: null },
+    { numeracion: 'MP07', descripcion: 'Retroexcavadora Case 580N',   categoria: 'Retroexcavadora', serie: 'serie: JJGN58NRJRC787598 No. de Motor: 2194620',              fechaCompra: new Date('2025-08-08'), montoCompra: 890000.00, tipo: 'PESADA', rentaHora: 475, rentaHoraMartillo: 650, rentaDia: null, rentaSemana: null, rentaMes: null },
 
     // ══════════════════════════════════════════
     //  EQUIPO USO PROPIO
@@ -340,53 +342,65 @@ async function main() {
       where:  { numeracion: e.numeracion },
       update: {},
       create: {
-        numeracion:  e.numeracion,
-        descripcion: e.descripcion,
-        serie:       e.serie,
-        fechaCompra: e.fechaCompra,
-        montoCompra: e.montoCompra,
-        tipoId:      tipoMap[e.tipo],
-        categoriaId: categoriaMap.get(`${e.categoria}|${e.tipo}`) ?? null,
-        rentaDia:    e.rentaDia,
-        rentaSemana: e.rentaSemana,
-        rentaMes:    e.rentaMes,
-        isActive:    e.isActive   ?? true,
-        motivoBaja:  e.motivoBaja ?? null,
-        fechaBaja:   e.fechaBaja  ?? null,
+        numeracion:        e.numeracion,
+        descripcion:       e.descripcion,
+        serie:             e.serie,
+        fechaCompra:       e.fechaCompra,
+        montoCompra:       e.montoCompra,
+        tipoId:            tipoMap[e.tipo],
+        categoriaId:       categoriaMap.get(`${e.categoria}|${e.tipo}`) ?? null,
+        rentaHora:         e.rentaHora         ?? null,
+        rentaHoraMartillo: e.rentaHoraMartillo ?? null,
+        rentaDia:          e.rentaDia,
+        rentaSemana:       e.rentaSemana,
+        rentaMes:          e.rentaMes,
+        isActive:          e.isActive   ?? true,
+        motivoBaja:        e.motivoBaja ?? null,
+        fechaBaja:         e.fechaBaja  ?? null,
       },
     });
   }
   console.log(`  ${equiposData.length} equipos listos`);
 
-  // 5. Configuración global de precios de renta de puntales
-  console.log('\nCreando configuración de precios de puntales...');
-  await prisma.puntalesConfig.upsert({
-    where:  { id: 1 },
+  // 5. Configuración de precios de granel
+  console.log('\nCreando configuración de precios de granel...');
+  await prisma.configGranel.upsert({
+    where:  { tipo: 'PUNTAL' },
     update: {},
-    create: { id: 1, rentaDia: 1.5, rentaSemana: 5, rentaMes: 15 },
+    create: { tipo: 'PUNTAL', rentaDia: 1.5, rentaSemana: 5, rentaMes: 15 },
   });
-  console.log('  Configuración creada: Q1.50/día · Q5.00/semana · Q15.00/mes');
+  await prisma.configGranel.upsert({
+    where:  { tipo: 'ANDAMIO_SIMPLE' },
+    update: {},
+    create: {
+      tipo: 'ANDAMIO_SIMPLE',
+      rentaDia: 3, rentaSemana: 10, rentaMes: 30,
+      rentaDiaConMadera: 5, rentaSemanaConMadera: 16, rentaMesConMadera: 48,
+    },
+  });
+  await prisma.configGranel.upsert({
+    where:  { tipo: 'ANDAMIO_RUEDAS' },
+    update: {},
+    create: { tipo: 'ANDAMIO_RUEDAS', rentaDia: 5, rentaSemana: 18, rentaMes: 54 },
+  });
+  console.log('  ConfigGranel lista: PUNTAL · ANDAMIO_SIMPLE · ANDAMIO_RUEDAS');
 
-  // 6. Lotes históricos de puntales
-  //    Guard: omite la creación si ya existen lotes para evitar duplicados en re-ejecuciones.
-  //    No hay clave natural única por lote, por lo que upsert no aplica aquí.
-  //    precioUnitario = montoTotal / cantidad (calculado de los registros reales)
-  //    fechaCompra null = fecha no consta en documentación
-  console.log('\nCreando lotes de puntales...');
-  const puntalesExistentes = await prisma.puntal.count();
-  if (puntalesExistentes > 0) {
-    console.log(`  Omitido: ya existen ${puntalesExistentes} lotes.`);
+  // 6. Lotes de granel
+  console.log('\nCreando lotes de granel...');
+  const lotesPuntal = await prisma.loteGranel.count({ where: { tipo: 'PUNTAL' } });
+  if (lotesPuntal === 0) {
+    await prisma.loteGranel.createMany({
+      data: [
+        { tipo: 'PUNTAL', descripcion: 'Puntales telescópicos', cantidad: 100, precioUnitario: 261.68 },
+        { tipo: 'PUNTAL', descripcion: 'Puntales metálicos',    cantidad: 900, precioUnitario: 170.00 },
+        { tipo: 'PUNTAL', descripcion: 'Puntales metálicos',    cantidad: 200, precioUnitario: 170.00, fechaCompra: new Date('2024-12-20') },
+        { tipo: 'PUNTAL', descripcion: 'Puntales metálicos',    cantidad: 300, precioUnitario: 170.00, fechaCompra: new Date('2024-12-30') },
+        { tipo: 'PUNTAL', descripcion: 'Puntales metálicos',    cantidad:   2, precioUnitario: 170.00, fechaCompra: new Date('2025-04-15') },
+      ],
+    });
+    console.log('  5 lotes de PUNTAL creados');
   } else {
-    const puntalesLotes = [
-      { descripcion: 'Puntales telescópicos', cantidad: 100, precioUnitario: 261.68, fechaCompra: null },
-      { descripcion: 'Puntales metálicos',    cantidad: 900, precioUnitario: 170.00, fechaCompra: null },
-      { descripcion: 'Puntales metálicos',    cantidad: 200, precioUnitario: 170.00, fechaCompra: new Date('2024-12-20') },
-      { descripcion: 'Puntales metálicos',    cantidad: 300, precioUnitario: 170.00, fechaCompra: new Date('2024-12-30') },
-      { descripcion: 'Puntales metálicos',    cantidad:   2, precioUnitario: 170.00, fechaCompra: new Date('2025-04-15') },
-    ];
-    await prisma.puntal.createMany({ data: puntalesLotes });
-    const totalStock = puntalesLotes.reduce((sum, l) => sum + l.cantidad, 0);
-    console.log(`  ${puntalesLotes.length} lotes creados — stock total: ${totalStock} unidades`);
+    console.log(`  Omitido: ya existen ${lotesPuntal} lotes de PUNTAL.`);
   }
 
   console.log('===========================================');

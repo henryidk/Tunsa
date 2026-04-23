@@ -113,7 +113,16 @@ export interface ItemGranel {
   conMadera?:  boolean;
 }
 
-export type ItemSolicitud = ItemMaquinaria | ItemGranel;
+export interface ItemPesada {
+  kind:            'pesada';
+  equipo:          Equipo;
+  conMartillo:     boolean;
+  diasSolicitados: number;
+  fechaInicio:     string;
+  tarifaEfectiva:  number;
+}
+
+export type ItemSolicitud = ItemMaquinaria | ItemGranel | ItemPesada;
 
 // ── Pure helpers ─────────────────────────────────────────────────────────────
 
@@ -137,6 +146,7 @@ export function getRentaRate(
  * cuando el equipo tiene precio semanal configurado.
  */
 export function calcSubtotal(item: ItemSolicitud): number {
+  if (item.kind === 'pesada') return 0; // sin total estimado — se factura por horómetro
   if (item.kind === 'maquinaria') {
     const decomp = descomponerDuracion(item.fechaInicio, item.duracion, item.unidad);
     return subtotalDescompuesto(decomp, {

@@ -93,7 +93,7 @@ export class SolicitudesService {
 
       const items = s.items as unknown as ItemConKind[];
       for (const item of items) {
-        if (item.kind === 'maquinaria' && item.equipoId && !yaDevueltos.has(item.equipoId)) {
+        if ((item.kind === 'maquinaria' || item.kind === 'pesada') && item.equipoId && !yaDevueltos.has(item.equipoId)) {
           reservados.add(item.equipoId);
         }
       }
@@ -103,15 +103,24 @@ export class SolicitudesService {
   }
 
   async create(dto: CreateSolicitudDto, username: string) {
-    const maquinariaIds = dto.items
+    const esPesada = dto.items.every(i => i.kind === 'pesada');
+    const esMixta  = !esPesada && dto.items.some(i => i.kind === 'pesada');
+
+    if (esMixta) {
+      throw new BadRequestException(
+        'Una solicitud no puede mezclar ítems de maquinaria pesada con maquinaria liviana o granel.',
+      );
+    }
+
+    const equipoIds = dto.items
       .filter((i): i is typeof i & { equipoId: string } =>
-        i.kind === 'maquinaria' && !!i.equipoId,
+        (i.kind === 'maquinaria' || i.kind === 'pesada') && !!i.equipoId,
       )
       .map(i => i.equipoId);
 
-    if (maquinariaIds.length > 0) {
+    if (equipoIds.length > 0) {
       const reservados = new Set(await this.getEquiposReservados());
-      const conflictos = maquinariaIds.filter(id => reservados.has(id));
+      const conflictos = equipoIds.filter(id => reservados.has(id));
 
       if (conflictos.length > 0) {
         throw new ConflictException(
@@ -126,7 +135,8 @@ export class SolicitudesService {
         items:         dto.items as object[],
         modalidad:     dto.modalidad,
         notas:         dto.notas,
-        totalEstimado: dto.totalEstimado,
+        totalEstimado: esPesada ? 0 : (dto.totalEstimado ?? 0),
+        esPesada,
         creadaPor:     username,
       },
       include: { cliente: true },
@@ -279,6 +289,8 @@ export class SolicitudesService {
 
     if (!solicitud)
       throw new NotFoundException('Solicitud no encontrada.');
+    if (solicitud.esPesada)
+      throw new BadRequestException('Las rentas de maquinaria pesada usan el endpoint PATCH :id/registrar-devolucion-pesada.');
     if (!tieneAccesoGlobal(user) && solicitud.creadaPor !== user.username)
       throw new ForbiddenException('Solo el encargado que creó la solicitud puede registrar la devolución.');
     if (solicitud.estado !== 'ACTIVA')
@@ -817,7 +829,16 @@ export class SolicitudesService {
     const fechaEntrega   = new Date();
     const fechaInicio    = solicitud.fechaInicioRenta ?? fechaEntrega;
     const items          = solicitud.items as unknown as ItemParaCalculo[];
-    const fechaFinEstimada = calcularFechaFinEstimada(fechaInicio, items);
+
+    let fechaFinEstimada: Date;
+    if (solicitud.esPesada) {
+      // Para pesada, fechaFinEstimada = inicio + máximo de diasSolicitados
+      const pesadaItems = items as unknown as Array<{ diasSolicitados?: number }>;
+      const maxDias = Math.max(...pesadaItems.map(i => i.diasSolicitados ?? 1), 1);
+      fechaFinEstimada = new Date(fechaInicio.getTime() + maxDias * 86_400_000);
+    } else {
+      fechaFinEstimada = calcularFechaFinEstimada(fechaInicio, items);
+    }
 
     const actualizada = await this.prisma.solicitud.update({
       where:   { id },
@@ -867,6 +888,7 @@ export class SolicitudesService {
   serialize(s: SolicitudConCliente) {
     return {
       ...s,
+      esPesada:              s.esPesada,
       totalEstimado:         parseFloat(s.totalEstimado.toString()),
       recargoTotal:          s.recargoTotal != null ? parseFloat(s.recargoTotal.toString())           : null,
       totalFinal:            s.totalFinal   != null ? parseFloat((s.totalFinal as any).toString())    : null,

@@ -77,15 +77,16 @@ function calcularFin(inicio: Date, duracion: number, unidad: UnidadDuracion): Da
   return new Date(inicio.getTime() + duracion * 30 * 86_400_000);
 }
 
-// ── Item rows builder ─────────────────────────────────────────────────────────
+// ── Item rows builders ────────────────────────────────────────────────────────
 
-function buildFilasEquipos(items: ItemSnapshot[], fechaInicio: Date): string[][] {
+function buildFilasLiviana(items: ItemSnapshot[], fechaInicio: Date): string[][] {
   const filas: string[][] = [];
 
   for (const item of items) {
-    const fin       = calcularFin(fechaInicio, item.duracion, item.unidad);
-    const finStr    = formatFechaHoraCorta(fin.toISOString());
-    const duracion  = unidadLabel(item.duracion, item.unidad);
+    if (item.kind === 'pesada') continue;
+    const fin      = calcularFin(fechaInicio, item.duracion, item.unidad);
+    const finStr   = formatFechaHoraCorta(fin.toISOString());
+    const duracion = unidadLabel(item.duracion, item.unidad);
 
     if (item.kind === 'maquinaria') {
       filas.push([
@@ -114,6 +115,21 @@ function buildFilasEquipos(items: ItemSnapshot[], fechaInicio: Date): string[][]
   }
 
   return filas;
+}
+
+function buildFilasPesada(items: ItemSnapshot[]): string[][] {
+  return items
+    .filter((i): i is Extract<ItemSnapshot, { kind: 'pesada' }> => i.kind === 'pesada')
+    .map(item => [
+      `#${item.numeracion}`,
+      item.descripcion,
+      item.conMartillo ? 'Sí' : 'No',
+      item.horometroInicial != null
+        ? item.horometroInicial.toLocaleString('es-GT', { minimumFractionDigits: 1 })
+        : '—',
+      `${item.diasSolicitados} día${item.diasSolicitados !== 1 ? 's' : ''}`,
+      `Q ${item.tarifaEfectiva.toLocaleString('es-GT', { minimumFractionDigits: 2 })}/hr`,
+    ]);
 }
 
 // ── Main generator ────────────────────────────────────────────────────────────
@@ -198,7 +214,12 @@ export async function generarComprobante(solicitud: SolicitudRenta): Promise<voi
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(...COLORES.blanco);
-  doc.text('COMPROBANTE DE RENTA DE MAQUINARIA', W / 2, y + 6.5, { align: 'center' });
+  doc.text(
+    solicitud.esPesada
+      ? 'COMPROBANTE DE RENTA DE MAQUINARIA PESADA'
+      : 'COMPROBANTE DE RENTA DE MAQUINARIA',
+    W / 2, y + 6.5, { align: 'center' },
+  );
 
   y += 15;
 
@@ -244,46 +265,48 @@ export async function generarComprobante(solicitud: SolicitudRenta): Promise<voi
   doc.text('DETALLE DE EQUIPOS RENTADOS', 14, y);
   y += 3;
 
-  autoTable(doc, {
-    startY: y,
-    head: [['Cód./Cant.', 'Descripción', 'Duración', 'Vence', 'Tarifa', 'Subtotal']],
-    body: buildFilasEquipos(solicitud.items, fechaInicio),
-    foot: [[
-      '', '', '', '', 'TOTAL',
-      `Q ${solicitud.totalEstimado.toLocaleString('es-GT', { minimumFractionDigits: 2 })}`,
-    ]],
-    // Deja margen inferior en cada página para el footer
-    margin: { left: 14, right: 14, bottom: FOOTER_RESERVE + 2 },
-    styles: {
-      fontSize: 11,
-      cellPadding: 3,
-      textColor: COLORES.texto,
-      lineColor: COLORES.borde,
-      lineWidth: 0.2,
-    },
-    headStyles: {
-      fillColor: COLORES.primario,
-      textColor: COLORES.blanco,
-      fontStyle: 'bold',
-      fontSize: 11,
-    },
-    footStyles: {
-      fillColor: COLORES.fondo,
-      textColor: COLORES.texto,
-      fontStyle: 'bold',
-      fontSize: 11,
-    },
-    alternateRowStyles: {
-      fillColor: [250, 252, 255] as [number, number, number],
-    },
-    columnStyles: {
-      0: { cellWidth: 20, halign: 'center' },
-      2: { cellWidth: 28, halign: 'center' },
-      3: { cellWidth: 22, halign: 'center' },
-      4: { cellWidth: 25, halign: 'right' },
-      5: { cellWidth: 28, halign: 'right', fontStyle: 'bold' },
-    },
-  });
+  const commonTableStyles = {
+    margin:   { left: 14, right: 14, bottom: FOOTER_RESERVE + 2 },
+    styles:   { fontSize: 11, cellPadding: 3, textColor: COLORES.texto, lineColor: COLORES.borde, lineWidth: 0.2 },
+    headStyles: { fillColor: COLORES.primario, textColor: COLORES.blanco, fontStyle: 'bold' as const, fontSize: 11 },
+    footStyles: { fillColor: COLORES.fondo, textColor: COLORES.texto, fontStyle: 'bold' as const, fontSize: 11 },
+    alternateRowStyles: { fillColor: [250, 252, 255] as [number, number, number] },
+  };
+
+  if (solicitud.esPesada) {
+    autoTable(doc, {
+      startY: y,
+      head: [['Cód.', 'Descripción', 'Martillo', 'Horóm. inicial', 'Días sol.', 'Tarifa/hr']],
+      body: buildFilasPesada(solicitud.items),
+      foot: [['', '', '', '', 'TOTAL', 'Por horómetro']],
+      ...commonTableStyles,
+      columnStyles: {
+        0: { cellWidth: 16, halign: 'center' },
+        2: { cellWidth: 18, halign: 'center' },
+        3: { cellWidth: 28, halign: 'right' },
+        4: { cellWidth: 20, halign: 'center' },
+        5: { cellWidth: 30, halign: 'right', fontStyle: 'bold' },
+      },
+    });
+  } else {
+    autoTable(doc, {
+      startY: y,
+      head: [['Cód./Cant.', 'Descripción', 'Duración', 'Vence', 'Tarifa', 'Subtotal']],
+      body: buildFilasLiviana(solicitud.items, fechaInicio),
+      foot: [[
+        '', '', '', '', 'TOTAL',
+        `Q ${solicitud.totalEstimado.toLocaleString('es-GT', { minimumFractionDigits: 2 })}`,
+      ]],
+      ...commonTableStyles,
+      columnStyles: {
+        0: { cellWidth: 20, halign: 'center' },
+        2: { cellWidth: 28, halign: 'center' },
+        3: { cellWidth: 22, halign: 'center' },
+        4: { cellWidth: 25, halign: 'right' },
+        5: { cellWidth: 28, halign: 'right', fontStyle: 'bold' },
+      },
+    });
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   y = (doc as any).lastAutoTable.finalY + 10;

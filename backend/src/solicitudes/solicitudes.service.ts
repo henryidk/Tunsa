@@ -5,6 +5,7 @@ import { R2Service } from '../r2/r2.service';
 import { CreateSolicitudDto } from './dto/create-solicitud.dto';
 import { AmpliacionRentaDto } from './dto/ampliar-renta.dto';
 import { RegistrarDevolucionDto } from './dto/registrar-devolucion.dto';
+import { IniciarEntregaDto } from './dto/iniciar-entrega.dto';
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
 import {
   ExtensionEntry,
@@ -129,10 +130,32 @@ export class SolicitudesService {
       }
     }
 
+    // Para pesada: el backend calcula tarifaEfectiva desde la BD e ignora lo que mande el frontend.
+    let itemsToStore: object[] = dto.items as object[];
+    if (esPesada && equipoIds.length > 0) {
+      const equipos = await this.prisma.equipo.findMany({
+        where:  { id: { in: equipoIds } },
+        select: { id: true, rentaHora: true, rentaHoraMartillo: true },
+      });
+      const equipoMap = new Map(equipos.map(e => [e.id, e]));
+
+      itemsToStore = dto.items.map(item => {
+        if (item.kind !== 'pesada' || !item.equipoId) return item as object;
+        const eq = equipoMap.get(item.equipoId);
+        const tarifa = item.conMartillo && eq?.rentaHoraMartillo != null
+          ? parseFloat(eq.rentaHoraMartillo.toString())
+          : eq?.rentaHora != null
+            ? parseFloat(eq.rentaHora.toString())
+            : 0;
+        const { tarifaEfectiva: _dropped, ...rest } = item as any;
+        return { ...rest, tarifaEfectiva: tarifa };
+      });
+    }
+
     const solicitud = await this.prisma.solicitud.create({
       data: {
         clienteId:     dto.clienteId,
-        items:         dto.items as object[],
+        items:         itemsToStore,
         modalidad:     dto.modalidad,
         notas:         dto.notas,
         totalEstimado: esPesada ? 0 : (dto.totalEstimado ?? 0),
@@ -770,7 +793,7 @@ export class SolicitudesService {
    * vez que el encargado genera el comprobante. Si ya está fijada, devuelve la solicitud
    * sin modificarla — la fecha de inicio es inmutable una vez establecida.
    */
-  async iniciarEntrega(id: string, username: string) {
+  async iniciarEntrega(id: string, username: string, dto?: IniciarEntregaDto) {
     const solicitud = await this.prisma.solicitud.findUnique({ where: { id } });
 
     if (!solicitud) throw new NotFoundException('Solicitud no encontrada.');
@@ -779,8 +802,25 @@ export class SolicitudesService {
     if (solicitud.estado !== 'APROBADA')
       throw new ConflictException('Solo se puede iniciar la entrega de solicitudes aprobadas.');
 
-    // Inmutable: si ya se fijó, devolver sin modificar
-    if (solicitud.fechaInicioRenta) {
+    const data: Prisma.SolicitudUpdateInput = {};
+
+    // fechaInicioRenta es inmutable: solo se fija la primera vez
+    if (!solicitud.fechaInicioRenta) {
+      data.fechaInicioRenta = new Date();
+    }
+
+    // Escribir horómetros iniciales en el JSON de items si se proporcionaron
+    if (dto?.horometrosIniciales?.length) {
+      const horometroMap = new Map(dto.horometrosIniciales.map(h => [h.equipoId, h.valor]));
+      const items = solicitud.items as Record<string, unknown>[];
+      data.items = items.map(item =>
+        item['kind'] === 'pesada' && horometroMap.has(item['equipoId'] as string)
+          ? { ...item, horometroInicial: horometroMap.get(item['equipoId'] as string) }
+          : item,
+      ) as unknown as Prisma.InputJsonValue;
+    }
+
+    if (!data.fechaInicioRenta && !data.items) {
       const actual = await this.prisma.solicitud.findUnique({
         where: { id }, include: { cliente: true },
       });
@@ -789,7 +829,7 @@ export class SolicitudesService {
 
     const actualizada = await this.prisma.solicitud.update({
       where:   { id },
-      data:    { fechaInicioRenta: new Date() },
+      data,
       include: { cliente: true },
     });
     return this.serialize(actualizada);

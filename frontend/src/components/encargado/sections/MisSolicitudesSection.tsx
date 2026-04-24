@@ -221,6 +221,22 @@ function SolicitudPendienteCard({ solicitud }: { solicitud: SolicitudRenta }) {
 // ── Item resumen ──────────────────────────────────────────────────────────────
 
 function ItemResumen({ item }: { item: ItemSnapshot }) {
+  if (item.kind === 'pesada') {
+    return (
+      <div>
+        <p className="text-xs text-slate-700">
+          <span className="font-mono text-slate-400 mr-1">#{item.numeracion}</span>
+          {item.descripcion}
+          {item.conMartillo && <span className="text-orange-600 ml-1">(+martillo)</span>}
+        </p>
+        <span className="inline-flex items-center gap-1.5 mt-0.5 text-[11px]">
+          <span className="font-medium text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-md">Por horómetro</span>
+          <span className="text-slate-400">{item.diasSolicitados} días sol.</span>
+        </span>
+      </div>
+    );
+  }
+
   const duracionLabel = unidadLabel(item.duracion, item.unidad);
   const fechaLabel    = formatFechaCorta(item.fechaInicio);
 

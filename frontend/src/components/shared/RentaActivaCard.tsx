@@ -97,9 +97,13 @@ export default function RentaActivaCard({
           <div className="flex items-end gap-4">
             <div>
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Total</p>
-              <p className="text-lg font-bold text-slate-800 font-mono leading-none">
-                Q {solicitud.totalEstimado.toLocaleString('es-GT', { minimumFractionDigits: 2 })}
-              </p>
+              {solicitud.esPesada ? (
+                <p className="text-base font-bold text-slate-700 leading-none">Por horómetro</p>
+              ) : (
+                <p className="text-lg font-bold text-slate-800 font-mono leading-none">
+                  Q {solicitud.totalEstimado.toLocaleString('es-GT', { minimumFractionDigits: 2 })}
+                </p>
+              )}
             </div>
             <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
               solicitud.modalidad === 'CONTADO' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
@@ -235,8 +239,10 @@ function PesadaRow({ item }: { item: Extract<ItemSnapshot, { kind: 'pesada' }> }
         {item.conMartillo && <span className="text-orange-600 ml-1">(+martillo)</span>}
       </p>
       <div className="flex-shrink-0 flex flex-col items-end gap-0.5">
-        <span className="text-[10px] text-slate-400">{item.diasSolicitados} días sol.</span>
-        <span className="text-[10px] font-bold text-amber-600">{item.tarifaEfectiva.toFixed(2)}/hr</span>
+        <span className="text-[10px] text-slate-400 whitespace-nowrap">{item.diasSolicitados} días sol.</span>
+        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-md whitespace-nowrap">
+          {item.tarifaEfectiva.toLocaleString('es-GT', { minimumFractionDigits: 2 })}/hr
+        </span>
       </div>
     </div>
   );

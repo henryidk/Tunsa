@@ -169,6 +169,7 @@ function SolicitudCard({
 }) {
   const maquinaria = solicitud.items.filter(i => i.kind === 'maquinaria');
   const granel     = solicitud.items.filter(i => i.kind === 'granel');
+  const pesada     = solicitud.items.filter(i => i.kind === 'pesada');
 
   return (
     <div className={`bg-white border border-slate-200 border-l-4 ${ESTADO_BORDER[solicitud.estado]} rounded-lg shadow-md overflow-hidden`}>
@@ -177,6 +178,11 @@ function SolicitudCard({
       <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-slate-50">
         <div className="flex items-center gap-3">
           <EstadoBadge estado={solicitud.estado} />
+          {solicitud.esPesada && (
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
+              PESADA
+            </span>
+          )}
           {solicitud.folio && (
             <span className="text-xs font-mono font-semibold text-slate-600">{solicitud.folio}</span>
           )}
@@ -216,6 +222,7 @@ function SolicitudCard({
           <div className="space-y-2">
             {maquinaria.map((item, i) => <ItemRow key={i} item={item} />)}
             {granel.map((item, i)     => <ItemRow key={i} item={item} />)}
+            {pesada.map((item, i)     => <ItemRow key={i} item={item} />)}
           </div>
         </div>
 
@@ -229,9 +236,13 @@ function SolicitudCard({
           }`}>
             {solicitud.modalidad === 'CONTADO' ? 'Contado' : 'Crédito'}
           </span>
-          <p className="text-xl font-bold text-slate-800 font-mono">
-            Q {solicitud.totalEstimado.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </p>
+          {solicitud.esPesada ? (
+            <p className="text-base font-bold text-amber-700">Por horómetro</p>
+          ) : (
+            <p className="text-xl font-bold text-slate-800 font-mono">
+              Q {solicitud.totalEstimado.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
+          )}
         </div>
       </div>
 
@@ -301,6 +312,22 @@ function AccionesFooter({
 // ── Item Row ──────────────────────────────────────────────────────────────────
 
 function ItemRow({ item }: { item: ItemSnapshot }) {
+  if (item.kind === 'pesada') {
+    return (
+      <div>
+        <p className="text-xs text-slate-700">
+          <span className="font-mono text-slate-400 mr-1">#{item.numeracion}</span>
+          {item.descripcion}
+          {item.conMartillo && <span className="text-orange-600 ml-1">(+martillo)</span>}
+        </p>
+        <span className="inline-flex items-center gap-1.5 mt-0.5 text-[11px]">
+          <span className="font-medium text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-md">Por horómetro</span>
+          <span className="text-slate-400">{item.diasSolicitados} días sol.</span>
+        </span>
+      </div>
+    );
+  }
+
   const tiempo = (
     <span className="flex items-center gap-1 mt-0.5 text-[11px] text-slate-400">
       <span className="inline-flex items-center gap-1 font-medium text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-md">

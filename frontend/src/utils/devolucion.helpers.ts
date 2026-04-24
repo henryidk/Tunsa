@@ -8,6 +8,12 @@ export function resolverLabelItem(
   solicitud:  SolicitudRenta,
   entry:      DevolucionItemEntry,
 ): string {
+  if (entry.kind === 'pesada') {
+    const item = solicitud.items.find(i => i.kind === 'pesada' && i.equipoId === entry.itemRef);
+    if (!item || item.kind !== 'pesada') return entry.itemRef;
+    return `#${item.numeracion} ${item.descripcion}`;
+  }
+
   const item = solicitud.items.find(i => {
     if (entry.kind === 'maquinaria') return i.kind === 'maquinaria' && i.equipoId === entry.itemRef;
     return i.kind === 'granel' && i.tipo === entry.itemRef;

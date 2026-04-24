@@ -14,6 +14,7 @@ import { RegistrarLecturaDto } from './dto/lectura-horometro.dto';
 import { RegistrarDevolucionPesadaDto } from './dto/registrar-devolucion-pesada.dto';
 import { QueryRechazadasDto } from './dto/query-rechazadas.dto';
 import { RechazarSolicitudDto } from './dto/rechazar-solicitud.dto';
+import { IniciarEntregaDto } from './dto/iniciar-entrega.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { MustChangePasswordGuard } from '../auth/guards/must-change-password.guard';
@@ -150,8 +151,9 @@ export class SolicitudesController {
   iniciarEntrega(
     @Param('id') id: string,
     @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: IniciarEntregaDto,
   ) {
-    return this.solicitudesService.iniciarEntrega(id, user.username);
+    return this.solicitudesService.iniciarEntrega(id, user.username, dto);
   }
 
   @Patch(':id/confirmar-entrega')

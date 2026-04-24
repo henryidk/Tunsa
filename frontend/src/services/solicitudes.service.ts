@@ -80,8 +80,14 @@ export const solicitudesService = {
     return res.data;
   },
 
-  async iniciarEntrega(id: string): Promise<SolicitudRenta> {
-    const res = await api.patch<SolicitudRenta>(`/solicitudes/${id}/iniciar-entrega`);
+  async iniciarEntrega(
+    id: string,
+    horometrosIniciales?: { equipoId: string; valor: number }[],
+  ): Promise<SolicitudRenta> {
+    const res = await api.patch<SolicitudRenta>(
+      `/solicitudes/${id}/iniciar-entrega`,
+      horometrosIniciales?.length ? { horometrosIniciales } : {},
+    );
     return res.data;
   },
 

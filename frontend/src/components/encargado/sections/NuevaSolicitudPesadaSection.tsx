@@ -106,9 +106,9 @@ export default function NuevaSolicitudPesadaSection({ onShowToast = () => {} }: 
         descripcion:     it.equipo.descripcion,
         conMartillo:     it.conMartillo,
         diasSolicitados: it.diasSolicitados,
+        fechaInicio:     it.fechaInicio,
         duracion:        it.diasSolicitados,
         unidad:          'dias',
-        tarifaEfectiva:  getTarifaEfectiva(it),
         subtotal:        0,
       }));
 
@@ -340,12 +340,14 @@ function PesadaResumen({ cliente, items, modalidad, getTarifa, canEnviar, isSubm
   return (
     <div className="w-72 flex-shrink-0 sticky top-20 self-start">
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+
+        {/* Header */}
         <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600 flex-shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600 flex-shrink-0">
             <CraneIcon />
           </div>
           <div>
-            <div className="text-sm font-semibold text-slate-800">Resumen Pesada</div>
+            <div className="text-sm font-semibold text-slate-800">Resumen</div>
             <div className="text-xs text-slate-500">Facturación por horómetro</div>
           </div>
         </div>
@@ -354,9 +356,12 @@ function PesadaResumen({ cliente, items, modalidad, getTarifa, canEnviar, isSubm
         <div className="px-5 py-3 border-b border-slate-100">
           <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Cliente</div>
           {cliente ? (
-            <p className="text-sm font-semibold text-slate-800 truncate">{cliente.nombre}</p>
+            <>
+              <p className="text-sm font-semibold text-slate-800 truncate">{cliente.nombre}</p>
+              <p className="text-xs text-slate-400 font-mono">{cliente.id}</p>
+            </>
           ) : (
-            <p className="text-xs text-slate-400 italic">Sin cliente</p>
+            <p className="text-xs text-slate-400 italic">Sin cliente seleccionado</p>
           )}
         </div>
 
@@ -364,7 +369,10 @@ function PesadaResumen({ cliente, items, modalidad, getTarifa, canEnviar, isSubm
         <div className="px-5 py-3 border-b border-slate-100 max-h-52 overflow-y-auto">
           <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Equipos ({items.length})</div>
           {items.length === 0 ? (
-            <p className="text-xs text-slate-400 italic">Sin equipos</p>
+            <div className="flex flex-col items-center justify-center py-6 gap-1.5 text-slate-300">
+              <CraneIcon />
+              <p className="text-xs text-center">Sin equipos añadidos</p>
+            </div>
           ) : (
             <div className="space-y-2">
               {items.map(it => (
@@ -378,8 +386,10 @@ function PesadaResumen({ cliente, items, modalidad, getTarifa, canEnviar, isSubm
                       {it.diasSolicitados} día{it.diasSolicitados > 1 ? 's' : ''}
                       {it.conMartillo ? ' · +Martillo' : ''}
                     </p>
-                    <p className="text-[10px] text-amber-600 font-medium">{formatQ(getTarifa(it))}/hr</p>
                   </div>
+                  <span className="text-xs font-mono font-semibold text-amber-700 flex-shrink-0 whitespace-nowrap">
+                    {formatQ(getTarifa(it))}/hr
+                  </span>
                 </div>
               ))}
             </div>
@@ -390,29 +400,40 @@ function PesadaResumen({ cliente, items, modalidad, getTarifa, canEnviar, isSubm
         <div className="px-5 py-3 border-b border-slate-100">
           <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Pago</div>
           {!modalidad ? (
-            <span className="text-sm text-slate-400 italic">Sin seleccionar</span>
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-slate-300 flex-shrink-0" />
+              <span className="text-sm text-slate-400 italic">Sin seleccionar</span>
+            </div>
           ) : modalidad === 'CONTADO' ? (
-            <span className="text-sm font-semibold text-emerald-700">Contado</span>
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
+              <span className="text-sm font-semibold text-emerald-700">Contado</span>
+              <span className="text-xs text-slate-400 ml-1">— al entregar</span>
+            </div>
           ) : (
-            <span className="text-sm font-semibold text-amber-700">A crédito</span>
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
+              <span className="text-sm font-semibold text-amber-700">A crédito</span>
+              <span className="text-xs text-slate-400 ml-1">— al devolver</span>
+            </div>
           )}
         </div>
 
-        {/* Total info */}
-        <div className="px-5 py-4 bg-amber-50 border-b border-amber-100">
-          <p className="text-xs text-amber-700 font-medium">Total estimado</p>
-          <p className="text-xl font-bold text-amber-800 mt-0.5">Por horómetro</p>
-          <p className="text-[11px] text-amber-600 mt-1">
-            El costo real se calcula al registrar las lecturas diarias del horómetro.
+        {/* Total */}
+        <div className="px-5 py-4 bg-slate-50">
+          <span className="text-xs text-slate-500 font-medium">Total estimado</span>
+          <p className="text-xl font-bold text-slate-800 mt-0.5">Por horómetro</p>
+          <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+            El costo real se calcula con las lecturas diarias del horómetro.
           </p>
         </div>
 
         {/* Actions */}
-        <div className="px-4 py-3 space-y-2">
+        <div className="px-4 py-3 space-y-2 border-t border-slate-100">
           <button
             onClick={onEnviar}
             disabled={!canEnviar}
-            className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {isSubmitting ? (
               <><svg className="animate-spin" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>Enviando...</>
@@ -442,6 +463,7 @@ function PesadaResumen({ cliente, items, modalidad, getTarifa, canEnviar, isSubm
             </div>
           )}
         </div>
+
       </div>
     </div>
   );

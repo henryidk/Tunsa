@@ -62,16 +62,18 @@ export type ItemSnapshot =
       conMadera: boolean;
     })
   | {
-      kind:            'pesada';
-      equipoId:        string;
-      numeracion:      string;
-      descripcion:     string;
-      conMartillo:     boolean;
-      diasSolicitados: number;
-      tarifaEfectiva:  number;
-      duracion:        number;
-      unidad:          string;
-      subtotal:        number;
+      kind:              'pesada';
+      equipoId:          string;
+      numeracion:        string;
+      descripcion:       string;
+      conMartillo:       boolean;
+      diasSolicitados:   number;
+      tarifaEfectiva:    number;
+      fechaInicio:       string;
+      duracion:          number;
+      unidad:            UnidadDuracion;
+      subtotal:          number;
+      horometroInicial?: number;
     };
 
 export interface ClienteBasico {

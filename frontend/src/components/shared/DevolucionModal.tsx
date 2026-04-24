@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import type { SolicitudRenta, ItemSnapshot, DevolucionEntry } from '../../types/solicitud-renta.types';
 import { solicitudesService } from '../../services/solicitudes.service';
 import { generarLiquidacion } from '../../utils/generarLiquidacion';
-import { formatFechaHora } from '../../types/solicitud.types';
+import { formatFechaHora, unidadLabel } from '../../types/solicitud.types';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -15,12 +15,12 @@ function itemLabel(item: ItemSnapshot): string {
   return `${item.tipoLabel}${item.conMadera ? ' (c/madera)' : ''} × ${item.cantidad.toLocaleString('es-GT')}`;
 }
 
-function itemKindBadge(item: ItemSnapshot): string {
-  return item.kind === 'maquinaria' ? 'Maquinaria' : 'A granel';
-}
-
 function formatQ(n: number): string {
   return `Q ${n.toLocaleString('es-GT', { minimumFractionDigits: 2 })}`;
+}
+
+function diasDesde(iso: string): number {
+  return Math.max(1, Math.ceil((Date.now() - new Date(iso).getTime()) / 86_400_000));
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -30,7 +30,7 @@ interface CargoRow {
   monto:       number | '';
 }
 
-type Paso = 1 | 2 | 3 | 'resultado';
+type Paso = 1 | 2 | 3 | 4 | 'resultado';
 
 interface Resultado {
   solicitudActualizada: SolicitudRenta;
@@ -38,19 +38,23 @@ interface Resultado {
   liquidacionUrl:       string | null;
 }
 
-// ── Subcomponents ─────────────────────────────────────────────────────────────
+// ── Paso indicator ────────────────────────────────────────────────────────────
 
 function PasoIndicador({ paso }: { paso: Paso }) {
-  const pasos       = [{ n: 1, label: 'Ítems' }, { n: 2, label: 'Cargos' }, { n: 3, label: 'Confirmar' }];
-  const pasoActual  = paso === 'resultado' ? 3 : paso;
+  const pasos      = [{ n: 1, label: 'Ítems' }, { n: 2, label: 'Cargos' }, { n: 3, label: 'Resumen' }, { n: 4, label: 'Confirmar' }];
+  const pasoActual = paso === 'resultado' ? 4 : paso;
   return (
     <div className="flex items-center gap-2 px-6 py-2 border-b border-slate-100 bg-slate-50">
       {pasos.map((p, idx) => (
-        <div key={p.n} className="flex items-center gap-2">
-          {idx > 0 && <div className={`h-px w-8 ${pasoActual > p.n ? 'bg-indigo-400' : 'bg-slate-200'}`} />}
-          <div className={`flex items-center gap-1.5 ${pasoActual === p.n ? 'text-indigo-700' : pasoActual > p.n ? 'text-emerald-600' : 'text-slate-400'}`}>
-            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold border ${
-              pasoActual > p.n ? 'bg-emerald-100 border-emerald-300 text-emerald-700' : pasoActual === p.n ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-slate-300 text-slate-400'
+        <div key={p.n} className="flex items-center gap-1.5">
+          {idx > 0 && <div className={`h-px w-6 ${pasoActual > p.n ? 'bg-indigo-400' : 'bg-slate-200'}`} />}
+          <div className={`flex items-center gap-1 ${pasoActual === p.n ? 'text-indigo-700' : pasoActual > p.n ? 'text-emerald-600' : 'text-slate-400'}`}>
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold border flex-shrink-0 ${
+              pasoActual > p.n
+                ? 'bg-emerald-100 border-emerald-300 text-emerald-700'
+                : pasoActual === p.n
+                  ? 'bg-indigo-600 border-indigo-600 text-white'
+                  : 'bg-white border-slate-300 text-slate-400'
             }`}>
               {pasoActual > p.n
                 ? <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
@@ -82,12 +86,17 @@ export default function DevolucionModal({
     return solicitud.items.filter(item => !yaDevueltos.has(itemRef(item)));
   }, [solicitud]);
 
-  const esItemUnico = itemsPendientes.length === 1;
+  const esItemUnico       = itemsPendientes.length === 1;
+  const diasUso           = solicitud.fechaInicioRenta ? diasDesde(solicitud.fechaInicioRenta) : null;
 
   const [paso,      setPaso]      = useState<Paso>(1);
   const [guardando, setGuardando] = useState(false);
   const [error,     setError]     = useState<string | null>(null);
   const [resultado, setResultado] = useState<Resultado | null>(null);
+
+  const [pdfBlobUrl,   setPdfBlobUrl]   = useState<string | null>(null);
+  const [generandoPdf, setGenerandoPdf] = useState(false);
+  const [pdfError,     setPdfError]     = useState(false);
 
   const [seleccionados, setSeleccionados] = useState<Set<string>>(
     () => new Set(esItemUnico ? [itemRef(itemsPendientes[0])] : []),
@@ -99,9 +108,8 @@ export default function DevolucionModal({
   const toggleItem = (ref: string) =>
     setSeleccionados(prev => { const next = new Set(prev); if (next.has(ref)) next.delete(ref); else next.add(ref); return next; });
 
-  const agregarCargo = () =>
-    setCargosAdicionales(prev => [...prev, { descripcion: '', monto: '' }]);
-
+  const agregarCargo    = () => setCargosAdicionales(prev => [...prev, { descripcion: '', monto: '' }]);
+  const eliminarCargo   = (idx: number) => setCargosAdicionales(prev => prev.filter((_, i) => i !== idx));
   const actualizarCargo = (idx: number, campo: keyof CargoRow, valor: string) =>
     setCargosAdicionales(prev =>
       prev.map((c, i) => {
@@ -115,18 +123,47 @@ export default function DevolucionModal({
       }),
     );
 
-  const eliminarCargo = (idx: number) =>
-    setCargosAdicionales(prev => prev.filter((_, i) => i !== idx));
-
   const itemsADevolver      = itemsPendientes.filter(item => seleccionados.has(itemRef(item)));
   const esDevolcionCompleta = seleccionados.size === itemsPendientes.length;
 
-  const cargosValidos = !hayCargos
-    ? []
-    : cargosAdicionales.filter(c => c.descripcion.trim() !== '' && c.monto !== '' && c.monto > 0);
-
+  const cargosValidos   = !hayCargos ? [] : cargosAdicionales.filter(c => c.descripcion.trim() !== '' && c.monto !== '' && c.monto > 0);
   const cargosConError  = hayCargos && cargosAdicionales.some(c => c.descripcion.trim() === '' && c.monto !== '');
   const totalCargosAd   = cargosValidos.reduce((s, c) => s + (c.monto as number), 0);
+  const subtotalItems   = itemsADevolver.reduce((s, item) => s + (item.kind !== 'pesada' ? item.subtotal : 0), 0);
+
+  const irSiguiente = () => {
+    if (paso === 1 && seleccionados.size === 0) return;
+    if (paso === 2 && cargosConError) return;
+
+    if (paso === 2 && solicitud.fechaInicioRenta) {
+      setGenerandoPdf(true);
+      setPdfBlobUrl(null);
+      setPdfError(false);
+      const diasCobrados = diasDesde(solicitud.fechaInicioRenta);
+      const devolucionPrevia: DevolucionEntry = {
+        fechaDevolucion:     new Date().toISOString(),
+        registradoPor:       '—',
+        esParcial:           !esDevolcionCompleta,
+        tipoDevolucion:      'A_TIEMPO',
+        items:               itemsADevolver.map(item => ({
+          itemRef:       itemRef(item),
+          kind:          item.kind as 'maquinaria' | 'granel' | 'pesada',
+          diasCobrados,
+          costoReal:     item.kind !== 'pesada' ? item.subtotal : 0,
+          recargoTiempo: 0,
+        })),
+        recargosAdicionales: cargosValidos.map(c => ({ descripcion: c.descripcion, monto: c.monto as number })),
+        totalLote:           subtotalItems + totalCargosAd,
+        liquidacionKey:      null,
+      };
+      generarLiquidacion(solicitud, devolucionPrevia)
+        .then(blob => setPdfBlobUrl(URL.createObjectURL(blob)))
+        .catch(() => setPdfError(true))
+        .finally(() => setGenerandoPdf(false));
+    }
+
+    setPaso(p => (p as number) + 1 as Paso);
+  };
 
   const handleConfirmar = async () => {
     setError(null);
@@ -140,16 +177,15 @@ export default function DevolucionModal({
       };
 
       const solicitudActualizada = await solicitudesService.registrarDevolucion(solicitud.id, dto);
-
-      const devoluciones = solicitudActualizada.devolucionesParciales ?? [];
-      const devolucion   = devoluciones[devoluciones.length - 1];
-      if (!devolucion) throw new Error('No se recibió confirmación de devolución del servidor.');
+      const devoluciones         = solicitudActualizada.devolucionesParciales ?? [];
+      const devolucion           = devoluciones[devoluciones.length - 1];
+      if (!devolucion) throw new Error('No se recibió confirmación del servidor.');
 
       let liquidacionUrl: string | null = null;
       try {
-        const pdfBlob = await generarLiquidacion(solicitudActualizada, devolucion);
-        const { url } = await solicitudesService.subirLiquidacion(solicitud.id, pdfBlob);
-        liquidacionUrl = url;
+        const pdfBlob        = await generarLiquidacion(solicitudActualizada, devolucion);
+        const { url }        = await solicitudesService.subirLiquidacion(solicitud.id, pdfBlob);
+        liquidacionUrl       = url;
       } catch {
         // No bloquear la devolución si el PDF falla
       }
@@ -188,6 +224,7 @@ export default function DevolucionModal({
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-6 py-4">
 
+          {/* ── PASO 1: Ítems ────────────────────────────────────────────── */}
           {paso === 1 && (
             <div className="space-y-4">
               {esDevolcionCompleta && !esItemUnico && (
@@ -200,10 +237,11 @@ export default function DevolucionModal({
                 <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
                   <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Ítem a devolver</p>
                   <p className="text-sm font-semibold text-slate-800">{itemLabel(itemsPendientes[0])}</p>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    {itemKindBadge(itemsPendientes[0])}
-                    {solicitud.fechaInicioRenta && ` • Inicio: ${formatFechaHora(solicitud.fechaInicioRenta)}`}
-                  </p>
+                  {solicitud.fechaInicioRenta && (
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Inicio: {formatFechaHora(solicitud.fechaInicioRenta)}
+                    </p>
+                  )}
                 </div>
               ) : (
                 <>
@@ -219,7 +257,9 @@ export default function DevolucionModal({
                           <input type="checkbox" checked={checked} onChange={() => toggleItem(ref)} className="mt-0.5 accent-slate-800 w-4 h-4 cursor-pointer" />
                           <div className="min-w-0">
                             <p className="text-sm font-medium text-slate-800 leading-tight">{itemLabel(item)}</p>
-                            <p className="text-[11px] text-slate-400 mt-0.5">{itemKindBadge(item)}</p>
+                            <p className="text-[11px] text-slate-400 mt-0.5">
+                              {item.kind !== 'pesada' ? unidadLabel(item.duracion, item.unidad) : 'Por horómetro'}
+                            </p>
                           </div>
                         </label>
                       );
@@ -230,6 +270,7 @@ export default function DevolucionModal({
             </div>
           )}
 
+          {/* ── PASO 2: Cargos ───────────────────────────────────────────── */}
           {paso === 2 && (
             <div className="space-y-4">
               <p className="text-xs text-slate-500 leading-relaxed">
@@ -275,7 +316,119 @@ export default function DevolucionModal({
             </div>
           )}
 
+          {/* ── PASO 3: Resumen ──────────────────────────────────────────── */}
           {paso === 3 && (
+            <div className="space-y-4">
+
+              {/* Período */}
+              {solicitud.fechaInicioRenta && (
+                <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Período de renta</p>
+                  <div className="flex items-center gap-3 text-xs">
+                    <div className="flex-1">
+                      <p className="text-slate-400 mb-0.5">Inicio</p>
+                      <p className="font-semibold text-slate-700">{formatFechaHora(solicitud.fechaInicioRenta)}</p>
+                    </div>
+                    <svg className="text-slate-300 flex-shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+                    </svg>
+                    <div className="flex-1">
+                      <p className="text-slate-400 mb-0.5">Devolución</p>
+                      <p className="font-semibold text-slate-700">{formatFechaHora(new Date().toISOString())}</p>
+                    </div>
+                  </div>
+                  {diasUso !== null && (
+                    <p className="text-[11px] text-indigo-600 font-semibold mt-2">
+                      {diasUso} día{diasUso !== 1 ? 's' : ''} de uso
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Ítems */}
+              <div>
+                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-2">
+                  {esDevolcionCompleta ? 'Devolución completa' : `Devolución parcial — ${itemsADevolver.length} ítem${itemsADevolver.length > 1 ? 's' : ''}`}
+                </p>
+                <ul className="space-y-1.5">
+                  {itemsADevolver.map(item => (
+                    <li key={itemRef(item)} className="flex items-center justify-between gap-3 bg-white border border-slate-200 rounded-lg px-3 py-2.5">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <svg className="shrink-0 text-slate-400" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium text-slate-800 truncate">{itemLabel(item)}</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">
+                            {item.kind !== 'pesada' ? unidadLabel(item.duracion, item.unidad) : 'Por horómetro'}
+                          </p>
+                        </div>
+                      </div>
+                      {item.kind !== 'pesada' && item.subtotal > 0 && (
+                        <span className="text-xs font-mono font-semibold text-slate-600 flex-shrink-0">{formatQ(item.subtotal)}</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Cargos adicionales */}
+              {cargosValidos.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-2">Cargos adicionales</p>
+                  <ul className="space-y-1">
+                    {cargosValidos.map((c, i) => (
+                      <li key={i} className="flex items-center justify-between bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                        <span className="text-xs text-slate-700">{c.descripcion}</span>
+                        <span className="text-xs font-bold text-amber-700">{formatQ(c.monto as number)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Estimado */}
+              {(subtotalItems > 0 || totalCargosAd > 0) && (
+                <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
+                  <div>
+                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Referencia estimada</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Basada en contrato original{cargosValidos.length > 0 ? ' + cargos' : ''}. El sistema ajusta según días reales al confirmar.
+                    </p>
+                  </div>
+                  <span className="text-lg font-bold text-slate-700 font-mono">{formatQ(subtotalItems + totalCargosAd)}</span>
+                </div>
+              )}
+
+              {/* Liquidación previa */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Documento de liquidación</p>
+                {generandoPdf ? (
+                  <div className="flex items-center gap-2 py-0.5">
+                    <svg className="animate-spin text-slate-400 shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                    <span className="text-xs text-slate-500">Generando documento…</span>
+                  </div>
+                ) : pdfBlobUrl ? (
+                  <a
+                    href={pdfBlobUrl}
+                    download={`liquidacion-${solicitud.folio ?? solicitud.id.slice(0, 8)}.pdf`}
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-xs font-semibold text-white transition-colors"
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                      <polyline points="14 2 14 8 20 8"/>
+                      <line x1="12" y1="18" x2="12" y2="12"/>
+                      <line x1="9" y1="15" x2="15" y2="15"/>
+                    </svg>
+                    Descargar liquidación
+                  </a>
+                ) : pdfError ? (
+                  <p className="text-xs text-slate-400">No se pudo generar el documento.</p>
+                ) : null}
+              </div>
+            </div>
+          )}
+
+          {/* ── PASO 4: Confirmar ────────────────────────────────────────── */}
+          {paso === 4 && (
             <div className="space-y-4">
               <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
                 <svg className="shrink-0 mt-0.5 text-amber-500" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -294,32 +447,26 @@ export default function DevolucionModal({
                   {itemsADevolver.map(item => (
                     <li key={itemRef(item)} className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5">
                       <svg className="shrink-0 text-slate-400" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
-                      <span className="text-sm text-slate-800">{itemLabel(item)}</span>
+                      <span className="text-xs font-medium text-slate-800">{itemLabel(item)}</span>
                     </li>
                   ))}
                 </ul>
               </div>
               {cargosValidos.length > 0 && (
-                <div>
-                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-2">Cargos adicionales</p>
-                  <ul className="space-y-1">
-                    {cargosValidos.map((c, i) => (
-                      <li key={i} className="flex items-center justify-between bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-                        <span className="text-xs text-slate-700">{c.descripcion}</span>
-                        <span className="text-xs font-bold text-amber-700">{formatQ(c.monto as number)}</span>
-                      </li>
-                    ))}
-                  </ul>
+                <div className="flex items-center justify-between bg-amber-50 border border-amber-100 rounded-lg px-3 py-2.5">
+                  <span className="text-xs text-slate-600">
+                    {cargosValidos.length} cargo{cargosValidos.length > 1 ? 's' : ''} adicional{cargosValidos.length > 1 ? 'es' : ''}
+                  </span>
+                  <span className="text-xs font-bold text-amber-700">{formatQ(totalCargosAd)}</span>
                 </div>
               )}
-              <p className="text-[11px] text-slate-400 leading-relaxed">
-                El sistema calculará el costo adaptativo basado en los días reales de uso y los precios actuales de cada equipo. Se generará el documento de liquidación automáticamente.
-              </p>
             </div>
           )}
 
+          {/* ── RESULTADO ───────────────────────────────────────────────── */}
           {paso === 'resultado' && resultado && (
-            <div className="space-y-4 py-2">
+            <div className="space-y-4 py-1">
+              {/* Banner éxito */}
               <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
                 <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
                   <svg className="text-emerald-600" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
@@ -333,6 +480,8 @@ export default function DevolucionModal({
                   </p>
                 </div>
               </div>
+
+              {/* Resumen de cobro */}
               <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 space-y-2">
                 <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Resumen de cobro</p>
                 {resultado.devolucion.items.map((entry, i) => {
@@ -363,13 +512,37 @@ export default function DevolucionModal({
                   <span className="text-sm font-bold text-slate-800">{formatQ(resultado.devolucion.totalLote)}</span>
                 </div>
               </div>
+
+              {/* Liquidación PDF */}
               {resultado.liquidacionUrl ? (
-                <a href={resultado.liquidacionUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-sm font-semibold text-white transition-colors">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                  Ver liquidación
-                </a>
+                <div className="space-y-2">
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Documento de liquidación</p>
+                  <a
+                    href={resultado.liquidacionUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-sm font-semibold text-white transition-colors"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                      <polyline points="14 2 14 8 20 8"/>
+                      <line x1="12" y1="18" x2="12" y2="12"/>
+                      <line x1="9" y1="15" x2="15" y2="15"/>
+                    </svg>
+                    Ver liquidación completa
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="opacity-70">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                      <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                    </svg>
+                  </a>
+                </div>
               ) : (
-                <p className="text-xs text-slate-400 text-center">El documento de liquidación no está disponible por el momento.</p>
+                <div className="flex items-center gap-2.5 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
+                  <svg className="text-slate-400 shrink-0" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                  </svg>
+                  <p className="text-xs text-slate-500">El documento de liquidación no está disponible por el momento. Puedes descargarlo desde el historial.</p>
+                </div>
               )}
             </div>
           )}
@@ -394,9 +567,9 @@ export default function DevolucionModal({
                   Cancelar
                 </button>
               )}
-              {paso < 3 ? (
+              {paso < 4 ? (
                 <button
-                  onClick={() => { if (paso === 1 && seleccionados.size === 0) return; if (paso === 2 && cargosConError) return; setPaso(p => (p as number) + 1 as Paso); }}
+                  onClick={irSiguiente}
                   disabled={(paso === 1 && seleccionados.size === 0) || (paso === 2 && cargosConError)}
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-sm font-semibold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >

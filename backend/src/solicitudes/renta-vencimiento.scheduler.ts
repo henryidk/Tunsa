@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { SolicitudesGateway } from './solicitudes.gateway';
-import { SolicitudesService } from './solicitudes.service';
+import { serializeSolicitud } from './solicitudes.serializer';
 
 /**
  * Detecta rentas que acaban de vencer (en el último minuto) y notifica
@@ -14,9 +14,8 @@ export class RentaVencimientoScheduler {
   private readonly logger = new Logger(RentaVencimientoScheduler.name);
 
   constructor(
-    private readonly prisma:    PrismaService,
-    private readonly gateway:   SolicitudesGateway,
-    private readonly solicitudesService: SolicitudesService,
+    private readonly prisma:  PrismaService,
+    private readonly gateway: SolicitudesGateway,
   ) {}
 
   @Cron(CronExpression.EVERY_MINUTE)
@@ -37,7 +36,7 @@ export class RentaVencimientoScheduler {
     this.logger.log(`[Scheduler] ${recienVencidas.length} renta(s) recién vencida(s) — notificando encargados`);
 
     for (const solicitud of recienVencidas) {
-      const serializada = this.solicitudesService.serialize(solicitud);
+      const serializada = serializeSolicitud(solicitud);
       this.gateway.emitRentaVencida(serializada, solicitud.creadaPor);
     }
   }

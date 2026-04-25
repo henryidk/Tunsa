@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { SolicitudesService } from './solicitudes.service';
+import { SolicitudesQueryService } from './solicitudes-query.service';
 import { SolicitudesGateway } from './solicitudes.gateway';
 import { HorometroService } from './horometro.service';
 import { CreateSolicitudDto } from './dto/create-solicitud.dto';
@@ -28,10 +29,13 @@ const MAX_PDF_SIZE = 10 * 1024 * 1024; // 10 MB
 @UseGuards(JwtAuthGuard, RolesGuard, MustChangePasswordGuard)
 export class SolicitudesController {
   constructor(
-    private readonly solicitudesService: SolicitudesService,
-    private readonly solicitudesGateway: SolicitudesGateway,
-    private readonly horometroService:   HorometroService,
+    private readonly solicitudesService:      SolicitudesService,
+    private readonly solicitudesQueryService: SolicitudesQueryService,
+    private readonly solicitudesGateway:      SolicitudesGateway,
+    private readonly horometroService:        HorometroService,
   ) {}
+
+  // ── Escrituras ────────────────────────────────────────────────────────────────
 
   @Post()
   @Roles('encargado_maquinas')
@@ -42,86 +46,6 @@ export class SolicitudesController {
     const solicitud = await this.solicitudesService.create(dto, user.username);
     this.solicitudesGateway.emitNuevaSolicitud(solicitud);
     return solicitud;
-  }
-
-  @Get()
-  @Roles('admin', 'secretaria')
-  findAll() {
-    return this.solicitudesService.findAll();
-  }
-
-  /**
-   * IDs de equipos que están bloqueados en solicitudes PENDIENTE o APROBADA.
-   * El encargado lo usa para ocultar equipos no disponibles en el formulario.
-   * Debe declararse antes de @Get('mias') para que NestJS no lo interprete como param.
-   */
-  @Get('equipos-reservados')
-  @Roles('encargado_maquinas', 'admin', 'secretaria')
-  getEquiposReservados() {
-    return this.solicitudesService.getEquiposReservados();
-  }
-
-  @Get('mias')
-  @Roles('encargado_maquinas')
-  findMias(@CurrentUser() user: AuthenticatedUser) {
-    return this.solicitudesService.findMias(user.username);
-  }
-
-  @Get('vencidas')
-  @Roles('admin', 'secretaria')
-  findVencidas() {
-    return this.solicitudesService.findVencidas();
-  }
-
-  @Get('activas')
-  @Roles('admin', 'secretaria')
-  findActivas() {
-    return this.solicitudesService.findActivas();
-  }
-
-  @Get('activas-mias')
-  @Roles('encargado_maquinas')
-  findActivasMias(@CurrentUser() user: AuthenticatedUser) {
-    return this.solicitudesService.findActivasMias(user.username);
-  }
-
-  @Get('vencidas-mias')
-  @Roles('encargado_maquinas')
-  findVencidasMias(@CurrentUser() user: AuthenticatedUser) {
-    return this.solicitudesService.findVencidasMias(user.username);
-  }
-
-  @Get('rechazadas')
-  @Roles('admin', 'secretaria')
-  findRechazadas(@Query() query: QueryRechazadasDto) {
-    return this.solicitudesService.findRechazadas({
-      fechaDesde: new Date(query.fechaDesde),
-      fechaHasta: new Date(query.fechaHasta),
-      cursor:     query.cursor,
-    });
-  }
-
-  @Get('historial')
-  @Roles('admin', 'secretaria')
-  findHistorial(@Query() query: QueryRechazadasDto) {
-    return this.solicitudesService.findHistorial({
-      fechaDesde: new Date(query.fechaDesde),
-      fechaHasta: new Date(query.fechaHasta),
-      cursor:     query.cursor,
-    });
-  }
-
-  @Get('historial-mias')
-  @Roles('encargado_maquinas')
-  findHistorialMias(
-    @Query() query: QueryRechazadasDto,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
-    return this.solicitudesService.findHistorialMias(user.username, {
-      fechaDesde: new Date(query.fechaDesde),
-      fechaHasta: new Date(query.fechaHasta),
-      cursor:     query.cursor,
-    });
   }
 
   @Patch(':id/aprobar')
@@ -218,6 +142,108 @@ export class SolicitudesController {
     return this.solicitudesService.subirLiquidacion(id, file.buffer, file.mimetype, user);
   }
 
+  // ── Lecturas (maquinaria pesada) ──────────────────────────────────────────────
+
+  @Post(':id/horometro/lecturas')
+  @Roles('encargado_maquinas')
+  registrarLectura(
+    @Param('id') id: string,
+    @Body() dto: RegistrarLecturaDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.horometroService.registrarLectura(id, dto, user);
+  }
+
+  @Patch(':id/registrar-devolucion-pesada')
+  @Roles('encargado_maquinas', 'admin', 'secretaria')
+  registrarDevolucionPesada(
+    @Param('id') id: string,
+    @Body() dto: RegistrarDevolucionPesadaDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.horometroService.registrarDevolucionPesada(id, dto, user);
+  }
+
+  // ── Consultas ─────────────────────────────────────────────────────────────────
+
+  @Get()
+  @Roles('admin', 'secretaria')
+  findAll() {
+    return this.solicitudesQueryService.findAll();
+  }
+
+  /**
+   * Debe declararse antes de @Get('mias') para que NestJS no lo interprete como param.
+   */
+  @Get('equipos-reservados')
+  @Roles('encargado_maquinas', 'admin', 'secretaria')
+  getEquiposReservados() {
+    return this.solicitudesQueryService.getEquiposReservados();
+  }
+
+  @Get('mias')
+  @Roles('encargado_maquinas')
+  findMias(@CurrentUser() user: AuthenticatedUser) {
+    return this.solicitudesQueryService.findMias(user.username);
+  }
+
+  @Get('vencidas')
+  @Roles('admin', 'secretaria')
+  findVencidas() {
+    return this.solicitudesQueryService.findVencidas();
+  }
+
+  @Get('activas')
+  @Roles('admin', 'secretaria')
+  findActivas() {
+    return this.solicitudesQueryService.findActivas();
+  }
+
+  @Get('activas-mias')
+  @Roles('encargado_maquinas')
+  findActivasMias(@CurrentUser() user: AuthenticatedUser) {
+    return this.solicitudesQueryService.findActivasMias(user.username);
+  }
+
+  @Get('vencidas-mias')
+  @Roles('encargado_maquinas')
+  findVencidasMias(@CurrentUser() user: AuthenticatedUser) {
+    return this.solicitudesQueryService.findVencidasMias(user.username);
+  }
+
+  @Get('rechazadas')
+  @Roles('admin', 'secretaria')
+  findRechazadas(@Query() query: QueryRechazadasDto) {
+    return this.solicitudesQueryService.findRechazadas({
+      fechaDesde: new Date(query.fechaDesde),
+      fechaHasta: new Date(query.fechaHasta),
+      cursor:     query.cursor,
+    });
+  }
+
+  @Get('historial')
+  @Roles('admin', 'secretaria')
+  findHistorial(@Query() query: QueryRechazadasDto) {
+    return this.solicitudesQueryService.findHistorial({
+      fechaDesde: new Date(query.fechaDesde),
+      fechaHasta: new Date(query.fechaHasta),
+      cursor:     query.cursor,
+    });
+  }
+
+  @Get('historial-mias')
+  @Roles('encargado_maquinas')
+  findHistorialMias(
+    @Query() query: QueryRechazadasDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.solicitudesQueryService.findHistorialMias(user.username, {
+      fechaDesde: new Date(query.fechaDesde),
+      fechaHasta: new Date(query.fechaHasta),
+      cursor:     query.cursor,
+    });
+  }
+
   @Get(':id/comprobante')
   @Roles('admin', 'secretaria', 'encargado_maquinas')
   getComprobante(
@@ -237,18 +263,6 @@ export class SolicitudesController {
     return this.solicitudesService.getLiquidacionUrl(id, parseInt(loteIndex, 10), user);
   }
 
-  // ── Horómetro (maquinaria pesada) ────────────────────────────────────────────
-
-  @Post(':id/horometro/lecturas')
-  @Roles('encargado_maquinas')
-  registrarLectura(
-    @Param('id') id: string,
-    @Body() dto: RegistrarLecturaDto,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
-    return this.horometroService.registrarLectura(id, dto, user);
-  }
-
   @Get(':id/horometro')
   @Roles('encargado_maquinas', 'admin', 'secretaria')
   getLecturas(
@@ -256,15 +270,5 @@ export class SolicitudesController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.horometroService.getLecturas(id, user);
-  }
-
-  @Patch(':id/registrar-devolucion-pesada')
-  @Roles('encargado_maquinas', 'admin', 'secretaria')
-  registrarDevolucionPesada(
-    @Param('id') id: string,
-    @Body() dto: RegistrarDevolucionPesadaDto,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
-    return this.horometroService.registrarDevolucionPesada(id, dto, user);
   }
 }

@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaModule } from '../prisma/prisma.module';
 import { SolicitudesService } from './solicitudes.service';
+import { SolicitudesQueryService } from './solicitudes-query.service';
 import { SolicitudesGateway } from './solicitudes.gateway';
 import { SolicitudesController } from './solicitudes.controller';
 import { RentaVencimientoScheduler } from './renta-vencimiento.scheduler';
@@ -22,6 +23,7 @@ import { HorometroCalcService } from './horometro-calc.service';
   controllers: [SolicitudesController],
   providers: [
     SolicitudesService,
+    SolicitudesQueryService,
     SolicitudesGateway,
     RentaVencimientoScheduler,
     HorometroService,

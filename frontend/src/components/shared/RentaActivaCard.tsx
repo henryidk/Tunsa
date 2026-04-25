@@ -19,6 +19,7 @@ export interface RentaActivaCardProps {
   onVerComprobante: () => void;
   onAmpliar?:       () => void;
   onDevolucion:     () => void;
+  onHorometro?:     () => void;
 }
 
 export default function RentaActivaCard({
@@ -29,7 +30,18 @@ export default function RentaActivaCard({
   onVerComprobante,
   onAmpliar,
   onDevolucion,
+  onHorometro,
 }: RentaActivaCardProps) {
+  const todayStr = new Date().toISOString().substring(0, 10);
+  const estadoHorometro = (() => {
+    if (!solicitud.esPesada) return null;
+    const ul = solicitud.ultimaLectura;
+    if (!ul) return 'sin-registros' as const;
+    if (ul.fecha === todayStr && ul.completa)  return 'hoy-completo'  as const;
+    if (ul.fecha === todayStr && !ul.completa) return 'hoy-inicio'    as const;
+    return 'pendiente' as const;
+  })();
+
   const yaDevueltos = new Set<string>(
     (solicitud.devolucionesParciales ?? []).flatMap(d => d.items.map(i => i.itemRef)),
   );
@@ -150,6 +162,26 @@ export default function RentaActivaCard({
           )}
         </div>
         <div className="flex items-center gap-2">
+          {onHorometro && estadoHorometro && (
+            <button
+              onClick={onHorometro}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-200 bg-white hover:bg-amber-50 text-xs font-semibold text-amber-700 transition-colors"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+              </svg>
+              Horómetro
+              {estadoHorometro === 'hoy-completo' && (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" title="Hoy completo" />
+              )}
+              {estadoHorometro === 'hoy-inicio' && (
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" title="Falta cierre de hoy" />
+              )}
+              {(estadoHorometro === 'pendiente' || estadoHorometro === 'sin-registros') && (
+                <span className="w-1.5 h-1.5 rounded-full bg-red-400" title="Pendiente de registro" />
+              )}
+            </button>
+          )}
           {onAmpliar && (
             <button
               onClick={onAmpliar}

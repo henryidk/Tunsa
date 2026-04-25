@@ -109,6 +109,7 @@ export interface SolicitudRenta {
   devolucionesParciales: DevolucionEntry[]  | null;
   totalFinal:            number             | null;
   fechaUltimaDevolucion: string             | null;
+  ultimaLectura:         { fecha: string; completa: boolean } | null;
   createdAt:      string;
   updatedAt:      string;
 }

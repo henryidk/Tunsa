@@ -161,29 +161,16 @@ export default function RentasActivasSection() {
       ) : (
         <div className="space-y-4">
           {solicitudes.map(s => (
-            <div key={s.id}>
-              <RentaActivaCard
-                solicitud={s}
-                ahora={ahora}
-                abriendo={abriendo === s.id}
-                onVerComprobante={() => handleVerComprobante(s.id)}
-                onAmpliar={s.esPesada ? undefined : () => setModalAmpliar(s)}
-                onDevolucion={s.esPesada ? () => setModalDevPesada(s) : () => setModalDevolucion(s)}
-              />
-              {s.esPesada && (
-                <div className="mt-1 flex justify-end px-1">
-                  <button
-                    onClick={() => setModalHorometro(s)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-700 text-xs font-semibold transition-colors"
-                  >
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-                    </svg>
-                    Horómetro
-                  </button>
-                </div>
-              )}
-            </div>
+            <RentaActivaCard
+              key={s.id}
+              solicitud={s}
+              ahora={ahora}
+              abriendo={abriendo === s.id}
+              onVerComprobante={() => handleVerComprobante(s.id)}
+              onAmpliar={s.esPesada ? undefined : () => setModalAmpliar(s)}
+              onDevolucion={s.esPesada ? () => setModalDevPesada(s) : () => setModalDevolucion(s)}
+              onHorometro={s.esPesada ? () => setModalHorometro(s) : undefined}
+            />
           ))}
         </div>
       )}

@@ -21,7 +21,9 @@ import {
   calcularDevolucionItem,
 } from './recargo.util';
 
-type SolicitudConCliente = Prisma.SolicitudGetPayload<{ include: { cliente: true } }>;
+type SolicitudConCliente = Prisma.SolicitudGetPayload<{ include: { cliente: true } }> & {
+  lecturas?: { fecha: Date; horometroFin5pm: Prisma.Decimal | null }[];
+};
 
 const ROLES_CON_ACCESO_GLOBAL = new Set(['admin', 'secretaria']);
 
@@ -270,7 +272,10 @@ export class SolicitudesService {
           { fechaFinEstimada: { gte: now } },
         ],
       },
-      include: { cliente: true },
+      include: {
+        cliente:  true,
+        lecturas: { orderBy: { fecha: 'desc' }, take: 1 },
+      },
       orderBy: { fechaEntrega: 'desc' },
     });
     return solicitudes.map(s => this.serialize(s));
@@ -926,6 +931,7 @@ export class SolicitudesService {
   }
 
   serialize(s: SolicitudConCliente) {
+    const ultimaLectura = s.lecturas?.[0] ?? null;
     return {
       ...s,
       esPesada:              s.esPesada,
@@ -935,6 +941,10 @@ export class SolicitudesService {
       extensiones:           (s.extensiones          ?? null) as ExtensionEntry[]   | null,
       devolucionesParciales: (s.devolucionesParciales ?? null) as DevolucionEntry[] | null,
       fechaUltimaDevolucion: s.fechaUltimaDevolucion?.toISOString() ?? null,
+      lecturas:              undefined,
+      ultimaLectura:         ultimaLectura
+        ? { fecha: ultimaLectura.fecha.toISOString().substring(0, 10), completa: ultimaLectura.horometroFin5pm !== null }
+        : null,
     };
   }
 }

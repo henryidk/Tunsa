@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import type { SolicitudRenta, DevolucionEntry } from '../types/solicitud-renta.types';
+import type { SolicitudRenta, DevolucionEntry, ItemSnapshot } from '../types/solicitud-renta.types';
+import type { LecturaHorometro } from '../services/solicitudes.service';
 import { resolverLabelItem } from './devolucion.helpers';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -15,13 +16,15 @@ const EMPRESA = {
 
 const COLORES = {
   primario:   [49,  80, 174] as [number, number, number],
-  exitoso:    [22, 163,  74] as [number, number, number], // green-600
+  exitoso:    [22, 163,  74] as [number, number, number],
   texto:      [30,  41,  59] as [number, number, number],
   textoSuave: [100, 116, 139] as [number, number, number],
   borde:      [226, 232, 240] as [number, number, number],
   fondo:      [248, 250, 252] as [number, number, number],
   blanco:     [255, 255, 255] as [number, number, number],
-  alerta:     [217, 119,   6] as [number, number, number], // amber-600
+  alerta:     [217, 119,   6] as [number, number, number],
+  ambar:      [251, 191,  36] as [number, number, number],
+  fondoAmbar: [255, 251, 235] as [number, number, number],
 };
 
 const FOOTER_RESERVE = 14;
@@ -65,20 +68,162 @@ function formatFechaHoraLarga(iso: string): string {
   });
 }
 
+function formatFechaCortaLocal(yyyymmdd: string): string {
+  // "2026-04-25" → "25/04/2026" sin ajuste de zona horaria
+  const [y, m, d] = yyyymmdd.split('-');
+  return `${d}/${m}/${y}`;
+}
+
 function formatQ(n: number): string {
   return `Q ${n.toLocaleString('es-GT', { minimumFractionDigits: 2 })}`;
 }
 
+function fmt1(n: number | null): string {
+  return n != null ? n.toFixed(1) : '—';
+}
+
+// ── Horometer section builder ─────────────────────────────────────────────────
+
+function buildSeccionHorometro(
+  doc:       jsPDF,
+  solicitud: SolicitudRenta,
+  devolucion: DevolucionEntry,
+  lecturas:  LecturaHorometro[],
+  yStart:    number,
+  W:         number,
+  contentBottom: number,
+): number {
+  let y = yStart;
+
+  const pesadaItems = (solicitud.items as ItemSnapshot[])
+    .filter((i): i is Extract<ItemSnapshot, { kind: 'pesada' }> => i.kind === 'pesada');
+
+  // Solo los equipos que están siendo devueltos en esta devolución
+  const equiposDevueltos = new Set(devolucion.items.map(i => i.itemRef));
+
+  for (const item of pesadaItems) {
+    if (!equiposDevueltos.has(item.equipoId)) continue;
+
+    const lecturasEquipo = lecturas
+      .filter(l => l.equipoId === item.equipoId)
+      .sort((a, b) => a.fecha.localeCompare(b.fecha));
+
+    const costoEquipo = lecturasEquipo.reduce((s, l) => s + (l.costoTotal ?? 0), 0);
+
+    // ── Encabezado del equipo
+    if (y + 40 > contentBottom) { doc.addPage(); y = 18; }
+
+    doc.setFillColor(...COLORES.fondoAmbar);
+    doc.setDrawColor(...COLORES.ambar);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(14, y, W - 28, 14, 2, 2, 'FD');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(...COLORES.alerta);
+    doc.text(
+      `#${item.numeracion}  —  ${item.descripcion}${item.conMartillo ? '  (+Martillo)' : ''}`,
+      18, y + 6,
+    );
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(...COLORES.textoSuave);
+    doc.text(
+      `Tarifa: ${formatQ(item.tarifaEfectiva)}/hr`,
+      W - 18, y + 6,
+      { align: 'right' },
+    );
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(...COLORES.alerta);
+    doc.text(
+      `Acumulado: ${formatQ(costoEquipo)}`,
+      W - 18, y + 11,
+      { align: 'right' },
+    );
+
+    y += 17;
+
+    if (lecturasEquipo.length === 0) {
+      if (y + 12 > contentBottom) { doc.addPage(); y = 18; }
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(10);
+      doc.setTextColor(...COLORES.textoSuave);
+      doc.text('Sin lecturas de horómetro registradas.', 18, y + 6);
+      y += 14;
+      continue;
+    }
+
+    // ── Tabla de lecturas
+    const filas: (string | { content: string; styles: object })[][] = lecturasEquipo.map(l => {
+      const hTrab = l.horometroInicio != null && l.horometroFin5pm != null
+        ? (l.horometroFin5pm - l.horometroInicio).toFixed(1)
+        : '—';
+      return [
+        formatFechaCortaLocal(l.fecha),
+        fmt1(l.horometroInicio),
+        fmt1(l.horometroFin5pm),
+        hTrab,
+        l.horasNocturnas && l.horasNocturnas > 0 ? l.horasNocturnas.toFixed(1) : '—',
+        l.ajusteMinimo   && l.ajusteMinimo   > 0 ? `+${l.ajusteMinimo.toFixed(1)}` : '—',
+        l.costoTotal != null ? formatQ(l.costoTotal) : '—',
+      ];
+    });
+
+    autoTable(doc, {
+      startY: y,
+      head: [['Fecha', 'Horóm. inicio', 'Horóm. fin 5PM', 'H. trabajadas', 'H. noct.', 'Ajuste', 'Total día']],
+      body: filas,
+      foot: [['', '', '', '', '', 'TOTAL EQUIPO', formatQ(costoEquipo)]],
+      margin: { left: 14, right: 14, bottom: FOOTER_RESERVE + 2 },
+      styles: {
+        fontSize: 9,
+        cellPadding: 2.5,
+        textColor: COLORES.texto,
+        lineColor: COLORES.borde,
+        lineWidth: 0.2,
+      },
+      headStyles: {
+        fillColor: COLORES.primario,
+        textColor: COLORES.blanco,
+        fontStyle: 'bold',
+        fontSize: 9,
+      },
+      footStyles: {
+        fillColor: COLORES.fondo,
+        textColor: COLORES.texto,
+        fontStyle: 'bold',
+        fontSize: 9,
+      },
+      alternateRowStyles: {
+        fillColor: [250, 252, 255] as [number, number, number],
+      },
+      columnStyles: {
+        0: { cellWidth: 22, halign: 'center' },
+        1: { cellWidth: 26, halign: 'right', font: 'courier' },
+        2: { cellWidth: 27, halign: 'right', font: 'courier' },
+        3: { cellWidth: 24, halign: 'right', font: 'courier', fontStyle: 'bold' },
+        4: { cellWidth: 18, halign: 'right', font: 'courier' },
+        5: { cellWidth: 16, halign: 'right', font: 'courier' },
+        6: { cellWidth: 26, halign: 'right', fontStyle: 'bold' },
+      },
+    });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    y = (doc as any).lastAutoTable.finalY + 10;
+  }
+
+  return y;
+}
+
 // ── Main generator ────────────────────────────────────────────────────────────
 
-/**
- * Genera el PDF de liquidación de una devolución y devuelve un Blob.
- * No descarga automáticamente — el llamador decide qué hacer con el blob
- * (subirlo al backend, mostrarlo en un iframe, etc.).
- */
 export async function generarLiquidacion(
   solicitud:  SolicitudRenta,
   devolucion: DevolucionEntry,
+  lecturas?:  LecturaHorometro[],
 ): Promise<Blob> {
   const doc   = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
   const W     = doc.internal.pageSize.getWidth();
@@ -184,66 +329,72 @@ export async function generarLiquidacion(
   campo('Teléfono',        cliente.telefono ?? '—',  W - 60,  y);
   y += 14;
 
-  campo(
-    'Modalidad de pago',
+  campo('Modalidad de pago',
     solicitud.modalidad === 'CONTADO' ? 'Contado' : 'Crédito',
-    14, y,
-  );
+    14, y);
   campo('Registrado por', devolucion.registradoPor, W / 2, y);
-  campo(
-    'Tipo de devolución',
+  campo('Tipo de devolución',
     devolucion.esParcial ? 'Parcial' : 'Completa',
-    W - 60, y,
-  );
+    W - 60, y);
   y += 14;
 
-  // ── TABLA DE ÍTEMS DEVUELTOS ─────────────────────────────────────────────────
+  // ── DETALLE SEGÚN TIPO DE RENTA ──────────────────────────────────────────────
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(...COLORES.primario);
-  doc.text('DETALLE DE ÍTEMS DEVUELTOS', 14, y);
-  y += 3;
+  doc.text(
+    solicitud.esPesada ? 'DETALLE DE HORAS TRABAJADAS' : 'DETALLE DE ÍTEMS DEVUELTOS',
+    14, y,
+  );
+  y += 6;
 
-  const filaItems: string[][] = devolucion.items.map(entry => [
-    resolverLabelItem(solicitud, entry),
-    `${entry.diasCobrados} día${entry.diasCobrados === 1 ? '' : 's'}`,
-    formatQ(entry.costoReal),
-    entry.recargoTiempo > 0 ? formatQ(entry.recargoTiempo) : '—',
-    formatQ(entry.costoReal + entry.recargoTiempo),
-  ]);
+  if (solicitud.esPesada && lecturas && lecturas.length > 0) {
+    // Tabla de horómetro por equipo
+    y = buildSeccionHorometro(doc, solicitud, devolucion, lecturas, y, W, contentBottom);
+  } else {
+    // Tabla genérica para liviana / pesada sin lecturas
+    y -= 3;
+    const filaItems: string[][] = devolucion.items.map(entry => [
+      resolverLabelItem(solicitud, entry),
+      `${entry.diasCobrados} día${entry.diasCobrados === 1 ? '' : 's'}`,
+      formatQ(entry.costoReal),
+      entry.recargoTiempo > 0 ? formatQ(entry.recargoTiempo) : '—',
+      formatQ(entry.costoReal + entry.recargoTiempo),
+    ]);
 
-  autoTable(doc, {
-    startY: y,
-    head: [['Equipo / Material', 'Días cobrados', 'Costo base', 'Recargo tiempo', 'Subtotal']],
-    body: filaItems,
-    margin: { left: 14, right: 14, bottom: FOOTER_RESERVE + 2 },
-    styles: {
-      fontSize: 11,
-      cellPadding: 3,
-      textColor: COLORES.texto,
-      lineColor: COLORES.borde,
-      lineWidth: 0.2,
-    },
-    headStyles: {
-      fillColor: COLORES.primario,
-      textColor: COLORES.blanco,
-      fontStyle: 'bold',
-      fontSize: 11,
-    },
-    alternateRowStyles: {
-      fillColor: [250, 252, 255] as [number, number, number],
-    },
-    columnStyles: {
-      1: { halign: 'center', cellWidth: 28 },
-      2: { halign: 'right',  cellWidth: 26 },
-      3: { halign: 'right',  cellWidth: 28 },
-      4: { halign: 'right',  cellWidth: 26, fontStyle: 'bold' },
-    },
-  });
+    autoTable(doc, {
+      startY: y,
+      head: [['Equipo / Material', 'Días cobrados', 'Costo base', 'Recargo tiempo', 'Subtotal']],
+      body: filaItems,
+      margin: { left: 14, right: 14, bottom: FOOTER_RESERVE + 2 },
+      styles: {
+        fontSize: 11,
+        cellPadding: 3,
+        textColor: COLORES.texto,
+        lineColor: COLORES.borde,
+        lineWidth: 0.2,
+      },
+      headStyles: {
+        fillColor: COLORES.primario,
+        textColor: COLORES.blanco,
+        fontStyle: 'bold',
+        fontSize: 11,
+      },
+      alternateRowStyles: {
+        fillColor: [250, 252, 255] as [number, number, number],
+      },
+      columnStyles: {
+        1: { halign: 'center', cellWidth: 28 },
+        2: { halign: 'right',  cellWidth: 26 },
+        3: { halign: 'right',  cellWidth: 28 },
+        4: { halign: 'right',  cellWidth: 26, fontStyle: 'bold' },
+      },
+    });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  y = (doc as any).lastAutoTable.finalY + 6;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    y = (doc as any).lastAutoTable.finalY + 6;
+  }
 
   // ── CARGOS ADICIONALES ───────────────────────────────────────────────────────
 
@@ -287,9 +438,9 @@ export async function generarLiquidacion(
 
   if (y + 30 > contentBottom) { doc.addPage(); y = 18; }
 
-  const costoBase         = devolucion.items.reduce((s, i) => s + i.costoReal,     0);
+  const costoBase          = devolucion.items.reduce((s, i) => s + i.costoReal,     0);
   const totalRecargoTiempo = devolucion.items.reduce((s, i) => s + i.recargoTiempo, 0);
-  const totalCargosAd     = devolucion.recargosAdicionales.reduce((s, c) => s + c.monto, 0);
+  const totalCargosAd      = devolucion.recargosAdicionales.reduce((s, c) => s + c.monto, 0);
 
   const boxW = 80;
   const boxX = W - 14 - boxW;
@@ -311,15 +462,14 @@ export async function generarLiquidacion(
     doc.text(valor, boxX + boxW - 5, ly, { align: 'right' });
   };
 
-  lineaResumen('Costo base:',         formatQ(costoBase),          y + 8);
+  lineaResumen('Costo por horómetro:', formatQ(costoBase), y + 8);
   if (totalRecargoTiempo > 0) {
     lineaResumen('Recargo por atraso:',  formatQ(totalRecargoTiempo), y + 15);
   }
   if (totalCargosAd > 0) {
-    lineaResumen('Cargos adicionales:',  formatQ(totalCargosAd),      y + (totalRecargoTiempo > 0 ? 22 : 15));
+    lineaResumen('Cargos adicionales:',  formatQ(totalCargosAd), y + (totalRecargoTiempo > 0 ? 22 : 15));
   }
 
-  // Línea separadora antes del total
   const totalLineY = y + 25;
   doc.setDrawColor(...COLORES.borde);
   doc.setLineWidth(0.3);
@@ -364,6 +514,7 @@ export async function generarLiquidacion(
 
   // ── PIE DE PÁGINA ─────────────────────────────────────────────────────────────
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const totalPages = (doc as any).internal.getNumberOfPages();
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);

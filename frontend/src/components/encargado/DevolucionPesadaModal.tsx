@@ -169,7 +169,7 @@ export default function DevolucionPesadaModal({
         totalLote:           costoAcumTotal + totalCargosAd,
         liquidacionKey:      null,
       };
-      generarLiquidacion(solicitud, devolucionPrevia)
+      generarLiquidacion(solicitud, devolucionPrevia, lecturas)
         .then(blob => setPdfBlobUrl(URL.createObjectURL(blob)))
         .catch(() => setPdfError(true))
         .finally(() => setGenerandoPdf(false));
@@ -200,7 +200,7 @@ export default function DevolucionPesadaModal({
       const devolucion = devs[devs.length - 1] as DevolucionEntry | undefined;
       if (devolucion) {
         try {
-          const pdfBlob = await generarLiquidacion(actualizada, devolucion);
+          const pdfBlob = await generarLiquidacion(actualizada, devolucion, lecturas);
           const { url: uploadedUrl } = await solicitudesService.subirLiquidacion(solicitud.id, pdfBlob);
           url = uploadedUrl;
         } catch {

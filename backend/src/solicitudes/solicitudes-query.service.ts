@@ -2,8 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { serializeSolicitud, SolicitudConCliente, RechazadasPage } from './solicitudes.serializer';
 import type { DevolucionEntry } from './recargo.util';
-
-interface ItemConKind { kind: string; equipoId?: string }
+import type { ItemConKind } from './solicitudes.types';
 
 interface KeysetCursor    { fechaDecision:         string; id: string }
 interface HistorialCursor { fechaUltimaDevolucion: string; id: string }

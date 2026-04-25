@@ -9,6 +9,7 @@ import { IniciarEntregaDto } from './dto/iniciar-entrega.dto';
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
 import { tieneAccesoGlobal } from '../auth/utils/roles.util';
 import { serializeSolicitud } from './solicitudes.serializer';
+import type { ItemParaCalculo, ItemConKind } from './solicitudes.types';
 import {
   ExtensionEntry,
   DevolucionEntry,
@@ -22,17 +23,6 @@ import {
   calcularCostoAdaptativo,
   calcularDevolucionItem,
 } from './recargo.util';
-
-interface ItemParaCalculo {
-  kind:      string;
-  duracion:  number;
-  unidad:    string;
-  tarifa:    number | null;
-  equipoId?: string;
-  tipo?:     string;
-  conMadera?: boolean;
-  cantidad?:  number;
-}
 
 const PDF_MAGIC_BYTES = Buffer.from([0x25, 0x50, 0x44, 0x46]); // %PDF
 
@@ -596,7 +586,7 @@ export class SolicitudesService {
       const yaDevueltos  = new Set<string>(
         devoluciones.flatMap(d => d.items.map(i => i.itemRef)),
       );
-      const items = s.items as unknown as Array<{ kind: string; equipoId?: string }>;
+      const items = s.items as unknown as ItemConKind[];
       for (const item of items) {
         if ((item.kind === 'maquinaria' || item.kind === 'pesada') && item.equipoId && !yaDevueltos.has(item.equipoId)) {
           reservados.add(item.equipoId);

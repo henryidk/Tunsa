@@ -10,20 +10,7 @@ import { RegistrarDevolucionPesadaDto } from './dto/registrar-devolucion-pesada.
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
 import { tieneAccesoGlobal } from '../auth/utils/roles.util';
 import type { DevolucionEntry, DevolucionItemEntry, CargoAdicional } from './recargo.util';
-
-/** Shape mínima del item pesada en el JSON de solicitud. */
-interface ItemPesadaSnapshot {
-  kind:          'pesada';
-  equipoId:      string;
-  numeracion:    string;
-  descripcion:   string;
-  conMartillo:   boolean;
-  tarifaEfectiva: number;
-  diasSolicitados: number;
-  duracion:       number;
-  unidad:         string;
-  subtotal:       number;
-}
+import type { ItemPesadaSnapshot } from './solicitudes.types';
 
 @Injectable()
 export class HorometroService {

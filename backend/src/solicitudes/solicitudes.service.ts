@@ -7,6 +7,7 @@ import { AmpliacionRentaDto } from './dto/ampliar-renta.dto';
 import { RegistrarDevolucionDto } from './dto/registrar-devolucion.dto';
 import { IniciarEntregaDto } from './dto/iniciar-entrega.dto';
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
+import { tieneAccesoGlobal } from '../auth/utils/roles.util';
 import {
   ExtensionEntry,
   DevolucionEntry,
@@ -24,13 +25,6 @@ import {
 type SolicitudConCliente = Prisma.SolicitudGetPayload<{ include: { cliente: true } }> & {
   lecturas?: { fecha: Date; horometroFin5pm: Prisma.Decimal | null }[];
 };
-
-const ROLES_CON_ACCESO_GLOBAL = new Set(['admin', 'secretaria']);
-
-/** Admin y secretaria pueden operar sobre cualquier solicitud sin importar quién la creó. */
-function tieneAccesoGlobal(user: AuthenticatedUser): boolean {
-  return ROLES_CON_ACCESO_GLOBAL.has(user.role);
-}
 
 // Shape mínima de un item para extraer equipoId sin asumir tipos extras
 interface ItemConKind { kind: string; equipoId?: string }

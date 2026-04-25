@@ -133,6 +133,7 @@ export default function DevolucionPesadaModal({
     }));
 
   const seleccionados  = items.filter(it => it.seleccionado);
+  const paso1Valido    = seleccionados.length > 0 && seleccionados.every(it => it.horometroDevolucion !== '');
   const cargosValidos  = !hayCargos ? [] : cargos.filter(c => c.descripcion.trim() !== '' && c.monto !== '' && (c.monto as number) > 0);
   const cargosConError = hayCargos && cargos.some(c => c.descripcion.trim() === '' && c.monto !== '');
   const totalCargosAd  = cargosValidos.reduce((s, c) => s + (c.monto as number), 0);
@@ -146,7 +147,7 @@ export default function DevolucionPesadaModal({
   const costoAcumTotal = seleccionados.reduce((s, it) => s + (costoAcumPorEquipo.get(it.equipoId) ?? 0), 0);
 
   const irSiguiente = () => {
-    if (paso === 1 && seleccionados.length === 0) return;
+    if (paso === 1 && !paso1Valido) return;
     if (paso === 2 && cargosConError) return;
 
     if (paso === 2) {
@@ -200,7 +201,10 @@ export default function DevolucionPesadaModal({
       const devolucion = devs[devs.length - 1] as DevolucionEntry | undefined;
       if (devolucion) {
         try {
-          const pdfBlob = await generarLiquidacion(actualizada, devolucion, lecturas);
+          // Refrescar lecturas para que el PDF refleje las horas nocturnas
+          // y el ajuste actualizado que el backend calculó al procesar la devolución
+          const lecturasActualizadas = await solicitudesService.getLecturas(solicitud.id);
+          const pdfBlob = await generarLiquidacion(actualizada, devolucion, lecturasActualizadas);
           const { url: uploadedUrl } = await solicitudesService.subirLiquidacion(solicitud.id, pdfBlob);
           url = uploadedUrl;
         } catch {
@@ -316,7 +320,7 @@ export default function DevolucionPesadaModal({
                 <div key={it.equipoId} className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
                   <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide block mb-2">
                     Horómetro final — #{it.numeracion}
-                    <span className="text-slate-400 font-normal ml-1 normal-case">(opcional)</span>
+                    <span className="text-red-500 ml-1">*</span>
                   </label>
                   <input
                     type="number"
@@ -328,7 +332,7 @@ export default function DevolucionPesadaModal({
                     className="w-40 px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200 bg-white"
                   />
                   <p className="text-[10px] text-slate-400 mt-1.5">
-                    Si hay lectura final, se calculan las horas nocturnas del último día.
+                    Lectura del horómetro al momento de entregar el equipo. Si es mayor al último fin 5PM, la diferencia se cobra como horas nocturnas.
                   </p>
                 </div>
               ))}
@@ -692,7 +696,7 @@ export default function DevolucionPesadaModal({
               {paso < 4 ? (
                 <button
                   onClick={irSiguiente}
-                  disabled={(paso === 1 && seleccionados.length === 0) || (paso === 2 && cargosConError)}
+                  disabled={(paso === 1 && !paso1Valido) || (paso === 2 && cargosConError)}
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-sm font-semibold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Siguiente

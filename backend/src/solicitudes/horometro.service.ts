@@ -8,13 +8,8 @@ import { HorometroCalcService } from './horometro-calc.service';
 import { RegistrarLecturaDto } from './dto/lectura-horometro.dto';
 import { RegistrarDevolucionPesadaDto } from './dto/registrar-devolucion-pesada.dto';
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
+import { tieneAccesoGlobal } from '../auth/utils/roles.util';
 import type { DevolucionEntry, DevolucionItemEntry, CargoAdicional } from './recargo.util';
-
-const ROLES_CON_ACCESO_GLOBAL = new Set(['admin', 'secretaria']);
-
-function tieneAccesoGlobal(user: AuthenticatedUser): boolean {
-  return ROLES_CON_ACCESO_GLOBAL.has(user.role);
-}
 
 /** Shape mínima del item pesada en el JSON de solicitud. */
 interface ItemPesadaSnapshot {

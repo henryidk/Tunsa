@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { serializeSolicitud, SolicitudConCliente, RechazadasPage } from './solicitudes.serializer';
 import type { DevolucionEntry } from './recargo.util';
-import type { ItemConKind } from './solicitudes.types';
+import { tieneEquipoId, type ItemConKind } from './solicitudes.types';
 
 interface KeysetCursor    { fechaDecision:         string; id: string }
 interface HistorialCursor { fechaUltimaDevolucion: string; id: string }
@@ -31,7 +31,7 @@ export class SolicitudesQueryService {
       );
       const items = s.items as unknown as ItemConKind[];
       for (const item of items) {
-        if ((item.kind === 'maquinaria' || item.kind === 'pesada') && item.equipoId && !yaDevueltos.has(item.equipoId)) {
+        if (tieneEquipoId(item.kind) && item.equipoId && !yaDevueltos.has(item.equipoId)) {
           reservados.add(item.equipoId);
         }
       }

@@ -10,6 +10,11 @@ export interface ItemConKind {
   equipoId?: string;
 }
 
+/** Devuelve true para los kinds que tienen un equipo físico identificado por equipoId. */
+export function tieneEquipoId(kind: string): boolean {
+  return kind === 'maquinaria' || kind === 'pesada';
+}
+
 /** Shape genérica para calcular costos, fechas y recarsos en rentas livianas y granel. */
 export interface ItemParaCalculo {
   kind:       string;

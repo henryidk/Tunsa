@@ -9,7 +9,7 @@ import { IniciarEntregaDto } from './dto/iniciar-entrega.dto';
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
 import { tieneAccesoGlobal } from '../auth/utils/roles.util';
 import { serializeSolicitud } from './solicitudes.serializer';
-import type { ItemParaCalculo, ItemConKind } from './solicitudes.types';
+import { tieneEquipoId, type ItemParaCalculo, type ItemConKind } from './solicitudes.types';
 import {
   ExtensionEntry,
   DevolucionEntry,
@@ -41,6 +41,39 @@ export class SolicitudesService {
     if (buffer.length < 4 || !buffer.subarray(0, 4).equals(PDF_MAGIC_BYTES)) {
       throw new BadRequestException('El archivo no es un PDF válido.');
     }
+  }
+
+  private toNum(v: unknown): number | null {
+    return v != null ? parseFloat(String(v)) : null;
+  }
+
+  /**
+   * Devuelve los precios vigentes de un ítem consultando la tabla que corresponde a su kind.
+   * Centraliza toda la lógica de "qué tabla consultar según el tipo de ítem":
+   * agregar un nuevo kind solo requiere añadir un branch aquí.
+   */
+  private async fetchPreciosItem(
+    kind:      string,
+    itemRef:   string,
+    conMadera = false,
+  ): Promise<{ dia: number | null; semana: number | null; mes: number | null } | null> {
+    if (kind === 'maquinaria') {
+      const equipo = await this.prisma.equipo.findUnique({ where: { id: itemRef } });
+      if (!equipo) return null;
+      return {
+        dia:    this.toNum(equipo.rentaDia),
+        semana: this.toNum(equipo.rentaSemana),
+        mes:    this.toNum(equipo.rentaMes),
+      };
+    }
+    if (kind === 'granel') {
+      const config = await this.prisma.configGranel.findUnique({ where: { tipo: itemRef as any } });
+      if (!config) return null;
+      return conMadera
+        ? { dia: this.toNum(config.rentaDiaConMadera), semana: this.toNum(config.rentaSemanaConMadera), mes: this.toNum(config.rentaMesConMadera) }
+        : { dia: this.toNum(config.rentaDia),          semana: this.toNum(config.rentaSemana),          mes: this.toNum(config.rentaMes)          };
+    }
+    return null;
   }
 
   async create(dto: CreateSolicitudDto, username: string) {
@@ -261,9 +294,7 @@ export class SolicitudesService {
 
     for (const extDto of dto.items) {
       const snapItem = snapshotItems.find(i =>
-        extDto.kind === 'maquinaria'
-          ? i.kind === 'maquinaria' && i.equipoId === extDto.itemRef
-          : i.kind === 'granel'    && i.tipo     === extDto.itemRef,
+        i.kind === extDto.kind && (i.equipoId ?? i.tipo) === extDto.itemRef,
       );
 
       if (!snapItem) {
@@ -273,35 +304,15 @@ export class SolicitudesService {
       const extsPrevias    = extensionesActuales.filter(e => e.itemRef === extDto.itemRef);
       const fechaInicioExt = calcularFinItemConExtensiones(fechaInicio, snapItem, extsPrevias);
 
-      const toNum = (v: unknown): number | null =>
-        v != null ? parseFloat(String(v)) : null;
-
       let costoExtra = 0;
 
-      if (extDto.kind === 'maquinaria') {
-        const equipo = await this.prisma.equipo.findUnique({ where: { id: extDto.itemRef } });
-        if (!equipo) throw new BadRequestException(`Equipo "${extDto.itemRef}" no encontrado.`);
+      const conMadera = snapItem.conMadera ?? false;
+      const cantidad  = snapItem.cantidad  ?? 1;
+      const precios   = await this.fetchPreciosItem(extDto.kind, extDto.itemRef, conMadera);
+      if (!precios)
+        throw new BadRequestException(`Ítem "${extDto.itemRef}" no encontrado.`);
 
-        costoExtra = calcularCostoAdaptativo(
-          fechaInicioExt,
-          extDto.duracion,
-          extDto.unidad,
-          { dia: toNum(equipo.rentaDia), semana: toNum(equipo.rentaSemana), mes: toNum(equipo.rentaMes) },
-        );
-      } else {
-        const config = await this.prisma.configGranel.findUnique({
-          where: { tipo: extDto.itemRef as any },
-        });
-        if (!config) throw new BadRequestException(`Configuración de granel "${extDto.itemRef}" no encontrada.`);
-
-        const conMadera = snapItem.conMadera ?? false;
-        const cantidad  = snapItem.cantidad  ?? 1;
-        const precios   = conMadera
-          ? { dia: toNum(config.rentaDiaConMadera), semana: toNum(config.rentaSemanaConMadera), mes: toNum(config.rentaMesConMadera) }
-          : { dia: toNum(config.rentaDia),          semana: toNum(config.rentaSemana),          mes: toNum(config.rentaMes)          };
-
-        costoExtra = calcularCostoAdaptativo(fechaInicioExt, extDto.duracion, extDto.unidad, precios, cantidad);
-      }
+      costoExtra = calcularCostoAdaptativo(fechaInicioExt, extDto.duracion, extDto.unidad, precios, cantidad);
 
       costoTotalExtra += costoExtra;
 
@@ -394,9 +405,6 @@ export class SolicitudesService {
     if (itemsADevolver.length === 0)
       throw new BadRequestException('Ninguno de los ítems indicados está pendiente de devolución.');
 
-    const toNum = (v: unknown): number | null =>
-      v != null ? parseFloat(String(v)) : null;
-
     const devolucionItems: DevolucionItemEntry[] = [];
 
     for (const item of itemsADevolver) {
@@ -410,28 +418,11 @@ export class SolicitudesService {
 
       let costoReal = 0;
 
-      if (item.kind === 'maquinaria' && item.equipoId) {
-        const equipo = await this.prisma.equipo.findUnique({ where: { id: item.equipoId } });
-        if (equipo) {
-          const precios = {
-            dia:    toNum(equipo.rentaDia),
-            semana: toNum(equipo.rentaSemana),
-            mes:    toNum(equipo.rentaMes),
-          };
-          ({ costoReal } = calcularDevolucionItem(fechaInicio, fechaDevolucion, precios));
-        }
-      } else if (item.kind === 'granel' && item.tipo) {
-        const config = await this.prisma.configGranel.findUnique({
-          where: { tipo: item.tipo as any },
-        });
-        if (config) {
-          const conMadera = item.conMadera ?? false;
-          const cantidad  = item.cantidad  ?? 1;
-          const precios   = conMadera
-            ? { dia: toNum(config.rentaDiaConMadera), semana: toNum(config.rentaSemanaConMadera), mes: toNum(config.rentaMesConMadera) }
-            : { dia: toNum(config.rentaDia),          semana: toNum(config.rentaSemana),          mes: toNum(config.rentaMes)          };
-          ({ costoReal } = calcularDevolucionItem(fechaInicio, fechaDevolucion, precios, cantidad));
-        }
+      const conMadera = item.conMadera ?? false;
+      const cantidad  = item.cantidad  ?? 1;
+      const precios   = itemRef ? await this.fetchPreciosItem(item.kind, itemRef, conMadera) : null;
+      if (precios) {
+        ({ costoReal } = calcularDevolucionItem(fechaInicio, fechaDevolucion, precios, cantidad));
       }
 
       devolucionItems.push({ itemRef, kind: item.kind as 'maquinaria' | 'granel', diasCobrados: 0, costoReal, recargoTiempo });
@@ -588,7 +579,7 @@ export class SolicitudesService {
       );
       const items = s.items as unknown as ItemConKind[];
       for (const item of items) {
-        if ((item.kind === 'maquinaria' || item.kind === 'pesada') && item.equipoId && !yaDevueltos.has(item.equipoId)) {
+        if (tieneEquipoId(item.kind) && item.equipoId && !yaDevueltos.has(item.equipoId)) {
           reservados.add(item.equipoId);
         }
       }

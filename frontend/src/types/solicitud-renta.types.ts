@@ -32,7 +32,7 @@ export interface DevolucionEntry {
 /** Una extensión aplicada a un ítem de la renta. */
 export interface ExtensionEntry {
   itemRef:        string;                    // equipoId para maquinaria; tipo para granel
-  kind:           'maquinaria' | 'granel';
+  kind:           'maquinaria' | 'granel' | 'pesada';
   duracion:       number;
   unidad:         UnidadDuracion;
   costoExtra:     number;

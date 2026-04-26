@@ -181,6 +181,12 @@ export class SolicitudesController {
     return this.solicitudesQueryService.getEquiposReservados();
   }
 
+  @Get('dashboard-stats')
+  @Roles('encargado_maquinas')
+  getDashboardStats(@CurrentUser() user: AuthenticatedUser) {
+    return this.solicitudesQueryService.getDashboardStatsEncargado(user.username);
+  }
+
   @Get('mias')
   @Roles('encargado_maquinas')
   findMias(@CurrentUser() user: AuthenticatedUser) {

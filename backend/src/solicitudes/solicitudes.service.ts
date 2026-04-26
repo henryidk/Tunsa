@@ -350,19 +350,20 @@ export class SolicitudesService {
 
       let costoExtra = 0;
 
-      const conMadera = snapItem.conMadera ?? false;
-      const cantidad  = snapItem.cantidad  ?? 1;
-      const precios   = await this.fetchPreciosItem(extDto.kind, extDto.itemRef, conMadera);
-      if (!precios)
-        throw new BadRequestException(`Ítem "${extDto.itemRef}" no encontrado.`);
-
-      costoExtra = calcularCostoAdaptativo(fechaInicioExt, extDto.duracion, extDto.unidad, precios, cantidad);
+      if (extDto.kind !== 'pesada') {
+        const conMadera = snapItem.conMadera ?? false;
+        const cantidad  = snapItem.cantidad  ?? 1;
+        const precios   = await this.fetchPreciosItem(extDto.kind, extDto.itemRef, conMadera);
+        if (!precios)
+          throw new BadRequestException(`Ítem "${extDto.itemRef}" no encontrado.`);
+        costoExtra = calcularCostoAdaptativo(fechaInicioExt, extDto.duracion, extDto.unidad, precios, cantidad);
+      }
 
       costoTotalExtra += costoExtra;
 
       nuevasExtensiones.push({
         itemRef:        extDto.itemRef,
-        kind:           extDto.kind as 'maquinaria' | 'granel',
+        kind:           extDto.kind as 'maquinaria' | 'granel' | 'pesada',
         duracion:       extDto.duracion,
         unidad:         extDto.unidad,
         costoExtra,

@@ -49,7 +49,19 @@ export interface LecturaHorometro {
   updatedAt:             string;
 }
 
+export interface DashboardStats {
+  pendientes:         number;
+  activas:            number;
+  vencidas:           number;
+  solicitudesEsteMes: number;
+}
+
 export const solicitudesService = {
+  async getDashboardStats(): Promise<DashboardStats> {
+    const res = await api.get<DashboardStats>('/solicitudes/dashboard-stats');
+    return res.data;
+  },
+
   async create(payload: CreateSolicitudPayload): Promise<SolicitudRenta> {
     const res = await api.post<SolicitudRenta>('/solicitudes', payload);
     return res.data;

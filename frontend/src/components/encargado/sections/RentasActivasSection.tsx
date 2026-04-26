@@ -190,7 +190,7 @@ export default function RentasActivasSection() {
               ahora={ahora}
               abriendo={abriendo === s.id}
               onVerComprobante={() => handleVerComprobante(s.id)}
-              onAmpliar={s.esPesada ? undefined : () => setModalAmpliar(s)}
+              onAmpliar={() => setModalAmpliar(s)}
               onDevolucion={s.esPesada ? () => setModalDevPesada(s) : () => setModalDevolucion(s)}
               onHorometro={s.esPesada ? () => setModalHorometro(s) : undefined}
             />

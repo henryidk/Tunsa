@@ -5,16 +5,18 @@ import { solicitudesService, type ExtensionItemPayload } from '../../services/so
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function itemLabel(item: ItemSnapshot): string {
-  if (item.kind === 'maquinaria') return `#${item.numeracion} ${item.descripcion}`;
+  if (item.kind === 'maquinaria' || item.kind === 'pesada') return `#${item.numeracion} ${item.descripcion}`;
   return `${item.tipoLabel}${item.conMadera ? ' (c/madera)' : ''} × ${item.cantidad.toLocaleString('es-GT')}`;
 }
 
 function itemKindLabel(item: ItemSnapshot): string {
-  return item.kind === 'maquinaria' ? 'Maquinaria' : 'A granel';
+  if (item.kind === 'maquinaria') return 'Maquinaria';
+  if (item.kind === 'pesada')     return 'Maquinaria pesada';
+  return 'A granel';
 }
 
 function itemRef(item: ItemSnapshot): string {
-  return item.kind === 'maquinaria' ? item.equipoId : item.tipo;
+  return item.kind === 'maquinaria' || item.kind === 'pesada' ? item.equipoId : item.tipo;
 }
 
 const UNIDAD_OPTS: { value: UnidadDuracion; label: string }[] = [
@@ -169,7 +171,8 @@ export default function AmpliacionRentaModal({
                   <line x1="12" y1="17" x2="12.01" y2="17"/>
                 </svg>
                 <p className="text-xs text-amber-800 leading-relaxed">
-                  Esta acción <span className="font-semibold">no se puede revertir</span>. La extensión quedará registrada y el costo adicional se sumará al total de la renta.
+                  Esta acción <span className="font-semibold">no se puede revertir</span>. La extensión quedará registrada
+                  {solicitud.esPesada ? ' y la fecha de finalización estimada se actualizará.' : ' y el costo adicional se sumará al total de la renta.'}
                 </p>
               </div>
               <div>
@@ -204,14 +207,17 @@ export default function AmpliacionRentaModal({
                     <p className="text-[11px] text-slate-400 mt-0.5">{itemKindLabel(item)} • Inicio: {item.fechaInicio}</p>
                   </div>
                   <DuracionInputs ext={ext} onDuracion={val => handleDuracion(ref, val)} onUnidad={val => handleUnidad(ref, val)} />
-                  <p className="text-[11px] text-slate-400">El costo se calculará con los precios actuales al confirmar.</p>
+                  {item.kind !== 'pesada' && (
+                    <p className="text-[11px] text-slate-400">El costo se calculará con los precios actuales al confirmar.</p>
+                  )}
                 </div>
               );
             })()
           ) : (
             <div className="space-y-3">
               <p className="text-xs text-slate-500 leading-relaxed">
-                Selecciona los equipos a extender e indica la duración adicional. El costo se calculará con los precios actuales al confirmar.
+                Selecciona los equipos a extender e indica la duración adicional.
+                {!solicitud.esPesada && ' El costo se calculará con los precios actuales al confirmar.'}
               </p>
               {solicitud.items.map(item => {
                 const ref = itemRef(item);

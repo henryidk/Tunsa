@@ -9,7 +9,7 @@ export class ExtensionItemDto {
   itemRef: string;
 
   @IsString()
-  @IsIn(['maquinaria', 'granel'])
+  @IsIn(['maquinaria', 'granel', 'pesada'])
   kind: string;
 
   @IsInt()

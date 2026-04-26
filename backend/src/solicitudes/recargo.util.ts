@@ -51,7 +51,7 @@ export interface DevolucionEntry {
 export interface ExtensionEntry {
   /** equipoId para ítems de maquinaria; tipo (PUNTAL, ANDAMIO_SIMPLE…) para granel. */
   itemRef:        string;
-  kind:           'maquinaria' | 'granel';
+  kind:           'maquinaria' | 'granel' | 'pesada';
   duracion:       number;
   unidad:         string;
   costoExtra:     number;

@@ -81,6 +81,32 @@ export class SolicitudesQueryService {
     return solicitudes.map(serializeSolicitud);
   }
 
+  async getDashboardStatsEncargado(username: string) {
+    const now       = new Date();
+    const inicioMes = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const [pendientes, activas, vencidas, solicitudesEsteMes] = await this.prisma.$transaction([
+      this.prisma.solicitud.count({
+        where: { creadaPor: username, estado: { in: ['PENDIENTE', 'APROBADA'] } },
+      }),
+      this.prisma.solicitud.count({
+        where: {
+          creadaPor: username,
+          estado:    'ACTIVA',
+          OR: [{ fechaFinEstimada: null }, { fechaFinEstimada: { gte: now } }],
+        },
+      }),
+      this.prisma.solicitud.count({
+        where: { creadaPor: username, estado: 'ACTIVA', fechaFinEstimada: { lt: now } },
+      }),
+      this.prisma.solicitud.count({
+        where: { creadaPor: username, createdAt: { gte: inicioMes } },
+      }),
+    ]);
+
+    return { pendientes, activas, vencidas, solicitudesEsteMes };
+  }
+
   async findActivasMias(username: string) {
     const now = new Date();
     const solicitudes = await this.prisma.solicitud.findMany({

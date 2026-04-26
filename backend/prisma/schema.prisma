@@ -205,6 +205,11 @@ model Solicitud {
   fechaUltimaDevolucion DateTime?
 
   lecturas              LecturaHorometro[]
+  resumenItems          ResumenItem[]
+
+  // Suma acumulada de costoTotal de todas las lecturas de horómetro.
+  // Se incrementa atómicamente con cada lectura registrada o actualizada.
+  costoAcumuladoPesada  Decimal   @default(0) @db.Decimal(12, 2)
 
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
@@ -356,6 +361,52 @@ model LecturaHorometro {
   @@unique([solicitudId, equipoId, fecha])
   @@index([solicitudId, equipoId])
   @@map("lecturas_horometro")
+}
+
+// ==================== RESUMEN DE ÍTEMS (cierre de renta) ====================
+
+/**
+ * Registro de cierre por ítem — se crea al confirmar entrega y se completa al devolver.
+ * Cubre todos los tipos: maquinaria liviana, granel y maquinaria pesada.
+ * Para pesadas, DetalleHorometro extiende este registro con los campos de horómetro.
+ */
+model ResumenItem {
+  id              String    @id @default(cuid())
+  solicitudId     String
+  clienteId       String                        // desnormalizado para queries de reporte
+  equipoId        String?                       // null para granel
+  itemRef         String                        // equipoId (maquinaria/pesada) o tipo (granel)
+  tipoItem        String                        // 'maquinaria' | 'granel' | 'pesada'
+  fechaEntrega    DateTime
+  fechaDevolucion DateTime?
+  tarifaEfectiva  Decimal   @db.Decimal(10,2)  // snapshot del precio aplicado
+  diasCobrados    Int?                           // livianas/granel
+  costoFinal      Decimal?  @db.Decimal(12,2)
+
+  solicitud Solicitud         @relation(fields: [solicitudId], references: [id])
+  horometro DetalleHorometro?
+
+  @@unique([solicitudId, itemRef])
+  @@index([clienteId])
+  @@index([equipoId])
+  @@map("resumen_items")
+}
+
+/**
+ * Extensión de ResumenItem exclusiva para maquinaria pesada.
+ * Se crea junto al ResumenItem (con horometroEntrega) y se completa en la devolución.
+ */
+model DetalleHorometro {
+  resumenItemId       String   @id
+  horometroEntrega    Decimal? @db.Decimal(10,1)  // lectura al iniciar la renta
+  horometroDevolucion Decimal? @db.Decimal(10,1)  // lectura final al devolver
+  horasDiurnasTotal   Decimal? @db.Decimal(10,1)  // Σ horasDiurnasFacturadas de todas las lecturas
+  ajusteMinimoTotal   Decimal? @db.Decimal(10,1)  // Σ ajusteMinimo aplicado
+  horasNocturnas      Decimal? @db.Decimal(10,1)  // total horas después de 5 PM
+
+  resumenItem ResumenItem @relation(fields: [resumenItemId], references: [id])
+
+  @@map("detalles_horometro")
 }
 
 // ==================== AUDIT LOG ====================

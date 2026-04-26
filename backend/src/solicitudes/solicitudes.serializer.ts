@@ -19,6 +19,7 @@ export function serializeSolicitud(s: SolicitudConCliente) {
     totalEstimado:         parseFloat(s.totalEstimado.toString()),
     recargoTotal:          s.recargoTotal != null ? parseFloat(s.recargoTotal.toString())        : null,
     totalFinal:            s.totalFinal   != null ? parseFloat((s.totalFinal as any).toString()) : null,
+    costoAcumuladoPesada:  parseFloat(((s as any).costoAcumuladoPesada ?? 0).toString()),
     extensiones:           (s.extensiones          ?? null) as ExtensionEntry[]   | null,
     devolucionesParciales: (s.devolucionesParciales ?? null) as DevolucionEntry[] | null,
     fechaUltimaDevolucion: s.fechaUltimaDevolucion?.toISOString() ?? null,

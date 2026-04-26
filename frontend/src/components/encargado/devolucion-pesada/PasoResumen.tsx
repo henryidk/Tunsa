@@ -4,21 +4,21 @@ import { formatFechaHora } from '../../../types/solicitud.types';
 import type { SolicitudRenta } from '../../../types/solicitud-renta.types';
 
 interface Props {
-  solicitud:          SolicitudRenta;
-  seleccionados:      ItemRetorno[];
-  cargosValidos:      CargoRow[];
-  costoAcumPorEquipo: Map<string, number>;
-  costoAcumTotal:     number;
-  totalCargosAd:      number;
-  loadingLectura:     boolean;
-  generandoPdf:       boolean;
-  pdfBlobUrl:         string | null;
-  pdfError:           boolean;
+  solicitud:           SolicitudRenta;
+  seleccionados:       ItemRetorno[];
+  cargosValidos:       CargoRow[];
+  costoAcumPorEquipo:  Map<string, number>;
+  costoEstimadoTotal:  number;
+  totalCargosAd:       number;
+  loadingLectura:      boolean;
+  generandoPdf:        boolean;
+  pdfBlobUrl:          string | null;
+  pdfError:            boolean;
 }
 
 export default function PasoResumen({
   solicitud, seleccionados, cargosValidos, costoAcumPorEquipo,
-  costoAcumTotal, totalCargosAd, loadingLectura, generandoPdf, pdfBlobUrl, pdfError,
+  costoEstimadoTotal, totalCargosAd, loadingLectura, generandoPdf, pdfBlobUrl, pdfError,
 }: Props) {
   return (
     <div className="space-y-4">
@@ -93,13 +93,13 @@ export default function PasoResumen({
 
       <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
         <div>
-          <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Mínimo estimado</p>
+          <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Total estimado</p>
           <p className="text-[11px] text-slate-400 mt-0.5">
-            Lecturas registradas{cargosValidos.length > 0 ? ' + cargos' : ''}. El horómetro final puede añadir horas adicionales.
+            Incluye horómetro final{cargosValidos.length > 0 ? ' + cargos adicionales' : ''}.
           </p>
         </div>
         <span className="text-lg font-bold text-slate-700 font-mono">
-          {loadingLectura ? '…' : formatQ(costoAcumTotal + totalCargosAd)}
+          {loadingLectura ? '…' : formatQ(costoEstimadoTotal + totalCargosAd)}
         </span>
       </div>
 

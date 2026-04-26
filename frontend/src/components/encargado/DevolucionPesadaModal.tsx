@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { solicitudesService, type LecturaHorometro } from '../../services/solicitudes.service';
 import { generarLiquidacion } from '../../utils/generarLiquidacion';
 import type { SolicitudRenta, DevolucionEntry } from '../../types/solicitud-renta.types';
-import { type ItemRetorno, type CargoRow, type Paso, getPendientes } from './devolucion-pesada/types';
+import { type ItemRetorno, type CargoRow, type Paso, getPendientes, estimarLecturasConDevolucion } from './devolucion-pesada/types';
 import PasoIndicador from './devolucion-pesada/PasoIndicador';
 import PasoEquipos   from './devolucion-pesada/PasoEquipos';
 import PasoCargos    from './devolucion-pesada/PasoCargos';
@@ -90,6 +90,17 @@ export default function DevolucionPesadaModal({
 
   const costoAcumTotal = seleccionados.reduce((s, it) => s + (costoAcumPorEquipo.get(it.equipoId) ?? 0), 0);
 
+  // Costo estimado incluyendo el efecto del horometroDevolucion de cada equipo seleccionado
+  const costoEstimadoPorEquipo = useMemo(() => {
+    const sel = items.filter(it => it.seleccionado);
+    const estimadas = estimarLecturasConDevolucion(lecturas, sel);
+    const map = new Map<string, number>();
+    for (const l of estimadas) map.set(l.equipoId, (map.get(l.equipoId) ?? 0) + (l.costoTotal ?? 0));
+    return map;
+  }, [lecturas, items]);
+
+  const costoEstimadoTotal = seleccionados.reduce((s, it) => s + (costoEstimadoPorEquipo.get(it.equipoId) ?? 0), 0);
+
   const irSiguiente = () => {
     if (paso === 1 && !paso1Valido)    return;
     if (paso === 2 && cargosConError)  return;
@@ -98,6 +109,9 @@ export default function DevolucionPesadaModal({
       setGenerandoPdf(true);
       setPdfBlobUrl(null);
       setPdfError(false);
+
+      const lecturasEstimadas = estimarLecturasConDevolucion(lecturas, seleccionados);
+
       const devolucionPrevia: DevolucionEntry = {
         fechaDevolucion:     new Date().toISOString(),
         registradoPor:       '—',
@@ -107,14 +121,14 @@ export default function DevolucionPesadaModal({
           itemRef:       it.equipoId,
           kind:          'pesada' as const,
           diasCobrados:  0,
-          costoReal:     costoAcumPorEquipo.get(it.equipoId) ?? 0,
+          costoReal:     costoEstimadoPorEquipo.get(it.equipoId) ?? 0,
           recargoTiempo: 0,
         })),
         recargosAdicionales: cargosValidos.map(c => ({ descripcion: c.descripcion, monto: c.monto as number })),
-        totalLote:           costoAcumTotal + totalCargosAd,
+        totalLote:           costoEstimadoTotal + totalCargosAd,
         liquidacionKey:      null,
       };
-      generarLiquidacion(solicitud, devolucionPrevia, lecturas)
+      generarLiquidacion(solicitud, devolucionPrevia, lecturasEstimadas)
         .then(blob => setPdfBlobUrl(URL.createObjectURL(blob)))
         .catch(() => setPdfError(true))
         .finally(() => setGenerandoPdf(false));
@@ -222,7 +236,7 @@ export default function DevolucionPesadaModal({
               seleccionados={seleccionados}
               cargosValidos={cargosValidos}
               costoAcumPorEquipo={costoAcumPorEquipo}
-              costoAcumTotal={costoAcumTotal}
+              costoEstimadoTotal={costoEstimadoTotal}
               totalCargosAd={totalCargosAd}
               loadingLectura={loadingLectura}
               generandoPdf={generandoPdf}

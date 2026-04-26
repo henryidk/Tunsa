@@ -79,21 +79,31 @@ export class HorometroService {
             )
           : 0;
 
-        const costos = this.calc.calcularCostoDia(diurnas, horasNocturnas, tarifaEfectiva);
+        const costos        = this.calc.calcularCostoDia(diurnas, horasNocturnas, tarifaEfectiva);
+        const costoAnterior = lecturaAnterior.costoTotal != null
+          ? parseFloat(lecturaAnterior.costoTotal.toString())
+          : 0;
+        const delta = costos.costoTotal - costoAnterior;
 
-        await this.prisma.lecturaHorometro.update({
-          where: { id: lecturaAnterior.id },
-          data: {
-            horasNocturnas:         costos.horasNocturnas,
-            horasDiurnasRaw:        costos.horasDiurnasRaw,
-            horasDiurnasFacturadas: costos.horasDiurnasFacturadas,
-            ajusteMinimo:           costos.ajusteMinimo,
-            tarifaEfectiva,
-            costoDiurno:            costos.costoDiurno,
-            costoNocturno:          costos.costoNocturno,
-            costoTotal:             costos.costoTotal,
-          },
-        });
+        await this.prisma.$transaction([
+          this.prisma.lecturaHorometro.update({
+            where: { id: lecturaAnterior.id },
+            data: {
+              horasNocturnas:         costos.horasNocturnas,
+              horasDiurnasRaw:        costos.horasDiurnasRaw,
+              horasDiurnasFacturadas: costos.horasDiurnasFacturadas,
+              ajusteMinimo:           costos.ajusteMinimo,
+              tarifaEfectiva,
+              costoDiurno:            costos.costoDiurno,
+              costoNocturno:          costos.costoNocturno,
+              costoTotal:             costos.costoTotal,
+            },
+          }),
+          this.prisma.solicitud.update({
+            where: { id: solicitudId },
+            data: { costoAcumuladoPesada: { increment: delta } },
+          }),
+        ]);
       }
     }
 
@@ -138,23 +148,33 @@ export class HorometroService {
     const horasDiurnasRaw    = this.calc.diffHorometro(horometroInicioNum, horometroFin5pm);
 
     // Costos provisionales (nocturnas aún desconocidas → 0)
-    const costos = this.calc.calcularCostoDia(horasDiurnasRaw, 0, tarifaEfectiva);
+    const costos        = this.calc.calcularCostoDia(horasDiurnasRaw, 0, tarifaEfectiva);
+    const costoAnterior = lectura.costoTotal != null ? parseFloat(lectura.costoTotal.toString()) : 0;
+    const delta         = costos.costoTotal - costoAnterior;
 
-    return this.prisma.lecturaHorometro.update({
-      where: { id: lectura.id },
-      data: {
-        horometroFin5pm,
-        horasDiurnasRaw:        costos.horasDiurnasRaw,
-        horasDiurnasFacturadas: costos.horasDiurnasFacturadas,
-        ajusteMinimo:           costos.ajusteMinimo,
-        horasNocturnas:         0,
-        tarifaEfectiva,
-        costoDiurno:            costos.costoDiurno,
-        costoNocturno:          0,
-        costoTotal:             costos.costoTotal,
-        registradoFinBy:        username,
-      },
-    });
+    const [updatedLectura] = await this.prisma.$transaction([
+      this.prisma.lecturaHorometro.update({
+        where: { id: lectura.id },
+        data: {
+          horometroFin5pm,
+          horasDiurnasRaw:        costos.horasDiurnasRaw,
+          horasDiurnasFacturadas: costos.horasDiurnasFacturadas,
+          ajusteMinimo:           costos.ajusteMinimo,
+          horasNocturnas:         0,
+          tarifaEfectiva,
+          costoDiurno:            costos.costoDiurno,
+          costoNocturno:          0,
+          costoTotal:             costos.costoTotal,
+          registradoFinBy:        username,
+        },
+      }),
+      this.prisma.solicitud.update({
+        where: { id: solicitudId },
+        data: { costoAcumuladoPesada: { increment: delta } },
+      }),
+    ]);
+
+    return updatedLectura;
   }
 
   // ── Consulta de lecturas ─────────────────────────────────────────────────────
@@ -216,125 +236,152 @@ export class HorometroService {
       throw new BadRequestException('Ninguno de los ítems indicados está pendiente de devolución.');
 
     const fechaDevolucion = new Date();
-    const devolucionItems: DevolucionItemEntry[] = [];
 
-    for (const item of itemsADevolver) {
-      // Buscar el horometro de devolucion para este equipo
-      const devItem = dto.items?.find(d => d.equipoId === item.equipoId);
-      const horometroDevolucion = devItem?.horometroDevolucion;
+    const actualizada = await this.prisma.$transaction(async (tx) => {
+      const devolucionItems: DevolucionItemEntry[] = [];
 
-      // Obtener última lectura del equipo
-      const ultimaLectura = await this.prisma.lecturaHorometro.findFirst({
-        where:   { solicitudId, equipoId: item.equipoId },
-        orderBy: { fecha: 'desc' },
-      });
+      for (const item of itemsADevolver) {
+        const devItem             = dto.items?.find(d => d.equipoId === item.equipoId);
+        const horometroDevolucion = devItem?.horometroDevolucion ?? null;
 
-      // Finalizar el último día con el horómetro de devolución
-      if (horometroDevolucion != null && ultimaLectura?.horometroFin5pm != null) {
-        const finAnterior    = parseFloat(ultimaLectura.horometroFin5pm.toString());
-        const horasNocturnas = this.calc.diffHorometro(finAnterior, horometroDevolucion);
+        // Obtener última lectura del equipo
+        const ultimaLectura = await tx.lecturaHorometro.findFirst({
+          where:   { solicitudId, equipoId: item.equipoId },
+          orderBy: { fecha: 'desc' },
+        });
 
-        if (horasNocturnas > 0) {
-          const diurnas = ultimaLectura.horometroInicio != null
-            ? this.calc.diffHorometro(
-                parseFloat(ultimaLectura.horometroInicio.toString()),
-                finAnterior,
-              )
-            : 0;
+        // Finalizar el último día con horas nocturnas del horómetro de devolución
+        if (horometroDevolucion != null && horometroDevolucion > 0 && ultimaLectura?.horometroFin5pm != null) {
+          const finAnterior    = parseFloat(ultimaLectura.horometroFin5pm.toString());
+          const horasNocturnas = this.calc.diffHorometro(finAnterior, horometroDevolucion);
 
-          const costos = this.calc.calcularCostoDia(diurnas, horasNocturnas, item.tarifaEfectiva);
+          if (horasNocturnas > 0) {
+            const diurnas = ultimaLectura.horometroInicio != null
+              ? this.calc.diffHorometro(
+                  parseFloat(ultimaLectura.horometroInicio.toString()),
+                  finAnterior,
+                )
+              : 0;
 
-          await this.prisma.lecturaHorometro.update({
-            where: { id: ultimaLectura.id },
-            data: {
-              horasNocturnas:         costos.horasNocturnas,
-              horasDiurnasRaw:        costos.horasDiurnasRaw,
-              horasDiurnasFacturadas: costos.horasDiurnasFacturadas,
-              ajusteMinimo:           costos.ajusteMinimo,
-              tarifaEfectiva:         item.tarifaEfectiva,
-              costoDiurno:            costos.costoDiurno,
-              costoNocturno:          costos.costoNocturno,
-              costoTotal:             costos.costoTotal,
-            },
+            const costos        = this.calc.calcularCostoDia(diurnas, horasNocturnas, item.tarifaEfectiva);
+            const costoAnterior = ultimaLectura.costoTotal != null
+              ? parseFloat(ultimaLectura.costoTotal.toString())
+              : 0;
+            const delta = costos.costoTotal - costoAnterior;
+
+            await tx.lecturaHorometro.update({
+              where: { id: ultimaLectura.id },
+              data: {
+                horasNocturnas:         costos.horasNocturnas,
+                horasDiurnasRaw:        costos.horasDiurnasRaw,
+                horasDiurnasFacturadas: costos.horasDiurnasFacturadas,
+                ajusteMinimo:           costos.ajusteMinimo,
+                tarifaEfectiva:         item.tarifaEfectiva,
+                costoDiurno:            costos.costoDiurno,
+                costoNocturno:          costos.costoNocturno,
+                costoTotal:             costos.costoTotal,
+              },
+            });
+
+            if (delta !== 0) {
+              await tx.solicitud.update({
+                where: { id: solicitudId },
+                data: { costoAcumuladoPesada: { increment: delta } },
+              });
+            }
+          }
+        }
+
+        // Sumar todos los costos de las lecturas de este equipo (ya incluye nocturnas si se actualizaron)
+        const todasLasLecturas = await tx.lecturaHorometro.findMany({
+          where: { solicitudId, equipoId: item.equipoId },
+        });
+
+        const costoReal = todasLasLecturas.reduce(
+          (sum, l) => sum + (l.costoTotal != null ? parseFloat(l.costoTotal.toString()) : 0),
+          0,
+        );
+
+        // Completar ResumenItem + DetalleHorometro (creados al confirmar entrega)
+        const horoDev           = horometroDevolucion != null && horometroDevolucion > 0 ? horometroDevolucion : null;
+        const horasDiurnasTotal = todasLasLecturas.reduce((s, l) => s + (l.horasDiurnasFacturadas != null ? parseFloat(l.horasDiurnasFacturadas.toString()) : 0), 0);
+        const ajusteMinimoTotal = todasLasLecturas.reduce((s, l) => s + (l.ajusteMinimo         != null ? parseFloat(l.ajusteMinimo.toString())          : 0), 0);
+        const horasNoctTotal    = todasLasLecturas.reduce((s, l) => s + (l.horasNocturnas        != null ? parseFloat(l.horasNocturnas.toString())         : 0), 0);
+
+        const resumenItem = await tx.resumenItem.findUnique({
+          where: { solicitudId_itemRef: { solicitudId, itemRef: item.equipoId } },
+        });
+
+        if (resumenItem) {
+          await tx.resumenItem.update({
+            where: { id: resumenItem.id },
+            data: { fechaDevolucion, diasCobrados: todasLasLecturas.length, costoFinal: costoReal },
           });
+          await tx.detalleHorometro.update({
+            where: { resumenItemId: resumenItem.id },
+            data: { horometroDevolucion: horoDev, horasDiurnasTotal, ajusteMinimoTotal, horasNocturnas: horasNoctTotal },
+          });
+        }
+
+        devolucionItems.push({
+          itemRef:       item.equipoId,
+          kind:          'pesada' as any,
+          diasCobrados:  todasLasLecturas.length,
+          costoReal,
+          recargoTiempo: 0,
+        });
+      }
+
+      const recargosAdicionales: CargoAdicional[] = (dto.recargosAdicionales ?? []).map(c => ({
+        descripcion: c.descripcion,
+        monto:       c.monto,
+      }));
+
+      const subtotalItems       = devolucionItems.reduce((s, i) => s + i.costoReal, 0);
+      const subtotalAdicionales = recargosAdicionales.reduce((s, c) => s + c.monto, 0);
+      const totalLote           = subtotalItems + subtotalAdicionales;
+      const esParcial           = itemsADevolver.length < itemsPendientes.length;
+
+      const nuevaEntrada: DevolucionEntry = {
+        fechaDevolucion:     fechaDevolucion.toISOString(),
+        registradoPor:       user.username,
+        esParcial,
+        tipoDevolucion:      'A_TIEMPO',
+        items:               devolucionItems,
+        recargosAdicionales,
+        totalLote,
+        liquidacionKey:      null,
+      };
+
+      const todasLasDevoluciones = [...devolucionesViejas, nuevaEntrada];
+      const devolucionCompleta   = !esParcial;
+
+      const updateData: Prisma.SolicitudUpdateInput = {
+        devolucionesParciales: todasLasDevoluciones as object[],
+        fechaUltimaDevolucion: fechaDevolucion,
+      };
+
+      if (devolucionCompleta) {
+        const totalFinal           = todasLasDevoluciones.reduce((s, d) => s + d.totalLote, 0);
+        updateData.estado          = 'DEVUELTA';
+        updateData.fechaDevolucion = fechaDevolucion;
+        updateData.recargoTotal    = 0;
+        updateData.totalFinal      = totalFinal;
+      } else {
+        const refsDevueltosAhora = new Set([...yaDevueltosRefs, ...devolucionItems.map(i => i.itemRef)]);
+        const itemsRestantes     = snapshotItems.filter(i => !refsDevueltosAhora.has(i.equipoId));
+        if (itemsRestantes.length > 0 && solicitud.fechaInicioRenta) {
+          const maxDias       = Math.max(...itemsRestantes.map(i => i.diasSolicitados));
+          const nuevaFechaFin = new Date(solicitud.fechaInicioRenta.getTime() + maxDias * 86_400_000);
+          updateData.fechaFinEstimada = nuevaFechaFin;
         }
       }
 
-      // Sumar todos los costos de las lecturas de este equipo
-      const todasLasLecturas = await this.prisma.lecturaHorometro.findMany({
-        where: { solicitudId, equipoId: item.equipoId },
+      return tx.solicitud.update({
+        where:   { id: solicitudId },
+        data:    updateData,
+        include: { cliente: true },
       });
-
-      const costoReal = todasLasLecturas.reduce(
-        (sum, l) => sum + (l.costoTotal != null ? parseFloat(l.costoTotal.toString()) : 0),
-        0,
-      );
-
-      devolucionItems.push({
-        itemRef:       item.equipoId,
-        kind:          'pesada' as any,
-        diasCobrados:  todasLasLecturas.length,
-        costoReal,
-        recargoTiempo: 0,
-      });
-    }
-
-    const recargosAdicionales: CargoAdicional[] = (dto.recargosAdicionales ?? []).map(c => ({
-      descripcion: c.descripcion,
-      monto:       c.monto,
-    }));
-
-    const subtotalItems      = devolucionItems.reduce((s, i) => s + i.costoReal,     0);
-    const subtotalAdicionales = recargosAdicionales.reduce((s, c) => s + c.monto,    0);
-    const totalLote          = subtotalItems + subtotalAdicionales;
-
-    const esParcial = itemsADevolver.length < itemsPendientes.length;
-
-    const nuevaEntrada: DevolucionEntry = {
-      fechaDevolucion:     fechaDevolucion.toISOString(),
-      registradoPor:       user.username,
-      esParcial,
-      tipoDevolucion:      'A_TIEMPO',
-      items:               devolucionItems,
-      recargosAdicionales,
-      totalLote,
-      liquidacionKey:      null,
-    };
-
-    const todasLasDevoluciones = [...devolucionesViejas, nuevaEntrada];
-    const devolucionCompleta   = !esParcial;
-
-    const updateData: Prisma.SolicitudUpdateInput = {
-      devolucionesParciales:  todasLasDevoluciones as object[],
-      fechaUltimaDevolucion:  fechaDevolucion,
-    };
-
-    if (devolucionCompleta) {
-      const totalFinal = todasLasDevoluciones.reduce((s, d) => s + d.totalLote, 0);
-      updateData.estado          = 'DEVUELTA';
-      updateData.fechaDevolucion = fechaDevolucion;
-      updateData.recargoTotal    = 0;
-      updateData.totalFinal      = totalFinal;
-    } else {
-      const refsDevueltosAhora = new Set([
-        ...yaDevueltosRefs,
-        ...devolucionItems.map(i => i.itemRef),
-      ]);
-      const itemsRestantes = snapshotItems.filter(i => !refsDevueltosAhora.has(i.equipoId));
-      // Para pesada, fechaFinEstimada se mantiene como estaba (no recalculamos por horómetro)
-      if (itemsRestantes.length > 0 && solicitud.fechaInicioRenta) {
-        const maxDias = Math.max(...itemsRestantes.map(i => i.diasSolicitados));
-        const nuevaFechaFin = new Date(
-          solicitud.fechaInicioRenta.getTime() + maxDias * 86_400_000,
-        );
-        updateData.fechaFinEstimada = nuevaFechaFin;
-      }
-    }
-
-    const actualizada = await this.prisma.solicitud.update({
-      where:   { id: solicitudId },
-      data:    updateData,
-      include: { cliente: true },
     });
 
     return actualizada;

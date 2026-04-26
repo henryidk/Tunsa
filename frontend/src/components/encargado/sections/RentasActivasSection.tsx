@@ -67,9 +67,22 @@ export default function RentasActivasSection() {
     setModalDevPesada(null);
   };
 
-  const contratosActivos    = solicitudes.length;
-  const equiposEnCampo      = solicitudes.reduce((sum, s) => sum + s.items.length, 0);
-  const ingresosProyectados = solicitudes.reduce((sum, s) => sum + s.totalEstimado, 0);
+  const contratosActivos = solicitudes.length;
+
+  const equiposEnCampo = solicitudes.reduce((sum, s) => {
+    const yaDevueltos = new Set(
+      (s.devolucionesParciales ?? []).flatMap(d => d.items.map(i => i.itemRef)),
+    );
+    return sum + s.items.filter(item => {
+      const ref = item.kind === 'maquinaria' || item.kind === 'pesada'
+        ? item.equipoId
+        : item.tipo;
+      return !yaDevueltos.has(ref);
+    }).length;
+  }, 0);
+
+  const ingresosLivianas  = solicitudes.filter(s => !s.esPesada).reduce((sum, s) => sum + s.totalEstimado, 0);
+  const acumuladoPesadas  = solicitudes.filter(s =>  s.esPesada).reduce((sum, s) => sum + s.costoAcumuladoPesada, 0);
 
   return (
     <div>
@@ -106,7 +119,7 @@ export default function RentasActivasSection() {
         <p className="text-sm text-slate-500 mt-1">Equipos actualmente rentados por tus clientes</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard
           label="Contratos activos"
           value={isLoading ? null : contratosActivos.toString()}
@@ -133,12 +146,22 @@ export default function RentasActivasSection() {
         />
         <StatCard
           label="Ingresos proyectados"
-          value={isLoading ? null : `Q ${ingresosProyectados.toLocaleString('es-GT', { minimumFractionDigits: 2 })}`}
+          value={isLoading ? null : `Q ${ingresosLivianas.toLocaleString('es-GT', { minimumFractionDigits: 2 })}`}
           color="emerald"
           icon={
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
               <line x1="12" y1="1" x2="12" y2="23"/>
               <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            </svg>
+          }
+        />
+        <StatCard
+          label="Acumulado pesadas"
+          value={isLoading ? null : `Q ${acumuladoPesadas.toLocaleString('es-GT', { minimumFractionDigits: 2 })}`}
+          color="amber"
+          icon={
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
             </svg>
           }
         />

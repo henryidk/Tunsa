@@ -64,10 +64,6 @@ export default function RentaActivaCard({
       {/* Top bar */}
       <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-slate-50">
         <div className="flex items-center gap-2.5">
-          <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200">
-            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-            Activa
-          </span>
           {solicitud.esPesada && (
             <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
               PESADA

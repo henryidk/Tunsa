@@ -256,11 +256,55 @@ export class SolicitudesService {
       fechaFinEstimada = calcularFechaFinEstimada(fechaInicio, items);
     }
 
-    const actualizada = await this.prisma.solicitud.update({
-      where:   { id },
-      data:    { estado: 'ACTIVA', comprobanteKey: key, fechaEntrega, fechaFinEstimada },
-      include: { cliente: true },
+    const actualizada = await this.prisma.$transaction(async (tx) => {
+      const s = await tx.solicitud.update({
+        where:   { id },
+        data:    { estado: 'ACTIVA', comprobanteKey: key, fechaEntrega, fechaFinEstimada },
+        include: { cliente: true },
+      });
+
+      if (solicitud.esPesada) {
+        const pesadaItems = solicitud.items as unknown as Array<{
+          kind: string; equipoId: string; tarifaEfectiva: number; horometroInicial?: number;
+        }>;
+        for (const item of pesadaItems) {
+          const resumenItem = await tx.resumenItem.create({
+            data: {
+              solicitudId:    id,
+              clienteId:      solicitud.clienteId,
+              equipoId:       item.equipoId,
+              itemRef:        item.equipoId,
+              tipoItem:       'pesada',
+              fechaEntrega,
+              tarifaEfectiva: item.tarifaEfectiva,
+            },
+          });
+          await tx.detalleHorometro.create({
+            data: { resumenItemId: resumenItem.id, horometroEntrega: item.horometroInicial ?? null },
+          });
+        }
+      } else {
+        const livItems = solicitud.items as unknown as ItemParaCalculo[];
+        for (const item of livItems) {
+          const itemRef = item.equipoId ?? item.tipo ?? '';
+          if (!itemRef) continue;
+          await tx.resumenItem.create({
+            data: {
+              solicitudId:    id,
+              clienteId:      solicitud.clienteId,
+              equipoId:       item.equipoId ?? null,
+              itemRef,
+              tipoItem:       item.kind,
+              fechaEntrega,
+              tarifaEfectiva: item.tarifa ?? 0,
+            },
+          });
+        }
+      }
+
+      return s;
     });
+
     return serializeSolicitud(actualizada);
   }
 
@@ -484,10 +528,25 @@ export class SolicitudesService {
       updateData.fechaFinEstimada = nuevaFechaFin;
     }
 
-    const actualizada = await this.prisma.solicitud.update({
-      where:   { id },
-      data:    updateData,
-      include: { cliente: true },
+    const actualizada = await this.prisma.$transaction(async (tx) => {
+      const s = await tx.solicitud.update({
+        where:   { id },
+        data:    updateData,
+        include: { cliente: true },
+      });
+
+      for (const devItem of devolucionItems) {
+        await tx.resumenItem.updateMany({
+          where: { solicitudId: id, itemRef: devItem.itemRef },
+          data: {
+            fechaDevolucion,
+            diasCobrados: devItem.diasCobrados,
+            costoFinal:   devItem.costoReal + devItem.recargoTiempo,
+          },
+        });
+      }
+
+      return s;
     });
 
     return serializeSolicitud(actualizada);

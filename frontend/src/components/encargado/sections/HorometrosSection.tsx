@@ -40,6 +40,11 @@ export default function HorometrosSection({ initialSolicitudId }: Props) {
   const [valor,        setValor]       = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError,  setSubmitError] = useState<string | null>(null);
+  const [pendingConfirm, setPendingConfirm] = useState<{
+    tipo:     'inicio' | 'fin5pm';
+    valorNum: number;
+    fecha:    string;
+  } | null>(null);
 
   // Load all pesada rentals
   useEffect(() => {
@@ -151,7 +156,8 @@ export default function HorometrosSection({ initialSolicitudId }: Props) {
 
   const handleSelectDia = (d: string) => { setFechaActiva(d); setValor(''); setSubmitError(null); };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Valida y abre el modal de confirmación
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!tipoPendiente || !selectedId) return;
     const valorNum = parseFloat(valor);
@@ -163,14 +169,22 @@ export default function HorometrosSection({ initialSolicitudId }: Props) {
       setSubmitError('El horómetro de cierre no puede ser menor al de inicio.');
       return;
     }
+    setSubmitError(null);
+    setPendingConfirm({ tipo: tipoPendiente, valorNum, fecha: fechaActiva });
+  };
+
+  // Ejecuta el envío real tras confirmar en el modal
+  const confirmarLectura = async () => {
+    if (!pendingConfirm || !selectedId) return;
     setIsSubmitting(true);
     setSubmitError(null);
+    setPendingConfirm(null);
     try {
       await solicitudesService.registrarLectura(selectedId, {
         equipoId: activeEquipo,
-        fecha:    fechaActiva,
-        tipo:     tipoPendiente,
-        valor:    valorNum,
+        fecha:    pendingConfirm.fecha,
+        tipo:     pendingConfirm.tipo,
+        valor:    pendingConfirm.valorNum,
       });
       setValor('');
       await refreshLecturas(selectedId);
@@ -182,8 +196,14 @@ export default function HorometrosSection({ initialSolicitudId }: Props) {
     }
   };
 
-  // Pending-today count for list-view banner
+  // Pending-today count for list-view banner.
+  // Prefer lecturasMap (updated after each registration) over the stale ultimaLectura snapshot.
   const pendientesHoy = solicitudes.filter(s => {
+    const lecturas = lecturasMap[s.id];
+    if (lecturas !== undefined) {
+      const hoyLectura = lecturas.find(l => l.fecha === hoy);
+      return !hoyLectura || hoyLectura.horometroInicio === null || hoyLectura.horometroFin5pm === null;
+    }
     const ul = s.ultimaLectura;
     return !ul || ul.fecha !== hoy || !ul.completa;
   }).length;
@@ -560,6 +580,70 @@ export default function HorometrosSection({ initialSolicitudId }: Props) {
 
           </div>
         </div>
+
+        {/* Confirmation modal */}
+        {pendingConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-sm p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-600">
+                    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-slate-800">Confirmar lectura</p>
+                  <p className="text-xs text-slate-500">
+                    {pendingConfirm.tipo === 'inicio' ? 'Horómetro de inicio' : 'Horómetro de cierre (5PM)'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 mb-5 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-500">Fecha</span>
+                  <span className="text-xs font-mono font-semibold text-slate-700">
+                    {formatFechaCorta(pendingConfirm.fecha)}
+                    {pendingConfirm.fecha === hoy && <span className="ml-1.5 text-[10px] font-semibold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-full">hoy</span>}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-500">
+                    {pendingConfirm.tipo === 'inicio' ? 'Valor inicio' : 'Valor cierre'}
+                  </span>
+                  <span className="text-lg font-bold font-mono text-amber-700">
+                    {pendingConfirm.valorNum.toLocaleString('es-GT', { minimumFractionDigits: 1 })} hrs
+                  </span>
+                </div>
+                {pendingConfirm.tipo === 'fin5pm' && lecturaFecha?.horometroInicio != null && (
+                  <div className="flex items-center justify-between border-t border-slate-200 pt-1.5 mt-1.5">
+                    <span className="text-xs text-slate-400">Horas trabajadas</span>
+                    <span className="text-sm font-bold font-mono text-emerald-700">
+                      {(pendingConfirm.valorNum - lecturaFecha.horometroInicio).toFixed(1)} hrs
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setPendingConfirm(null)}
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmarLectura}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold transition-colors"
+                >
+                  Confirmar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

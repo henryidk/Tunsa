@@ -43,7 +43,7 @@ export default function MisRechazadasTab() {
     setApiData([]);
     setNextCursor(null);
     try {
-      const res = await solicitudesService.getMiasHistorial({
+      const res = await solicitudesService.getRechazadasMias({
         fechaDesde: startOfDay(desde),
         fechaHasta: endOfDay(hasta),
       });
@@ -60,7 +60,7 @@ export default function MisRechazadasTab() {
     if (!nextCursor) return;
     setIsLoadingMore(true);
     try {
-      const res = await solicitudesService.getMiasHistorial({
+      const res = await solicitudesService.getRechazadasMias({
         fechaDesde: startOfDay(fechaDesde),
         fechaHasta: endOfDay(fechaHasta),
         cursor:     nextCursor,
@@ -257,12 +257,15 @@ function ItemResumen({ item }: { item: ItemSnapshot }) {
   const duracionLabel = unidadLabel(item.duracion, item.unidad);
   const fechaLabel    = formatFechaCorta(item.fechaInicio);
 
-  if (item.kind === 'maquinaria') {
+  if (item.kind === 'maquinaria' || item.kind === 'pesada') {
     return (
       <div>
         <p className="text-xs text-slate-700">
           <span className="font-mono text-slate-400 mr-1">#{item.numeracion}</span>
           {item.descripcion}
+          {item.kind === 'pesada' && item.conMartillo && (
+            <span className="ml-1.5 text-[10px] font-semibold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded-full">+Martillo</span>
+          )}
         </p>
         <TiempoPill duracion={duracionLabel} fecha={fechaLabel} />
       </div>

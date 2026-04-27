@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import type { Usuario } from '../../types/auth.types';
 import { useAprobadasStore } from '../../store/aprobadas.store';
+import { useActivasStore } from '../../store/activas.store';
 
 interface NavItem {
   id: string;
@@ -117,6 +118,15 @@ const navGroups: NavGroup[] = [
         ),
       },
       {
+        id: 'horometros',
+        label: 'Horómetros',
+        icon: (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+        ),
+      },
+      {
         id: 'vencidas',
         label: 'Vencidas',
         badgeVariant: 'danger',
@@ -179,6 +189,14 @@ const badgeCls: Record<string, string> = {
 export default function EncargadoSidebar({ activeSection, onNavTo, collapsed, onToggle, onLogout, user }: Props) {
   const nombre = user?.nombre ?? '';
   const porEntregarCount = useAprobadasStore(s => s.solicitudes.length);
+
+  const activasSolicitudes = useActivasStore(s => s.solicitudes);
+  const hoyStr = new Date().toISOString().substring(0, 10);
+  const horometrosPendientes = activasSolicitudes.filter(s => {
+    if (!s.esPesada) return false;
+    const ul = s.ultimaLectura;
+    return !ul || ul.fecha !== hoyStr || !ul.completa;
+  }).length;
 
   const initials = nombre
     .split(' ')
@@ -258,14 +276,17 @@ export default function EncargadoSidebar({ activeSection, onNavTo, collapsed, on
                     {!collapsed && (
                       <>
                         <span className="flex-1 text-left truncate">{item.label}</span>
-                        {/* Badge dinámico para "Por Entregar" */}
                         {item.id === 'por-entregar' && porEntregarCount > 0 && (
                           <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${badgeCls['warning']}`}>
                             {porEntregarCount}
                           </span>
                         )}
-                        {/* Badge estático para otros ítems */}
-                        {item.id !== 'por-entregar' && item.badge && (
+                        {item.id === 'horometros' && horometrosPendientes > 0 && (
+                          <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${badgeCls['danger']}`}>
+                            {horometrosPendientes}
+                          </span>
+                        )}
+                        {item.id !== 'por-entregar' && item.id !== 'horometros' && item.badge && (
                           <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${badgeCls[item.badgeVariant ?? 'default']}`}>
                             {item.badge}
                           </span>

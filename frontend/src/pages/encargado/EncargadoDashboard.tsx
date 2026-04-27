@@ -14,6 +14,7 @@ import NuevaSolicitudPesadaSection from '../../components/encargado/sections/Nue
 import PorEntregarSection from '../../components/encargado/sections/PorEntregarSection';
 import MisSolicitudesSection from '../../components/encargado/sections/MisSolicitudesSection';
 import RentasActivasSection from '../../components/encargado/sections/RentasActivasSection';
+import HorometrosSection from '../../components/encargado/sections/HorometrosSection';
 import VencidasSection from '../../components/encargado/sections/VencidasSection';
 import HistorialSection from '../../components/encargado/sections/HistorialSection';
 import EquiposSection from '../../components/encargado/sections/EquiposSection';
@@ -29,18 +30,25 @@ type Section =
   | 'por-entregar'
   | 'mis-solicitudes'
   | 'rentas-activas'
+  | 'horometros'
   | 'vencidas'
   | 'historial'
   | 'equipos'
   | 'clientes';
 
+type NavState = { solicitudId?: string };
+
 export default function EncargadoDashboard() {
   const { user, logout, mustChangePassword } = useAuthStore();
   const [activeSection, setActiveSection] = useState<Section>('dashboard');
+  const [navState,      setNavState]      = useState<NavState>({});
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [toast, setToast] = useState<ToastState>({ visible: false, type: 'success', title: '', msg: '' });
 
-  const navTo = (section: string) => setActiveSection(section as Section);
+  const navTo = (section: string, state: NavState = {}) => {
+    setActiveSection(section as Section);
+    setNavState(state);
+  };
 
   const showToast = useCallback((type: ToastType, title: string, msg: string) => {
     setToast({ visible: true, type, title, msg });
@@ -61,7 +69,8 @@ export default function EncargadoDashboard() {
       case 'nueva-solicitud-pesada': return <NuevaSolicitudPesadaSection onShowToast={showToast} />;
       case 'por-entregar':    return <PorEntregarSection onShowToast={showToast} />;
       case 'mis-solicitudes': return <MisSolicitudesSection onNavTo={navTo} misPendientes={misPendientes} />;
-      case 'rentas-activas':  return <RentasActivasSection />;
+      case 'rentas-activas':  return <RentasActivasSection onNavTo={navTo} />;
+      case 'horometros':      return <HorometrosSection key={navState.solicitudId} initialSolicitudId={navState.solicitudId} />;
       case 'vencidas':        return <VencidasSection />;
       case 'historial':       return <HistorialSection />;
       case 'equipos':         return <EquiposSection />;

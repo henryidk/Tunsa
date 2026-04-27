@@ -4,7 +4,7 @@ import type { ItemSnapshot, ModalidadPago } from '../types/solicitud-renta.types
 
 export interface ExtensionItemPayload {
   itemRef:  string;
-  kind:     'maquinaria' | 'granel';
+  kind:     'maquinaria' | 'granel' | 'pesada';
   duracion: number;
   unidad:   UnidadDuracion;
 }
@@ -185,6 +185,11 @@ export const solicitudesService = {
 
   async getMiasHistorial(params: QueryRechazadas): Promise<RechazadasPage> {
     const res = await api.get<RechazadasPage>('/solicitudes/historial-mias', { params });
+    return res.data;
+  },
+
+  async getRechazadasMias(params: QueryRechazadas): Promise<RechazadasPage> {
+    const res = await api.get<RechazadasPage>('/solicitudes/rechazadas-mias', { params });
     return res.data;
   },
 

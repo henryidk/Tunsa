@@ -179,6 +179,40 @@ export class SolicitudesQueryService {
     return { data: pageData.map(serializeSolicitud), nextCursor };
   }
 
+  async findRechazadasMias(
+    username: string,
+    params: { fechaDesde: Date; fechaHasta: Date; cursor?: string },
+  ): Promise<RechazadasPage> {
+    const { fechaDesde, fechaHasta, cursor } = params;
+    const keysetClause = cursor ? this.decodeCursor(cursor) : null;
+
+    const solicitudes = await this.prisma.solicitud.findMany({
+      where: {
+        creadaPor:     username,
+        estado:        'RECHAZADA',
+        fechaDecision: { gte: fechaDesde, lte: fechaHasta },
+        ...(keysetClause && {
+          OR: [
+            { fechaDecision: { lt: keysetClause.fechaDecision } },
+            { fechaDecision: keysetClause.fechaDecision, id: { lt: keysetClause.id } },
+          ],
+        }),
+      },
+      include: { cliente: true },
+      orderBy: [{ fechaDecision: 'desc' }, { id: 'desc' }],
+      take:    PAGE_SIZE + 1,
+    });
+
+    const hasMore    = solicitudes.length > PAGE_SIZE;
+    const pageData   = hasMore ? solicitudes.slice(0, PAGE_SIZE) : solicitudes;
+    const last       = pageData.at(-1);
+    const nextCursor = hasMore && last
+      ? this.encodeCursor({ fechaDecision: last.fechaDecision!.toISOString(), id: last.id })
+      : null;
+
+    return { data: pageData.map(serializeSolicitud), nextCursor };
+  }
+
   /**
    * Historial de rentas del encargado: solicitudes con al menos una devolución registrada,
    * filtradas por la fecha de la última devolución.

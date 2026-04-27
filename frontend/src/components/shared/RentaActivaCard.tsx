@@ -132,7 +132,7 @@ export default function RentaActivaCard({
               <GranelRow key={i} item={item} inicio={inicio} extensiones={extensiones} ahora={ahora} />
             ))}
             {pesada.map((item, i) => (
-              <PesadaRow key={i} item={item} />
+              <PesadaRow key={i} item={item} inicio={inicio} extensiones={extensiones} ahora={ahora} />
             ))}
           </div>
         </div>
@@ -258,7 +258,14 @@ function GranelRow({ item, inicio, extensiones, ahora }: {
   );
 }
 
-function PesadaRow({ item }: { item: Extract<ItemSnapshot, { kind: 'pesada' }> }) {
+function PesadaRow({ item, inicio, extensiones, ahora }: {
+  item:        Extract<ItemSnapshot, { kind: 'pesada' }>;
+  inicio:      Date;
+  extensiones: ExtensionEntry[];
+  ahora:       number;
+}) {
+  const fin = calcularFinConExtensiones(inicio, item, extensiones);
+  const ms  = msRestantes(inicio, item, extensiones, ahora);
   return (
     <div className="flex items-start justify-between gap-2">
       <p className="text-xs font-medium text-slate-700 leading-tight">
@@ -267,10 +274,10 @@ function PesadaRow({ item }: { item: Extract<ItemSnapshot, { kind: 'pesada' }> }
         {item.conMartillo && <span className="text-orange-600 ml-1">(+martillo)</span>}
       </p>
       <div className="flex-shrink-0 flex flex-col items-end gap-0.5">
-        <span className="text-[10px] text-slate-400 whitespace-nowrap">{item.diasSolicitados} días sol.</span>
-        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-md whitespace-nowrap">
-          {item.tarifaEfectiva.toLocaleString('es-GT', { minimumFractionDigits: 2 })}/hr
+        <span className="text-[10px] text-slate-400 whitespace-nowrap">
+          Vence {formatFechaHora(fin.toISOString())}
         </span>
+        <VenceLabel ms={ms} fechaInicio={inicio} ahora={ahora} />
       </div>
     </div>
   );

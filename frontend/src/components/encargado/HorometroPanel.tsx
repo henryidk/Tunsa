@@ -9,6 +9,7 @@ interface Props {
 }
 
 type PesadaItem = Extract<ItemSnapshot, { kind: 'pesada' }>;
+type DiaStatus  = 'completo' | 'parcial' | 'sin-registro';
 
 function formatFecha(iso: string): string {
   return new Date(iso + 'T00:00:00').toLocaleDateString('es-GT', {
@@ -20,20 +21,89 @@ function today(): string {
   return new Date().toISOString().substring(0, 10);
 }
 
+function generarDias(inicio: string, fin: string): string[] {
+  const days: string[] = [];
+  let current = new Date(inicio + 'T00:00:00');
+  const end   = new Date(fin   + 'T00:00:00');
+  while (current <= end) {
+    days.push(current.toISOString().substring(0, 10));
+    current = new Date(current.getTime() + 86_400_000);
+  }
+  return days;
+}
+
+function getDiaStatus(lecturas: LecturaHorometro[], fecha: string): DiaStatus {
+  const l = lecturas.find(l => l.fecha === fecha);
+  if (!l) return 'sin-registro';
+  return l.horometroFin5pm !== null ? 'completo' : 'parcial';
+}
+
+// ── Tira de cobertura ──────────────────────────────────────────────────────────
+
+const DIA_STYLES: Record<DiaStatus, string> = {
+  'completo':     'bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-200',
+  'parcial':      'bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-200',
+  'sin-registro': 'bg-red-100 text-red-700 border-red-200 hover:bg-red-200',
+};
+
+const DIA_ICON: Record<DiaStatus, string> = {
+  'completo':     '✓',
+  'parcial':      '~',
+  'sin-registro': '!',
+};
+
+function DiasCobertura({
+  dias,
+  lecturas,
+  fechaActiva,
+  onSelectDia,
+}: {
+  dias:        string[];
+  lecturas:    LecturaHorometro[];
+  fechaActiva: string;
+  onSelectDia: (fecha: string) => void;
+}) {
+  const hoy = today();
+  return (
+    <div className="flex gap-1.5 overflow-x-auto py-0.5" style={{ scrollbarWidth: 'none' }}>
+      {dias.map(dia => {
+        const status   = getDiaStatus(lecturas, dia);
+        const esHoy    = dia === hoy;
+        const esActiva = dia === fechaActiva;
+        return (
+          <button
+            key={dia}
+            onClick={() => onSelectDia(dia)}
+            title={formatFecha(dia)}
+            className={`flex-shrink-0 flex flex-col items-center px-2 py-1 rounded-lg border text-[10px] font-bold transition-all cursor-pointer
+              ${DIA_STYLES[status]}
+              ${esActiva ? 'ring-2 ring-indigo-400 ring-offset-1' : ''}
+              ${esHoy ? 'underline' : ''}`}
+          >
+            <span>{DIA_ICON[status]}</span>
+            <span className="font-mono text-[9px] mt-0.5">{dia.substring(8)}/{dia.substring(5, 7)}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Panel principal ────────────────────────────────────────────────────────────
+
 export default function HorometroPanel({ solicitud, onClose }: Props) {
   const pesadaItems = (solicitud.items as ItemSnapshot[]).filter(
     (i): i is PesadaItem => i.kind === 'pesada',
   );
 
-  const [activeEquipo,   setActiveEquipo]   = useState<string>(pesadaItems[0]?.equipoId ?? '');
-  const [lecturas,       setLecturas]       = useState<LecturaHorometro[]>([]);
-  const [isLoading,      setIsLoading]      = useState(true);
-  const [error,          setError]          = useState<string | null>(null);
-  const [isSubmitting,   setIsSubmitting]   = useState(false);
-  const [submitError,    setSubmitError]    = useState<string | null>(null);
-
-  const [fecha,  setFecha]  = useState(today());
-  const [valor,  setValor]  = useState('');
+  const [activeEquipo, setActiveEquipo] = useState<string>(pesadaItems[0]?.equipoId ?? '');
+  const [lecturas,     setLecturas]     = useState<LecturaHorometro[]>([]);
+  const [isLoading,    setIsLoading]    = useState(true);
+  const [error,        setError]        = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError,  setSubmitError]  = useState<string | null>(null);
+  const [fecha,        setFecha]        = useState(today());
+  const [valor,        setValor]        = useState('');
 
   const fetchLecturas = useCallback(async () => {
     setIsLoading(true);
@@ -50,15 +120,26 @@ export default function HorometroPanel({ solicitud, onClose }: Props) {
 
   useEffect(() => { void fetchLecturas(); }, [fetchLecturas]);
 
+  const activeItem     = pesadaItems.find(i => i.equipoId === activeEquipo);
   const lecturasEquipo = lecturas.filter(l => l.equipoId === activeEquipo);
   const costoAcumulado = lecturasEquipo.reduce((s, l) => s + (l.costoTotal ?? 0), 0);
 
-  const lecturaHoy = lecturasEquipo.find(l => l.fecha === fecha);
+  const lecturaFecha   = lecturasEquipo.find(l => l.fecha === fecha);
   const tipoPendiente: 'inicio' | 'fin5pm' | null = (() => {
-    if (!lecturaHoy)                           return 'inicio';
-    if (lecturaHoy.horometroFin5pm === null)   return 'fin5pm';
+    if (!lecturaFecha)                          return 'inicio';
+    if (lecturaFecha.horometroFin5pm === null)  return 'fin5pm';
     return null;
   })();
+
+  const fechaInicioStr    = solicitud.fechaInicioRenta
+    ? solicitud.fechaInicioRenta.substring(0, 10)
+    : today();
+  const dias              = generarDias(fechaInicioStr, today());
+  const diasSinCompletar  = isLoading
+    ? 0
+    : dias.filter(d => getDiaStatus(lecturasEquipo, d) !== 'completo').length;
+
+  const handleSelectDia = (d: string) => { setFecha(d); setValor(''); };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,7 +149,11 @@ export default function HorometroPanel({ solicitud, onClose }: Props) {
       setSubmitError('El valor del horómetro debe ser un número válido mayor o igual a 0.');
       return;
     }
-    if (tipoPendiente === 'fin5pm' && lecturaHoy?.horometroInicio !== null && valorNum < (lecturaHoy?.horometroInicio ?? 0)) {
+    if (
+      tipoPendiente === 'fin5pm' &&
+      lecturaFecha?.horometroInicio != null &&
+      valorNum < lecturaFecha.horometroInicio
+    ) {
       setSubmitError('El horómetro de cierre no puede ser menor al de inicio.');
       return;
     }
@@ -83,17 +168,13 @@ export default function HorometroPanel({ solicitud, onClose }: Props) {
       });
       setValor('');
       await fetchLecturas();
-    } catch (err: any) {
-      const msg = err?.response?.data?.message;
-      setSubmitError(
-        Array.isArray(msg) ? msg.join(' · ') : (msg ?? 'No se pudo registrar la lectura.'),
-      );
+    } catch (err: unknown) {
+      const msg = (err as any)?.response?.data?.message;
+      setSubmitError(Array.isArray(msg) ? msg.join(' · ') : (msg ?? 'No se pudo registrar la lectura.'));
     } finally {
       setIsSubmitting(false);
     }
   };
-
-  const activeItem = pesadaItems.find(i => i.equipoId === activeEquipo);
 
   return (
     <div
@@ -104,29 +185,53 @@ export default function HorometroPanel({ solicitud, onClose }: Props) {
         className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl flex flex-col max-h-[90vh]"
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
+        {/* ── Header ── */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center text-amber-600 flex-shrink-0">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10"/>
-                <polyline points="12 6 12 12 16 14"/>
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
               </svg>
             </div>
             <div>
-              <p className="text-sm font-bold text-slate-800">Horómetro — {solicitud.folio ?? solicitud.id.slice(0, 8)}</p>
+              <p className="text-sm font-bold text-slate-800">
+                Horómetro — {solicitud.folio ?? solicitud.id.slice(0, 8)}
+              </p>
               <p className="text-xs text-slate-500">{solicitud.cliente.nombre}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
+
+          <div className="flex items-center gap-2">
+            {!isLoading && diasSinCompletar > 0 && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-50 border border-red-200 text-[11px] font-semibold text-red-700">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                {diasSinCompletar} {diasSinCompletar === 1 ? 'día sin registrar' : 'días sin registrar'}
+              </span>
+            )}
+            {!isLoading && diasSinCompletar === 0 && lecturas.length > 0 && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-[11px] font-semibold text-emerald-700">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                Al día
+              </span>
+            )}
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
         </div>
 
         <div className="flex flex-1 min-h-0">
-          {/* Left: equipo tabs (if multiple) */}
+          {/* ── Sidebar equipos (solo si hay más de uno) ── */}
           {pesadaItems.length > 1 && (
             <div className="w-44 border-r border-slate-200 p-3 space-y-1 flex-shrink-0 overflow-y-auto">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide px-2 mb-2">Equipos</p>
@@ -148,28 +253,69 @@ export default function HorometroPanel({ solicitud, onClose }: Props) {
             </div>
           )}
 
-          {/* Right: content */}
+          {/* ── Contenido principal ── */}
           <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
-            {/* Active equipo info */}
+
+            {/* Info del equipo + horómetro de entrega + tira de cobertura */}
             {activeItem && (
-              <div className="px-6 pt-4 pb-3 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
-                <div>
-                  <span className="text-[11px] font-mono font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded mr-2">
-                    #{activeItem.numeracion}
-                  </span>
-                  <span className="text-sm font-semibold text-slate-800">{activeItem.descripcion}</span>
-                  {activeItem.conMartillo && (
-                    <span className="ml-2 text-[10px] font-bold bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full">+Martillo</span>
-                  )}
+              <div className="px-6 pt-4 pb-3 border-b border-slate-100 flex-shrink-0">
+                {/* Nombre, entrega y tarifa */}
+                <div className="flex items-start justify-between gap-4 mb-3">
+                  <div className="min-w-0">
+                    <span className="text-[11px] font-mono font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded mr-2">
+                      #{activeItem.numeracion}
+                    </span>
+                    <span className="text-sm font-semibold text-slate-800">{activeItem.descripcion}</span>
+                    {activeItem.conMartillo && (
+                      <span className="ml-2 text-[10px] font-bold bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full">
+                        +Martillo
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-5 flex-shrink-0">
+                    {activeItem.horometroInicial != null && (
+                      <div className="text-right">
+                        <p className="text-[10px] text-slate-400">Entrega al cliente</p>
+                        <p className="text-sm font-bold font-mono text-amber-700">
+                          {activeItem.horometroInicial.toLocaleString('es-GT', { minimumFractionDigits: 1 })} hrs
+                        </p>
+                      </div>
+                    )}
+                    <div className="text-right">
+                      <p className="text-[10px] text-slate-400">Tarifa</p>
+                      <p className="text-sm font-bold text-slate-700">{formatQ(activeItem.tarifaEfectiva)}/hr</p>
+                    </div>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-[10px] text-slate-400">Tarifa</p>
-                  <p className="text-sm font-bold text-slate-700">{formatQ(activeItem.tarifaEfectiva)}/hr</p>
-                </div>
+
+                {/* Tira de cobertura de días */}
+                {!isLoading && (
+                  <div>
+                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">
+                      Cobertura — clic para seleccionar día
+                    </p>
+                    <DiasCobertura
+                      dias={dias}
+                      lecturas={lecturasEquipo}
+                      fechaActiva={fecha}
+                      onSelectDia={handleSelectDia}
+                    />
+                    <div className="flex items-center gap-3 mt-2">
+                      {(['completo', 'parcial', 'sin-registro'] as DiaStatus[]).map(s => (
+                        <span key={s} className="flex items-center gap-1 text-[10px] text-slate-500">
+                          <span className={`inline-flex items-center justify-center w-4 h-4 rounded border text-[9px] font-bold ${DIA_STYLES[s]}`}>
+                            {DIA_ICON[s]}
+                          </span>
+                          {s === 'completo' ? 'Completo' : s === 'parcial' ? 'Solo inicio' : 'Sin registro'}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Readings table */}
+            {/* Tabla de lecturas */}
             <div className="flex-1 overflow-y-auto px-6 py-4">
               {error ? (
                 <div className="text-sm text-red-600 bg-red-50 rounded-xl p-4 border border-red-200">{error}</div>
@@ -180,8 +326,7 @@ export default function HorometroPanel({ solicitud, onClose }: Props) {
               ) : lecturasEquipo.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-10 gap-2 text-slate-400">
                   <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <polyline points="12 6 12 12 16 14"/>
+                    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
                   </svg>
                   <p className="text-sm">Sin lecturas registradas</p>
                 </div>
@@ -192,18 +337,43 @@ export default function HorometroPanel({ solicitud, onClose }: Props) {
                       <thead className="bg-slate-50 border-b border-slate-200">
                         <tr>
                           {['Fecha', 'Inicio', 'Fin 5PM', 'H. trabajadas', 'H. Noct.', 'Ajuste', 'Total día'].map(h => (
-                            <th key={h} className="px-3 py-2 text-left font-semibold text-slate-500 whitespace-nowrap">
-                              {h}
-                            </th>
+                            <th key={h} className="px-3 py-2 text-left font-semibold text-slate-500 whitespace-nowrap">{h}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
+                        {/* Fila de referencia: horómetro de entrega */}
+                        {activeItem?.horometroInicial != null && (
+                          <tr className="border-b border-amber-100 bg-amber-50/50">
+                            <td className="px-3 py-2 whitespace-nowrap">
+                              <span className="text-slate-500 text-[11px]">
+                                {formatFecha(fechaInicioStr)}
+                              </span>
+                              <span className="ml-1.5 text-[10px] font-semibold text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full">
+                                entrega
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 font-mono font-bold text-amber-700">
+                              {activeItem.horometroInicial.toLocaleString('es-GT', { minimumFractionDigits: 1 })}
+                            </td>
+                            <td colSpan={5} className="px-3 py-2 text-[11px] text-slate-400 italic">
+                              Horómetro al momento de entrega al cliente
+                            </td>
+                          </tr>
+                        )}
+
+                        {/* Lecturas registradas */}
                         {lecturasEquipo.map(l => (
                           <tr key={l.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
-                            <td className="px-3 py-2 font-medium text-slate-700 whitespace-nowrap">{formatFecha(l.fecha)}</td>
-                            <td className="px-3 py-2 font-mono text-slate-600">{l.horometroInicio ?? <span className="text-slate-300">—</span>}</td>
-                            <td className="px-3 py-2 font-mono text-slate-600">{l.horometroFin5pm ?? <span className="text-slate-300">—</span>}</td>
+                            <td className="px-3 py-2 font-medium text-slate-700 whitespace-nowrap">
+                              {formatFecha(l.fecha)}
+                            </td>
+                            <td className="px-3 py-2 font-mono text-slate-600">
+                              {l.horometroInicio ?? <span className="text-slate-300">—</span>}
+                            </td>
+                            <td className="px-3 py-2 font-mono text-slate-600">
+                              {l.horometroFin5pm ?? <span className="text-slate-300">—</span>}
+                            </td>
                             <td className="px-3 py-2 font-mono text-slate-600">
                               {l.horometroInicio != null && l.horometroFin5pm != null
                                 ? (l.horometroFin5pm - l.horometroInicio).toFixed(1)
@@ -234,12 +404,12 @@ export default function HorometroPanel({ solicitud, onClose }: Props) {
               )}
             </div>
 
-            {/* Register reading form */}
+            {/* ── Formulario de registro ── */}
             <div className="border-t border-slate-200 px-6 py-4 flex-shrink-0 bg-slate-50">
               <div className="flex items-center justify-between mb-3">
                 <p className="text-xs font-bold text-slate-600">Registrar lectura</p>
-                <div>
-                  <label className="text-[11px] font-medium text-slate-500 mr-2">Fecha</label>
+                <div className="flex items-center gap-2">
+                  <label className="text-[11px] font-medium text-slate-500">Fecha</label>
                   <input
                     type="date"
                     value={fecha}
@@ -269,45 +439,54 @@ export default function HorometroPanel({ solicitud, onClose }: Props) {
                   <div className="grid grid-cols-2 gap-3">
                     <CorregirInput
                       label="Horómetro de inicio"
-                      defaultValue={lecturaHoy?.horometroInicio ?? undefined}
+                      defaultValue={lecturaFecha?.horometroInicio ?? undefined}
                       onConfirm={async v => {
                         setIsSubmitting(true); setSubmitError(null);
                         try {
-                          await solicitudesService.registrarLectura(solicitud.id, { equipoId: activeEquipo, fecha, tipo: 'inicio', valor: v });
+                          await solicitudesService.registrarLectura(solicitud.id, {
+                            equipoId: activeEquipo, fecha, tipo: 'inicio', valor: v,
+                          });
                           await fetchLecturas(); setValor('');
-                        } catch (err: any) {
-                          const msg = err?.response?.data?.message;
+                        } catch (err: unknown) {
+                          const msg = (err as any)?.response?.data?.message;
                           setSubmitError(Array.isArray(msg) ? msg.join(' · ') : (msg ?? 'Error al corregir.'));
                         } finally { setIsSubmitting(false); }
                       }}
                     />
                     <CorregirInput
                       label="Horómetro de cierre"
-                      defaultValue={lecturaHoy?.horometroFin5pm ?? undefined}
+                      defaultValue={lecturaFecha?.horometroFin5pm ?? undefined}
                       onConfirm={async v => {
                         setIsSubmitting(true); setSubmitError(null);
                         try {
-                          await solicitudesService.registrarLectura(solicitud.id, { equipoId: activeEquipo, fecha, tipo: 'fin5pm', valor: v });
+                          await solicitudesService.registrarLectura(solicitud.id, {
+                            equipoId: activeEquipo, fecha, tipo: 'fin5pm', valor: v,
+                          });
                           await fetchLecturas(); setValor('');
-                        } catch (err: any) {
-                          const msg = err?.response?.data?.message;
+                        } catch (err: unknown) {
+                          const msg = (err as any)?.response?.data?.message;
                           setSubmitError(Array.isArray(msg) ? msg.join(' · ') : (msg ?? 'Error al corregir.'));
                         } finally { setIsSubmitting(false); }
                       }}
                     />
                   </div>
-                  <button type="button" onClick={() => setValor('')} className="text-[11px] text-slate-400 underline">
+                  <button
+                    type="button"
+                    onClick={() => setValor('')}
+                    className="text-[11px] text-slate-400 underline"
+                  >
                     Cancelar
                   </button>
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="flex flex-wrap gap-3 items-end">
-                  {tipoPendiente === 'fin5pm' && lecturaHoy?.horometroInicio !== null && (
+                  {tipoPendiente === 'fin5pm' && lecturaFecha?.horometroInicio != null && (
                     <div className="flex items-center gap-2 px-3 py-2 bg-slate-100 rounded-lg text-xs text-slate-600 self-center">
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
                       </svg>
-                      Inicio registrado: <span className="font-mono font-bold ml-1">{lecturaHoy?.horometroInicio}</span>
+                      Inicio registrado:
+                      <span className="font-mono font-bold ml-1">{lecturaFecha.horometroInicio}</span>
                     </div>
                   )}
                   <div>
@@ -346,7 +525,9 @@ export default function HorometroPanel({ solicitud, onClose }: Props) {
               )}
 
               {submitError && (
-                <p className="mt-2 text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2 border border-red-200">{submitError}</p>
+                <p className="mt-2 text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2 border border-red-200">
+                  {submitError}
+                </p>
               )}
             </div>
           </div>
@@ -356,14 +537,16 @@ export default function HorometroPanel({ solicitud, onClose }: Props) {
   );
 }
 
+// ── Subcomponente de corrección ────────────────────────────────────────────────
+
 function CorregirInput({
   label,
   defaultValue,
   onConfirm,
 }: {
-  label:        string;
+  label:         string;
   defaultValue?: number;
-  onConfirm:    (v: number) => Promise<void>;
+  onConfirm:     (v: number) => Promise<void>;
 }) {
   const [val, setVal] = useState(defaultValue?.toString() ?? '');
   return (
@@ -381,7 +564,7 @@ function CorregirInput({
         <button
           type="button"
           disabled={!val}
-          onClick={() => { const n = parseFloat(val); if (!isNaN(n)) onConfirm(n); }}
+          onClick={() => { const n = parseFloat(val); if (!isNaN(n)) void onConfirm(n); }}
           className="px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold disabled:opacity-40 transition-colors"
         >
           OK

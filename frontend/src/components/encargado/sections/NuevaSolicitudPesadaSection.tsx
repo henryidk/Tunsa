@@ -1,9 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import ClienteSearchWidget from '../../ClienteSearchWidget';
-import PaymentModeSelector from '../PaymentModeSelector';
 import type { Cliente } from '../../../services/clientes.service';
 import type { Equipo } from '../../../types/equipo.types';
-import type { ModalidadPago } from '../../../types/solicitud.types';
 import type { ToastType } from '../../../types/ui.types';
 import { equiposService } from '../../../services/equipos.service';
 import { solicitudesService } from '../../../services/solicitudes.service';
@@ -36,12 +34,10 @@ export default function NuevaSolicitudPesadaSection({ onShowToast = () => {} }: 
 
   const [cliente,        setCliente]       = useState<Cliente | null>(null);
   const [clienteKey,     setClienteKey]    = useState(0);
-  const [modalidad,      setModalidad]     = useState<ModalidadPago | null>(null);
   const [notas,          setNotas]         = useState('');
   const [items,          setItems]         = useState<PesadaItem[]>([]);
   const [isSubmitting,   setIsSubmitting]  = useState(false);
 
-  const [showNoPagoModal,  setShowNoPagoModal]  = useState(false);
   const [showNoNotasModal, setShowNoNotasModal] = useState(false);
 
   useEffect(() => {
@@ -89,13 +85,12 @@ export default function NuevaSolicitudPesadaSection({ onShowToast = () => {} }: 
   };
 
   const handleEnviar = () => {
-    if (!modalidad) { setShowNoPagoModal(true); return; }
     if (!notas.trim()) { setShowNoNotasModal(true); return; }
     void submitSolicitud();
   };
 
   const submitSolicitud = async () => {
-    if (!cliente || !modalidad) return;
+    if (!cliente) return;
     setShowNoNotasModal(false);
     setIsSubmitting(true);
     try {
@@ -114,7 +109,7 @@ export default function NuevaSolicitudPesadaSection({ onShowToast = () => {} }: 
 
       const nueva = await solicitudesService.create({
         clienteId: cliente.id,
-        modalidad,
+        modalidad: 'CONTADO',
         notas:     notas.trim(),
         items:     snapItems as any,
       });
@@ -123,7 +118,6 @@ export default function NuevaSolicitudPesadaSection({ onShowToast = () => {} }: 
       onShowToast('success', 'Solicitud enviada', 'La solicitud fue registrada y notificada correctamente.');
       setCliente(null);
       setClienteKey(k => k + 1);
-      setModalidad(null);
       setNotas('');
       setItems([]);
       const reservados = await solicitudesService.getEquiposReservados();
@@ -203,12 +197,7 @@ export default function NuevaSolicitudPesadaSection({ onShowToast = () => {} }: 
             )}
           </SectionCard>
 
-          {/* 3. Pago */}
-          <SectionCard icon={<PagoIcon />} title="Condiciones de Pago" subtitle="Contado o crédito" locked={!cliente}>
-            <PaymentModeSelector value={modalidad} onChange={setModalidad} />
-          </SectionCard>
-
-          {/* 4. Notas */}
+          {/* 3. Notas */}
           <SectionCard icon={<NotasIcon />} title="Notas / Observaciones" subtitle="Acuerdos especiales" locked={!cliente}>
             <textarea
               value={notas}
@@ -225,21 +214,19 @@ export default function NuevaSolicitudPesadaSection({ onShowToast = () => {} }: 
         <PesadaResumen
           cliente={cliente}
           items={items}
-          modalidad={modalidad}
           getTarifa={getTarifaEfectiva}
           canEnviar={!!cliente && items.length > 0 && !isSubmitting}
           isSubmitting={isSubmitting}
           onEnviar={handleEnviar}
           onCancelar={() => {
             setCliente(null); setClienteKey(k => k + 1);
-            setModalidad(null); setNotas(''); setItems([]);
+            setNotas(''); setItems([]);
           }}
           canCancelar={!!cliente}
         />
 
       </div>
 
-      {showNoPagoModal && <SimpleModal onClose={() => setShowNoPagoModal(false)} title="Selecciona el tipo de pago" msg="Debes indicar si la renta es de contado o a crédito." variant="amber" />}
       {showNoNotasModal && <SimpleModal onClose={() => setShowNoNotasModal(false)} title="Observaciones requeridas" msg="Agrega una nota antes de continuar." variant="red" />}
     </div>
   );
@@ -326,7 +313,6 @@ function ItemRow({ item, tarifaEfectiva, onChange, onRemove }: ItemRowProps) {
 interface PesadaResumenProps {
   cliente:      Cliente | null;
   items:        { equipo: Equipo; conMartillo: boolean; diasSolicitados: number }[];
-  modalidad:    ModalidadPago | null;
   getTarifa:    (it: any) => number;
   canEnviar:    boolean;
   isSubmitting: boolean;
@@ -335,7 +321,7 @@ interface PesadaResumenProps {
   canCancelar:  boolean;
 }
 
-function PesadaResumen({ cliente, items, modalidad, getTarifa, canEnviar, isSubmitting, onEnviar, onCancelar, canCancelar }: PesadaResumenProps) {
+function PesadaResumen({ cliente, items, getTarifa, canEnviar, isSubmitting, onEnviar, onCancelar, canCancelar }: PesadaResumenProps) {
   const [confirmando, setConfirmando] = useState(false);
   return (
     <div className="w-72 flex-shrink-0 sticky top-20 self-start">
@@ -392,29 +378,6 @@ function PesadaResumen({ cliente, items, modalidad, getTarifa, canEnviar, isSubm
                   </span>
                 </div>
               ))}
-            </div>
-          )}
-        </div>
-
-        {/* Modalidad */}
-        <div className="px-5 py-3 border-b border-slate-100">
-          <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Pago</div>
-          {!modalidad ? (
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-slate-300 flex-shrink-0" />
-              <span className="text-sm text-slate-400 italic">Sin seleccionar</span>
-            </div>
-          ) : modalidad === 'CONTADO' ? (
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
-              <span className="text-sm font-semibold text-emerald-700">Contado</span>
-              <span className="text-xs text-slate-400 ml-1">— al entregar</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
-              <span className="text-sm font-semibold text-amber-700">A crédito</span>
-              <span className="text-xs text-slate-400 ml-1">— al devolver</span>
             </div>
           )}
         </div>
@@ -763,14 +726,6 @@ function CraneIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
-    </svg>
-  );
-}
-
-function PagoIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>
     </svg>
   );
 }

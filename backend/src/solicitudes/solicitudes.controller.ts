@@ -237,6 +237,19 @@ export class SolicitudesController {
     });
   }
 
+  @Get('rechazadas-mias')
+  @Roles('encargado_maquinas')
+  findRechazadasMias(
+    @Query() query: QueryRechazadasDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.solicitudesQueryService.findRechazadasMias(user.username, {
+      fechaDesde: new Date(query.fechaDesde),
+      fechaHasta: new Date(query.fechaHasta),
+      cursor:     query.cursor,
+    });
+  }
+
   @Get('historial-mias')
   @Roles('encargado_maquinas')
   findHistorialMias(

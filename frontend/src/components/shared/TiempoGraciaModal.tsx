@@ -1,25 +1,7 @@
 import { useMemo, useState } from 'react';
-import type { SolicitudRenta, ItemSnapshot, ExtensionEntry, UnidadDuracion } from '../../types/solicitud-renta.types';
+import type { SolicitudRenta, ItemSnapshot, ExtensionEntry } from '../../types/solicitud-renta.types';
 import { solicitudesService, type ExtensionItemPayload } from '../../services/solicitudes.service';
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function calcularFin(inicio: Date, duracion: number, unidad: UnidadDuracion): Date {
-  if (unidad === 'horas')   return new Date(inicio.getTime() + duracion * 3_600_000);
-  if (unidad === 'dias')    return new Date(inicio.getTime() + duracion * 86_400_000);
-  if (unidad === 'semanas') return new Date(inicio.getTime() + duracion * 7 * 86_400_000);
-  return new Date(inicio.getTime() + duracion * 30 * 86_400_000);
-}
-
-function calcularFinConExtensiones(inicio: Date, item: ItemSnapshot, extensiones: ExtensionEntry[]): Date {
-  const ref  = item.kind === 'maquinaria' || item.kind === 'pesada' ? item.equipoId : item.tipo;
-  const exts = extensiones.filter(e => e.itemRef === ref);
-  const dur  = item.kind === 'pesada' ? item.diasSolicitados : item.duracion;
-  const uni  = item.kind === 'pesada' ? 'dias' : item.unidad;
-  let fin = calcularFin(inicio, dur, uni);
-  for (const ext of exts) fin = calcularFin(fin, ext.duracion, ext.unidad);
-  return fin;
-}
+import { calcularFinConExtensiones } from '../../utils/renta-tiempo.utils';
 
 function itemRef(item: ItemSnapshot): string {
   if (item.kind === 'maquinaria' || item.kind === 'pesada') return item.equipoId;

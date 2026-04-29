@@ -9,6 +9,7 @@ import RentaVencidaCard from '../../shared/RentaVencidaCard';
 import AmpliacionRentaModal from '../../shared/AmpliacionRentaModal';
 import TiempoGraciaModal from '../../shared/TiempoGraciaModal';
 import DevolucionModal from '../../shared/DevolucionModal';
+import DevolucionPesadaModal from '../DevolucionPesadaModal';
 import StatCard from '../../shared/StatCard';
 
 export default function VencidasSection() {
@@ -21,6 +22,7 @@ export default function VencidasSection() {
   const [modalAmpliar,    setModalAmpliar]    = useState<SolicitudRenta | null>(null);
   const [modalGracia,     setModalGracia]     = useState<SolicitudRenta | null>(null);
   const [modalDevolucion, setModalDevolucion] = useState<SolicitudRenta | null>(null);
+  const [modalDevPesada,  setModalDevPesada]  = useState<SolicitudRenta | null>(null);
 
   const ahoraRecargo = useVencidasRecargoTick(solicitudes);
 
@@ -62,6 +64,12 @@ export default function VencidasSection() {
     else transicionarTrasExtension(actualizada);
   };
 
+  const handleDevolucionPesada = (actualizada: SolicitudRenta) => {
+    setModalDevPesada(null);
+    if (actualizada.estado === 'DEVUELTA') removeRenta(actualizada.id);
+    else transicionarTrasExtension(actualizada);
+  };
+
   const handleVerComprobante = async (id: string) => {
     setAbriendo(id);
     try {
@@ -92,6 +100,9 @@ export default function VencidasSection() {
       )}
       {modalDevolucion && (
         <DevolucionModal solicitud={modalDevolucion} onClose={() => setModalDevolucion(null)} onDevolucion={handleDevolucion} />
+      )}
+      {modalDevPesada && (
+        <DevolucionPesadaModal solicitud={modalDevPesada} onClose={() => setModalDevPesada(null)} onDevolucion={handleDevolucionPesada} />
       )}
 
       <div className="mb-6">
@@ -146,7 +157,7 @@ export default function VencidasSection() {
               onVerComprobante={() => handleVerComprobante(s.id)}
               onAmpliar={() => setModalAmpliar(s)}
               onGracia={() => setModalGracia(s)}
-              onDevolucion={() => setModalDevolucion(s)}
+              onDevolucion={() => s.esPesada ? setModalDevPesada(s) : setModalDevolucion(s)}
             />
           ))}
         </div>

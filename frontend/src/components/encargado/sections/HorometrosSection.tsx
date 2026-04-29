@@ -46,10 +46,15 @@ export default function HorometrosSection({ initialSolicitudId }: Props) {
     fecha:    string;
   } | null>(null);
 
-  // Load all pesada rentals
+  // Load all pesada rentals (activas + vencidas, para poder registrar horómetros antes de devolver)
   useEffect(() => {
-    solicitudesService.getActivasMias()
-      .then(all => setSolicitudes(all.filter(s => s.esPesada)))
+    Promise.all([
+      solicitudesService.getActivasMias(),
+      solicitudesService.getVencidasMias(),
+    ])
+      .then(([activas, vencidas]) =>
+        setSolicitudes([...activas, ...vencidas].filter(s => s.esPesada)),
+      )
       .catch(() => setListError('No se pudieron cargar las rentas pesadas.'))
       .finally(() => setIsLoadingList(false));
   }, []);
@@ -278,6 +283,14 @@ export default function HorometrosSection({ initialSolicitudId }: Props) {
                 {fechaInicioStr.split('-').reverse().join('/')}
               </p>
             </div>
+            {selectedSol.fechaFinEstimada && (
+              <div className="border-l border-slate-200 pl-6">
+                <p className="text-[10px] text-slate-400">Fin estimado</p>
+                <p className={`font-medium font-mono ${new Date(selectedSol.fechaFinEstimada) < new Date() ? 'text-red-600' : 'text-slate-600'}`}>
+                  {selectedSol.fechaFinEstimada.substring(0, 10).split('-').reverse().join('/')}
+                </p>
+              </div>
+            )}
           </div>
         )}
 

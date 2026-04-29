@@ -57,6 +57,8 @@ export default function HorometroRentaCard({ solicitud, lecturas, onVerDetalle, 
     ? 'Registrar cierre'
     : null;
 
+  const esVencida = !!solicitud.fechaFinEstimada && new Date(solicitud.fechaFinEstimada) < new Date();
+
   return (
     <div className={`bg-white border border-slate-200 border-l-4 ${borderColor} rounded-xl shadow-sm p-5`}>
 
@@ -67,6 +69,11 @@ export default function HorometroRentaCard({ solicitud, lecturas, onVerDetalle, 
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${estadoBadge.cls}`}>
               {estadoBadge.label}
             </span>
+            {esVencida && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-600 text-white">
+                Vencida
+              </span>
+            )}
             <span className="text-[11px] font-mono text-slate-400">{solicitud.folio}</span>
           </div>
 

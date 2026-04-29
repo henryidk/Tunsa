@@ -11,8 +11,17 @@ import CalendarioMes from '../CalendarioMes';
 
 type PesadaItem = Extract<ItemSnapshot, { kind: 'pesada' }>;
 
-interface Props {
+// Fetch por defecto: solo las rentas del encargado autenticado.
+// Definido a nivel de módulo para que sea estable como dependencia de useEffect.
+const fetchSolicitudesEncargado = () =>
+  Promise.all([
+    solicitudesService.getActivasMias(),
+    solicitudesService.getVencidasMias(),
+  ]).then(([activas, vencidas]) => [...activas, ...vencidas].filter(s => s.esPesada));
+
+export interface HorometrosSectionProps {
   initialSolicitudId?: string;
+  fetchSolicitudes?:   () => Promise<SolicitudRenta[]>;
 }
 
 const MESES = [
@@ -20,7 +29,7 @@ const MESES = [
   'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre',
 ];
 
-export default function HorometrosSection({ initialSolicitudId }: Props) {
+export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes }: HorometrosSectionProps) {
   const hoy = today();
   const [solicitudes,   setSolicitudes]   = useState<SolicitudRenta[]>([]);
   const [lecturasMap,   setLecturasMap]   = useState<Record<string, LecturaHorometro[]>>({});
@@ -46,18 +55,15 @@ export default function HorometrosSection({ initialSolicitudId }: Props) {
     fecha:    string;
   } | null>(null);
 
+  const resolvedFetch = fetchSolicitudes ?? fetchSolicitudesEncargado;
+
   // Load all pesada rentals (activas + vencidas, para poder registrar horómetros antes de devolver)
   useEffect(() => {
-    Promise.all([
-      solicitudesService.getActivasMias(),
-      solicitudesService.getVencidasMias(),
-    ])
-      .then(([activas, vencidas]) =>
-        setSolicitudes([...activas, ...vencidas].filter(s => s.esPesada)),
-      )
+    resolvedFetch()
+      .then(setSolicitudes)
       .catch(() => setListError('No se pudieron cargar las rentas pesadas.'))
       .finally(() => setIsLoadingList(false));
-  }, []);
+  }, [resolvedFetch]);
 
   // Load lecturas for all rentals in parallel once list is ready
   useEffect(() => {

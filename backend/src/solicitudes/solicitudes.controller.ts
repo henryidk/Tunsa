@@ -145,7 +145,7 @@ export class SolicitudesController {
   // ── Lecturas (maquinaria pesada) ──────────────────────────────────────────────
 
   @Post(':id/horometro/lecturas')
-  @Roles('encargado_maquinas')
+  @Roles('encargado_maquinas', 'admin')
   registrarLectura(
     @Param('id') id: string,
     @Body() dto: RegistrarLecturaDto,

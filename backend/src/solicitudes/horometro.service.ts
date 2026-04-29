@@ -34,8 +34,8 @@ export class HorometroService {
       throw new BadRequestException('Esta solicitud no es de maquinaria pesada.');
     if (solicitud.estado !== 'ACTIVA')
       throw new ConflictException('Solo se pueden registrar lecturas en rentas activas.');
-    if (solicitud.creadaPor !== user.username)
-      throw new ForbiddenException('Solo el encargado que creó la solicitud puede registrar lecturas.');
+    if (!tieneAccesoGlobal(user) && solicitud.creadaPor !== user.username)
+      throw new ForbiddenException('No tienes permiso para registrar lecturas en esta solicitud.');
 
     const items = solicitud.items as unknown as ItemPesadaSnapshot[];
     const item  = items.find(i => i.equipoId === dto.equipoId);

@@ -10,7 +10,11 @@ import DevolucionModal from '../../shared/DevolucionModal';
 import DevolucionPesadaModal from '../../encargado/DevolucionPesadaModal';
 import StatCard from '../../shared/StatCard';
 
-export default function RentasActivasSection() {
+interface Props {
+  onNavTo?: (section: string, state?: { solicitudId?: string }) => void;
+}
+
+export default function RentasActivasSection({ onNavTo }: Props) {
   const { solicitudes, setSolicitudes, updateRenta, removeRenta } = useAdminActivasStore();
   const addVencida = useAdminVencidasStore(s => s.addVencida);
 
@@ -180,6 +184,7 @@ export default function RentasActivasSection() {
               onVerComprobante={() => handleVerComprobante(s.id)}
               onAmpliar={() => setModalAmpliar(s)}
               onDevolucion={s.esPesada ? () => setModalDevPesada(s) : () => setModalDevolucion(s)}
+              onHorometro={s.esPesada ? () => onNavTo?.('horometros', { solicitudId: s.id }) : undefined}
             />
           ))}
         </div>

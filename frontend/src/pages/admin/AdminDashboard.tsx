@@ -20,6 +20,7 @@ import ClientesSection from '../../components/admin/sections/ClientesSection'
 import UsuariosSection from '../../components/admin/sections/UsuariosSection'
 import BitacorasSection from '../../components/admin/sections/BitacorasSection'
 import CategoriasSection from '../../components/admin/sections/CategoriasSection'
+import HorometrosSection from '../../components/admin/sections/HorometrosSection'
 import CambiarPasswordModal from '../../components/admin/CambiarPasswordModal'
 
 export type Section =
@@ -28,6 +29,7 @@ export type Section =
   | 'rentas-activas'
   | 'rentas-historial'
   | 'rentas-vencidas'
+  | 'horometros'
   | 'equipos'
   | 'categorias'
   | 'clientes'
@@ -46,7 +48,8 @@ export interface ToastState {
 
 export default function AdminDashboard() {
   const { user, logout, mustChangePassword } = useAuthStore()
-  const [activeSection, setActiveSection] = useState<Section>('dashboard')
+  const [activeSection,    setActiveSection]    = useState<Section>('dashboard')
+  const [navSolicitudId,   setNavSolicitudId]   = useState<string | undefined>(undefined)
 
   const { playSound }  = useNotificationSound()
   // Mantiene el socket activo durante toda la sesión y alimenta ambos stores
@@ -71,7 +74,10 @@ export default function AdminDashboard() {
 
   const closeModal = () => setModalOpen(false)
 
-  const navTo = (section: string) => setActiveSection(section as Section)
+  const navTo = (section: string, state?: { solicitudId?: string }) => {
+    setActiveSection(section as Section)
+    setNavSolicitudId(state?.solicitudId)
+  }
 
   return (
     <div className="flex min-h-screen bg-slate-50">
@@ -100,13 +106,16 @@ export default function AdminDashboard() {
             <SolicitudesSection />
           )}
           {activeSection === 'rentas-activas' && (
-            <RentasActivasSection />
+            <RentasActivasSection onNavTo={navTo} />
           )}
           {activeSection === 'rentas-historial' && (
             <HistorialSection />
           )}
           {activeSection === 'rentas-vencidas' && (
             <VencidasSection />
+          )}
+          {activeSection === 'horometros' && (
+            <HorometrosSection initialSolicitudId={navSolicitudId} />
           )}
           {activeSection === 'equipos' && (
             <EquiposSection onShowToast={showToast} />

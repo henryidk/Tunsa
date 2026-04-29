@@ -332,6 +332,12 @@ export class SolicitudesService {
     const fechaInicio         = solicitud.fechaInicioRenta;
     const snapshotItems       = solicitud.items as unknown as ItemParaCalculo[];
     const extensionesActuales = (solicitud.extensiones ?? []) as unknown as ExtensionEntry[];
+    const tipoNuevaExt: 'gracia' | 'ampliacion' = dto.esGracia ? 'gracia' : 'ampliacion';
+
+    // Para calcular fechas de ampliaciones pagadas, las extensiones de gracia no cuentan.
+    const extsParaCalculo = dto.esGracia
+      ? extensionesActuales
+      : extensionesActuales.filter(e => e.tipo !== 'gracia');
 
     const nuevasExtensiones: ExtensionEntry[] = [];
     let   costoTotalExtra = 0;
@@ -345,12 +351,12 @@ export class SolicitudesService {
         throw new BadRequestException(`Ítem "${extDto.itemRef}" no encontrado en la solicitud.`);
       }
 
-      const extsPrevias    = extensionesActuales.filter(e => e.itemRef === extDto.itemRef);
+      const extsPrevias    = extsParaCalculo.filter(e => e.itemRef === extDto.itemRef);
       const fechaInicioExt = calcularFinItemConExtensiones(fechaInicio, snapItem, extsPrevias);
 
       let costoExtra = 0;
 
-      if (extDto.kind !== 'pesada') {
+      if (extDto.kind !== 'pesada' && !dto.esGracia) {
         const conMadera = snapItem.conMadera ?? false;
         const cantidad  = snapItem.cantidad  ?? 1;
         const precios   = await this.fetchPreciosItem(extDto.kind, extDto.itemRef, conMadera);
@@ -367,12 +373,16 @@ export class SolicitudesService {
         duracion:       extDto.duracion,
         unidad:         extDto.unidad,
         costoExtra,
+        tipo:           tipoNuevaExt,
         fechaExtension: new Date().toISOString(),
       });
     }
 
     const todasLasExtensiones = [...extensionesActuales, ...nuevasExtensiones];
-    const itemsParaFin        = snapshotItems.map(i => ({
+
+    // fechaFinEstimada se calcula sin extensiones de gracia — la gracia es solo para devolución.
+    const extsParaFin   = todasLasExtensiones.filter(e => e.tipo !== 'gracia');
+    const itemsParaFin  = snapshotItems.map(i => ({
       duracion: i.duracion,
       unidad:   i.unidad,
       equipoId: i.equipoId,
@@ -381,7 +391,7 @@ export class SolicitudesService {
     const nuevaFechaFin = (() => {
       const fins = itemsParaFin.map(item => {
         const itemRef  = item.equipoId ?? item.tipo ?? '';
-        const extsItem = todasLasExtensiones.filter(e => e.itemRef === itemRef);
+        const extsItem = extsParaFin.filter(e => e.itemRef === itemRef);
         return calcularFinItemConExtensiones(fechaInicio, item, extsItem).getTime();
       });
       return new Date(Math.min(...fins));

@@ -110,7 +110,7 @@ export default function TiempoGraciaModal({
           duracion: estado[itemRef(item)].horas as number,
           unidad:   'horas' as const,
         }));
-      const actualizada = await solicitudesService.ampliar(solicitud.id, items);
+      const actualizada = await solicitudesService.ampliar(solicitud.id, items, true);
       onGracia(actualizada);
     } catch {
       setError('No se pudo aplicar el tiempo de gracia. Intenta de nuevo.');

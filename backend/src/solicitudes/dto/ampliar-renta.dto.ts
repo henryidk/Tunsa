@@ -1,5 +1,5 @@
 import {
-  IsString, IsIn, IsInt, Min, IsArray, ValidateNested,
+  IsString, IsIn, IsInt, Min, IsArray, ValidateNested, IsBoolean, IsOptional,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -27,4 +27,9 @@ export class AmpliacionRentaDto {
   @ValidateNested({ each: true })
   @Type(() => ExtensionItemDto)
   items: ExtensionItemDto[];
+
+  /** Si true, las extensiones se marcan como gracia (sin costo y no afectan ampliaciones futuras). */
+  @IsOptional()
+  @IsBoolean()
+  esGracia?: boolean;
 }

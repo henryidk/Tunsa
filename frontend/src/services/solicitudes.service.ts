@@ -148,8 +148,8 @@ export const solicitudesService = {
     return res.data;
   },
 
-  async ampliar(id: string, items: ExtensionItemPayload[]): Promise<SolicitudRenta> {
-    const res = await api.patch<SolicitudRenta>(`/solicitudes/${id}/ampliar`, { items });
+  async ampliar(id: string, items: ExtensionItemPayload[], esGracia = false): Promise<SolicitudRenta> {
+    const res = await api.patch<SolicitudRenta>(`/solicitudes/${id}/ampliar`, { items, esGracia });
     return res.data;
   },
 

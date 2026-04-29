@@ -36,6 +36,7 @@ export interface ExtensionEntry {
   duracion:       number;
   unidad:         UnidadDuracion;
   costoExtra:     number;
+  tipo:           'gracia' | 'ampliacion';
   fechaExtension: string;                    // ISO timestamp
 }
 

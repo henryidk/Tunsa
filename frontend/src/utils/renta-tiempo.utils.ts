@@ -67,7 +67,7 @@ export function nivelUrgencia(ms: number): NivelUrgencia {
 
 // ── Helpers exclusivos de rentas vencidas ────────────────────────────────────
 
-const GRACE_MS = 3_600_000; // 1 hora de gracia antes de que corran cargos
+export const GRACE_MS = 3_600_000; // 1 hora de gracia antes de que corran cargos
 const DAY_MS   = 86_400_000;
 
 /** Fecha de vencimiento más próxima entre todos los ítems de una renta. */
@@ -100,6 +100,18 @@ export function calcularRecargoActual(
     const fin = calcularFinConExtensiones(inicio, item, extensiones);
     return suma + calcularRecargoItem(tarifa, fin, ahora);
   }, 0);
+}
+
+/** Penalización por entrega tardía de maquinaria pesada (5 hrs mín. por equipo). */
+export function calcularRecargoPesada(
+  items:            ItemSnapshot[],
+  fechaFinEstimada: Date,
+  ahora:            number,
+): number {
+  if (ahora - fechaFinEstimada.getTime() <= GRACE_MS) return 0;
+  return items
+    .filter((i): i is Extract<ItemSnapshot, { kind: 'pesada' }> => i.kind === 'pesada')
+    .reduce((sum, item) => sum + item.tarifaEfectiva * 5, 0);
 }
 
 /** Milisegundos de atraso respecto al vencimiento (negativo = dentro de gracia). */

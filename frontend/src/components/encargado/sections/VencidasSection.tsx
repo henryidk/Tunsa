@@ -4,8 +4,9 @@ import { useVencidasStore } from '../../../store/vencidas.store';
 import { useActivasStore } from '../../../store/activas.store';
 import { useVencidasRecargoTick } from '../../../hooks/useVencidasRecargoTick';
 import type { SolicitudRenta } from '../../../types/solicitud-renta.types';
-import { calcularRecargoActual } from '../../../utils/renta-tiempo.utils';
+import { calcularRecargoActual, calcularRecargoPesada } from '../../../utils/renta-tiempo.utils';
 import RentaVencidaCard from '../../shared/RentaVencidaCard';
+import RentaVencidaPesadaCard from '../../shared/RentaVencidaPesadaCard';
 import AmpliacionRentaModal from '../../shared/AmpliacionRentaModal';
 import TiempoGraciaModal from '../../shared/TiempoGraciaModal';
 import DevolucionModal from '../../shared/DevolucionModal';
@@ -83,6 +84,10 @@ export default function VencidasSection() {
   };
 
   const totalRecargo = solicitudes.reduce((suma, s) => {
+    if (s.esPesada) {
+      const venc = s.fechaFinEstimada ? new Date(s.fechaFinEstimada) : null;
+      return suma + (venc ? calcularRecargoPesada(s.items, venc, ahoraRecargo) : 0);
+    }
     const inicio      = s.fechaInicioRenta ? new Date(s.fechaInicioRenta) : new Date();
     const extensiones = s.extensiones ?? [];
     return suma + calcularRecargoActual(s.items, inicio, ahoraRecargo, extensiones);
@@ -147,7 +152,18 @@ export default function VencidasSection() {
         <EmptyState />
       ) : (
         <div className="space-y-4">
-          {solicitudes.map(s => (
+          {solicitudes.map(s => s.esPesada ? (
+            <RentaVencidaPesadaCard
+              key={s.id}
+              solicitud={s}
+              ahora={ahora}
+              abriendo={abriendo === s.id}
+              onVerComprobante={() => handleVerComprobante(s.id)}
+              onAmpliar={() => setModalAmpliar(s)}
+              onGracia={() => setModalGracia(s)}
+              onDevolucion={() => setModalDevPesada(s)}
+            />
+          ) : (
             <RentaVencidaCard
               key={s.id}
               solicitud={s}
@@ -157,7 +173,7 @@ export default function VencidasSection() {
               onVerComprobante={() => handleVerComprobante(s.id)}
               onAmpliar={() => setModalAmpliar(s)}
               onGracia={() => setModalGracia(s)}
-              onDevolucion={() => s.esPesada ? setModalDevPesada(s) : setModalDevolucion(s)}
+              onDevolucion={() => setModalDevolucion(s)}
             />
           ))}
         </div>

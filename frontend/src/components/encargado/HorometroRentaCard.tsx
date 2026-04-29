@@ -86,33 +86,35 @@ export default function HorometroRentaCard({ solicitud, lecturas, onVerDetalle, 
                   +{pesadaItems.length - 1} equipo{pesadaItems.length - 1 > 1 ? 's' : ''}
                 </span>
               )}
+              <span className="ml-2 text-[11px] font-mono font-normal text-amber-700">
+                Q{primerEquipo.tarifaEfectiva.toLocaleString('es-GT', { minimumFractionDigits: 2 })}/hr
+              </span>
             </p>
           )}
 
-          <p className="text-xs text-slate-500 mt-0.5">
-            {solicitud.cliente.nombre}
-            {solicitud.fechaInicioRenta && (
-              <span className="ml-2 text-slate-400">
-                · Inicio {fechaInicioStr.split('-').reverse().join('/')}
-              </span>
-            )}
-          </p>
+          <p className="text-xs text-slate-500 mt-0.5">{solicitud.cliente.nombre}</p>
         </div>
 
-        {primerEquipo && (
-          <div className="text-right flex-shrink-0">
-            <p className="text-[10px] text-slate-400">Tarifa</p>
-            <p className="text-sm font-bold text-amber-700 font-mono">
-              Q{primerEquipo.tarifaEfectiva.toLocaleString('es-GT', { minimumFractionDigits: 2 })}/hr
-            </p>
-            {primerEquipo.horometroInicial != null && (
-              <>
-                <p className="text-[10px] text-slate-400 mt-1">Entrega</p>
-                <p className="text-xs font-mono text-slate-600">
-                  {primerEquipo.horometroInicial.toLocaleString('es-GT', { minimumFractionDigits: 1 })} hrs
-                </p>
-              </>
-            )}
+        {/* Rango de fechas — esquina superior derecha */}
+        {solicitud.fechaInicioRenta && (
+          <div className="flex-shrink-0 flex items-center gap-1.5">
+            <div className="text-center">
+              <p className="text-[10px] text-slate-400 leading-none mb-0.5">Inicio</p>
+              <p className="text-xs font-mono font-medium text-slate-600">
+                {fechaInicioStr.split('-').reverse().join('/')}
+              </p>
+            </div>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-slate-300 flex-shrink-0 mt-2">
+              <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+            </svg>
+            <div className="text-center">
+              <p className="text-[10px] text-slate-400 leading-none mb-0.5">Fin est.</p>
+              <p className={`text-xs font-mono font-semibold ${esVencida ? 'text-red-600' : 'text-slate-600'}`}>
+                {solicitud.fechaFinEstimada
+                  ? solicitud.fechaFinEstimada.substring(0, 10).split('-').reverse().join('/')
+                  : '—'}
+              </p>
+            </div>
           </div>
         )}
       </div>
@@ -157,7 +159,7 @@ export default function HorometroRentaCard({ solicitud, lecturas, onVerDetalle, 
           onClick={onVerDetalle}
           className="text-xs text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
         >
-          Ver historial completo →
+          Ver historial →
         </button>
 
         {ctaLabel ? (

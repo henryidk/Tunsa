@@ -12,19 +12,23 @@ function calcularFin(inicio: Date, duracion: number, unidad: UnidadDuracion): Da
 }
 
 function calcularFinConExtensiones(inicio: Date, item: ItemSnapshot, extensiones: ExtensionEntry[]): Date {
-  const ref  = item.kind === 'maquinaria' ? item.equipoId : item.tipo;
+  const ref  = item.kind === 'maquinaria' || item.kind === 'pesada' ? item.equipoId : item.tipo;
   const exts = extensiones.filter(e => e.itemRef === ref);
-  let fin = calcularFin(inicio, item.duracion, item.unidad);
+  const dur  = item.kind === 'pesada' ? item.diasSolicitados : item.duracion;
+  const uni  = item.kind === 'pesada' ? 'dias' : item.unidad;
+  let fin = calcularFin(inicio, dur, uni);
   for (const ext of exts) fin = calcularFin(fin, ext.duracion, ext.unidad);
   return fin;
 }
 
 function itemRef(item: ItemSnapshot): string {
-  return item.kind === 'maquinaria' ? item.equipoId : item.tipo;
+  if (item.kind === 'maquinaria' || item.kind === 'pesada') return item.equipoId;
+  return item.tipo;
 }
 
 function itemLabel(item: ItemSnapshot): string {
   if (item.kind === 'maquinaria') return `#${item.numeracion} ${item.descripcion}`;
+  if (item.kind === 'pesada')     return `#${item.numeracion} ${item.descripcion}${item.conMartillo ? ' +Martillo' : ''}`;
   return `${item.tipoLabel}${item.conMadera ? ' (c/madera)' : ''} × ${item.cantidad.toLocaleString('es-GT')}`;
 }
 

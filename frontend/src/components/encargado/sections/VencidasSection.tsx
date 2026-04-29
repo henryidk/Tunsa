@@ -56,7 +56,7 @@ export default function VencidasSection() {
 
   const handleGracia = (actualizada: SolicitudRenta) => {
     setModalGracia(null);
-    transicionarTrasExtension(actualizada);
+    updateRenta(actualizada);
   };
 
   const handleDevolucion = (actualizada: SolicitudRenta) => {

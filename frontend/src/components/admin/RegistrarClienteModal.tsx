@@ -55,7 +55,15 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
     setApiError(null);
   };
 
-  const dpiDigits = form.dpi.replace(/\D/g, '').length;
+  const handleTelefonoChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const digits = e.target.value.replace(/\D/g, '').slice(0, 8);
+    const fmt = digits.length > 4 ? digits.slice(0, 4) + '-' + digits.slice(4) : digits;
+    setForm(prev => ({ ...prev, telefono: fmt }));
+    setApiError(null);
+  };
+
+  const dpiDigits      = form.dpi.replace(/\D/g, '').length;
+  const telefonoDigits = form.telefono.replace(/\D/g, '').length;
 
   const handleOverlayClick = (e: MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget && !isSaving && !isChecking) handleClose();
@@ -83,9 +91,10 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
 
   const handleNext = async () => {
     const dpiClean = form.dpi.replace(/\D/g, '');
-    if (!form.nombre.trim())    { setApiError('El nombre es requerido.'); return; }
-    if (!dpiClean)              { setApiError('El DPI es requerido.'); return; }
-    if (dpiClean.length !== 13) { setApiError('El DPI debe tener exactamente 13 dígitos numéricos.'); return; }
+    if (!form.nombre.trim())         { setApiError('El nombre es requerido.'); return; }
+    if (!dpiClean)                   { setApiError('El DPI es requerido.'); return; }
+    if (dpiClean.length !== 13)      { setApiError('El DPI debe tener exactamente 13 dígitos numéricos.'); return; }
+    if (telefonoDigits !== 8)        { setApiError('El teléfono debe tener exactamente 8 dígitos.'); return; }
 
     setIsChecking(true);
     setApiError(null);
@@ -113,7 +122,7 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
       const cliente = await clientesService.create({
         nombre:   form.nombre.trim(),
         dpi:      dpiClean,
-        telefono: form.telefono.trim() || undefined,
+        telefono: form.telefono.replace(/\D/g, ''),
       });
 
       if (conDocumento && file) {
@@ -246,10 +255,18 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
               </div>
 
               <div>
-                <label className={labelCls}>Teléfono <span className="text-slate-400 font-normal">(opcional)</span></label>
-                <input type="tel" value={form.telefono} onChange={handleChange('telefono')}
-                  placeholder="Ej. 5555-0000"
-                  disabled={isSaving} className={`${inputCls} font-mono`} />
+                <label className={labelCls}>Teléfono <span className="text-slate-400 font-normal">(8 dígitos)</span></label>
+                <div className="relative">
+                  <input type="tel" value={form.telefono} onChange={handleTelefonoChange}
+                    placeholder="5555-0000"
+                    maxLength={9} disabled={isSaving}
+                    className={`${inputCls} font-mono pr-14`} />
+                  <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold pointer-events-none transition-colors ${
+                    telefonoDigits === 8 ? 'text-emerald-500' : telefonoDigits > 0 ? 'text-slate-400' : 'text-slate-300'
+                  }`}>
+                    {telefonoDigits} / 8
+                  </span>
+                </div>
               </div>
 
               {apiError && (

@@ -12,5 +12,6 @@ export class UpdateClienteDto {
 
   @IsOptional()
   @IsString()
+  @Length(8, 8, { message: 'El teléfono debe tener exactamente 8 dígitos' })
   telefono?: string;
 }

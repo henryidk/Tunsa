@@ -10,7 +10,7 @@ export class CreateClienteDto {
   @Length(13, 13, { message: 'El DPI debe tener exactamente 13 dígitos' })
   dpi: string;
 
-  @IsOptional()
   @IsString()
-  telefono?: string;
+  @Length(8, 8, { message: 'El teléfono debe tener exactamente 8 dígitos' })
+  telefono: string;
 }

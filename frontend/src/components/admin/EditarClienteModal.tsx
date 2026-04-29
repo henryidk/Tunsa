@@ -24,6 +24,11 @@ function formatDpi(raw: string): string {
   return digits;
 }
 
+function formatTelefono(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 8);
+  return digits.length > 4 ? digits.slice(0, 4) + '-' + digits.slice(4) : digits;
+}
+
 const extractApiError = (err: unknown): string => {
   if (err && typeof err === 'object' && 'response' in err) {
     const msg = (err as { response?: { data?: { message?: string } } }).response?.data?.message;
@@ -42,7 +47,7 @@ export default function EditarClienteModal({ cliente, onClose, onSave }: Props) 
       setForm({
         nombre:   cliente.nombre,
         dpi:      formatDpi(cliente.dpi),
-        telefono: cliente.telefono ?? '',
+        telefono: formatTelefono(cliente.telefono ?? ''),
       });
       setApiError(null);
     }
@@ -50,7 +55,8 @@ export default function EditarClienteModal({ cliente, onClose, onSave }: Props) 
 
   if (!cliente) return null;
 
-  const dpiDigits = form.dpi.replace(/\D/g, '').length;
+  const dpiDigits      = form.dpi.replace(/\D/g, '').length;
+  const telefonoDigits = form.telefono.replace(/\D/g, '').length;
 
   const handleChange = (field: keyof FormState) =>
     (e: ChangeEvent<HTMLInputElement>) => {
@@ -63,6 +69,11 @@ export default function EditarClienteModal({ cliente, onClose, onSave }: Props) 
     setApiError(null);
   };
 
+  const handleTelefonoChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setForm(prev => ({ ...prev, telefono: formatTelefono(e.target.value) }));
+    setApiError(null);
+  };
+
   const handleOverlayClick = (e: MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget && !isSaving) onClose();
   };
@@ -71,9 +82,10 @@ export default function EditarClienteModal({ cliente, onClose, onSave }: Props) 
     const nombreTrim = form.nombre.trim();
     const dpiClean   = form.dpi.replace(/\D/g, '');
 
-    if (!nombreTrim)           { setApiError('El nombre es requerido.'); return; }
-    if (!dpiClean)             { setApiError('El DPI es requerido.'); return; }
-    if (dpiClean.length !== 13){ setApiError('El DPI debe tener exactamente 13 dígitos.'); return; }
+    if (!nombreTrim)            { setApiError('El nombre es requerido.'); return; }
+    if (!dpiClean)              { setApiError('El DPI es requerido.'); return; }
+    if (dpiClean.length !== 13) { setApiError('El DPI debe tener exactamente 13 dígitos.'); return; }
+    if (telefonoDigits !== 8)   { setApiError('El teléfono debe tener exactamente 8 dígitos.'); return; }
 
     setIsSaving(true);
     setApiError(null);
@@ -81,7 +93,7 @@ export default function EditarClienteModal({ cliente, onClose, onSave }: Props) 
       const updated = await clientesService.update(cliente.id, {
         nombre:   nombreTrim,
         dpi:      dpiClean,
-        telefono: form.telefono.trim() || undefined,
+        telefono: form.telefono.replace(/\D/g, ''),
       });
       onSave(updated);
       onClose();
@@ -156,15 +168,23 @@ export default function EditarClienteModal({ cliente, onClose, onSave }: Props) 
           </div>
 
           <div>
-            <label className={labelCls}>Teléfono <span className="text-slate-400 font-normal">(opcional)</span></label>
-            <input
-              type="tel"
-              value={form.telefono}
-              onChange={handleChange('telefono')}
-              placeholder="Ej. 5555-0000"
-              disabled={isSaving}
-              className={`${inputCls} font-mono`}
-            />
+            <label className={labelCls}>Teléfono <span className="text-slate-400 font-normal">(8 dígitos)</span></label>
+            <div className="relative">
+              <input
+                type="tel"
+                value={form.telefono}
+                onChange={handleTelefonoChange}
+                placeholder="5555-0000"
+                maxLength={9}
+                disabled={isSaving}
+                className={`${inputCls} font-mono pr-14`}
+              />
+              <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold pointer-events-none transition-colors ${
+                telefonoDigits === 8 ? 'text-emerald-500' : telefonoDigits > 0 ? 'text-slate-400' : 'text-slate-300'
+              }`}>
+                {telefonoDigits} / 8
+              </span>
+            </div>
           </div>
 
           {apiError && (

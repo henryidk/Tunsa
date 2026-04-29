@@ -462,7 +462,7 @@ export async function generarLiquidacion(
     doc.text(valor, boxX + boxW - 5, ly, { align: 'right' });
   };
 
-  lineaResumen('Costo por horómetro:', formatQ(costoBase), y + 8);
+  lineaResumen(solicitud.esPesada ? 'Costo por horómetro:' : 'Costo de renta:', formatQ(costoBase), y + 8);
   if (totalRecargoTiempo > 0) {
     lineaResumen('Recargo por atraso:',  formatQ(totalRecargoTiempo), y + 15);
   }

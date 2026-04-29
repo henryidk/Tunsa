@@ -16,7 +16,8 @@ const selectCls = 'w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm
 export default function MaquinariaPickerForm({ equiposDisponibles, isLoading, onAdd }: Props) {
   const [busqueda,     setBusqueda]     = useState('');
   const [seleccionado, setSeleccionado] = useState<Equipo | null>(null);
-  const fechaInicio = new Date().toISOString().split('T')[0];
+  const d = new Date();
+  const fechaInicio = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const [duracion,     setDuracion]     = useState('');
   const [unidad,       setUnidad]       = useState<UnidadDuracion>('dias');
   const [dropdown,     setDropdown]     = useState(false);

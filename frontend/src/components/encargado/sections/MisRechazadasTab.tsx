@@ -7,7 +7,9 @@ import { formatFechaCorta, formatFechaHora, unidadLabel } from '../../../types/s
 // ── Helpers de fecha ──────────────────────────────────────────────────────────
 
 function toDateInput(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
 }
 
 function startOfDay(dateStr: string): string {

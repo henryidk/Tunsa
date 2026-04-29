@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import type { Usuario } from '../../types/auth.types';
 import { useAprobadasStore } from '../../store/aprobadas.store';
 import { useActivasStore } from '../../store/activas.store';
+import { today } from '../../utils/horometro.utils';
 
 interface NavItem {
   id: string;
@@ -191,7 +192,7 @@ export default function EncargadoSidebar({ activeSection, onNavTo, collapsed, on
   const porEntregarCount = useAprobadasStore(s => s.solicitudes.length);
 
   const activasSolicitudes = useActivasStore(s => s.solicitudes);
-  const hoyStr = new Date().toISOString().substring(0, 10);
+  const hoyStr = today();
   const horometrosPendientes = activasSolicitudes.filter(s => {
     if (!s.esPesada) return false;
     const ul = s.ultimaLectura;

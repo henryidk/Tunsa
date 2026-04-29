@@ -8,7 +8,9 @@ import { formatFechaCorta, formatFechaHora, unidadLabel } from '../../../types/s
 
 /** "2026-04-10" — formato que acepta <input type="date"> */
 function toDateInput(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
 }
 
 /** Inicio del día en UTC (00:00:00.000Z) */

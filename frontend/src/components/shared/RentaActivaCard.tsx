@@ -9,6 +9,7 @@ import {
   URGENCIA_BADGE,
   URGENCIA_BORDER,
 } from '../../utils/renta-tiempo.utils';
+import { today } from '../../utils/horometro.utils';
 import VenceLabel from './VenceLabel';
 
 export interface RentaActivaCardProps {
@@ -32,7 +33,7 @@ export default function RentaActivaCard({
   onDevolucion,
   onHorometro,
 }: RentaActivaCardProps) {
-  const todayStr = new Date().toISOString().substring(0, 10);
+  const todayStr = today();
   const estadoHorometro = (() => {
     if (!solicitud.esPesada) return null;
     const ul = solicitud.ultimaLectura;

@@ -7,11 +7,14 @@ import { formatFechaHora, unidadLabel } from '../../types/solicitud.types';
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function itemRef(item: ItemSnapshot): string {
-  return item.kind === 'maquinaria' ? item.equipoId : item.tipo;
+  if (item.kind === 'maquinaria' || item.kind === 'pesada') return item.equipoId;
+  return item.tipo;
 }
 
 function itemLabel(item: ItemSnapshot): string {
-  if (item.kind === 'maquinaria') return `#${item.numeracion} ${item.descripcion}`;
+  if (item.kind === 'maquinaria' || item.kind === 'pesada') {
+    return `#${item.numeracion} ${item.descripcion}${item.kind === 'pesada' && item.conMartillo ? ' +Martillo' : ''}`;
+  }
   return `${item.tipoLabel}${item.conMadera ? ' (c/madera)' : ''} × ${item.cantidad.toLocaleString('es-GT')}`;
 }
 
@@ -169,14 +172,18 @@ export default function DevolucionModal({
     setError(null);
     setGuardando(true);
     try {
-      const dto = {
-        itemRefs: esDevolcionCompleta ? undefined : itemsADevolver.map(itemRef),
-        recargosAdicionales: cargosValidos.length > 0
-          ? cargosValidos.map(c => ({ descripcion: c.descripcion.trim(), monto: c.monto as number }))
-          : undefined,
-      };
+      const recargosPayload = cargosValidos.length > 0
+        ? cargosValidos.map(c => ({ descripcion: c.descripcion.trim(), monto: c.monto as number }))
+        : undefined;
 
-      const solicitudActualizada = await solicitudesService.registrarDevolucion(solicitud.id, dto);
+      const solicitudActualizada = solicitud.esPesada
+        ? await solicitudesService.registrarDevolucionPesada(solicitud.id, {
+            recargosAdicionales: recargosPayload,
+          })
+        : await solicitudesService.registrarDevolucion(solicitud.id, {
+            itemRefs: esDevolcionCompleta ? undefined : itemsADevolver.map(itemRef),
+            recargosAdicionales: recargosPayload,
+          });
       const devoluciones         = solicitudActualizada.devolucionesParciales ?? [];
       const devolucion           = devoluciones[devoluciones.length - 1];
       if (!devolucion) throw new Error('No se recibió confirmación del servidor.');

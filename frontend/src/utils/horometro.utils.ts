@@ -2,8 +2,15 @@ import type { LecturaHorometro } from '../services/solicitudes.service';
 
 export type DiaStatus = 'completo' | 'parcial' | 'sin-registro';
 
+/** Fecha local de un Date como "YYYY-MM-DD" (sin conversión UTC). */
+export function localDateOf(d: Date): string {
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
 export function today(): string {
-  return new Date().toISOString().substring(0, 10);
+  return localDateOf(new Date());
 }
 
 export function generarDias(inicio: string, fin: string): string[] {

@@ -24,7 +24,7 @@ const GRANEL_TIPOS: { tipo: TipoGranel; tipoLabel: string }[] = [
   { tipo: 'ANDAMIO_RUEDAS', tipoLabel: 'Andamios con ruedas' },
 ];
 
-const today = () => new Date().toISOString().split('T')[0];
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 const emptyForm = (): GranelForm => ({ cantidad: '', fechaInicio: today(), duracion: '', unidad: 'dias', conMadera: false });
 
 const inputCls  = 'w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50';

@@ -1,7 +1,7 @@
 import type { SolicitudRenta, ItemSnapshot } from '../../types/solicitud-renta.types';
 import type { LecturaHorometro } from '../../services/solicitudes.service';
 import {
-  today, generarDias, getDiaStatus,
+  today, localDateOf, generarDias, getDiaStatus,
   DIA_BG, DIA_ICON, DIA_LABEL,
 } from '../../utils/horometro.utils';
 
@@ -36,7 +36,7 @@ export default function HorometroRentaCard({ solicitud, lecturas, onVerDetalle, 
   // Últimos 7 días acotados al inicio de la renta
   const hace6Dias = new Date();
   hace6Dias.setDate(hace6Dias.getDate() - 6);
-  const desde = hace6Dias.toISOString().substring(0, 10);
+  const desde = localDateOf(hace6Dias);
   const ultimos7 = generarDias(desde < fechaInicioStr ? fechaInicioStr : desde, hoy);
 
   const borderColor = {

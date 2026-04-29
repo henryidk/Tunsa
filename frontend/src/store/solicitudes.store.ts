@@ -21,9 +21,9 @@ export const useSolicitudesStore = create<SolicitudesState>((set) => ({
   setSolicitudes: (data) =>
     set((state) => {
       // Preserva solicitudes ya añadidas por socket antes de que retornara el REST
-      const restIds    = new Set(data.map(s => s.id));
-      const viaSocket  = state.solicitudes.filter(s => !restIds.has(s.id));
-      return { solicitudes: [...viaSocket, ...data] };
+      const restIds   = new Set(data.map(s => s.id));
+      const viaSocket = state.solicitudes.filter(s => !restIds.has(s.id));
+      return { solicitudes: [...viaSocket, ...data], error: null };
     }),
 
   addSolicitud: (nueva) =>

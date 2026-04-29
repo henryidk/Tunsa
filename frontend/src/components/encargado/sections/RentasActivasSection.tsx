@@ -152,7 +152,7 @@ export default function RentasActivasSection({ onNavTo }: Props) {
           }
         />
         <StatCard
-          label="Acumulado pesadas"
+          label="Cobrado por horómetro"
           value={isLoading ? null : `Q ${acumuladoPesadas.toLocaleString('es-GT', { minimumFractionDigits: 2 })}`}
           color="amber"
           icon={

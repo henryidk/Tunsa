@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { solicitudesService, type LecturaHorometro } from '../../services/solicitudes.service';
 import { generarLiquidacion } from '../../utils/generarLiquidacion';
 import type { SolicitudRenta, DevolucionEntry } from '../../types/solicitud-renta.types';
-import { type ItemRetorno, type CargoRow, type Paso, getPendientes, estimarLecturasConDevolucion } from './devolucion-pesada/types';
+import { type ItemRetorno, type CargoRow, type Paso, getPendientes, estimarLecturasConDevolucion, calcularBloqueos } from './devolucion-pesada/types';
 import PasoIndicador from './devolucion-pesada/PasoIndicador';
 import PasoEquipos   from './devolucion-pesada/PasoEquipos';
 import PasoCargos    from './devolucion-pesada/PasoCargos';
@@ -76,8 +76,16 @@ export default function DevolucionPesadaModal({
       return { ...c, descripcion: valor };
     }));
 
-  const seleccionados  = items.filter(it => it.seleccionado);
-  const paso1Valido    = seleccionados.length > 0 && seleccionados.every(it => it.horometroDevolucion !== '');
+  const seleccionados = items.filter(it => it.seleccionado);
+
+  const bloqueoItems = useMemo(
+    () => calcularBloqueos(lecturas, seleccionados),
+    [lecturas, seleccionados],
+  );
+
+  const paso1Valido = seleccionados.length > 0
+    && seleccionados.every(it => it.horometroDevolucion !== '')
+    && bloqueoItems.size === 0;
   const cargosValidos  = !hayCargos ? [] : cargos.filter(c => c.descripcion.trim() !== '' && c.monto !== '' && (c.monto as number) > 0);
   const cargosConError = hayCargos && cargos.some(c => c.descripcion.trim() === '' && c.monto !== '');
   const totalCargosAd  = cargosValidos.reduce((s, c) => s + (c.monto as number), 0);
@@ -215,6 +223,7 @@ export default function DevolucionPesadaModal({
               esItemUnico={esItemUnico}
               loadingLectura={loadingLectura}
               costoAcumPorEquipo={costoAcumPorEquipo}
+              bloqueoItems={bloqueoItems}
               onToggle={toggleItem}
               onHorometro={setHorometro}
             />

@@ -1,6 +1,8 @@
 import type { SolicitudRenta, ItemSnapshot } from '../../../types/solicitud-renta.types';
 import type { LecturaHorometro } from '../../../services/solicitudes.service';
 
+export type BloqueoRazon = 'sin-lecturas' | 'sin-fin5pm';
+
 export type Paso = 1 | 2 | 3 | 4 | 'resultado';
 
 export interface ItemRetorno {
@@ -66,6 +68,34 @@ export function estimarLecturasConDevolucion(
 
     return { ...lectura, horasNocturnas, horasDiurnasRaw, horasDiurnasFacturadas, ajusteMinimo, costoDiurno, costoNocturno, costoTotal };
   });
+}
+
+/**
+ * Determina qué ítems seleccionados no pueden procesarse aún y por qué.
+ * Regla: toda devolución requiere al menos una lectura completa (inicio + fin5pm).
+ */
+export function calcularBloqueos(
+  lecturas:      LecturaHorometro[],
+  seleccionados: ItemRetorno[],
+): Map<string, BloqueoRazon> {
+  const lecturasPorEquipo = new Map<string, LecturaHorometro[]>();
+  for (const l of lecturas) {
+    const arr = lecturasPorEquipo.get(l.equipoId) ?? [];
+    arr.push(l);
+    lecturasPorEquipo.set(l.equipoId, arr);
+  }
+
+  const resultado = new Map<string, BloqueoRazon>();
+  for (const it of seleccionados) {
+    const lects = lecturasPorEquipo.get(it.equipoId) ?? [];
+    if (lects.length === 0) {
+      resultado.set(it.equipoId, 'sin-lecturas');
+    } else {
+      const ultima = lects.reduce((a, b) => (a.fecha >= b.fecha ? a : b));
+      if (ultima.horometroFin5pm == null) resultado.set(it.equipoId, 'sin-fin5pm');
+    }
+  }
+  return resultado;
 }
 
 type PesadaItem = Extract<ItemSnapshot, { kind: 'pesada' }>;

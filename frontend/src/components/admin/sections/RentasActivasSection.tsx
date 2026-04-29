@@ -7,6 +7,7 @@ import type { SolicitudRenta } from '../../../types/solicitud-renta.types';
 import RentaActivaCard from '../../shared/RentaActivaCard';
 import AmpliacionRentaModal from '../../shared/AmpliacionRentaModal';
 import DevolucionModal from '../../shared/DevolucionModal';
+import DevolucionPesadaModal from '../../encargado/DevolucionPesadaModal';
 import StatCard from '../../shared/StatCard';
 
 export default function RentasActivasSection() {
@@ -19,6 +20,7 @@ export default function RentasActivasSection() {
   const [abriendo,        setAbriendo]        = useState<string | null>(null);
   const [modalAmpliar,    setModalAmpliar]    = useState<SolicitudRenta | null>(null);
   const [modalDevolucion, setModalDevolucion] = useState<SolicitudRenta | null>(null);
+  const [modalDevPesada,  setModalDevPesada]  = useState<SolicitudRenta | null>(null);
   const [ahora,           setAhora]           = useState(() => Date.now());
 
   useEffect(() => {
@@ -58,6 +60,12 @@ export default function RentasActivasSection() {
     setModalDevolucion(null);
   };
 
+  const handleDevolucionPesada = (actualizada: SolicitudRenta) => {
+    if (actualizada.estado === 'DEVUELTA') removeRenta(actualizada.id);
+    else updateRenta(actualizada);
+    setModalDevPesada(null);
+  };
+
   const solicitudesFiltradas = busqueda.trim()
     ? solicitudes.filter(s =>
         s.cliente.nombre.toLowerCase().includes(busqueda.toLowerCase().trim()),
@@ -82,6 +90,13 @@ export default function RentasActivasSection() {
           solicitud={modalDevolucion}
           onClose={() => setModalDevolucion(null)}
           onDevolucion={handleDevolucion}
+        />
+      )}
+      {modalDevPesada && (
+        <DevolucionPesadaModal
+          solicitud={modalDevPesada}
+          onClose={() => setModalDevPesada(null)}
+          onDevolucion={handleDevolucionPesada}
         />
       )}
 
@@ -164,7 +179,7 @@ export default function RentasActivasSection() {
               showEncargado
               onVerComprobante={() => handleVerComprobante(s.id)}
               onAmpliar={() => setModalAmpliar(s)}
-              onDevolucion={() => setModalDevolucion(s)}
+              onDevolucion={s.esPesada ? () => setModalDevPesada(s) : () => setModalDevolucion(s)}
             />
           ))}
         </div>

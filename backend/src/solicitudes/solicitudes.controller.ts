@@ -14,6 +14,7 @@ import { RegistrarDevolucionDto } from './dto/registrar-devolucion.dto';
 import { RegistrarLecturaDto } from './dto/lectura-horometro.dto';
 import { RegistrarDevolucionPesadaDto } from './dto/registrar-devolucion-pesada.dto';
 import { QueryRechazadasDto } from './dto/query-rechazadas.dto';
+import { QueryHistorialDto } from './dto/query-historial.dto';
 import { RechazarSolicitudDto } from './dto/rechazar-solicitud.dto';
 import { IniciarEntregaDto } from './dto/iniciar-entrega.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -229,11 +230,12 @@ export class SolicitudesController {
 
   @Get('historial')
   @Roles('admin', 'secretaria')
-  findHistorial(@Query() query: QueryRechazadasDto) {
+  findHistorial(@Query() query: QueryHistorialDto) {
     return this.solicitudesQueryService.findHistorial({
       fechaDesde: new Date(query.fechaDesde),
       fechaHasta: new Date(query.fechaHasta),
       cursor:     query.cursor,
+      creadaPor:  query.creadaPor,
     });
   }
 

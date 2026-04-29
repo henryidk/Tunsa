@@ -52,4 +52,9 @@ export const usuariosService = {
   async changePassword(newPassword: string): Promise<void> {
     await api.patch('/users/change-password', { newPassword });
   },
+
+  async getEncargados(): Promise<{ username: string; nombre: string }[]> {
+    const response = await api.get<{ username: string; nombre: string }[]>('/users/encargados');
+    return response.data;
+  },
 };

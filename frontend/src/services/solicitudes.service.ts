@@ -15,9 +15,16 @@ export interface RechazadasPage {
 }
 
 export interface QueryRechazadas {
-  fechaDesde: string; // ISO date string
-  fechaHasta: string; // ISO date string
+  fechaDesde: string;
+  fechaHasta: string;
   cursor?:    string;
+}
+
+export interface QueryHistorial {
+  fechaDesde: string;
+  fechaHasta: string;
+  cursor?:    string;
+  creadaPor?: string;
 }
 
 interface CreateSolicitudPayload {
@@ -178,7 +185,7 @@ export const solicitudesService = {
     return res.data;
   },
 
-  async getHistorial(params: QueryRechazadas): Promise<RechazadasPage> {
+  async getHistorial(params: QueryHistorial): Promise<RechazadasPage> {
     const res = await api.get<RechazadasPage>('/solicitudes/historial', { params });
     return res.data;
   },

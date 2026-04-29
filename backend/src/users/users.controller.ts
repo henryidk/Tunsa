@@ -22,6 +22,12 @@ export class UsersController {
     return this.usersService.findAll();
   }
 
+  @Get('encargados')
+  @Roles('admin', 'secretaria')
+  findEncargados() {
+    return this.usersService.findEncargados();
+  }
+
   @Post()
   @Roles('admin', 'secretaria')
   create(

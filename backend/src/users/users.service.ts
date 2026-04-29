@@ -73,6 +73,14 @@ export class UsersService {
     });
   }
 
+  async findEncargados(): Promise<{ username: string; nombre: string }[]> {
+    return this.prisma.usuario.findMany({
+      where:   { isActive: true, role: { nombre: 'encargado_maquinas' } },
+      select:  { username: true, nombre: true },
+      orderBy: { nombre: 'asc' },
+    });
+  }
+
   async setActive(id: string, isActive: boolean, requestingUserId: string, requestingUsername: string) {
     if (id === requestingUserId) {
       throw new ConflictException('No puedes modificar el estado de tu propia cuenta');

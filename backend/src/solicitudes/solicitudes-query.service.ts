@@ -259,15 +259,16 @@ export class SolicitudesQueryService {
    * pero sin filtro de encargado.
    */
   async findHistorial(
-    params: { fechaDesde: Date; fechaHasta: Date; cursor?: string },
+    params: { fechaDesde: Date; fechaHasta: Date; cursor?: string; creadaPor?: string },
   ): Promise<RechazadasPage> {
-    const { fechaDesde, fechaHasta, cursor } = params;
+    const { fechaDesde, fechaHasta, cursor, creadaPor } = params;
     const keysetClause = cursor ? this.decodeHistorialCursor(cursor) : null;
 
     const solicitudes = await this.prisma.solicitud.findMany({
       where: {
         estado:                { in: ['ACTIVA', 'DEVUELTA'] },
         fechaUltimaDevolucion: { not: null, gte: fechaDesde, lte: fechaHasta },
+        ...(creadaPor && { creadaPor }),
         ...(keysetClause && {
           OR: [
             { fechaUltimaDevolucion: { lt: keysetClause.fechaUltimaDevolucion } },

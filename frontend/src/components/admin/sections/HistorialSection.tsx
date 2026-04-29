@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { solicitudesService } from '../../../services/solicitudes.service';
+import { usuariosService } from '../../../services/usuarios.service';
 import type { SolicitudRenta } from '../../../types/solicitud-renta.types';
 import RentaHistorialCard from '../../shared/RentaHistorialCard';
 
@@ -31,10 +32,15 @@ function endOfDay(dateStr: string): string {
 
 // ── Sección principal ─────────────────────────────────────────────────────────
 
+interface Encargado { username: string; nombre: string; }
+interface FiltroActivo { desde: string; hasta: string; creadaPor: string; }
+
 export default function HistorialSection() {
   const [fechaDesde,    setFechaDesde]    = useState(inicioMes());
   const [fechaHasta,    setFechaHasta]    = useState(hoy());
-  const [filtroActivo,  setFiltroActivo]  = useState({ desde: inicioMes(), hasta: hoy() });
+  const [encargado,     setEncargado]     = useState('');
+  const [encargados,    setEncargados]    = useState<Encargado[]>([]);
+  const [filtroActivo,  setFiltroActivo]  = useState<FiltroActivo>({ desde: inicioMes(), hasta: hoy(), creadaPor: '' });
   const [solicitudes,   setSolicitudes]   = useState<SolicitudRenta[]>([]);
   const [nextCursor,    setNextCursor]    = useState<string | null>(null);
   const [isLoading,     setIsLoading]     = useState(false);
@@ -43,16 +49,21 @@ export default function HistorialSection() {
 
   const sentinelRef = useRef<HTMLDivElement>(null);
 
-  const buscar = useCallback(async (desde: string, hasta: string) => {
+  useEffect(() => {
+    usuariosService.getEncargados().then(setEncargados).catch(() => {});
+  }, []);
+
+  const buscar = useCallback(async (desde: string, hasta: string, creadaPor: string) => {
     setIsLoading(true);
     setError(null);
     setSolicitudes([]);
     setNextCursor(null);
-    setFiltroActivo({ desde, hasta });
+    setFiltroActivo({ desde, hasta, creadaPor });
     try {
       const res = await solicitudesService.getHistorial({
         fechaDesde: startOfDay(desde),
         fechaHasta: endOfDay(hasta),
+        ...(creadaPor && { creadaPor }),
       });
       setSolicitudes(res.data);
       setNextCursor(res.nextCursor);
@@ -63,13 +74,14 @@ export default function HistorialSection() {
     }
   }, []);
 
-  const cargarMas = useCallback(async (cursor: string, desde: string, hasta: string) => {
+  const cargarMas = useCallback(async (cursor: string, filtro: FiltroActivo) => {
     setIsLoadingMore(true);
     try {
       const res = await solicitudesService.getHistorial({
-        fechaDesde: startOfDay(desde),
-        fechaHasta: endOfDay(hasta),
+        fechaDesde: startOfDay(filtro.desde),
+        fechaHasta: endOfDay(filtro.hasta),
         cursor,
+        ...(filtro.creadaPor && { creadaPor: filtro.creadaPor }),
       });
       setSolicitudes(prev => [...prev, ...res.data]);
       setNextCursor(res.nextCursor);
@@ -81,7 +93,7 @@ export default function HistorialSection() {
   }, []);
 
   useEffect(() => {
-    buscar(inicioMes(), hoy());
+    buscar(inicioMes(), hoy(), '');
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -89,7 +101,7 @@ export default function HistorialSection() {
     if (!sentinelRef.current || !nextCursor || isLoadingMore) return;
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting) cargarMas(nextCursor, filtroActivo.desde, filtroActivo.hasta);
+        if (entries[0].isIntersecting) cargarMas(nextCursor, filtroActivo);
       },
       { threshold: 0.1 },
     );
@@ -109,10 +121,13 @@ export default function HistorialSection() {
       <FiltroFechas
         fechaDesde={fechaDesde}
         fechaHasta={fechaHasta}
+        encargado={encargado}
+        encargados={encargados}
         isLoading={isLoading}
         onChangeDe={setFechaDesde}
         onChangeHasta={setFechaHasta}
-        onBuscar={() => buscar(fechaDesde, fechaHasta)}
+        onChangeEncargado={setEncargado}
+        onBuscar={() => buscar(fechaDesde, fechaHasta, encargado)}
       />
 
       {error && (
@@ -142,14 +157,18 @@ export default function HistorialSection() {
 // ── Sub-componentes de UI ─────────────────────────────────────────────────────
 
 function FiltroFechas({
-  fechaDesde, fechaHasta, isLoading, onChangeDe, onChangeHasta, onBuscar,
+  fechaDesde, fechaHasta, encargado, encargados, isLoading,
+  onChangeDe, onChangeHasta, onChangeEncargado, onBuscar,
 }: {
-  fechaDesde:    string;
-  fechaHasta:    string;
-  isLoading:     boolean;
-  onChangeDe:    (v: string) => void;
-  onChangeHasta: (v: string) => void;
-  onBuscar:      () => void;
+  fechaDesde:        string;
+  fechaHasta:        string;
+  encargado:         string;
+  encargados:        Encargado[];
+  isLoading:         boolean;
+  onChangeDe:        (v: string) => void;
+  onChangeHasta:     (v: string) => void;
+  onChangeEncargado: (v: string) => void;
+  onBuscar:          () => void;
 }) {
   return (
     <div className="bg-white border border-slate-200 rounded-xl px-5 py-4 mb-6 flex flex-wrap items-end gap-4 shadow-sm">
@@ -172,6 +191,19 @@ function FiltroFechas({
           onChange={e => onChangeHasta(e.target.value)}
           className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300"
         />
+      </div>
+      <div>
+        <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-1">Encargado</label>
+        <select
+          value={encargado}
+          onChange={e => onChangeEncargado(e.target.value)}
+          className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+        >
+          <option value="">Todos</option>
+          {encargados.map(e => (
+            <option key={e.username} value={e.username}>{e.nombre}</option>
+          ))}
+        </select>
       </div>
       <button
         onClick={onBuscar}

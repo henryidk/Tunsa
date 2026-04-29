@@ -66,19 +66,19 @@ export class SolicitudesQueryService {
     const now = new Date();
     const solicitudes = await this.prisma.solicitud.findMany({
       where:   { estado: 'ACTIVA', fechaFinEstimada: { lt: now } },
-      include: { cliente: true },
+      include: { cliente: true, lecturas: { orderBy: { fecha: 'desc' }, take: 1 } },
       orderBy: { fechaFinEstimada: 'asc' },
     });
-    return solicitudes.map(serializeSolicitud);
+    return solicitudes.map(s => serializeSolicitud(s as SolicitudConCliente));
   }
 
   async findActivas() {
     const solicitudes = await this.prisma.solicitud.findMany({
       where:   { estado: 'ACTIVA' },
-      include: { cliente: true },
+      include: { cliente: true, lecturas: { orderBy: { fecha: 'desc' }, take: 1 } },
       orderBy: { fechaEntrega: 'desc' },
     });
-    return solicitudes.map(serializeSolicitud);
+    return solicitudes.map(s => serializeSolicitud(s as SolicitudConCliente));
   }
 
   async getDashboardStatsEncargado(username: string) {

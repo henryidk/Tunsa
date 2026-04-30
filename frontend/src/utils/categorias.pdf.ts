@@ -54,7 +54,8 @@ function fMoneda(v: number | null | undefined): string {
 }
 
 function fFecha(iso: string): string {
-  return new Date(iso).toLocaleDateString('es-GT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const d = iso.length === 10 ? new Date(iso + 'T12:00:00') : new Date(iso);
+  return d.toLocaleDateString('es-GT', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
 function fFechaHoy(): string {
@@ -360,6 +361,5 @@ export function generarReporteCategorias(tipos: TipoAdmin[], equipos: Equipo[]):
     doc.text(`Página ${p} de ${totalPages}`, pageWidth - 14, pageH - 3, { align: 'right' });
   }
 
-  const fecha = new Date().toISOString().slice(0, 10);
-  doc.save(`categorias_equipos_${fecha}.pdf`);
+  doc.save(`categorias_equipos_${fFechaHoy().replace(/\//g, '-')}.pdf`);
 }

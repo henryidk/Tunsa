@@ -18,7 +18,7 @@ export function generarDias(inicio: string, fin: string): string[] {
   let current = new Date(inicio + 'T00:00:00');
   const end   = new Date(fin   + 'T00:00:00');
   while (current <= end) {
-    days.push(current.toISOString().substring(0, 10));
+    days.push(localDateOf(current));
     current = new Date(current.getTime() + 86_400_000);
   }
   return days;

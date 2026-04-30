@@ -106,7 +106,7 @@ model Equipo {
   numeracion   String     @unique
   descripcion  String     @db.Text
   serie        String?    @db.Text
-  fechaCompra  DateTime
+  fechaCompra  DateTime   @db.Date
   montoCompra  Decimal    @db.Decimal(12, 2)
 
   // Tipo: requerido. Categoría: opcional, pero cuando existe debe pertenecer al mismo tipo.
@@ -126,7 +126,7 @@ model Equipo {
 
   isActive     Boolean    @default(true)
   motivoBaja   String?
-  fechaBaja    DateTime?
+  fechaBaja    DateTime?  @db.Date
 
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
@@ -248,7 +248,7 @@ model LoteGranel {
   descripcion    String
   cantidad       Int
   precioUnitario Decimal    @db.Decimal(10, 2)
-  fechaCompra    DateTime?
+  fechaCompra    DateTime?  @db.Date
   ubicacion      String?
   isActive       Boolean    @default(true)
 

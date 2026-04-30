@@ -13,6 +13,7 @@ export class GranelService {
     return {
       ...l,
       precioUnitario: l.precioUnitario != null ? parseFloat(l.precioUnitario.toString()) : null,
+      fechaCompra:    l.fechaCompra instanceof Date ? l.fechaCompra.toISOString().substring(0, 10) : l.fechaCompra,
     };
   }
 
@@ -85,7 +86,7 @@ export class GranelService {
         ...(dto.descripcion    !== undefined && { descripcion:    dto.descripcion }),
         ...(dto.cantidad       !== undefined && { cantidad:       dto.cantidad }),
         ...(dto.precioUnitario !== undefined && { precioUnitario: dto.precioUnitario }),
-        ...(dto.fechaCompra    !== undefined && { fechaCompra:    new Date(dto.fechaCompra) }),
+        ...(dto.fechaCompra    !== undefined && { fechaCompra:    dto.fechaCompra ? new Date(dto.fechaCompra) : null }),
         ...(dto.ubicacion      !== undefined && { ubicacion:      dto.ubicacion || null }),
       },
     });

@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateEquipoDto } from './dto/create-equipo.dto';
 import { UpdateEquipoDto } from './dto/update-equipo.dto';
 import { BajaEquipoDto } from './dto/baja-equipo.dto';
+import { fechaHoyGT } from '../common/utils/date.util';
 
 // Incluir tipo y categoría en todas las consultas
 const EQUIPO_INCLUDE = {
@@ -24,6 +25,8 @@ export class EquiposService {
   private serialize(equipo: any) {
     return {
       ...equipo,
+      fechaCompra:       equipo.fechaCompra instanceof Date ? equipo.fechaCompra.toISOString().substring(0, 10) : equipo.fechaCompra,
+      fechaBaja:         equipo.fechaBaja   instanceof Date ? equipo.fechaBaja.toISOString().substring(0, 10)   : equipo.fechaBaja,
       montoCompra:       equipo.montoCompra       != null ? parseFloat(equipo.montoCompra.toString())       : null,
       rentaHora:         equipo.rentaHora         != null ? parseFloat(equipo.rentaHora.toString())         : null,
       rentaHoraMartillo: equipo.rentaHoraMartillo != null ? parseFloat(equipo.rentaHoraMartillo.toString()) : null,
@@ -307,7 +310,7 @@ export class EquiposService {
 
     const updated = await this.prisma.equipo.update({
       where: { id },
-      data: { isActive: false, motivoBaja: dto.motivo || null, fechaBaja: new Date() },
+      data: { isActive: false, motivoBaja: dto.motivo || null, fechaBaja: fechaHoyGT() },
       include: EQUIPO_INCLUDE,
     });
     return this.serialize(updated);

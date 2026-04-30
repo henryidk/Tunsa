@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { inicioHoyGT } from '../common/utils/date.util';
 
 const PAGE_SIZE = 50;
 
@@ -26,8 +27,7 @@ export class BitacorasService {
 
   /** GET /bitacoras/stats — conteos globales sin cargar registros */
   async getStats(): Promise<BitacoraStatsResult> {
-    const hoyStart = new Date();
-    hoyStart.setHours(0, 0, 0, 0);
+    const hoyStart = inicioHoyGT();
 
     const [total, hoy, grupos] = await Promise.all([
       this.prisma.bitacora.count(),

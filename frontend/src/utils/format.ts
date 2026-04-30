@@ -9,7 +9,12 @@ export function formatMoneda(value: number | null | undefined): string {
 
 export function formatFecha(iso: string | null | undefined): string {
   if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('es-GT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  // Strings de solo fecha ("YYYY-MM-DD"): parsear como mediodía local para evitar
+  // el rollover UTC→local en zonas UTC-X. Full timestamps: convertir normalmente.
+  const d = iso.length === 10
+    ? new Date(iso + 'T12:00:00')
+    : new Date(iso);
+  return d.toLocaleDateString('es-GT', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
 /** Extrae el mensaje de error de una respuesta Axios. */

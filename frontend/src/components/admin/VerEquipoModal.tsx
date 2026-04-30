@@ -19,7 +19,8 @@ function formatMoneda(value: number | null | undefined): string {
 
 function formatFecha(iso: string | null | undefined): string {
   if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('es-GT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const d = iso.length === 10 ? new Date(iso + 'T12:00:00') : new Date(iso);
+  return d.toLocaleDateString('es-GT', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {

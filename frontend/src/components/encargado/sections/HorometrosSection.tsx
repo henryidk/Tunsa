@@ -122,7 +122,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
   const lecturasEquipo = lecturasAll?.filter(l => l.equipoId === activeEquipo) ?? null;
 
   const fechaInicioStr = selectedSol?.fechaInicioRenta
-    ? selectedSol.fechaInicioRenta.substring(0, 10)
+    ? localDateOf(new Date(selectedSol.fechaInicioRenta))
     : hoy;
 
   // Month navigation constraints

@@ -90,10 +90,14 @@ export class SolicitudesGateway implements OnGatewayConnection, OnGatewayDisconn
     }
   }
 
-  emitRentaActiva(solicitud: object) {
+  emitRentaActiva(solicitud: object, encargadoUsername: string) {
     try {
-      this.logger.log('[WS] Emitiendo renta:activa a rol:admin, rol:secretaria');
-      this.server.to('rol:admin').to('rol:secretaria').emit('renta:activa', solicitud);
+      this.logger.log(`[WS] Emitiendo renta:activa a rol:admin, rol:secretaria, user:${encargadoUsername}`);
+      this.server
+        .to('rol:admin')
+        .to('rol:secretaria')
+        .to(`user:${encargadoUsername}`)
+        .emit('renta:activa', solicitud);
     } catch (err) {
       this.logger.error(`[WS] Error emitiendo renta:activa: ${(err as Error).message}`);
     }

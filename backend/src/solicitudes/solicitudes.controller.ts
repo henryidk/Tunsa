@@ -100,7 +100,7 @@ export class SolicitudesController {
     const solicitud = await this.solicitudesService.confirmarEntrega(
       id, file.buffer, file.mimetype, user.username,
     );
-    this.solicitudesGateway.emitRentaActiva(solicitud);
+    this.solicitudesGateway.emitRentaActiva(solicitud, user.username);
     return solicitud;
   }
 

@@ -77,9 +77,14 @@ export function useEncargadoSocket({ playSound, showToast }: UseEncargadoSocketO
       playSound();
     };
 
+    const handleRentaActiva = (solicitud: SolicitudRenta) => {
+      useActivasStore.getState().addRenta(solicitud);
+    };
+
     socket.on('solicitud:aprobada',  handleSolicitudAprobada);
     socket.on('solicitud:rechazada', handleSolicitudRechazada);
     socket.on('renta:vencida',       handleRentaVencida);
+    socket.on('renta:activa',        handleRentaActiva);
 
     // Igual que en useAdminSocket: reconectar si el servidor desconecta por token expirado.
     socket.on('disconnect', (reason) => {

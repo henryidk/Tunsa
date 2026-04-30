@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAprobadasStore } from '../../../store/aprobadas.store';
+import { useActivasStore } from '../../../store/activas.store';
 import SubirComprobanteModal from '../SubirComprobanteModal';
 import { generarComprobante } from '../../../utils/generarComprobante';
 import { solicitudesService } from '../../../services/solicitudes.service';
@@ -21,6 +22,7 @@ export default function PorEntregarSection({ onShowToast = () => {} }: Props) {
 
   const handleEntregaConfirmada = (updated: SolicitudRenta) => {
     removeSolicitud(updated.id);
+    useActivasStore.getState().addRenta(updated);
     onShowToast('success', 'Entrega registrada', `Renta para ${updated.cliente.nombre} está activa.`);
   };
 

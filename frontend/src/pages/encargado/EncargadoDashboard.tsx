@@ -40,14 +40,16 @@ type NavState = { solicitudId?: string };
 
 export default function EncargadoDashboard() {
   const { user, logout, mustChangePassword } = useAuthStore();
-  const [activeSection, setActiveSection] = useState<Section>('dashboard');
-  const [navState,      setNavState]      = useState<NavState>({});
+  const [activeSection,    setActiveSection]    = useState<Section>('dashboard');
+  const [navState,         setNavState]         = useState<NavState>({});
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [toast, setToast] = useState<ToastState>({ visible: false, type: 'success', title: '', msg: '' });
+  const [toast,            setToast]            = useState<ToastState>({ visible: false, type: 'success', title: '', msg: '' });
+  const [horometrosKey,    setHorometrosKey]    = useState(0);
 
   const navTo = (section: string, state: NavState = {}) => {
     setActiveSection(section as Section);
     setNavState(state);
+    if (section === 'horometros') setHorometrosKey(k => k + 1);
   };
 
   const showToast = useCallback((type: ToastType, title: string, msg: string) => {
@@ -70,7 +72,7 @@ export default function EncargadoDashboard() {
       case 'por-entregar':    return <PorEntregarSection onShowToast={showToast} />;
       case 'mis-solicitudes': return <MisSolicitudesSection onNavTo={navTo} misPendientes={misPendientes} />;
       case 'rentas-activas':  return <RentasActivasSection onNavTo={navTo} />;
-      case 'horometros':      return <HorometrosSection key={navState.solicitudId} initialSolicitudId={navState.solicitudId} />;
+      case 'horometros':      return <HorometrosSection key={horometrosKey} initialSolicitudId={navState.solicitudId} />;
       case 'vencidas':        return <VencidasSection />;
       case 'historial':       return <HistorialSection />;
       case 'equipos':         return <EquiposSection />;

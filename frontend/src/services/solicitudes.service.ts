@@ -57,10 +57,12 @@ export interface LecturaHorometro {
 }
 
 export interface DashboardStats {
-  pendientes:         number;
-  activas:            number;
-  vencidas:           number;
-  solicitudesEsteMes: number;
+  pendientes:           number;
+  activas:              number;
+  vencidas:             number;
+  solicitudesEsteMes:   number;
+  pesadaRecaudadaMes:   number;
+  livianaRecaudadaMes:  number;
 }
 
 export const solicitudesService = {

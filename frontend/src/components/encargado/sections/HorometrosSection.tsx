@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { solicitudesService, type LecturaHorometro } from '../../../services/solicitudes.service';
+import { solicitudesService, type LecturaHorometro, type DashboardStats } from '../../../services/solicitudes.service';
 import type { SolicitudRenta, ItemSnapshot } from '../../../types/solicitud-renta.types';
 import { formatQ } from '../../../types/solicitud.types';
 import {
@@ -55,7 +55,21 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
     fecha:    string;
   } | null>(null);
 
-  const resolvedFetch = fetchSolicitudes ?? fetchSolicitudesEncargado;
+  const resolvedFetch  = fetchSolicitudes ?? fetchSolicitudesEncargado;
+  const modoEncargado  = fetchSolicitudes == null;
+
+  const [pesadaStats,        setPesadaStats]        = useState<Pick<DashboardStats, 'pesadaRecaudadaMes'> | null>(null);
+  const [loadingPesadaStats, setLoadingPesadaStats] = useState(modoEncargado);
+
+  useEffect(() => {
+    if (!modoEncargado) return;
+    solicitudesService.getDashboardStats()
+      .then(s => setPesadaStats({ pesadaRecaudadaMes: s.pesadaRecaudadaMes }))
+      .catch(() => setPesadaStats({ pesadaRecaudadaMes: 0 }))
+      .finally(() => setLoadingPesadaStats(false));
+  // Solo se ejecuta al montar en modo encargado
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Load all pesada rentals (activas + vencidas, para poder registrar horómetros antes de devolver)
   useEffect(() => {
@@ -668,12 +682,44 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
   }
 
   // ── LIST VIEW ─────────────────────────────────────────────────────────────────
+  const pendientesCobrar = solicitudes.reduce((sum, s) => sum + s.costoAcumuladoPesada, 0);
+
   return (
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-800">Horómetros</h1>
         <p className="text-sm text-slate-500 mt-1">Registro diario de horas de maquinaria pesada en renta</p>
       </div>
+
+      {modoEncargado && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+          <PesadaStatCard
+            label="Pendientes de cobrar"
+            sublabel="Rentas activas · según horómetros"
+            value={pendientesCobrar}
+            isLoading={isLoadingList}
+            color="amber"
+            icon={
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+              </svg>
+            }
+          />
+          <PesadaStatCard
+            label="Recaudado este mes"
+            sublabel="Maquinaria pesada devuelta"
+            value={pesadaStats?.pesadaRecaudadaMes ?? 0}
+            isLoading={loadingPesadaStats}
+            color="emerald"
+            icon={
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="12" y1="1" x2="12" y2="23"/>
+                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+              </svg>
+            }
+          />
+        </div>
+      )}
 
       {!isLoadingList && pendientesHoy > 0 && (
         <div className="flex items-center gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 mb-6">
@@ -721,6 +767,45 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Stat card pesada ──────────────────────────────────────────────────────────
+function PesadaStatCard({
+  label, sublabel, value, isLoading, color, icon,
+}: {
+  label:     string;
+  sublabel:  string;
+  value:     number;
+  isLoading: boolean;
+  color:     'amber' | 'emerald';
+  icon:      React.ReactNode;
+}) {
+  const styles = {
+    amber:   { bg: '#fef3c7', fg: '#d97706', text: 'text-amber-700' },
+    emerald: { bg: '#dcfce7', fg: '#16a34a', text: 'text-emerald-700' },
+  }[color];
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl px-5 py-4 flex items-center gap-4 shadow-sm">
+      <div
+        className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+        style={{ background: styles.bg, color: styles.fg }}
+      >
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <p className="text-xs font-semibold text-slate-500">{label}</p>
+        {isLoading ? (
+          <div className="h-6 w-28 bg-slate-100 rounded animate-pulse mt-1" />
+        ) : (
+          <p className={`text-xl font-bold font-mono leading-tight ${styles.text}`}>
+            {formatQ(value)}
+          </p>
+        )}
+        <p className="text-[11px] text-slate-400 mt-0.5">{sublabel}</p>
+      </div>
     </div>
   );
 }

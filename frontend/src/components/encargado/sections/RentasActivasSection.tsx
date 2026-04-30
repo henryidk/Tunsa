@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { solicitudesService } from '../../../services/solicitudes.service';
+import { solicitudesService, type DashboardStats } from '../../../services/solicitudes.service';
 import { useActivasStore } from '../../../store/activas.store';
 import { useVencidasStore } from '../../../store/vencidas.store';
 import { useActivasVencidasSync } from '../../../hooks/useActivasVencidasSync';
@@ -18,13 +18,15 @@ export default function RentasActivasSection({ onNavTo }: Props) {
   const { solicitudes, setSolicitudes, updateRenta, removeRenta } = useActivasStore();
   const addVencida = useVencidasStore(s => s.addVencida);
 
-  const [isLoading,       setIsLoading]       = useState(true);
-  const [error,           setError]           = useState<string | null>(null);
-  const [abriendo,        setAbriendo]        = useState<string | null>(null);
-  const [modalAmpliar,    setModalAmpliar]    = useState<SolicitudRenta | null>(null);
-  const [modalDevolucion, setModalDevolucion] = useState<SolicitudRenta | null>(null);
-  const [modalDevPesada,  setModalDevPesada]  = useState<SolicitudRenta | null>(null);
-  const [ahora,           setAhora]           = useState(() => Date.now());
+  const [isLoading,         setIsLoading]         = useState(true);
+  const [error,             setError]             = useState<string | null>(null);
+  const [abriendo,          setAbriendo]          = useState<string | null>(null);
+  const [modalAmpliar,      setModalAmpliar]      = useState<SolicitudRenta | null>(null);
+  const [modalDevolucion,   setModalDevolucion]   = useState<SolicitudRenta | null>(null);
+  const [modalDevPesada,    setModalDevPesada]    = useState<SolicitudRenta | null>(null);
+  const [ahora,             setAhora]             = useState(() => Date.now());
+  const [pesadaStats,       setPesadaStats]       = useState<Pick<DashboardStats, 'pesadaRecaudadaMes' | 'livianaRecaudadaMes'> | null>(null);
+  const [loadingPesadaStats,setLoadingPesadaStats]= useState(true);
 
   useEffect(() => {
     solicitudesService.getActivasMias()
@@ -32,6 +34,18 @@ export default function RentasActivasSection({ onNavTo }: Props) {
       .catch(() => setError('No se pudieron cargar las rentas activas.'))
       .finally(() => setIsLoading(false));
   }, [setSolicitudes]);
+
+  const refreshStats = () => {
+    solicitudesService.getDashboardStats()
+      .then(s => setPesadaStats({ pesadaRecaudadaMes: s.pesadaRecaudadaMes, livianaRecaudadaMes: s.livianaRecaudadaMes }))
+      .catch(() => setPesadaStats({ pesadaRecaudadaMes: 0, livianaRecaudadaMes: 0 }))
+      .finally(() => setLoadingPesadaStats(false));
+  };
+
+  useEffect(() => {
+    refreshStats();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const id = setInterval(() => setAhora(Date.now()), 60_000);
@@ -58,13 +72,13 @@ export default function RentasActivasSection({ onNavTo }: Props) {
   };
 
   const handleDevolucion = (actualizada: SolicitudRenta) => {
-    if (actualizada.estado === 'DEVUELTA') removeRenta(actualizada.id);
+    if (actualizada.estado === 'DEVUELTA') { removeRenta(actualizada.id); refreshStats(); }
     else updateRenta(actualizada);
     setModalDevolucion(null);
   };
 
   const handleDevolucionPesada = (actualizada: SolicitudRenta) => {
-    if (actualizada.estado === 'DEVUELTA') removeRenta(actualizada.id);
+    if (actualizada.estado === 'DEVUELTA') { removeRenta(actualizada.id); refreshStats(); }
     else updateRenta(actualizada);
     setModalDevPesada(null);
   };
@@ -83,8 +97,7 @@ export default function RentasActivasSection({ onNavTo }: Props) {
     }).length;
   }, 0);
 
-  const ingresosLivianas  = solicitudes.filter(s => !s.esPesada).reduce((sum, s) => sum + s.totalEstimado, 0);
-  const acumuladoPesadas  = solicitudes.filter(s =>  s.esPesada).reduce((sum, s) => sum + s.costoAcumuladoPesada, 0);
+  const pendientesCobrar = solicitudes.filter(s => s.esPesada).reduce((sum, s) => sum + s.costoAcumuladoPesada, 0);
 
   return (
     <div>
@@ -115,7 +128,7 @@ export default function RentasActivasSection({ onNavTo }: Props) {
         <p className="text-sm text-slate-500 mt-1">Equipos actualmente rentados por tus clientes</p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
         <StatCard
           label="Contratos activos"
           value={isLoading ? null : contratosActivos.toString()}
@@ -141,23 +154,35 @@ export default function RentasActivasSection({ onNavTo }: Props) {
           }
         />
         <StatCard
-          label="Ingresos proyectados"
-          value={isLoading ? null : `Q ${ingresosLivianas.toLocaleString('es-GT', { minimumFractionDigits: 2 })}`}
+          label="Recaudado este mes"
+          value={loadingPesadaStats ? null : `Q ${(pesadaStats?.livianaRecaudadaMes ?? 0).toLocaleString('es-GT', { minimumFractionDigits: 2 })}`}
           color="emerald"
+          tag="Maq. liviana"
           icon={
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <line x1="12" y1="1" x2="12" y2="23"/>
-              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+              <polyline points="20 6 9 17 4 12"/>
             </svg>
           }
         />
         <StatCard
-          label="Cobrado por horómetro"
-          value={isLoading ? null : `Q ${acumuladoPesadas.toLocaleString('es-GT', { minimumFractionDigits: 2 })}`}
+          label="Pendientes de cobrar"
+          value={isLoading ? null : `Q ${pendientesCobrar.toLocaleString('es-GT', { minimumFractionDigits: 2 })}`}
           color="amber"
+          tag="Maq. pesada"
           icon={
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
               <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+          }
+        />
+        <StatCard
+          label="Recaudado este mes"
+          value={loadingPesadaStats ? null : `Q ${(pesadaStats?.pesadaRecaudadaMes ?? 0).toLocaleString('es-GT', { minimumFractionDigits: 2 })}`}
+          color="emerald"
+          tag="Maq. pesada · este mes"
+          icon={
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <polyline points="20 6 9 17 4 12"/>
             </svg>
           }
         />

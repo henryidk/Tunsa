@@ -58,6 +58,11 @@ export class ClientesService {
     const dpiExiste = await this.prisma.cliente.findUnique({ where: { dpi: dto.dpi } });
     if (dpiExiste) throw new ConflictException('Ya existe un cliente registrado con ese DPI.');
 
+    if (dto.telefono) {
+      const telExiste = await this.prisma.cliente.findUnique({ where: { telefono: dto.telefono } });
+      if (telExiste) throw new ConflictException('Ya existe un cliente registrado con ese número de teléfono.');
+    }
+
     const id      = await this.generarCodigo();
     const cliente = await this.prisma.cliente.create({ data: { id, ...dto } });
 
@@ -154,6 +159,13 @@ export class ClientesService {
         where: { dpi: dto.dpi, NOT: { id } },
       });
       if (dpiExiste) throw new ConflictException('Ya existe otro cliente con ese DPI.');
+    }
+
+    if (dto.telefono) {
+      const telExiste = await this.prisma.cliente.findFirst({
+        where: { telefono: dto.telefono, NOT: { id } },
+      });
+      if (telExiste) throw new ConflictException('Ya existe otro cliente con ese número de teléfono.');
     }
 
     const actualizado = await this.prisma.cliente.update({ where: { id }, data: dto });

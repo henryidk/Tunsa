@@ -15,9 +15,10 @@ interface StatCardProps {
   value: string | null;
   icon:  ReactNode;
   color: StatCardColor;
+  tag?:  string;
 }
 
-export default function StatCard({ label, value, icon, color }: StatCardProps) {
+export default function StatCard({ label, value, icon, color, tag }: StatCardProps) {
   const c = COLOR_MAP[color];
   return (
     <div className="bg-white border border-slate-200 rounded-xl px-5 py-4 flex items-center gap-4 shadow-sm">
@@ -30,6 +31,9 @@ export default function StatCard({ label, value, icon, color }: StatCardProps) {
           <div className="mt-1 h-6 w-16 bg-slate-100 rounded animate-pulse" />
         ) : (
           <p className={`text-xl font-bold font-mono ${c.value}`}>{value}</p>
+        )}
+        {tag && (
+          <p className="text-[10px] font-medium mt-0.5 text-slate-400">{tag}</p>
         )}
       </div>
     </div>

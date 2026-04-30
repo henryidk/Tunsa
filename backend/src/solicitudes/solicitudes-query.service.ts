@@ -104,7 +104,31 @@ export class SolicitudesQueryService {
       }),
     ]);
 
-    return { pendientes, activas, vencidas, solicitudesEsteMes };
+    // Recaudado este mes: rentas DEVUELTA del mes, separadas por tipo en JS
+    // (esPesada no está en Prisma types — se detecta desde el JSON de items)
+    const devueltasMes = await this.prisma.solicitud.findMany({
+      where: {
+        creadaPor:       username,
+        estado:          'DEVUELTA',
+        fechaDevolucion: { gte: inicioMes },
+      },
+      select: { items: true, totalFinal: true },
+    });
+
+    const esPesada = (s: { items: unknown }) => {
+      const items = s.items as Array<{ kind: string }>;
+      return items.some(i => i.kind === 'pesada');
+    };
+
+    const pesadaRecaudadaMes  = devueltasMes
+      .filter(s =>  esPesada(s))
+      .reduce((sum, s) => sum + (Number(s.totalFinal) || 0), 0);
+
+    const livianaRecaudadaMes = devueltasMes
+      .filter(s => !esPesada(s))
+      .reduce((sum, s) => sum + (Number(s.totalFinal) || 0), 0);
+
+    return { pendientes, activas, vencidas, solicitudesEsteMes, pesadaRecaudadaMes, livianaRecaudadaMes };
   }
 
   async findActivasMias(username: string) {

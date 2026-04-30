@@ -164,10 +164,10 @@ export default function RentasActivasSection({
           }
         />
         <StatCard
-          label="Recaudado este mes"
+          label="Maq. liviana"
           value={loadingPesadaStats ? null : `Q ${(pesadaStats?.livianaRecaudadaMes ?? 0).toLocaleString('es-GT', { minimumFractionDigits: 2 })}`}
           color="emerald"
-          tag="Maq. liviana"
+          tag="Recaudado este mes"
           icon={
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
               <polyline points="20 6 9 17 4 12"/>
@@ -175,24 +175,24 @@ export default function RentasActivasSection({
           }
         />
         <StatCard
-          label="Pendientes de cobrar"
+          label="Maq. pesada"
+          value={loadingPesadaStats ? null : `Q ${(pesadaStats?.pesadaRecaudadaMes ?? 0).toLocaleString('es-GT', { minimumFractionDigits: 2 })}`}
+          color="emerald"
+          tag="Recaudado este mes"
+          icon={
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+          }
+        />
+        <StatCard
+          label="Maq. pesada"
           value={isLoading ? null : `Q ${pendientesCobrar.toLocaleString('es-GT', { minimumFractionDigits: 2 })}`}
           color="amber"
-          tag="Maq. pesada"
+          tag="Pendientes de cobrar"
           icon={
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
               <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-            </svg>
-          }
-        />
-        <StatCard
-          label="Recaudado este mes"
-          value={loadingPesadaStats ? null : `Q ${(pesadaStats?.pesadaRecaudadaMes ?? 0).toLocaleString('es-GT', { minimumFractionDigits: 2 })}`}
-          color="emerald"
-          tag="Maq. pesada · este mes"
-          icon={
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <polyline points="20 6 9 17 4 12"/>
             </svg>
           }
         />

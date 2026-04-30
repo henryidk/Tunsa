@@ -4,7 +4,7 @@ import type { SolicitudRenta, ItemSnapshot } from '../../../types/solicitud-rent
 import { formatQ } from '../../../types/solicitud.types';
 import {
   today, getDiaStatus, generarDias,
-  formatFechaCorta, type DiaStatus,
+  formatFechaCorta, localDateOf, type DiaStatus,
 } from '../../../utils/horometro.utils';
 import HorometroRentaCard from '../HorometroRentaCard';
 import CalendarioMes from '../CalendarioMes';

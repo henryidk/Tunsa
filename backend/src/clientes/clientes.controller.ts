@@ -48,6 +48,11 @@ export class ClientesController {
     return this.clientesService.checkDpi(dpi);
   }
 
+  @Get('check-telefono')
+  checkTelefono(@Query('telefono') telefono: string) {
+    return this.clientesService.checkTelefono(telefono);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.clientesService.findOne(id);

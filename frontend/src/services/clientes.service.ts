@@ -29,6 +29,11 @@ export const clientesService = {
     return res.data;
   },
 
+  async checkTelefono(telefono: string): Promise<{ exists: boolean }> {
+    const res = await api.get<{ exists: boolean }>('/clientes/check-telefono', { params: { telefono } });
+    return res.data;
+  },
+
   async create(data: CreateClienteData): Promise<Cliente> {
     const res = await api.post<Cliente>('/clientes', data);
     return res.data;

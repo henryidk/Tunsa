@@ -91,22 +91,24 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
 
   const handleNext = async () => {
     const dpiClean = form.dpi.replace(/\D/g, '');
-    if (!form.nombre.trim())         { setApiError('El nombre es requerido.'); return; }
-    if (!dpiClean)                   { setApiError('El DPI es requerido.'); return; }
-    if (dpiClean.length !== 13)      { setApiError('El DPI debe tener exactamente 13 dígitos numéricos.'); return; }
-    if (telefonoDigits !== 8)        { setApiError('El teléfono debe tener exactamente 8 dígitos.'); return; }
+    const telClean = form.telefono.replace(/\D/g, '');
+    if (!form.nombre.trim())    { setApiError('El nombre es requerido.'); return; }
+    if (!dpiClean)              { setApiError('El DPI es requerido.'); return; }
+    if (dpiClean.length !== 13) { setApiError('El DPI debe tener exactamente 13 dígitos numéricos.'); return; }
+    if (telefonoDigits !== 8)   { setApiError('El teléfono debe tener exactamente 8 dígitos.'); return; }
 
     setIsChecking(true);
     setApiError(null);
     try {
-      const { exists } = await clientesService.checkDpi(dpiClean);
-      if (exists) {
-        setApiError('Ya existe un cliente registrado con ese DPI.');
-        return;
-      }
+      const [{ exists: dpiExiste }, { exists: telExiste }] = await Promise.all([
+        clientesService.checkDpi(dpiClean),
+        clientesService.checkTelefono(telClean),
+      ]);
+      if (dpiExiste) { setApiError('Ya existe un cliente registrado con ese DPI.'); return; }
+      if (telExiste) { setApiError('Ya existe un cliente registrado con ese número de teléfono.'); return; }
       setStep(2);
     } catch {
-      setApiError('No se pudo verificar el DPI. Intenta de nuevo.');
+      setApiError('No se pudo verificar los datos. Intenta de nuevo.');
     } finally {
       setIsChecking(false);
     }

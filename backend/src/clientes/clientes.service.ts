@@ -54,6 +54,11 @@ export class ClientesService {
     return { exists: !!cliente };
   }
 
+  async checkTelefono(telefono: string): Promise<{ exists: boolean }> {
+    const cliente = await this.prisma.cliente.findUnique({ where: { telefono } });
+    return { exists: !!cliente };
+  }
+
   async create(dto: CreateClienteDto, requestingUsername: string) {
     const dpiExiste = await this.prisma.cliente.findUnique({ where: { dpi: dto.dpi } });
     if (dpiExiste) throw new ConflictException('Ya existe un cliente registrado con ese DPI.');

@@ -125,7 +125,7 @@ export default function PreciosEquipoModal({ equipo, open, onClose, onSave }: Pr
                   onChange={handleChange('rentaHora')}
                   disabled={isSaving}
                   min="0"
-                  step="0.01"
+                  step="any"
                   placeholder="0.00"
                   className={`${inputCls} pl-7`}
                 />
@@ -149,7 +149,7 @@ export default function PreciosEquipoModal({ equipo, open, onClose, onSave }: Pr
                       onChange={handleChange(field)}
                       disabled={isSaving}
                       min="0"
-                      step="0.01"
+                      step="any"
                       placeholder="0.00"
                       className={`${inputCls} pl-7`}
                     />

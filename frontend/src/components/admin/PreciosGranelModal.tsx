@@ -139,7 +139,7 @@ export default function PreciosGranelModal({ tipo, tipoLabel, config, open, onCl
                   onChange={handleChange(field)}
                   disabled={isSaving}
                   min="0"
-                  step="0.01"
+                  step="any"
                   placeholder={placeholder}
                   className={`${inputCls} pl-7`}
                 />
@@ -168,7 +168,7 @@ export default function PreciosGranelModal({ tipo, tipoLabel, config, open, onCl
                         onChange={handleChange(field)}
                         disabled={isSaving}
                         min="0"
-                        step="0.01"
+                        step="any"
                         placeholder={placeholder}
                         className={`${inputCls} pl-7`}
                       />

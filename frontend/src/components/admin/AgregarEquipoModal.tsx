@@ -203,7 +203,7 @@ export default function AgregarEquipoModal({ open, tipos, onClose, onCreated }: 
               <div>
                 <label className={labelCls}>Monto de compra (Q) <span className="text-red-400">*</span></label>
                 <input type="number" value={form.montoCompra} onChange={handleChange('montoCompra')}
-                  disabled={isSaving} placeholder="0.00" min="0" step="0.01"
+                  disabled={isSaving} placeholder="0.00" min="0" step="any"
                   className={`${inputCls} font-mono`} />
               </div>
             </div>
@@ -217,7 +217,7 @@ export default function AgregarEquipoModal({ open, tipos, onClose, onCreated }: 
                 <div key={field}>
                   <label className={labelCls}>{['Por día', 'Por semana', 'Por mes'][i]}</label>
                   <input type="number" value={form[field]} onChange={handleChange(field)}
-                    disabled={isSaving} placeholder="0.00" min="0" step="0.01"
+                    disabled={isSaving} placeholder="0.00" min="0" step="any"
                     className={`${inputCls} font-mono`} />
                 </div>
               ))}

@@ -47,7 +47,7 @@ export default function PasoCargos({ hayCargos, onToggle, cargos, totalCargosAd,
                 <input
                   type="number"
                   min={0}
-                  step="0.01"
+                  step="any"
                   value={cargo.monto}
                   onChange={e => onActualizar(idx, 'monto', e.target.value)}
                   placeholder="0.00"

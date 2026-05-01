@@ -31,16 +31,18 @@ export interface BitacoraStats {
 }
 
 interface CreateEquipoData {
-  numeracion:   string;
-  descripcion:  string;
-  tipoId:       string;
-  categoriaId?: string;
-  serie?:       string;
-  fechaCompra:  string;
-  montoCompra:  number;
-  rentaDia?:    number;
-  rentaSemana?: number;
-  rentaMes?:    number;
+  numeracion:        string;
+  descripcion:       string;
+  tipoId:            string;
+  categoriaId?:      string;
+  serie?:            string;
+  fechaCompra:       string;
+  montoCompra:       number;
+  rentaHora?:        number;
+  rentaHoraMartillo?: number;
+  rentaDia?:         number;
+  rentaSemana?:      number;
+  rentaMes?:         number;
 }
 
 interface UpdateEquipoData extends Partial<Omit<CreateEquipoData, 'categoriaId'>> {

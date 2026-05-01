@@ -22,8 +22,6 @@ type CatAction =
   | { type: 'deleting' }
   | { type: 'saving' };
 
-type GestionarView = 'list' | 'block' | 'warn' | 'confirm';
-
 const INPUT_CLS = 'w-full text-sm border border-indigo-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-100 disabled:opacity-60';
 
 export default function CategoriasSection({ onShowToast }: CategoriasSectionProps) {
@@ -37,9 +35,6 @@ export default function CategoriasSection({ onShowToast }: CategoriasSectionProp
   const [catActions,     setCatActions]     = useState<Record<string, CatAction>>({});
   const [addingNombre,   setAddingNombre]   = useState('');
   const [addingLoading,  setAddingLoading]  = useState(false);
-  const [addingTipo,         setAddingTipo]         = useState('');
-  const [addingTipoModalidad, setAddingTipoModalidad] = useState<'LIVIANA' | 'PESADA' | 'USO_PROPIO'>('LIVIANA');
-  const [addingTipoLoad,     setAddingTipoLoad]     = useState(false);
 
   const [equipoLoading, setEquipoLoading] = useState<Record<string, boolean>>({});
   const [assignOpen,    setAssignOpen]    = useState<string | null>(null);
@@ -50,13 +45,6 @@ export default function CategoriasSection({ onShowToast }: CategoriasSectionProp
   const [confirmDeleteCat, setConfirmDeleteCat] = useState<CategoriaAdmin | null>(null);
   const [isDeletingConfirm, setIsDeletingConfirm] = useState(false);
 
-  const [gestionarOpen,   setGestionarOpen]   = useState(false);
-  const [gestionarView,   setGestionarView]   = useState<GestionarView>('list');
-  const [gestionarTipo,   setGestionarTipo]   = useState<TipoAdmin | null>(null);
-  const [isDeletingTipo,  setIsDeletingTipo]  = useState(false);
-  const [editingTipoId,   setEditingTipoId]   = useState<string | null>(null);
-  const [editingTipoNombre, setEditingTipoNombre] = useState('');
-  const [savingTipoId,    setSavingTipoId]    = useState<string | null>(null);
   const assignRef    = useRef<HTMLDivElement>(null);
   const allEquipos   = useRef<Equipo[]>([]);  // todos (activos + baja) — sólo para PDF
 
@@ -215,76 +203,6 @@ export default function CategoriasSection({ onShowToast }: CategoriasSectionProp
       onShowToast('error', 'Error', extractApiError(err) ?? 'No se pudo eliminar la categoría.');
     } finally {
       setIsDeletingConfirm(false);
-    }
-  };
-
-  const handleAddTipo = async () => {
-    const nombre = addingTipo.trim();
-    if (!nombre) return;
-    setAddingTipoLoad(true);
-    try {
-      const nuevo = await categoriasService.createTipo(nombre, addingTipoModalidad);
-      setTipos(prev => [...prev, { ...nuevo, categorias: [] }]);
-      setTipoActivo(nuevo.nombre);
-      setAddingTipo('');
-      setAddingTipoModalidad('LIVIANA');
-      onShowToast('success', 'Tipo creado', `Tipo "${nuevo.nombre}" creado correctamente.`);
-    } catch (err: unknown) {
-      onShowToast('error', 'Error', extractApiError(err) ?? 'No se pudo crear el tipo.');
-    } finally {
-      setAddingTipoLoad(false);
-    }
-  };
-
-  const handleEditTipoSave = async (tipo: TipoAdmin) => {
-    const nombre = editingTipoNombre.trim();
-    if (!nombre || nombre === tipo.nombre) { setEditingTipoId(null); return; }
-    setSavingTipoId(tipo.id);
-    try {
-      const actualizado = await categoriasService.updateTipo(tipo.id, nombre);
-      setTipos(prev => prev.map(t => t.id === tipo.id ? { ...t, nombre: actualizado.nombre } : t));
-      if (tipoActivo === tipo.nombre) setTipoActivo(actualizado.nombre);
-      setEditingTipoId(null);
-      onShowToast('success', 'Renombrado', `Tipo renombrado a "${actualizado.nombre}".`);
-    } catch (err: unknown) {
-      onShowToast('error', 'Error', extractApiError(err) ?? 'No se pudo renombrar el tipo.');
-    } finally {
-      setSavingTipoId(null);
-    }
-  };
-
-  const handleDeleteTipo = (tipo: TipoAdmin) => {
-    const totalEquipos = allEquipos.current.filter(e => e.tipo.nombre === tipo.nombre).length;
-    setGestionarTipo(tipo);
-    if (totalEquipos > 0)          setGestionarView('block');
-    else if (tipo.categorias.length > 0) setGestionarView('warn');
-    else                           setGestionarView('confirm');
-  };
-
-  const executeDeleteTipo = async () => {
-    if (!gestionarTipo) return;
-    setIsDeletingTipo(true);
-    try {
-      await categoriasService.deleteTipo(gestionarTipo.id);
-      setTipos(prev => {
-        const remaining = prev.filter(t => t.id !== gestionarTipo.id);
-        if (tipoActivo === gestionarTipo.nombre) {
-          setTipoActivo(remaining[0]?.nombre ?? '');
-          setCatActivaId('sin-categoria');
-        }
-        return remaining;
-      });
-      onShowToast('success', 'Tipo eliminado', `Tipo "${gestionarTipo.nombre}" eliminado correctamente.`);
-      setGestionarView('list');
-      setGestionarTipo(null);
-    } catch (err: unknown) {
-      const msg =
-        err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
-          : undefined;
-      onShowToast('error', 'Error', msg ?? 'No se pudo eliminar el tipo.');
-    } finally {
-      setIsDeletingTipo(false);
     }
   };
 
@@ -479,233 +397,6 @@ export default function CategoriasSection({ onShowToast }: CategoriasSectionProp
         </div>
       )}
 
-      {/* Modal: gestionar tipos (con vistas internas) */}
-      {gestionarOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 overflow-hidden">
-
-            {/* ── Vista: lista de tipos ── */}
-            {gestionarView === 'list' && (<>
-              <div className="flex items-center justify-between px-5 py-4 bg-indigo-50 border-b border-indigo-100">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-indigo-600">
-                      <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
-                      <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
-                    </svg>
-                  </div>
-                  <div>
-                    <h2 className="text-sm font-bold text-slate-800">Gestión de Tipos</h2>
-                    <p className="text-xs text-indigo-500 mt-0.5">{tipos.length} tipo{tipos.length !== 1 ? 's' : ''} registrado{tipos.length !== 1 ? 's' : ''}</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => { setGestionarOpen(false); setGestionarView('list'); setGestionarTipo(null); setEditingTipoId(null); }}
-                  className="p-1.5 rounded-lg hover:bg-indigo-100 text-indigo-400 hover:text-indigo-600 transition-colors"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                  </svg>
-                </button>
-              </div>
-              <div className="px-4 pt-3 pb-1 flex flex-col gap-2 max-h-80 overflow-y-auto">
-                {tipos.map(t => {
-                  const totalEq  = allEquipos.current.filter(e => e.tipo.nombre === t.nombre).length;
-                  const totalCat = t.categorias.length;
-                  return (
-                    <div key={t.id} className="px-4 py-3 rounded-xl border border-slate-200 hover:border-indigo-200 hover:bg-indigo-50/40 transition-all">
-                      {editingTipoId === t.id ? (
-                        <div className="flex items-center gap-2">
-                          <input
-                            autoFocus
-                            value={editingTipoNombre}
-                            onChange={e => setEditingTipoNombre(e.target.value)}
-                            onKeyDown={e => {
-                              if (e.key === 'Enter')  handleEditTipoSave(t);
-                              if (e.key === 'Escape') setEditingTipoId(null);
-                            }}
-                            disabled={savingTipoId === t.id}
-                            className="flex-1 text-sm border border-indigo-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-100 disabled:opacity-60"
-                          />
-                          <button
-                            onClick={() => handleEditTipoSave(t)}
-                            disabled={savingTipoId === t.id}
-                            className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium disabled:opacity-50 transition-colors"
-                          >
-                            {savingTipoId === t.id ? '…' : 'Guardar'}
-                          </button>
-                          <button
-                            onClick={() => setEditingTipoId(null)}
-                            disabled={savingTipoId === t.id}
-                            className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 text-xs hover:bg-slate-50 disabled:opacity-50 transition-colors"
-                          >
-                            Cancelar
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-3">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-slate-800">{t.nombre.replace(/_/g, ' ')}</p>
-                            <p className="text-xs text-slate-400 mt-0.5">{totalCat} categoría{totalCat !== 1 ? 's' : ''} · {totalEq} equipo{totalEq !== 1 ? 's' : ''}</p>
-                          </div>
-                          <button
-                            onClick={() => { setEditingTipoId(t.id); setEditingTipoNombre(t.nombre); }}
-                            title="Renombrar tipo"
-                            className="flex-shrink-0 p-1.5 rounded-lg text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 transition-colors"
-                          >
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => handleDeleteTipo(t)}
-                            title="Eliminar tipo"
-                            className="flex-shrink-0 p-1.5 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors"
-                          >
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <polyline points="3 6 5 6 21 6"/>
-                              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                              <path d="M10 11v6"/><path d="M14 11v6"/>
-                            </svg>
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="px-4 py-4">
-                <button
-                  onClick={() => { setGestionarOpen(false); setGestionarView('list'); setGestionarTipo(null); setEditingTipoId(null); }}
-                  className="w-full px-4 py-2 rounded-lg text-sm font-medium border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
-                >
-                  Cerrar
-                </button>
-              </div>
-            </>)}
-
-            {/* ── Vista: bloqueo — tipo tiene equipos ── */}
-            {gestionarView === 'block' && gestionarTipo && (<>
-              <div className="flex items-center gap-3 px-5 py-4 bg-red-50 border-b border-red-100">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-red-600">
-                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-                  </svg>
-                </div>
-                <div>
-                  <h2 className="text-sm font-bold text-red-800">No se puede eliminar</h2>
-                  <p className="text-xs text-red-600 mt-0.5">
-                    <span className="font-semibold">"{gestionarTipo.nombre.replace(/_/g, ' ')}"</span> tiene equipos asignados
-                  </p>
-                </div>
-              </div>
-              <div className="px-5 py-4">
-                <p className="text-sm text-slate-600">
-                  Existen <span className="font-semibold">{allEquipos.current.filter(e => e.tipo.nombre === gestionarTipo.nombre).length} equipo(s)</span> de este tipo.
-                  Reasígnalos a otro tipo o elimínalos antes de continuar.
-                </p>
-              </div>
-              <div className="px-4 py-4 border-t border-slate-100">
-                <button
-                  onClick={() => { setGestionarView('list'); setGestionarTipo(null); }}
-                  className="w-full px-4 py-2 rounded-lg text-sm font-medium border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
-                >
-                  ← Volver
-                </button>
-              </div>
-            </>)}
-
-            {/* ── Vista: advertencia — tipo tiene categorías vacías ── */}
-            {gestionarView === 'warn' && gestionarTipo && (<>
-              <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-600">
-                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                    <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-                  </svg>
-                </div>
-                <div>
-                  <h2 className="text-sm font-bold text-slate-800">Eliminar tipo</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">Esta acción no se puede deshacer</p>
-                </div>
-              </div>
-              <div className="px-5 py-4">
-                <p className="text-sm text-slate-600 mb-3">
-                  ¿Estás seguro de eliminar <span className="font-semibold text-slate-800">"{gestionarTipo.nombre.replace(/_/g, ' ')}"</span>?
-                </p>
-                <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5">
-                  <p className="text-xs text-amber-700 font-medium mb-1">
-                    Se eliminarán también {gestionarTipo.categorias.length} categoría{gestionarTipo.categorias.length !== 1 ? 's' : ''} vacía{gestionarTipo.categorias.length !== 1 ? 's' : ''}:
-                  </p>
-                  <ul className="space-y-0.5">
-                    {gestionarTipo.categorias.map(c => (
-                      <li key={c.id} className="text-xs text-amber-600">• {c.nombre}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-              <div className="flex gap-2 px-5 py-4 border-t border-slate-100">
-                <button
-                  onClick={executeDeleteTipo}
-                  disabled={isDeletingTipo}
-                  className="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-red-600 hover:bg-red-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isDeletingTipo ? 'Eliminando…' : 'Eliminar tipo'}
-                </button>
-                <button
-                  onClick={() => { setGestionarView('list'); setGestionarTipo(null); }}
-                  disabled={isDeletingTipo}
-                  className="flex-1 px-4 py-2 rounded-lg text-sm font-medium border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
-                >
-                  ← Volver
-                </button>
-              </div>
-            </>)}
-
-            {/* ── Vista: confirmación simple — tipo sin categorías ── */}
-            {gestionarView === 'confirm' && gestionarTipo && (<>
-              <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-red-600">
-                    <polyline points="3 6 5 6 21 6"/>
-                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                    <path d="M10 11v6"/><path d="M14 11v6"/>
-                  </svg>
-                </div>
-                <div>
-                  <h2 className="text-sm font-bold text-slate-800">Eliminar tipo</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">Esta acción no se puede deshacer</p>
-                </div>
-              </div>
-              <div className="px-5 py-4">
-                <p className="text-sm text-slate-600">
-                  ¿Estás seguro de eliminar el tipo{' '}
-                  <span className="font-semibold text-slate-800">"{gestionarTipo.nombre.replace(/_/g, ' ')}"</span>?
-                </p>
-              </div>
-              <div className="flex gap-2 px-5 py-4 border-t border-slate-100">
-                <button
-                  onClick={executeDeleteTipo}
-                  disabled={isDeletingTipo}
-                  className="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-red-600 hover:bg-red-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isDeletingTipo ? 'Eliminando…' : 'Eliminar'}
-                </button>
-                <button
-                  onClick={() => { setGestionarView('list'); setGestionarTipo(null); }}
-                  disabled={isDeletingTipo}
-                  className="flex-1 px-4 py-2 rounded-lg text-sm font-medium border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
-                >
-                  ← Volver
-                </button>
-              </div>
-            </>)}
-
-          </div>
-        </div>
-      )}
-
       {/* Header */}
       <div className="flex items-end justify-between flex-shrink-0">
         <div>
@@ -738,9 +429,9 @@ export default function CategoriasSection({ onShowToast }: CategoriasSectionProp
         </button>
       </div>
 
-      {/* Tipo tabs + crear nuevo tipo */}
-      <div className="flex items-center gap-3 flex-shrink-0 flex-wrap">
-        <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
+      {/* Tipo tabs */}
+      <div className="flex-shrink-0">
+        <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
           {tipos.map(t => (
             <button
               key={t.nombre}
@@ -754,58 +445,6 @@ export default function CategoriasSection({ onShowToast }: CategoriasSectionProp
               {t.nombre.replace(/_/g, ' ')}
             </button>
           ))}
-        </div>
-
-        {/* Botón gestionar tipos */}
-        <button
-          onClick={() => setGestionarOpen(true)}
-          title="Gestionar tipos"
-          className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-700 transition-colors"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="3"/>
-            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/>
-            <path d="M12 2v2m0 16v2M2 12h2m16 0h2"/>
-          </svg>
-        </button>
-
-        {/* Formulario inline para nuevo tipo */}
-        <div className="flex gap-1.5 items-center">
-          <select
-            value={addingTipoModalidad}
-            onChange={e => setAddingTipoModalidad(e.target.value as 'LIVIANA' | 'PESADA' | 'USO_PROPIO')}
-            disabled={addingTipoLoad}
-            className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 disabled:opacity-60"
-          >
-            <option value="LIVIANA">Liviana</option>
-            <option value="PESADA">Pesada</option>
-            <option value="USO_PROPIO">Uso propio</option>
-          </select>
-          <input
-            type="text"
-            value={addingTipo}
-            onChange={e => setAddingTipo(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') handleAddTipo(); }}
-            placeholder="Nuevo tipo..."
-            disabled={addingTipoLoad}
-            className="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 disabled:opacity-60 placeholder-slate-400 w-36"
-          />
-          <button
-            onClick={handleAddTipo}
-            disabled={addingTipoLoad || !addingTipo.trim()}
-            title="Crear tipo"
-            className="px-2.5 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-medium hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            {addingTipoLoad ? (
-              <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-              </svg>
-            ) : (
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-              </svg>
-            )}
-          </button>
         </div>
       </div>
 

@@ -13,21 +13,24 @@ interface AgregarEquipoModalProps {
 }
 
 interface FormState {
-  numeracion:  string;
-  descripcion: string;
-  tipoId:      string;
-  categoriaId: string;
-  serie:       string;
-  fechaCompra: string;
-  montoCompra: string;
-  rentaDia:    string;
-  rentaSemana: string;
-  rentaMes:    string;
+  numeracion:        string;
+  descripcion:       string;
+  tipoId:            string;
+  categoriaId:       string;
+  serie:             string;
+  fechaCompra:       string;
+  montoCompra:       string;
+  rentaHora:         string;
+  rentaHoraMartillo: string;
+  rentaDia:          string;
+  rentaSemana:       string;
+  rentaMes:          string;
 }
 
 const emptyForm: FormState = {
   numeracion: '', descripcion: '', tipoId: '', categoriaId: '', serie: '',
-  fechaCompra: '', montoCompra: '', rentaDia: '', rentaSemana: '', rentaMes: '',
+  fechaCompra: '', montoCompra: '',
+  rentaHora: '', rentaHoraMartillo: '', rentaDia: '', rentaSemana: '', rentaMes: '',
 };
 
 export default function AgregarEquipoModal({ open, tipos, onClose, onCreated }: AgregarEquipoModalProps) {
@@ -43,8 +46,11 @@ export default function AgregarEquipoModal({ open, tipos, onClose, onCreated }: 
       setForm(prev => ({
         ...prev,
         [field]: value,
-        // reset categoría cuando cambia el tipo
-        ...(field === 'tipoId' ? { categoriaId: '' } : {}),
+        ...(field === 'tipoId' ? {
+          categoriaId: '',
+          rentaHora: '', rentaHoraMartillo: '',
+          rentaDia: '', rentaSemana: '', rentaMes: '',
+        } : {}),
       }));
       setApiError(null);
     };
@@ -59,6 +65,10 @@ export default function AgregarEquipoModal({ open, tipos, onClose, onCreated }: 
     setApiError(null);
     onClose();
   };
+
+  const tipoSeleccionado  = tipos.find(t => t.id === form.tipoId);
+  const categoriasDelTipo = tipoSeleccionado?.categorias ?? [];
+  const modalidad         = tipoSeleccionado?.modalidad;
 
   const handleSave = async () => {
     const numeracion  = form.numeracion.trim();
@@ -84,9 +94,15 @@ export default function AgregarEquipoModal({ open, tipos, onClose, onCreated }: 
         serie:       form.serie.trim() || undefined,
         fechaCompra,
         montoCompra,
-        rentaDia:    form.rentaDia    ? parseFloat(form.rentaDia)    : undefined,
-        rentaSemana: form.rentaSemana ? parseFloat(form.rentaSemana) : undefined,
-        rentaMes:    form.rentaMes    ? parseFloat(form.rentaMes)    : undefined,
+        ...(modalidad === 'PESADA' ? {
+          rentaHora:         form.rentaHora         ? parseFloat(form.rentaHora)         : undefined,
+          rentaHoraMartillo: form.rentaHoraMartillo ? parseFloat(form.rentaHoraMartillo) : undefined,
+        } : {}),
+        ...(modalidad === 'LIVIANA' ? {
+          rentaDia:    form.rentaDia    ? parseFloat(form.rentaDia)    : undefined,
+          rentaSemana: form.rentaSemana ? parseFloat(form.rentaSemana) : undefined,
+          rentaMes:    form.rentaMes    ? parseFloat(form.rentaMes)    : undefined,
+        } : {}),
       });
       onCreated(nuevo);
       setForm(emptyForm);
@@ -101,9 +117,6 @@ export default function AgregarEquipoModal({ open, tipos, onClose, onCreated }: 
       setIsSaving(false);
     }
   };
-
-  const tipoSeleccionado = tipos.find(t => t.id === form.tipoId);
-  const categoriasDelTipo = tipoSeleccionado?.categorias ?? [];
 
   const inputCls = 'w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all disabled:opacity-60 disabled:cursor-not-allowed';
   const labelCls = 'block text-xs font-semibold text-slate-600 mb-1.5';
@@ -209,20 +222,39 @@ export default function AgregarEquipoModal({ open, tipos, onClose, onCreated }: 
             </div>
           </div>
 
-          {/* Precios de renta */}
-          <div>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">Precios de renta (Q)</p>
-            <div className="grid grid-cols-3 gap-3">
-              {(['rentaDia', 'rentaSemana', 'rentaMes'] as const).map((field, i) => (
-                <div key={field}>
-                  <label className={labelCls}>{['Por día', 'Por semana', 'Por mes'][i]}</label>
-                  <input type="text" inputMode="decimal" value={form[field]} onChange={handleChange(field)}
-                    disabled={isSaving} placeholder="0.00"
-                    className={`${inputCls} font-mono`} />
+          {/* Precios de renta — condicional según modalidad */}
+          {modalidad === 'PESADA' && (
+            <div>
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">Precios de renta (Q)</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>Por hora</label>
+                  <input type="text" inputMode="decimal" value={form.rentaHora} onChange={handleChange('rentaHora')}
+                    disabled={isSaving} placeholder="0.00" className={`${inputCls} font-mono`} />
                 </div>
-              ))}
+                <div>
+                  <label className={labelCls}>Por hora (con martillo)</label>
+                  <input type="text" inputMode="decimal" value={form.rentaHoraMartillo} onChange={handleChange('rentaHoraMartillo')}
+                    disabled={isSaving} placeholder="0.00" className={`${inputCls} font-mono`} />
+                </div>
+              </div>
             </div>
-          </div>
+          )}
+
+          {modalidad === 'LIVIANA' && (
+            <div>
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">Precios de renta (Q)</p>
+              <div className="grid grid-cols-3 gap-3">
+                {(['rentaDia', 'rentaSemana', 'rentaMes'] as const).map((field, i) => (
+                  <div key={field}>
+                    <label className={labelCls}>{['Por día', 'Por semana', 'Por mes'][i]}</label>
+                    <input type="text" inputMode="decimal" value={form[field]} onChange={handleChange(field)}
+                      disabled={isSaving} placeholder="0.00" className={`${inputCls} font-mono`} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Error */}
           {apiError && (

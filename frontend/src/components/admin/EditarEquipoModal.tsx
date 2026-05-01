@@ -217,8 +217,8 @@ export default function EditarEquipoModal({ equipo, open, tipos, onClose, onSave
               </div>
               <div>
                 <label className={labelCls}>Monto de compra (Q)</label>
-                <input type="number" value={form.montoCompra} onChange={handleChange('montoCompra')}
-                  disabled={isSaving} min="0" step="any" className={`${inputCls} font-mono`} />
+                <input type="text" inputMode="decimal" value={form.montoCompra} onChange={handleChange('montoCompra')}
+                  disabled={isSaving} className={`${inputCls} font-mono`} />
               </div>
             </div>
           </div>

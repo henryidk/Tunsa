@@ -299,7 +299,7 @@ export default function DevolucionModal({
                       </div>
                       <div className="w-28">
                         <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-1">Monto (Q)</label>
-                        <input type="number" min={0} step="any" value={cargo.monto} onChange={e => actualizarCargo(idx, 'monto', e.target.value)} placeholder="0.00" className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400" />
+                        <input type="text" inputMode="decimal" value={cargo.monto} onChange={e => actualizarCargo(idx, 'monto', e.target.value)} placeholder="0.00" className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400" />
                       </div>
                       {cargosAdicionales.length > 1 && (
                         <button onClick={() => eliminarCargo(idx)} className="mb-0.5 p-1.5 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors">

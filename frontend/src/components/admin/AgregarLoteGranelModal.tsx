@@ -134,8 +134,8 @@ export default function AgregarLoteGranelModal({ tipo, tipoLabel, open, onClose,
             </div>
             <div>
               <label className={labelCls}>Precio unitario (Q) <span className="text-red-400">*</span></label>
-              <input type="number" value={form.precioUnitario} onChange={handleChange('precioUnitario')}
-                placeholder="0.00" min="0" step="any" disabled={isSaving}
+              <input type="text" inputMode="decimal" value={form.precioUnitario} onChange={handleChange('precioUnitario')}
+                placeholder="0.00" disabled={isSaving}
                 className={`${inputCls} font-mono`} />
             </div>
           </div>

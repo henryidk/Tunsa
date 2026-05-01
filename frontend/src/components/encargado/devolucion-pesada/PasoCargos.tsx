@@ -45,9 +45,8 @@ export default function PasoCargos({ hayCargos, onToggle, cargos, totalCargosAd,
               <div className="w-28">
                 <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-1">Monto (Q)</label>
                 <input
-                  type="number"
-                  min={0}
-                  step="any"
+                  type="text"
+                  inputMode="decimal"
                   value={cargo.monto}
                   onChange={e => onActualizar(idx, 'monto', e.target.value)}
                   placeholder="0.00"

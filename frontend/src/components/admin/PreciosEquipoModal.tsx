@@ -120,12 +120,11 @@ export default function PreciosEquipoModal({ equipo, open, onClose, onSave }: Pr
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 font-mono select-none">Q</span>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   value={form.rentaHora}
                   onChange={handleChange('rentaHora')}
                   disabled={isSaving}
-                  min="0"
-                  step="any"
                   placeholder="0.00"
                   className={`${inputCls} pl-7`}
                 />
@@ -144,12 +143,11 @@ export default function PreciosEquipoModal({ equipo, open, onClose, onSave }: Pr
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 font-mono select-none">Q</span>
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="decimal"
                       value={form[field]}
                       onChange={handleChange(field)}
                       disabled={isSaving}
-                      min="0"
-                      step="any"
                       placeholder="0.00"
                       className={`${inputCls} pl-7`}
                     />

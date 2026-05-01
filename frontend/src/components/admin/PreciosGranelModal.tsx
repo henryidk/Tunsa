@@ -134,7 +134,8 @@ export default function PreciosGranelModal({ tipo, tipoLabel, config, open, onCl
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 font-mono select-none">Q</span>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   value={form[field]}
                   onChange={handleChange(field)}
                   disabled={isSaving}
@@ -163,7 +164,8 @@ export default function PreciosGranelModal({ tipo, tipoLabel, config, open, onCl
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 font-mono select-none">Q</span>
                       <input
-                        type="number"
+                        type="text"
+                  inputMode="decimal"
                         value={form[field]}
                         onChange={handleChange(field)}
                         disabled={isSaving}

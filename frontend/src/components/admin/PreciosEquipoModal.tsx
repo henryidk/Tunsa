@@ -24,7 +24,7 @@ export default function PreciosEquipoModal({ equipo, open, onClose, onSave }: Pr
   const [isSaving, setIsSaving] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
 
-  const esPesada = equipo?.tipo.nombre === 'PESADA';
+  const esPesada = equipo?.tipo.modalidad === 'PESADA';
 
   useEffect(() => {
     if (equipo) {

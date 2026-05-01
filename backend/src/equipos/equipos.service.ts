@@ -4,6 +4,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import type { ModalidadTipo } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateEquipoDto } from './dto/create-equipo.dto';
 import { UpdateEquipoDto } from './dto/update-equipo.dto';
@@ -12,7 +13,7 @@ import { fechaHoyGT } from '../common/utils/date.util';
 
 // Incluir tipo y categoría en todas las consultas
 const EQUIPO_INCLUDE = {
-  tipo:      { select: { id: true, nombre: true } },
+  tipo:      { select: { id: true, nombre: true, modalidad: true } },
   categoria: { select: { id: true, nombre: true, tipoId: true } },
 } as const;
 
@@ -41,9 +42,9 @@ export class EquiposService {
    * la categoría pertenezca al mismo tipo.
    * La DB ya lo refuerza con FK compuesta, pero esta validación da un mensaje
    * legible antes de llegar al driver.
-   * Devuelve el nombre del tipo para que el llamador pueda aplicar reglas de precio.
+   * Devuelve la modalidad del tipo para que el llamador pueda aplicar reglas de precio.
    */
-  private async validarTipoYCategoria(tipoId: string, categoriaId?: string | null): Promise<string> {
+  private async validarTipoYCategoria(tipoId: string, categoriaId?: string | null): Promise<ModalidadTipo> {
     const tipo = await this.prisma.tipoEquipo.findUnique({ where: { id: tipoId } });
     if (!tipo) throw new BadRequestException(`Tipo de equipo no encontrado: "${tipoId}"`);
 
@@ -58,26 +59,24 @@ export class EquiposService {
       }
     }
 
-    return tipo.nombre;
+    return tipo.modalidad;
   }
 
   /**
-   * Aplica las reglas de precio según el tipo:
-   *  - PESADA    → solo rentaHora; rentaDia/Semana/Mes siempre null.
-   *  - LIVIANA   → solo rentaDia/Semana/Mes; rentaHora siempre null.
-   *  - USO_PROPIO → sin precios de renta; todos null.
+   * Aplica las reglas de precio según la modalidad del tipo.
+   * Separado del nombre del tipo para que renombrar un tipo no afecte el comportamiento.
    */
   private normalizarPrecios(
-    tipoNombre: string,
+    modalidad: ModalidadTipo,
     precios: { rentaHora?: number | null; rentaHoraMartillo?: number | null; rentaDia?: number | null; rentaSemana?: number | null; rentaMes?: number | null },
   ) {
-    if (tipoNombre === 'PESADA') {
+    if (modalidad === 'PESADA') {
       return { rentaHora: precios.rentaHora ?? null, rentaHoraMartillo: precios.rentaHoraMartillo ?? null, rentaDia: null, rentaSemana: null, rentaMes: null };
     }
-    if (tipoNombre === 'LIVIANA') {
+    if (modalidad === 'LIVIANA') {
       return { rentaHora: null, rentaHoraMartillo: null, rentaDia: precios.rentaDia ?? null, rentaSemana: precios.rentaSemana ?? null, rentaMes: precios.rentaMes ?? null };
     }
-    // USO_PROPIO u otros
+    // USO_PROPIO
     return { rentaHora: null, rentaHoraMartillo: null, rentaDia: null, rentaSemana: null, rentaMes: null };
   }
 
@@ -213,12 +212,12 @@ export class EquiposService {
     }
 
     const categoriaIdEfectiva = dto.categoriaId !== undefined ? dto.categoriaId : equipo.categoriaId;
-    let tipoNombreEfectivo: string;
+    let modalidadEfectiva: ModalidadTipo;
     if (dto.tipoId !== undefined || dto.categoriaId !== undefined) {
-      tipoNombreEfectivo = await this.validarTipoYCategoria(tipoIdEfectivo, categoriaIdEfectiva);
+      modalidadEfectiva = await this.validarTipoYCategoria(tipoIdEfectivo, categoriaIdEfectiva);
     } else {
-      // El tipo no cambia — ya está disponible en equipo.tipo (incluido vía EQUIPO_INCLUDE)
-      tipoNombreEfectivo = equipo.tipo.nombre;
+      // El tipo no cambia — modalidad ya disponible vía EQUIPO_INCLUDE
+      modalidadEfectiva = equipo.tipo.modalidad;
     }
 
     // Resolver nombres legibles para la bitácora.
@@ -254,7 +253,7 @@ export class EquiposService {
       v != null ? parseFloat(String(v)) : null;
 
     const preciosActualizados = algoPrecio
-      ? this.normalizarPrecios(tipoNombreEfectivo, {
+      ? this.normalizarPrecios(modalidadEfectiva, {
           rentaHora:         dto.rentaHora         !== undefined ? dto.rentaHora         : toNum(equipo.rentaHora),
           rentaHoraMartillo: dto.rentaHoraMartillo !== undefined ? dto.rentaHoraMartillo : toNum(equipo.rentaHoraMartillo),
           rentaDia:          dto.rentaDia          !== undefined ? dto.rentaDia          : toNum(equipo.rentaDia),

@@ -276,19 +276,19 @@ async function main() {
   // IDs explícitos para mantener consistencia con la DB existente.
   const [tipoLiviana, tipoPesada, tipoUso] = await Promise.all([
     prisma.tipoEquipo.upsert({
-      where:  { nombre: 'LIVIANA' },
-      update: {},
-      create: { id: 'tipo_liviana', nombre: 'LIVIANA',    descripcion: 'Maquinaria liviana de alquiler' },
+      where:  { id: 'tipo_liviana' },
+      update: { modalidad: 'LIVIANA' },
+      create: { id: 'tipo_liviana', nombre: 'LIVIANA', modalidad: 'LIVIANA', descripcion: 'Maquinaria liviana de alquiler' },
     }),
     prisma.tipoEquipo.upsert({
-      where:  { nombre: 'PESADA' },
-      update: {},
-      create: { id: 'tipo_pesada',  nombre: 'PESADA',     descripcion: 'Maquinaria pesada de alquiler' },
+      where:  { id: 'tipo_pesada' },
+      update: { modalidad: 'PESADA' },
+      create: { id: 'tipo_pesada',  nombre: 'PESADA',  modalidad: 'PESADA',  descripcion: 'Maquinaria pesada de alquiler' },
     }),
     prisma.tipoEquipo.upsert({
-      where:  { nombre: 'USO_PROPIO' },
-      update: {},
-      create: { id: 'tipo_uso',     nombre: 'USO_PROPIO', descripcion: 'Equipo para uso interno' },
+      where:  { id: 'tipo_uso' },
+      update: { modalidad: 'USO_PROPIO' },
+      create: { id: 'tipo_uso', nombre: 'USO_PROPIO', modalidad: 'USO_PROPIO', descripcion: 'Equipo para uso interno' },
     }),
   ]);
 

@@ -37,8 +37,9 @@ export default function CategoriasSection({ onShowToast }: CategoriasSectionProp
   const [catActions,     setCatActions]     = useState<Record<string, CatAction>>({});
   const [addingNombre,   setAddingNombre]   = useState('');
   const [addingLoading,  setAddingLoading]  = useState(false);
-  const [addingTipo,     setAddingTipo]     = useState('');
-  const [addingTipoLoad, setAddingTipoLoad] = useState(false);
+  const [addingTipo,         setAddingTipo]         = useState('');
+  const [addingTipoModalidad, setAddingTipoModalidad] = useState<'LIVIANA' | 'PESADA' | 'USO_PROPIO'>('LIVIANA');
+  const [addingTipoLoad,     setAddingTipoLoad]     = useState(false);
 
   const [equipoLoading, setEquipoLoading] = useState<Record<string, boolean>>({});
   const [assignOpen,    setAssignOpen]    = useState<string | null>(null);
@@ -222,10 +223,11 @@ export default function CategoriasSection({ onShowToast }: CategoriasSectionProp
     if (!nombre) return;
     setAddingTipoLoad(true);
     try {
-      const nuevo = await categoriasService.createTipo(nombre);
+      const nuevo = await categoriasService.createTipo(nombre, addingTipoModalidad);
       setTipos(prev => [...prev, { ...nuevo, categorias: [] }]);
       setTipoActivo(nuevo.nombre);
       setAddingTipo('');
+      setAddingTipoModalidad('LIVIANA');
       onShowToast('success', 'Tipo creado', `Tipo "${nuevo.nombre}" creado correctamente.`);
     } catch (err: unknown) {
       onShowToast('error', 'Error', extractApiError(err) ?? 'No se pudo crear el tipo.');
@@ -769,6 +771,16 @@ export default function CategoriasSection({ onShowToast }: CategoriasSectionProp
 
         {/* Formulario inline para nuevo tipo */}
         <div className="flex gap-1.5 items-center">
+          <select
+            value={addingTipoModalidad}
+            onChange={e => setAddingTipoModalidad(e.target.value as 'LIVIANA' | 'PESADA' | 'USO_PROPIO')}
+            disabled={addingTipoLoad}
+            className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 disabled:opacity-60"
+          >
+            <option value="LIVIANA">Liviana</option>
+            <option value="PESADA">Pesada</option>
+            <option value="USO_PROPIO">Uso propio</option>
+          </select>
           <input
             type="text"
             value={addingTipo}

@@ -1,7 +1,10 @@
+export type ModalidadTipo = 'LIVIANA' | 'PESADA' | 'USO_PROPIO';
+
 // Tipo de equipo tal como viene de la API (tipos_equipo)
 export interface TipoEquipo {
-  id:     string;  // 'tipo_liviana' | 'tipo_pesada' | 'tipo_uso'
-  nombre: string;  // 'LIVIANA' | 'PESADA' | 'USO_PROPIO'
+  id:       string;        // 'tipo_liviana' | 'tipo_pesada' | 'tipo_uso'
+  nombre:   string;        // etiqueta editable por el admin — solo para display
+  modalidad: ModalidadTipo; // comportamiento de negocio — nunca editable desde UI
 }
 
 // Categoría tal como viene de la API

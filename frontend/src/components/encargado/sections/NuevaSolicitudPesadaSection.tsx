@@ -57,7 +57,7 @@ export default function NuevaSolicitudPesadaSection({ onShowToast = () => {} }: 
   const pesadaDisponibles = useMemo(
     () => allEquipos.filter(
       e => e.isActive &&
-           e.tipo.nombre === 'PESADA' &&
+           e.tipo.modalidad === 'PESADA' &&
            !reservedIds.has(e.id) &&
            !items.some(it => it.equipo.id === e.id),
     ),

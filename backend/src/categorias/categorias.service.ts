@@ -22,6 +22,7 @@ export class CategoriasService {
     const nuevo = await this.prisma.tipoEquipo.create({
       data: {
         nombre,
+        modalidad:   dto.modalidad,
         descripcion: dto.descripcion?.trim() ?? nombre,
       },
       include: { _count: { select: { categorias: true } } },

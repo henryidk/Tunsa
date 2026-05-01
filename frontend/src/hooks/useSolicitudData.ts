@@ -32,7 +32,7 @@ export function useSolicitudData(): SolicitudData {
       solicitudesService.getEquiposReservados(),
     ])
       .then(([equipos, puntal, simple, ruedas, reservados]) => {
-        setEquiposLiviana(equipos.filter(e => e.isActive && e.tipo.nombre === 'LIVIANA'));
+        setEquiposLiviana(equipos.filter(e => e.isActive && e.tipo.modalidad === 'LIVIANA'));
         setGranelData({ PUNTAL: puntal, ANDAMIO_SIMPLE: simple, ANDAMIO_RUEDAS: ruedas });
         setAll(reservados);
       })

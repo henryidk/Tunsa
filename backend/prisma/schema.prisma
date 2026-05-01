@@ -69,10 +69,19 @@ model RefreshToken {
 
 // ==================== EQUIPOS ====================
 
+// Modalidad fija que dicta el comportamiento de negocio del tipo.
+// No es editable por el usuario — nombre sí, modalidad no.
+enum ModalidadTipo {
+  LIVIANA     // cobra por día / semana / mes
+  PESADA      // cobra por horómetro (hora)
+  USO_PROPIO  // sin precio de renta
+}
+
 // Tipo de maquinaria: dato "padre". Categoría es hija de tipo.
 model TipoEquipo {
-  id          String      @id @default(cuid())
-  nombre      String      @unique   // "LIVIANA" | "PESADA" | "USO_PROPIO"
+  id          String        @id @default(cuid())
+  nombre      String        @unique            // etiqueta visible, editable por el admin
+  modalidad   ModalidadTipo @default(USO_PROPIO) // comportamiento de negocio, nunca editable
   descripcion String?
 
   createdAt   DateTime    @default(now())

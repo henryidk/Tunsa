@@ -48,8 +48,8 @@ export const categoriasService = {
   },
 
   /** POST /categorias/tipos — crea un nuevo tipo */
-  async createTipo(nombre: string, descripcion?: string): Promise<TipoAdminNuevo> {
-    const res = await api.post<TipoAdminNuevo>('/categorias/tipos', { nombre, descripcion });
+  async createTipo(nombre: string, modalidad: 'LIVIANA' | 'PESADA' | 'USO_PROPIO', descripcion?: string): Promise<TipoAdminNuevo> {
+    const res = await api.post<TipoAdminNuevo>('/categorias/tipos', { nombre, modalidad, descripcion });
     return res.data;
   },
 

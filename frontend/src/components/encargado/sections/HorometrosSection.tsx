@@ -4,7 +4,7 @@ import type { SolicitudRenta, ItemSnapshot } from '../../../types/solicitud-rent
 import { formatQ } from '../../../types/solicitud.types';
 import {
   today, getDiaStatus, generarDias,
-  formatFechaCorta, localDateOf, type DiaStatus,
+  formatFechaCorta, localDateOf, ultimoDiaHorometro, type DiaStatus,
 } from '../../../utils/horometro.utils';
 import HorometroRentaCard from '../HorometroRentaCard';
 import CalendarioMes from '../CalendarioMes';
@@ -125,12 +125,17 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
     ? localDateOf(new Date(selectedSol.fechaInicioRenta))
     : hoy;
 
+  const limiteRegistro = ultimoDiaHorometro(selectedSol?.fechaFinEstimada);
+
   // Month navigation constraints
   const minMes = {
     año: parseInt(fechaInicioStr.substring(0, 4)),
     mes: parseInt(fechaInicioStr.substring(5, 7)) - 1,
   };
-  const maxMes = { año: new Date().getFullYear(), mes: new Date().getMonth() };
+  const maxMes = {
+    año: parseInt(limiteRegistro.substring(0, 4)),
+    mes: parseInt(limiteRegistro.substring(5, 7)) - 1,
+  };
   const canPrev = mesActivo.año > minMes.año || (mesActivo.año === minMes.año && mesActivo.mes > minMes.mes);
   const canNext = mesActivo.año < maxMes.año || (mesActivo.año === maxMes.año && mesActivo.mes < maxMes.mes);
 
@@ -161,7 +166,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
     for (let d = 1; d <= diasEnMes; d++) {
       const dd   = String(d).padStart(2, '0');
       const date = `${año}-${mm}-${dd}`;
-      if (date < fechaInicioStr || date > hoy) continue;
+      if (date < fechaInicioStr || date > limiteRegistro) continue;
       result.push(date);
     }
     return result;
@@ -222,8 +227,9 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
   };
 
   // Pending-today count for list-view banner.
-  // Prefer lecturasMap (updated after each registration) over the stale ultimaLectura snapshot.
+  // Una renta no cuenta como pendiente si hoy ya pasó su límite de registro.
   const pendientesHoy = solicitudes.filter(s => {
+    if (hoy > ultimoDiaHorometro(s.fechaFinEstimada)) return false;
     const lecturas = lecturasMap[s.id];
     if (lecturas !== undefined) {
       const hoyLectura = lecturas.find(l => l.fecha === hoy);
@@ -350,6 +356,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                 mes={mesActivo.mes}
                 lecturas={lecturasEquipo}
                 fechaInicioRenta={fechaInicioStr}
+                limiteRegistro={limiteRegistro}
                 fechaActiva={fechaActiva}
                 onSelectDia={handleSelectDia}
               />
@@ -393,7 +400,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                     type="date"
                     value={fechaActiva}
                     onChange={e => handleSelectDia(e.target.value)}
-                    max={hoy}
+                    max={limiteRegistro}
                     min={fechaInicioStr}
                     className="px-2 py-1 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
                   />
@@ -405,7 +412,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                 {fechaActiva === hoy && ' · hoy'}
               </p>
 
-              {fechaActiva > hoy ? (
+              {fechaActiva > limiteRegistro ? (
                 <p className="text-xs text-slate-400 italic">No se pueden registrar lecturas de fechas futuras.</p>
               ) : fechaActiva < fechaInicioStr ? (
                 <p className="text-xs text-slate-400 italic">Fecha anterior al inicio de la renta.</p>

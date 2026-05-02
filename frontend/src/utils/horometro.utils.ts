@@ -30,6 +30,20 @@ export function getDiaStatus(lecturas: LecturaHorometro[], fecha: string): DiaSt
   return l.horometroFin5pm !== null ? 'completo' : 'parcial';
 }
 
+/**
+ * Último día que requiere lecturas regulares de horómetro (inicio + fin5pm).
+ * El día calendario de vencimiento es el día de entrega — el equipo no trabaja ese día.
+ * Acotado por hoy: no se pueden registrar días futuros aunque la renta siga activa.
+ */
+export function ultimoDiaHorometro(fechaFinEstimada: string | null | undefined): string {
+  if (!fechaFinEstimada) return today();
+  const diaEntrega = new Date(fechaFinEstimada.substring(0, 10) + 'T00:00:00');
+  diaEntrega.setDate(diaEntrega.getDate() - 1);
+  const ultimoDia = localDateOf(diaEntrega);
+  const hoy = today();
+  return ultimoDia <= hoy ? ultimoDia : hoy;
+}
+
 export function formatFechaCorta(iso: string): string {
   return new Date(iso + 'T00:00:00').toLocaleDateString('es-GT', {
     day: '2-digit', month: '2-digit', year: '2-digit',

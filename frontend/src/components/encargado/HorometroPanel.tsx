@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { solicitudesService, type LecturaHorometro } from '../../services/solicitudes.service';
 import type { SolicitudRenta, ItemSnapshot } from '../../types/solicitud-renta.types';
 import { formatQ } from '../../types/solicitud.types';
+import { ultimoDiaHorometro } from '../../utils/horometro.utils';
 
 interface Props {
   solicitud: SolicitudRenta;
@@ -92,9 +93,10 @@ function DiasCobertura({
 // ── Panel principal ────────────────────────────────────────────────────────────
 
 export default function HorometroPanel({ solicitud, onClose }: Props) {
-  const pesadaItems = (solicitud.items as ItemSnapshot[]).filter(
+  const pesadaItems    = (solicitud.items as ItemSnapshot[]).filter(
     (i): i is PesadaItem => i.kind === 'pesada',
   );
+  const limiteRegistro = ultimoDiaHorometro(solicitud.fechaFinEstimada);
 
   const [activeEquipo, setActiveEquipo] = useState<string>(pesadaItems[0]?.equipoId ?? '');
   const [lecturas,     setLecturas]     = useState<LecturaHorometro[]>([]);
@@ -102,7 +104,7 @@ export default function HorometroPanel({ solicitud, onClose }: Props) {
   const [error,        setError]        = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError,  setSubmitError]  = useState<string | null>(null);
-  const [fecha,        setFecha]        = useState(today());
+  const [fecha,        setFecha]        = useState(limiteRegistro);
   const [valor,        setValor]        = useState('');
 
   const fetchLecturas = useCallback(async () => {
@@ -133,8 +135,8 @@ export default function HorometroPanel({ solicitud, onClose }: Props) {
 
   const fechaInicioStr    = solicitud.fechaInicioRenta
     ? solicitud.fechaInicioRenta.substring(0, 10)
-    : today();
-  const dias              = generarDias(fechaInicioStr, today());
+    : limiteRegistro;
+  const dias              = generarDias(fechaInicioStr, limiteRegistro);
   const diasSinCompletar  = isLoading
     ? 0
     : dias.filter(d => getDiaStatus(lecturasEquipo, d) !== 'completo').length;
@@ -414,7 +416,7 @@ export default function HorometroPanel({ solicitud, onClose }: Props) {
                     type="date"
                     value={fecha}
                     onChange={e => { setFecha(e.target.value); setValor(''); }}
-                    max={today()}
+                    max={limiteRegistro}
                     className="px-2 py-1 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 bg-white"
                   />
                 </div>

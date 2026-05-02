@@ -8,12 +8,13 @@ interface Props {
   mes:              number;      // 0-indexed
   lecturas:         LecturaHorometro[];
   fechaInicioRenta: string;     // 'YYYY-MM-DD'
+  limiteRegistro:   string;     // último día con lectura requerida — de ultimoDiaHorometro()
   fechaActiva:      string;
   onSelectDia:      (fecha: string) => void;
 }
 
 export default function CalendarioMes({
-  año, mes, lecturas, fechaInicioRenta, fechaActiva, onSelectDia,
+  año, mes, lecturas, fechaInicioRenta, limiteRegistro, fechaActiva, onSelectDia,
 }: Props) {
   const hoy = today();
 
@@ -45,9 +46,9 @@ export default function CalendarioMes({
         {cells.map((fecha, i) => {
           if (!fecha) return <div key={`e-${i}`} />;
 
-          const esFutura     = fecha > hoy;
-          const esAntesRenta = fecha < fechaInicioRenta;
-          const disabled     = esFutura || esAntesRenta;
+          const esFueraDeRango = fecha > limiteRegistro;
+          const esAntesRenta   = fecha < fechaInicioRenta;
+          const disabled       = esFueraDeRango || esAntesRenta;
           const status: DiaStatus | null = disabled ? null : getDiaStatus(lecturas, fecha);
           const esHoy        = fecha === hoy;
           const esActiva     = fecha === fechaActiva;

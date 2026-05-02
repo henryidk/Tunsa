@@ -5,6 +5,7 @@ import {
   calcularFinEstimado,
   calcularRecargoItem,
   calcularRecargoActual,
+  calcularVentanaGracia,
   msAtraso,
   formatAtraso,
 } from '../../utils/renta-tiempo.utils';
@@ -38,9 +39,10 @@ export default function RentaVencidaCard({
     ? new Date(solicitud.fechaFinEstimada)
     : calcularFinEstimado(solicitud.items, inicio, extensiones);
 
-  const atrasoMs = msAtraso(vencimiento, ahora);
-  const enGracia = atrasoMs <= 3_600_000;
-  const recargo  = calcularRecargoActual(solicitud.items, inicio, ahoraRecargo, extensiones);
+  const atrasoMs      = msAtraso(vencimiento, ahora);
+  const ventanaGracia = calcularVentanaGracia(extensiones);
+  const enGracia      = atrasoMs <= ventanaGracia;
+  const recargo       = calcularRecargoActual(solicitud.items, inicio, ahoraRecargo, extensiones);
   const total    = solicitud.totalEstimado + recargo;
 
   const maquinaria = solicitud.items.filter((i): i is Extract<ItemSnapshot, { kind: 'maquinaria' }> => i.kind === 'maquinaria');
@@ -65,7 +67,7 @@ export default function RentaVencidaCard({
           )}
           {!enGracia && (
             <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
-              Atraso: {formatAtraso(atrasoMs)}
+              Atraso: {formatAtraso(atrasoMs, ventanaGracia)}
             </span>
           )}
           <span className="text-xs font-mono font-semibold text-slate-600">{solicitud.folio}</span>

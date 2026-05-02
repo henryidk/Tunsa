@@ -1,6 +1,6 @@
 import type { SolicitudRenta, ItemSnapshot } from '../../types/solicitud-renta.types';
 import { formatFechaHora } from '../../types/solicitud.types';
-import { GRACE_MS, msAtraso, formatAtraso, calcularRecargoPesada } from '../../utils/renta-tiempo.utils';
+import { calcularVentanaGracia, msAtraso, formatAtraso, calcularRecargoPesada } from '../../utils/renta-tiempo.utils';
 import { today } from '../../utils/horometro.utils';
 
 type PesadaItem = Extract<ItemSnapshot, { kind: 'pesada' }>;
@@ -26,12 +26,14 @@ export default function RentaVencidaPesadaCard({
   onGracia,
   onDevolucion,
 }: RentaVencidaPesadaCardProps) {
-  const vencimiento  = new Date(solicitud.fechaFinEstimada!);
-  const atrasoMs     = msAtraso(vencimiento, ahora);
-  const enGracia     = atrasoMs <= GRACE_MS;
+  const extensiones   = solicitud.extensiones ?? [];
+  const vencimiento   = new Date(solicitud.fechaFinEstimada!);
+  const atrasoMs      = msAtraso(vencimiento, ahora);
+  const ventanaGracia = calcularVentanaGracia(extensiones);
+  const enGracia      = atrasoMs <= ventanaGracia;
 
   const pesadaItems  = solicitud.items.filter((i): i is PesadaItem => i.kind === 'pesada');
-  const penalizacion = calcularRecargoPesada(solicitud.items, vencimiento, ahora);
+  const penalizacion = calcularRecargoPesada(solicitud.items, vencimiento, ahora, ventanaGracia);
   const total        = solicitud.costoAcumuladoPesada + penalizacion;
 
   const hoy = today();
@@ -58,7 +60,7 @@ export default function RentaVencidaPesadaCard({
           )}
           {!enGracia && (
             <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
-              Atraso: {formatAtraso(atrasoMs)}
+              Atraso: {formatAtraso(atrasoMs, ventanaGracia)}
             </span>
           )}
           <span className="text-xs font-mono font-semibold text-slate-600">{solicitud.folio}</span>

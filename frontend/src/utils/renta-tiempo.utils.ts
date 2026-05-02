@@ -23,6 +23,17 @@ export function calcularFin(inicio: Date, duracion: number, unidad: UnidadDuraci
   return new Date(inicio.getTime() + duracion * 30 * 86_400_000);
 }
 
+function duracionEnMs(duracion: number, unidad: UnidadDuracion): number {
+  if (unidad === 'horas')   return duracion * 3_600_000;
+  if (unidad === 'dias')    return duracion * 86_400_000;
+  if (unidad === 'semanas') return duracion * 7 * 86_400_000;
+  return duracion * 30 * 86_400_000;
+}
+
+/**
+ * Fecha de vencimiento efectiva de un ítem = duración original + ampliaciones pagadas.
+ * Las extensiones de gracia NO se incluyen: son ventana de entrega, no extensión de renta.
+ */
 export function calcularFinConExtensiones(
   inicio:      Date,
   item:        ItemSnapshot,
@@ -31,12 +42,23 @@ export function calcularFinConExtensiones(
   const ref  = item.kind === 'maquinaria' || item.kind === 'pesada'
     ? item.equipoId
     : item.tipo;
-  const exts = extensiones.filter(e => e.itemRef === ref);
+  const exts = extensiones.filter(e => e.itemRef === ref && e.tipo !== 'gracia');
   const dur  = item.kind === 'pesada' ? item.diasSolicitados : item.duracion;
   const uni  = item.kind === 'pesada' ? 'dias' : item.unidad;
   let fin = calcularFin(inicio, dur, uni as UnidadDuracion);
   for (const ext of exts) fin = calcularFin(fin, ext.duracion, ext.unidad);
   return fin;
+}
+
+/**
+ * Ventana total de entrega en ms: 1h automática + extensiones de gracia acumuladas.
+ * Usar en lugar de GRACE_MS para mostrar el badge "En gracia" y calcular el atraso visible.
+ */
+export function calcularVentanaGracia(extensiones: ExtensionEntry[]): number {
+  const extraMs = extensiones
+    .filter(e => e.tipo === 'gracia')
+    .reduce((sum, e) => sum + duracionEnMs(e.duracion, e.unidad as UnidadDuracion), 0);
+  return GRACE_MS + extraMs;
 }
 
 export function msRestantes(
@@ -107,8 +129,9 @@ export function calcularRecargoPesada(
   items:            ItemSnapshot[],
   fechaFinEstimada: Date,
   ahora:            number,
+  ventanaGracia    = GRACE_MS,
 ): number {
-  if (ahora - fechaFinEstimada.getTime() <= GRACE_MS) return 0;
+  if (ahora - fechaFinEstimada.getTime() <= ventanaGracia) return 0;
   return items
     .filter((i): i is Extract<ItemSnapshot, { kind: 'pesada' }> => i.kind === 'pesada')
     .reduce((sum, item) => sum + item.tarifaEfectiva * 5, 0);
@@ -143,9 +166,9 @@ export function proximoCambioGlobal(solicitudes: SolicitudRenta[], ahora: number
   }, Infinity);
 }
 
-export function formatAtraso(ms: number): string {
-  if (ms <= GRACE_MS) return 'En gracia';
-  const totalMin = Math.floor((ms - GRACE_MS) / 60_000);
+export function formatAtraso(ms: number, ventanaGracia = GRACE_MS): string {
+  if (ms <= ventanaGracia) return 'En gracia';
+  const totalMin = Math.floor((ms - ventanaGracia) / 60_000);
   const horas    = Math.floor(totalMin / 60);
   if (horas < 24) return `${horas}h ${totalMin % 60}min`;
   const dias = Math.floor(horas / 24);

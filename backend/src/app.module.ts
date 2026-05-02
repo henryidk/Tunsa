@@ -7,6 +7,7 @@ import { RedisModule } from './redis/redis.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { EquiposModule } from './equipos/equipos.module';
+import { ExtrasModule } from './extras/extras.module';
 import { CategoriasModule } from './categorias/categorias.module';
 import { BitacorasModule } from './bitacoras/bitacoras.module';
 import { ClientesModule } from './clientes/clientes.module';
@@ -68,6 +69,7 @@ import { R2Module } from './r2/r2.module';
     AuthModule,
     UsersModule,
     EquiposModule,
+    ExtrasModule,
     CategoriasModule,
     BitacorasModule,
     ClientesModule,

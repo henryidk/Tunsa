@@ -128,7 +128,6 @@ model Equipo {
   categoria   Categoria? @relation(fields: [categoriaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
   rentaHora         Decimal?   @db.Decimal(10, 2)  // Exclusivo de PESADA
-  rentaHoraMartillo Decimal?   @db.Decimal(10, 2)  // Exclusivo de retroexcavadoras (PESADA con martillo)
   rentaDia          Decimal?   @db.Decimal(10, 2)
   rentaSemana       Decimal?   @db.Decimal(10, 2)
   rentaMes          Decimal?   @db.Decimal(10, 2)
@@ -141,11 +140,43 @@ model Equipo {
   updatedAt    DateTime   @updatedAt
 
   lecturas      LecturaHorometro[]
+  extras        ExtraEquipo[]
 
   @@map("equipos")
   @@index([tipoId])
   @@index([categoriaId])
   @@index([isActive, createdAt])
+}
+
+// ==================== EXTRAS DE MAQUINARIA PESADA ====================
+
+// Catálogo de complementos disponibles (Martillo, Pluma hidráulica, etc.)
+// Solo el admin puede crear/editar/eliminar entradas del catálogo.
+model TipoExtra {
+  id          String        @id @default(cuid())
+  nombre      String        @unique
+  descripcion String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  extras      ExtraEquipo[]
+
+  @@map("tipos_extra")
+}
+
+// Precio de un extra específico para un equipo concreto.
+// Un equipo puede tener varios extras; cada uno tiene su propio precio/hora.
+model ExtraEquipo {
+  id          String    @id @default(cuid())
+  equipoId    String
+  equipo      Equipo    @relation(fields: [equipoId], references: [id], onDelete: Cascade)
+  tipoExtraId String
+  tipoExtra   TipoExtra @relation(fields: [tipoExtraId], references: [id], onDelete: Restrict)
+  rentaHora   Decimal   @db.Decimal(10, 2)
+
+  @@unique([equipoId, tipoExtraId])
+  @@index([equipoId])
+  @@map("extras_equipo")
 }
 
 // ==================== SOLICITUDES DE RENTA ====================

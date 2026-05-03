@@ -19,6 +19,14 @@ export interface TipoConCategorias extends TipoEquipo {
   categorias: Omit<Categoria, 'tipoId'>[];
 }
 
+export interface ExtraEquipo {
+  id:          string;
+  tipoExtraId: string;
+  nombre:      string;
+  descripcion: string | null;
+  rentaHora:   number;
+}
+
 export interface Equipo {
   id:          string;
   numeracion:  string;
@@ -33,11 +41,12 @@ export interface Equipo {
   categoriaId: string | null;
   categoria:   Categoria | null;
 
-  rentaHora:         number | null;
-  rentaHoraMartillo: number | null;
-  rentaDia:          number | null;
-  rentaSemana:       number | null;
-  rentaMes:          number | null;
+  rentaHora:   number | null;
+  rentaDia:    number | null;
+  rentaSemana: number | null;
+  rentaMes:    number | null;
+
+  extras:      ExtraEquipo[];
 
   isActive:    boolean;
   motivoBaja:  string | null;

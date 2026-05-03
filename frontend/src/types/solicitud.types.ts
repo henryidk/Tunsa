@@ -114,12 +114,12 @@ export interface ItemGranel {
 }
 
 export interface ItemPesada {
-  kind:            'pesada';
-  equipo:          Equipo;
-  conMartillo:     boolean;
-  diasSolicitados: number;
-  fechaInicio:     string;
-  tarifaEfectiva:  number;
+  kind:                'pesada';
+  equipo:              Equipo;
+  extrasSeleccionados: import('./solicitud-renta.types').ExtraSeleccionado[];
+  diasSolicitados:     number;
+  fechaInicio:         string;
+  tarifaEfectiva:      number;
 }
 
 export type ItemSolicitud = ItemMaquinaria | ItemGranel | ItemPesada;

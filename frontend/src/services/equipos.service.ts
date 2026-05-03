@@ -30,28 +30,63 @@ export interface BitacoraStats {
   porModulo: Record<string, number>;
 }
 
+export interface ExtraEquipoInput {
+  tipoExtraId: string;
+  rentaHora:   number;
+}
+
+export interface TipoExtra {
+  id:          string;
+  nombre:      string;
+  descripcion: string | null;
+  createdAt:   string;
+  updatedAt:   string;
+}
+
 interface CreateEquipoData {
-  numeracion:        string;
-  descripcion:       string;
-  tipoId:            string;
-  categoriaId?:      string;
-  serie?:            string;
-  fechaCompra:       string;
-  montoCompra:       number;
-  rentaHora?:        number;
-  rentaHoraMartillo?: number;
-  rentaDia?:         number;
-  rentaSemana?:      number;
-  rentaMes?:         number;
+  numeracion:   string;
+  descripcion:  string;
+  tipoId:       string;
+  categoriaId?: string;
+  serie?:       string;
+  fechaCompra:  string;
+  montoCompra:  number;
+  rentaHora?:   number;
+  rentaDia?:    number;
+  rentaSemana?: number;
+  rentaMes?:    number;
+  extras?:      ExtraEquipoInput[];
 }
 
 interface UpdateEquipoData extends Partial<Omit<CreateEquipoData, 'categoriaId'>> {
   categoriaId?: string | null;
+  extras?:      ExtraEquipoInput[] | null;
 }
 
 interface BajaEquipoData {
   motivo?: string;
 }
+
+export const extrasService = {
+  async getAll(): Promise<TipoExtra[]> {
+    const res = await api.get<TipoExtra[]>('/extras');
+    return res.data;
+  },
+
+  async create(data: { nombre: string; descripcion?: string }): Promise<TipoExtra> {
+    const res = await api.post<TipoExtra>('/extras', data);
+    return res.data;
+  },
+
+  async update(id: string, data: { nombre?: string; descripcion?: string }): Promise<TipoExtra> {
+    const res = await api.patch<TipoExtra>(`/extras/${id}`, data);
+    return res.data;
+  },
+
+  async remove(id: string): Promise<void> {
+    await api.delete(`/extras/${id}`);
+  },
+};
 
 export const equiposService = {
   async getAll(): Promise<Equipo[]> {

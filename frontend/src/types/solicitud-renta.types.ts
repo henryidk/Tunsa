@@ -2,6 +2,13 @@ export type EstadoSolicitud = 'PENDIENTE' | 'APROBADA' | 'RECHAZADA' | 'ACTIVA' 
 export type ModalidadPago   = 'CONTADO' | 'CREDITO';
 export type UnidadDuracion  = 'dias' | 'semanas' | 'meses' | 'horas';
 
+/** Snapshot de un extra seleccionado al crear la solicitud. */
+export interface ExtraSeleccionado {
+  tipoExtraId: string;
+  nombre:      string;
+  rentaHora:   number;
+}
+
 /** Cargo adicional por condición del equipo (daños, faltantes, etc.). */
 export interface CargoAdicional {
   descripcion: string;
@@ -67,7 +74,7 @@ export type ItemSnapshot =
       equipoId:          string;
       numeracion:        string;
       descripcion:       string;
-      conMartillo:       boolean;
+      extras:            ExtraSeleccionado[];
       diasSolicitados:   number;
       tarifaEfectiva:    number;
       fechaInicio:       string;

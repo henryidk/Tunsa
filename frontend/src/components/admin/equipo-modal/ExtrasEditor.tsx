@@ -78,7 +78,6 @@ export default function ExtrasEditor({
         )}
       </div>
 
-      {/* Lista de tipos existentes */}
       {tiposExtra.length === 0 && !mostrando && (
         <p className="text-xs text-slate-400 py-2">
           No hay complementos en el catálogo. Crea el primero con "Nuevo tipo".
@@ -91,7 +90,9 @@ export default function ExtrasEditor({
           <div
             key={te.id}
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-colors ${
-              activo ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200'
+              activo
+                ? 'bg-indigo-50 border-indigo-200'
+                : 'bg-slate-50 border-slate-200'
             }`}
           >
             <button
@@ -100,8 +101,8 @@ export default function ExtrasEditor({
               disabled={disabled}
               className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
                 activo
-                  ? 'bg-amber-500 border-amber-500 text-white'
-                  : 'border-slate-300 bg-white hover:border-amber-400'
+                  ? 'bg-indigo-600 border-indigo-600 text-white'
+                  : 'border-slate-300 bg-white hover:border-indigo-400'
               } disabled:opacity-50`}
             >
               {activo && (
@@ -112,7 +113,7 @@ export default function ExtrasEditor({
             </button>
 
             <div className="flex-1 min-w-0">
-              <p className={`text-sm font-medium ${activo ? 'text-amber-800' : 'text-slate-600'}`}>
+              <p className={`text-sm font-medium ${activo ? 'text-indigo-800' : 'text-slate-600'}`}>
                 {te.nombre}
               </p>
               {te.descripcion && (
@@ -122,7 +123,7 @@ export default function ExtrasEditor({
 
             {activo && (
               <div className="flex items-center gap-1.5 flex-shrink-0">
-                <span className="text-xs text-amber-700 font-medium">Q</span>
+                <span className="text-xs text-slate-500 font-mono">Q</span>
                 <input
                   type="text"
                   inputMode="decimal"
@@ -130,9 +131,9 @@ export default function ExtrasEditor({
                   onChange={e => onUpdatePrice(te.id, e.target.value)}
                   disabled={disabled}
                   placeholder="0.00"
-                  className="w-20 border border-amber-200 rounded-md px-2 py-1 text-xs font-mono text-amber-900 bg-white focus:outline-none focus:border-amber-400 disabled:opacity-60"
+                  className="w-20 border border-slate-200 rounded-md px-2 py-1 text-xs font-mono text-slate-800 bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 disabled:opacity-60"
                 />
-                <span className="text-[10px] text-amber-600">/hr</span>
+                <span className="text-[10px] text-slate-400">/hr</span>
               </div>
             )}
           </div>
@@ -141,8 +142,8 @@ export default function ExtrasEditor({
 
       {/* Formulario inline para nuevo tipo */}
       {mostrando && (
-        <div className="border border-indigo-200 bg-indigo-50/50 rounded-lg px-3 py-3 space-y-2.5">
-          <p className="text-[11px] font-semibold text-indigo-700 uppercase tracking-wide">Nuevo complemento</p>
+        <div className="border border-slate-200 bg-slate-50 rounded-lg px-3 py-3 space-y-2.5">
+          <p className="text-[11px] font-semibold text-slate-600 uppercase tracking-wide">Nuevo complemento</p>
 
           <input
             type="text"
@@ -151,7 +152,7 @@ export default function ExtrasEditor({
             placeholder="Nombre (ej: Martillo)"
             maxLength={60}
             disabled={guardando}
-            className="w-full text-sm border border-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 disabled:opacity-60"
+            className="w-full text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 disabled:opacity-60"
           />
 
           <input
@@ -161,7 +162,7 @@ export default function ExtrasEditor({
             placeholder="Descripción (opcional)"
             maxLength={200}
             disabled={guardando}
-            className="w-full text-sm border border-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 disabled:opacity-60"
+            className="w-full text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 disabled:opacity-60"
           />
 
           {errorInline && (

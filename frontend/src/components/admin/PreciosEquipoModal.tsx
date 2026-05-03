@@ -1,5 +1,3 @@
-// PreciosEquipoModal.tsx — editar tarifas de renta de un equipo (solo admin)
-
 import { useState, useEffect } from 'react';
 import type { ChangeEvent, MouseEvent } from 'react';
 import type { Equipo } from '../../types/equipo.types';
@@ -20,23 +18,26 @@ interface FormState {
 }
 
 export default function PreciosEquipoModal({ equipo, open, onClose, onSave }: PreciosEquipoModalProps) {
-  const [form, setForm]         = useState<FormState>({ rentaHora: '', rentaDia: '', rentaSemana: '', rentaMes: '' });
-  const [isSaving, setIsSaving] = useState(false);
-  const [apiError, setApiError] = useState<string | null>(null);
+  const [form,          setForm]          = useState<FormState>({ rentaHora: '', rentaDia: '', rentaSemana: '', rentaMes: '' });
+  const [extraPrecios,  setExtraPrecios]  = useState<Record<string, string>>({});
+  const [isSaving,      setIsSaving]      = useState(false);
+  const [apiError,      setApiError]      = useState<string | null>(null);
 
   const esPesada = equipo?.tipo.modalidad === 'PESADA';
 
   useEffect(() => {
-    if (equipo) {
-      setForm({
-        rentaHora:   equipo.rentaHora   != null ? equipo.rentaHora.toString()   : '',
-        rentaDia:    equipo.rentaDia    != null ? equipo.rentaDia.toString()    : '',
-        rentaSemana: equipo.rentaSemana != null ? equipo.rentaSemana.toString() : '',
-        rentaMes:    equipo.rentaMes    != null ? equipo.rentaMes.toString()    : '',
-      });
-      setApiError(null);
-    }
-  }, [equipo]);
+    if (!open || !equipo) return;
+    setForm({
+      rentaHora:   equipo.rentaHora   != null ? equipo.rentaHora.toString()   : '',
+      rentaDia:    equipo.rentaDia    != null ? equipo.rentaDia.toString()    : '',
+      rentaSemana: equipo.rentaSemana != null ? equipo.rentaSemana.toString() : '',
+      rentaMes:    equipo.rentaMes    != null ? equipo.rentaMes.toString()    : '',
+    });
+    setExtraPrecios(
+      Object.fromEntries(equipo.extras.map(e => [e.tipoExtraId, e.rentaHora.toString()])),
+    );
+    setApiError(null);
+  }, [open, equipo]);
 
   if (!open || !equipo) return null;
 
@@ -45,6 +46,11 @@ export default function PreciosEquipoModal({ equipo, open, onClose, onSave }: Pr
       setForm(prev => ({ ...prev, [field]: e.target.value }));
       setApiError(null);
     };
+
+  const handleExtraChange = (tipoExtraId: string, valor: string) => {
+    setExtraPrecios(prev => ({ ...prev, [tipoExtraId]: valor }));
+    setApiError(null);
+  };
 
   const handleOverlayClick = (e: MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget && !isSaving) onClose();
@@ -61,16 +67,33 @@ export default function PreciosEquipoModal({ equipo, open, onClose, onSave }: Pr
     if (semana != null && (isNaN(semana) || semana < 0)) { setApiError('El precio por semana no es válido.'); return; }
     if (mes    != null && (isNaN(mes)    || mes    < 0)) { setApiError('El precio por mes no es válido.'); return; }
 
+    for (const extra of equipo.extras) {
+      const precio = parseFloat(extraPrecios[extra.tipoExtraId] ?? '');
+      if (isNaN(precio) || precio < 0) {
+        setApiError(`El precio del complemento "${extra.nombre}" no es válido.`);
+        return;
+      }
+    }
+
+    // Comparar extras contra originales para enviar solo si cambiaron
+    const extrasOriginales = Object.fromEntries(equipo.extras.map(e => [e.tipoExtraId, e.rentaHora.toString()]));
+    const extrasIguales    = equipo.extras.every(e => extraPrecios[e.tipoExtraId] === extrasOriginales[e.tipoExtraId]);
+
+    const payload: Record<string, unknown> = {
+      rentaHora: hora, rentaDia: dia, rentaSemana: semana, rentaMes: mes,
+    };
+
+    if (esPesada && !extrasIguales) {
+      payload.extras = equipo.extras.map(e => ({
+        tipoExtraId: e.tipoExtraId,
+        rentaHora:   parseFloat(extraPrecios[e.tipoExtraId] ?? '0'),
+      }));
+    }
+
     setIsSaving(true);
     setApiError(null);
-
     try {
-      const updated = await equiposService.update(equipo.id, {
-        rentaHora:   hora,
-        rentaDia:    dia,
-        rentaSemana: semana,
-        rentaMes:    mes,
-      });
+      const updated = await equiposService.update(equipo.id, payload);
       onSave(updated);
     } catch (err: unknown) {
       const msg =
@@ -85,16 +108,17 @@ export default function PreciosEquipoModal({ equipo, open, onClose, onSave }: Pr
 
   const inputCls = 'w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-mono text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all disabled:opacity-60 disabled:cursor-not-allowed';
   const labelCls = 'block text-xs font-semibold text-slate-600 mb-1.5';
+  const seccion  = 'text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3';
 
   return (
     <div
       className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/45 backdrop-blur-sm"
       onClick={handleOverlayClick}
     >
-      <div className="bg-white rounded-2xl w-full max-w-[360px] shadow-2xl flex flex-col">
+      <div className="bg-white rounded-2xl w-full max-w-[380px] shadow-2xl flex flex-col max-h-[90vh]">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-200">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-200 flex-shrink-0">
           <div>
             <h2 className="font-bold text-slate-800 text-base">Precios de renta</h2>
             <p className="text-xs text-slate-400 mt-0.5 font-mono">
@@ -110,29 +134,58 @@ export default function PreciosEquipoModal({ equipo, open, onClose, onSave }: Pr
         </div>
 
         {/* Body */}
-        <div className="px-6 py-5 space-y-4">
-          <p className="text-[11px] text-slate-400">Deja vacío el campo si la tarifa no aplica para este equipo.</p>
+        <div className="px-6 py-5 space-y-5 overflow-y-auto flex-1">
 
           {esPesada ? (
-            // Maquinaria pesada: solo tarifa por hora
-            <div>
-              <label className={labelCls}>Precio por hora</label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 font-mono select-none">Q</span>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={form.rentaHora}
-                  onChange={handleChange('rentaHora')}
-                  disabled={isSaving}
-                  placeholder="0.00"
-                  className={`${inputCls} pl-7`}
-                />
-              </div>
-            </div>
-          ) : (
-            // Maquinaria liviana: día / semana / mes
             <>
+              {/* Tarifa base */}
+              <div>
+                <p className={seccion}>Tarifa base</p>
+                <label className={labelCls}>Precio por hora</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 font-mono select-none">Q</span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={form.rentaHora}
+                    onChange={handleChange('rentaHora')}
+                    disabled={isSaving}
+                    placeholder="0.00"
+                    className={`${inputCls} pl-7`}
+                  />
+                </div>
+              </div>
+
+              {/* Complementos */}
+              {equipo.extras.length > 0 && (
+                <div>
+                  <p className={seccion}>Complementos</p>
+                  <div className="space-y-2">
+                    {equipo.extras.map(extra => (
+                      <div key={extra.tipoExtraId} className="flex items-center justify-between gap-3 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5">
+                        <span className="text-sm font-medium text-slate-700">{extra.nombre}</span>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <span className="text-sm text-slate-400 font-mono">Q</span>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={extraPrecios[extra.tipoExtraId] ?? ''}
+                            onChange={e => handleExtraChange(extra.tipoExtraId, e.target.value)}
+                            disabled={isSaving}
+                            placeholder="0.00"
+                            className="w-24 border border-slate-200 rounded-md px-2.5 py-1.5 text-sm font-mono text-slate-800 bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 disabled:opacity-60"
+                          />
+                          <span className="text-xs text-slate-400">/hr</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="space-y-4">
+              <p className="text-[11px] text-slate-400">Deja vacío el campo si la tarifa no aplica para este equipo.</p>
               {([
                 { field: 'rentaDia'    as const, label: 'Precio por día'    },
                 { field: 'rentaSemana' as const, label: 'Precio por semana' },
@@ -154,7 +207,7 @@ export default function PreciosEquipoModal({ equipo, open, onClose, onSave }: Pr
                   </div>
                 </div>
               ))}
-            </>
+            </div>
           )}
 
           {apiError && (
@@ -168,7 +221,7 @@ export default function PreciosEquipoModal({ equipo, open, onClose, onSave }: Pr
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2.5 px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
+        <div className="flex items-center justify-end gap-2.5 px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl flex-shrink-0">
           <button onClick={onClose} disabled={isSaving}
             className="px-4 py-2 rounded-lg text-sm font-medium border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 transition-colors disabled:opacity-40">
             Cancelar

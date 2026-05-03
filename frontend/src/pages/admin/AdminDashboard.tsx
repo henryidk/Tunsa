@@ -21,7 +21,6 @@ import UsuariosSection from '../../components/admin/sections/UsuariosSection'
 import BitacorasSection from '../../components/admin/sections/BitacorasSection'
 import CategoriasSection from '../../components/admin/sections/CategoriasSection'
 import HorometrosSection from '../../components/admin/sections/HorometrosSection'
-import ExtrasSection from '../../components/admin/sections/ExtrasSection'
 import CambiarPasswordModal from '../../components/admin/CambiarPasswordModal'
 
 export type Section =
@@ -33,7 +32,6 @@ export type Section =
   | 'horometros'
   | 'equipos'
   | 'categorias'
-  | 'extras'
   | 'clientes'
   | 'usuarios'
   | 'bitacoras'
@@ -124,9 +122,6 @@ export default function AdminDashboard() {
           )}
           {activeSection === 'categorias' && (
             <CategoriasSection onShowToast={showToast} />
-          )}
-          {activeSection === 'extras' && (
-            <ExtrasSection onShowToast={showToast} />
           )}
           {activeSection === 'clientes' && (
             <ClientesSection onShowToast={showToast} />

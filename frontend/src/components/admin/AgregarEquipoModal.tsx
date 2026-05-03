@@ -1,10 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import type { ChangeEvent, MouseEvent } from 'react';
 import type { Equipo, TipoConCategorias } from '../../types/equipo.types';
-import type { TipoExtra } from '../../services/equipos.service';
 import { equiposService, extrasService } from '../../services/equipos.service';
 import PasoIndicador from './equipo-modal/PasoIndicador';
-import ExtrasEditor, { type ExtraActivo } from './equipo-modal/ExtrasEditor';
+import ExtrasSimpleEditor, { type ExtraLocal } from './equipo-modal/ExtrasSimpleEditor';
 
 interface Props {
   open:      boolean;
@@ -33,6 +32,8 @@ const FORM_VACIO: FormState = {
   rentaHora: '', rentaDia: '', rentaSemana: '', rentaMes: '',
 };
 
+const localId = () => Math.random().toString(36).slice(2);
+
 const INPUT_CLS = 'w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all disabled:opacity-60 disabled:cursor-not-allowed';
 const LABEL_CLS = 'block text-xs font-semibold text-slate-600 mb-1.5';
 const SECCION   = 'text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3';
@@ -40,15 +41,9 @@ const SECCION   = 'text-[11px] font-bold text-slate-400 uppercase tracking-wides
 export default function AgregarEquipoModal({ open, tipos, onClose, onCreated }: Props) {
   const [paso,          setPaso]          = useState<1 | 2>(1);
   const [form,          setForm]          = useState<FormState>(FORM_VACIO);
-  const [extrasActivos, setExtrasActivos] = useState<ExtraActivo[]>([]);
-  const [tiposExtra,    setTiposExtra]    = useState<TipoExtra[]>([]);
+  const [extrasLocales, setExtrasLocales] = useState<ExtraLocal[]>([]);
   const [isSaving,      setIsSaving]      = useState(false);
   const [error,         setError]         = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    extrasService.getAll().then(setTiposExtra).catch(() => {});
-  }, [open]);
 
   if (!open) return null;
 
@@ -63,26 +58,23 @@ export default function AgregarEquipoModal({ open, tipos, onClose, onCreated }: 
         [field]: e.target.value,
         ...(field === 'tipoId' ? { categoriaId: '', rentaHora: '', rentaDia: '', rentaSemana: '', rentaMes: '' } : {}),
       }));
-      if (field === 'tipoId') setExtrasActivos([]);
+      if (field === 'tipoId') setExtrasLocales([]);
       setError(null);
     };
 
-  const toggleExtra = (tipoExtraId: string) =>
-    setExtrasActivos(prev => prev.find(e => e.tipoExtraId === tipoExtraId)
-      ? prev.filter(e => e.tipoExtraId !== tipoExtraId)
-      : [...prev, { tipoExtraId, rentaHora: '' }],
-    );
+  const agregarExtra = (nombre: string, rentaHora: string) =>
+    setExtrasLocales(prev => [...prev, { localId: localId(), nombre, rentaHora }]);
 
-  const updateExtraPrice = (tipoExtraId: string, precio: string) =>
-    setExtrasActivos(prev => prev.map(e => e.tipoExtraId === tipoExtraId ? { ...e, rentaHora: precio } : e));
+  const removerExtra = (id: string) =>
+    setExtrasLocales(prev => prev.filter(e => e.localId !== id));
 
-  const handleTipoCreado = (nuevo: TipoExtra) =>
-    setTiposExtra(prev => [...prev, nuevo]);
+  const actualizarPrecioExtra = (id: string, precio: string) =>
+    setExtrasLocales(prev => prev.map(e => e.localId === id ? { ...e, rentaHora: precio } : e));
 
   const handleClose = () => {
     if (isSaving) return;
     setForm(FORM_VACIO);
-    setExtrasActivos([]);
+    setExtrasLocales([]);
     setError(null);
     setPaso(1);
     onClose();
@@ -93,12 +85,12 @@ export default function AgregarEquipoModal({ open, tipos, onClose, onCreated }: 
   };
 
   const validarPaso1 = (): string | null => {
-    if (!form.numeracion.trim())                           return 'La numeración es requerida.';
-    if (!form.descripcion.trim())                          return 'La descripción es requerida.';
-    if (!form.tipoId)                                      return 'El tipo de maquinaria es requerido.';
-    if (!form.fechaCompra)                                 return 'La fecha de compra es requerida.';
+    if (!form.numeracion.trim())        return 'La numeración es requerida.';
+    if (!form.descripcion.trim())       return 'La descripción es requerida.';
+    if (!form.tipoId)                   return 'El tipo de maquinaria es requerido.';
+    if (!form.fechaCompra)              return 'La fecha de compra es requerida.';
     const monto = parseFloat(form.montoCompra);
-    if (isNaN(monto) || monto < 0)                        return 'El monto de compra debe ser un número válido.';
+    if (isNaN(monto) || monto < 0)     return 'El monto de compra debe ser un número válido.';
     return null;
   };
 
@@ -110,11 +102,10 @@ export default function AgregarEquipoModal({ open, tipos, onClose, onCreated }: 
   };
 
   const handleGuardar = async () => {
-    for (const extra of extrasActivos) {
+    for (const extra of extrasLocales) {
       const precio = parseFloat(extra.rentaHora);
       if (isNaN(precio) || precio < 0) {
-        const nombre = tiposExtra.find(t => t.id === extra.tipoExtraId)?.nombre ?? extra.tipoExtraId;
-        setError(`El precio del complemento "${nombre}" no es válido.`);
+        setError(`El precio del complemento "${extra.nombre}" no es válido.`);
         return;
       }
     }
@@ -122,6 +113,13 @@ export default function AgregarEquipoModal({ open, tipos, onClose, onCreated }: 
     setIsSaving(true);
     setError(null);
     try {
+      const extrasConIds = await Promise.all(
+        extrasLocales.map(async e => {
+          const tipo = await extrasService.create({ nombre: e.nombre });
+          return { tipoExtraId: tipo.id, rentaHora: parseFloat(e.rentaHora) };
+        }),
+      );
+
       const nuevo = await equiposService.create({
         numeracion:  form.numeracion.trim(),
         descripcion: form.descripcion.trim(),
@@ -132,7 +130,7 @@ export default function AgregarEquipoModal({ open, tipos, onClose, onCreated }: 
         montoCompra: parseFloat(form.montoCompra),
         ...(modalidad === 'PESADA' ? {
           rentaHora: form.rentaHora ? parseFloat(form.rentaHora) : undefined,
-          extras:    extrasActivos.map(e => ({ tipoExtraId: e.tipoExtraId, rentaHora: parseFloat(e.rentaHora) })),
+          extras:    extrasConIds,
         } : {}),
         ...(modalidad === 'LIVIANA' ? {
           rentaDia:    form.rentaDia    ? parseFloat(form.rentaDia)    : undefined,
@@ -179,7 +177,7 @@ export default function AgregarEquipoModal({ open, tipos, onClose, onCreated }: 
         {/* Body */}
         <div className="px-6 py-5 overflow-y-auto flex-1 space-y-5">
 
-          {/* ── Paso 1: Información general ── */}
+          {/* ── Paso 1 ── */}
           {paso === 1 && (
             <>
               <div>
@@ -251,7 +249,7 @@ export default function AgregarEquipoModal({ open, tipos, onClose, onCreated }: 
             </>
           )}
 
-          {/* ── Paso 2: Precios ── */}
+          {/* ── Paso 2 ── */}
           {paso === 2 && (
             <>
               {modalidad === 'PESADA' && (
@@ -263,13 +261,12 @@ export default function AgregarEquipoModal({ open, tipos, onClose, onCreated }: 
                   </div>
                   <div>
                     <p className={SECCION}>Complementos</p>
-                    <ExtrasEditor
-                      tiposExtra={tiposExtra}
-                      extrasActivos={extrasActivos}
+                    <ExtrasSimpleEditor
+                      extras={extrasLocales}
                       disabled={isSaving}
-                      onToggle={toggleExtra}
-                      onUpdatePrice={updateExtraPrice}
-                      onTipoCreado={handleTipoCreado}
+                      onAgregar={agregarExtra}
+                      onRemove={removerExtra}
+                      onUpdatePrice={actualizarPrecioExtra}
                     />
                   </div>
                 </>

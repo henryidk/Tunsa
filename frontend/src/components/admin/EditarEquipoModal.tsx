@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
 import type { ChangeEvent, MouseEvent } from 'react';
 import type { Equipo, TipoConCategorias } from '../../types/equipo.types';
-import type { TipoExtra } from '../../services/equipos.service';
 import { equiposService, extrasService } from '../../services/equipos.service';
 import PasoIndicador from './equipo-modal/PasoIndicador';
-import ExtrasEditor, { type ExtraActivo } from './equipo-modal/ExtrasEditor';
+import ExtrasSimpleEditor, { type ExtraLocal } from './equipo-modal/ExtrasSimpleEditor';
 
 interface Props {
   equipo:  Equipo | null;
@@ -28,18 +27,19 @@ interface FormState {
   rentaMes:    string;
 }
 
+const localId = () => Math.random().toString(36).slice(2);
+
 const INPUT_CLS = 'w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all disabled:opacity-60 disabled:cursor-not-allowed';
 const LABEL_CLS = 'block text-xs font-semibold text-slate-600 mb-1.5';
 const SECCION   = 'text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3';
 
 export default function EditarEquipoModal({ equipo, open, tipos, onClose, onSave }: Props) {
-  const [paso,            setPaso]            = useState<1 | 2>(1);
-  const [form,            setForm]            = useState<FormState>({} as FormState);
-  const [extrasActivos,   setExtrasActivos]   = useState<ExtraActivo[]>([]);
-  const [tiposExtra,      setTiposExtra]      = useState<TipoExtra[]>([]);
-  const [isSaving,        setIsSaving]        = useState(false);
-  const [error,           setError]           = useState<string | null>(null);
-  const [confirmarTipo,   setConfirmarTipo]   = useState(false);
+  const [paso,          setPaso]          = useState<1 | 2>(1);
+  const [form,          setForm]          = useState<FormState>({} as FormState);
+  const [extrasLocales, setExtrasLocales] = useState<ExtraLocal[]>([]);
+  const [isSaving,      setIsSaving]      = useState(false);
+  const [error,         setError]         = useState<string | null>(null);
+  const [confirmarTipo, setConfirmarTipo] = useState(false);
 
   useEffect(() => {
     if (!open || !equipo) return;
@@ -57,13 +57,14 @@ export default function EditarEquipoModal({ equipo, open, tipos, onClose, onSave
       rentaSemana: modalidad === 'LIVIANA' ? (equipo.rentaSemana?.toString() ?? '') : '',
       rentaMes:    modalidad === 'LIVIANA' ? (equipo.rentaMes?.toString()    ?? '') : '',
     });
-    setExtrasActivos(equipo.extras.map(e => ({
+    setExtrasLocales(equipo.extras.map(e => ({
+      localId:     localId(),
       tipoExtraId: e.tipoExtraId,
+      nombre:      e.nombre,
       rentaHora:   e.rentaHora.toString(),
     })));
     setError(null);
     setPaso(1);
-    extrasService.getAll().then(setTiposExtra).catch(() => {});
   }, [open, equipo]);
 
   if (!open || !equipo) return null;
@@ -83,17 +84,14 @@ export default function EditarEquipoModal({ equipo, open, tipos, onClose, onSave
       setError(null);
     };
 
-  const toggleExtra = (tipoExtraId: string) =>
-    setExtrasActivos(prev => prev.find(e => e.tipoExtraId === tipoExtraId)
-      ? prev.filter(e => e.tipoExtraId !== tipoExtraId)
-      : [...prev, { tipoExtraId, rentaHora: '' }],
-    );
+  const agregarExtra = (nombre: string, rentaHora: string) =>
+    setExtrasLocales(prev => [...prev, { localId: localId(), nombre, rentaHora }]);
 
-  const updateExtraPrice = (tipoExtraId: string, precio: string) =>
-    setExtrasActivos(prev => prev.map(e => e.tipoExtraId === tipoExtraId ? { ...e, rentaHora: precio } : e));
+  const removerExtra = (id: string) =>
+    setExtrasLocales(prev => prev.filter(e => e.localId !== id));
 
-  const handleTipoCreado = (nuevo: TipoExtra) =>
-    setTiposExtra(prev => [...prev, nuevo]);
+  const actualizarPrecioExtra = (id: string, precio: string) =>
+    setExtrasLocales(prev => prev.map(e => e.localId === id ? { ...e, rentaHora: precio } : e));
 
   const handleOverlayClick = (e: MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget && !isSaving) onClose();
@@ -113,17 +111,16 @@ export default function EditarEquipoModal({ equipo, open, tipos, onClose, onSave
 
   const confirmarCambioTipo = () => {
     setConfirmarTipo(false);
-    setExtrasActivos([]);
+    setExtrasLocales([]);
     setError(null);
     setPaso(2);
   };
 
   const handleGuardar = async () => {
-    for (const extra of extrasActivos) {
+    for (const extra of extrasLocales) {
       const precio = parseFloat(extra.rentaHora);
       if (isNaN(precio) || precio < 0) {
-        const nombre = tiposExtra.find(t => t.id === extra.tipoExtraId)?.nombre ?? extra.tipoExtraId;
-        setError(`El precio del complemento "${nombre}" no es válido.`);
+        setError(`El precio del complemento "${extra.nombre}" no es válido.`);
         return;
       }
     }
@@ -134,47 +131,55 @@ export default function EditarEquipoModal({ equipo, open, tipos, onClose, onSave
     const payload: Record<string, unknown> = {};
 
     const descripcion = form.descripcion.trim();
-    if (descripcion !== equipo.descripcion)             payload.descripcion = descripcion;
-    if (form.tipoId  !== equipo.tipoId)                 payload.tipoId      = form.tipoId;
+    if (descripcion !== equipo.descripcion)                             payload.descripcion = descripcion;
+    if (form.tipoId  !== equipo.tipoId)                                 payload.tipoId      = form.tipoId;
 
     const categoriaId = form.categoriaId || null;
-    if (categoriaId !== equipo.categoriaId)             payload.categoriaId = categoriaId;
+    if (categoriaId !== equipo.categoriaId)                             payload.categoriaId = categoriaId;
 
     const serie = form.serie.trim() || null;
-    if (serie !== (equipo.serie ?? null))               payload.serie = serie ?? undefined;
-    if (form.fechaCompra !== equipo.fechaCompra.substring(0, 10)) payload.fechaCompra = form.fechaCompra;
+    if (serie !== (equipo.serie ?? null))                               payload.serie       = serie ?? undefined;
+    if (form.fechaCompra !== equipo.fechaCompra.substring(0, 10))       payload.fechaCompra = form.fechaCompra;
 
     const monto = parseFloat(form.montoCompra);
-    if (monto !== equipo.montoCompra)                   payload.montoCompra = monto;
-
-    if (modalidad === 'PESADA') {
-      const rentaHora = form.rentaHora ? parseFloat(form.rentaHora) : null;
-      if (rentaHora !== equipo.rentaHora)               payload.rentaHora = rentaHora ?? undefined;
-
-      const extrasOriginales = equipo.extras.map(e => ({ tipoExtraId: e.tipoExtraId, rentaHora: e.rentaHora.toString() }));
-      const extrasIguales =
-        extrasActivos.length === extrasOriginales.length &&
-        extrasActivos.every(ea => extrasOriginales.some(eo => eo.tipoExtraId === ea.tipoExtraId && eo.rentaHora === ea.rentaHora));
-
-      if (!extrasIguales) {
-        payload.extras = extrasActivos.length > 0
-          ? extrasActivos.map(e => ({ tipoExtraId: e.tipoExtraId, rentaHora: parseFloat(e.rentaHora) }))
-          : null;
-      }
-    }
-
-    if (modalidad === 'LIVIANA') {
-      const rentaDia    = form.rentaDia    ? parseFloat(form.rentaDia)    : null;
-      const rentaSemana = form.rentaSemana ? parseFloat(form.rentaSemana) : null;
-      const rentaMes    = form.rentaMes    ? parseFloat(form.rentaMes)    : null;
-      if (rentaDia    !== equipo.rentaDia)    payload.rentaDia    = rentaDia    ?? undefined;
-      if (rentaSemana !== equipo.rentaSemana) payload.rentaSemana = rentaSemana ?? undefined;
-      if (rentaMes    !== equipo.rentaMes)    payload.rentaMes    = rentaMes    ?? undefined;
-    }
-
-    if (Object.keys(payload).length === 0) { onClose(); return; }
+    if (monto !== equipo.montoCompra)                                   payload.montoCompra = monto;
 
     try {
+      if (modalidad === 'PESADA') {
+        const rentaHora = form.rentaHora ? parseFloat(form.rentaHora) : null;
+        if (rentaHora !== equipo.rentaHora)                             payload.rentaHora   = rentaHora ?? undefined;
+
+        const debeActualizar =
+          extrasLocales.some(e => !e.tipoExtraId) ||
+          extrasLocales.length !== equipo.extras.length ||
+          extrasLocales.some(e => {
+            const original = equipo.extras.find(eo => eo.tipoExtraId === e.tipoExtraId);
+            return !original || original.rentaHora.toString() !== e.rentaHora;
+          });
+
+        if (debeActualizar) {
+          const extrasConIds = await Promise.all(
+            extrasLocales.map(async e => {
+              if (e.tipoExtraId) return { tipoExtraId: e.tipoExtraId, rentaHora: parseFloat(e.rentaHora) };
+              const tipo = await extrasService.create({ nombre: e.nombre });
+              return { tipoExtraId: tipo.id, rentaHora: parseFloat(e.rentaHora) };
+            }),
+          );
+          payload.extras = extrasConIds.length > 0 ? extrasConIds : null;
+        }
+      }
+
+      if (modalidad === 'LIVIANA') {
+        const rentaDia    = form.rentaDia    ? parseFloat(form.rentaDia)    : null;
+        const rentaSemana = form.rentaSemana ? parseFloat(form.rentaSemana) : null;
+        const rentaMes    = form.rentaMes    ? parseFloat(form.rentaMes)    : null;
+        if (rentaDia    !== equipo.rentaDia)    payload.rentaDia    = rentaDia    ?? undefined;
+        if (rentaSemana !== equipo.rentaSemana) payload.rentaSemana = rentaSemana ?? undefined;
+        if (rentaMes    !== equipo.rentaMes)    payload.rentaMes    = rentaMes    ?? undefined;
+      }
+
+      if (Object.keys(payload).length === 0) { onClose(); return; }
+
       const updated = await equiposService.update(equipo.id, payload);
       onSave(updated);
       onClose();
@@ -218,7 +223,7 @@ export default function EditarEquipoModal({ equipo, open, tipos, onClose, onSave
           {/* Body */}
           <div className="px-6 py-5 overflow-y-auto flex-1 space-y-5">
 
-            {/* ── Paso 1: Información general ── */}
+            {/* ── Paso 1 ── */}
             {paso === 1 && (
               <>
                 <div>
@@ -285,7 +290,7 @@ export default function EditarEquipoModal({ equipo, open, tipos, onClose, onSave
               </>
             )}
 
-            {/* ── Paso 2: Precios ── */}
+            {/* ── Paso 2 ── */}
             {paso === 2 && (
               <>
                 {modalidad === 'PESADA' && (
@@ -297,13 +302,12 @@ export default function EditarEquipoModal({ equipo, open, tipos, onClose, onSave
                     </div>
                     <div>
                       <p className={SECCION}>Complementos</p>
-                      <ExtrasEditor
-                        tiposExtra={tiposExtra}
-                        extrasActivos={extrasActivos}
+                      <ExtrasSimpleEditor
+                        extras={extrasLocales}
                         disabled={isSaving}
-                        onToggle={toggleExtra}
-                        onUpdatePrice={updateExtraPrice}
-                        onTipoCreado={handleTipoCreado}
+                        onAgregar={agregarExtra}
+                        onRemove={removerExtra}
+                        onUpdatePrice={actualizarPrecioExtra}
                       />
                     </div>
                   </>
@@ -381,7 +385,7 @@ export default function EditarEquipoModal({ equipo, open, tipos, onClose, onSave
         </div>
       </div>
 
-      {/* Diálogo de confirmación — cambio de tipo */}
+      {/* Diálogo confirmación — cambio de tipo */}
       {confirmarTipo && (
         <div className="fixed inset-0 z-[2100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 flex flex-col gap-4">

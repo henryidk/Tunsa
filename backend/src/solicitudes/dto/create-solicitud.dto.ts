@@ -14,8 +14,8 @@ export class ItemSolicitudDto {
   @IsOptional() @IsString() numeracion?: string;
   @IsOptional() @IsString() descripcion?: string;
 
-  // Pesada: martillo y días solicitados
-  @IsOptional() @IsBoolean() conMartillo?: boolean;
+  // Pesada: extras seleccionados y días solicitados
+  @IsOptional() @IsArray() extras?: { tipoExtraId: string; nombre: string; rentaHora: number }[];
   @IsOptional() @IsNumber() @Min(1) diasSolicitados?: number;
 
   // Granel

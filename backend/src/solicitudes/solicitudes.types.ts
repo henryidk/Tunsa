@@ -27,14 +27,21 @@ export interface ItemParaCalculo {
   cantidad?:  number;
 }
 
+/** Un extra seleccionado al crear la solicitud (snapshot inmutable). */
+export interface ExtraSeleccionadoSnapshot {
+  tipoExtraId: string;
+  nombre:      string;
+  rentaHora:   number;
+}
+
 /** Shape completa de un ítem de maquinaria pesada. */
 export interface ItemPesadaSnapshot {
   kind:            'pesada';
   equipoId:        string;
   numeracion:      string;
   descripcion:     string;
-  conMartillo:     boolean;
-  tarifaEfectiva:  number;
+  extras:          ExtraSeleccionadoSnapshot[];
+  tarifaEfectiva:  number;  // rentaHora base + suma de extras seleccionados
   diasSolicitados: number;
   duracion:        number;
   unidad:          string;

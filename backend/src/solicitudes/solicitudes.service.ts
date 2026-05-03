@@ -106,21 +106,19 @@ export class SolicitudesService {
     let itemsToStore: object[] = dto.items as object[];
     if (esPesada && equipoIds.length > 0) {
       const equipos = await this.prisma.equipo.findMany({
-        where:  { id: { in: equipoIds } },
-        select: { id: true, rentaHora: true, rentaHoraMartillo: true },
+        where:   { id: { in: equipoIds } },
+        select:  { id: true, rentaHora: true },
       });
       const equipoMap = new Map(equipos.map(e => [e.id, e]));
 
       itemsToStore = dto.items.map(item => {
         if (item.kind !== 'pesada' || !item.equipoId) return item as object;
-        const eq = equipoMap.get(item.equipoId);
-        const tarifa = item.conMartillo && eq?.rentaHoraMartillo != null
-          ? parseFloat(eq.rentaHoraMartillo.toString())
-          : eq?.rentaHora != null
-            ? parseFloat(eq.rentaHora.toString())
-            : 0;
+        const eq           = equipoMap.get(item.equipoId);
+        const rentaBase    = eq?.rentaHora != null ? parseFloat(eq.rentaHora.toString()) : 0;
+        const extras       = (item.extras ?? []) as { tipoExtraId: string; nombre: string; rentaHora: number }[];
+        const tarifaExtras = extras.reduce((s, e) => s + e.rentaHora, 0);
         const { tarifaEfectiva: _dropped, ...rest } = item as any;
-        return { ...rest, tarifaEfectiva: tarifa };
+        return { ...rest, extras, tarifaEfectiva: rentaBase + tarifaExtras };
       });
     }
 

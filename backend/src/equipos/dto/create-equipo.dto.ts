@@ -1,5 +1,19 @@
-import { IsString, IsNotEmpty, IsOptional, IsNumber, IsDateString, MaxLength, Min } from 'class-validator';
+import {
+  IsString, IsNotEmpty, IsOptional, IsNumber,
+  IsDateString, MaxLength, Min, IsArray, ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
+
+export class ExtraEquipoDto {
+  @IsString()
+  @IsNotEmpty()
+  tipoExtraId: string;
+
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  rentaHora: number;
+}
 
 export class CreateEquipoDto {
   @IsString()
@@ -49,12 +63,6 @@ export class CreateEquipoDto {
   @IsNumber()
   @Min(0)
   @Type(() => Number)
-  rentaHoraMartillo?: number;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  @Type(() => Number)
   rentaDia?: number;
 
   @IsOptional()
@@ -68,4 +76,11 @@ export class CreateEquipoDto {
   @Min(0)
   @Type(() => Number)
   rentaMes?: number;
+
+  /** Extras con precio/hora (solo PESADA). Se reemplaza completo en cada actualización. */
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ExtraEquipoDto)
+  extras?: ExtraEquipoDto[];
 }

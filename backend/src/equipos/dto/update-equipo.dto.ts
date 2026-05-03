@@ -1,5 +1,9 @@
-import { IsString, IsOptional, IsNumber, IsDateString, MaxLength, Min } from 'class-validator';
+import {
+  IsString, IsOptional, IsNumber, IsDateString,
+  MaxLength, Min, IsArray, ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
+import { ExtraEquipoDto } from './create-equipo.dto';
 
 export class UpdateEquipoDto {
   @IsOptional()
@@ -47,12 +51,6 @@ export class UpdateEquipoDto {
   @IsNumber()
   @Min(0)
   @Type(() => Number)
-  rentaHoraMartillo?: number;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  @Type(() => Number)
   rentaDia?: number;
 
   @IsOptional()
@@ -66,4 +64,11 @@ export class UpdateEquipoDto {
   @Min(0)
   @Type(() => Number)
   rentaMes?: number;
+
+  /** null = borrar todos los extras. Array vacío = lo mismo. Undefined = sin cambios. */
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ExtraEquipoDto)
+  extras?: ExtraEquipoDto[] | null;
 }

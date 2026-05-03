@@ -1,9 +1,8 @@
-// AgregarEquipoModal.tsx — crear un nuevo equipo en el inventario
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { ChangeEvent, MouseEvent } from 'react';
 import type { Equipo, TipoConCategorias } from '../../types/equipo.types';
-import { equiposService } from '../../services/equipos.service';
+import type { TipoExtra } from '../../services/equipos.service';
+import { equiposService, extrasService } from '../../services/equipos.service';
 
 interface AgregarEquipoModalProps {
   open:      boolean;
@@ -13,47 +12,76 @@ interface AgregarEquipoModalProps {
 }
 
 interface FormState {
-  numeracion:        string;
-  descripcion:       string;
-  tipoId:            string;
-  categoriaId:       string;
-  serie:             string;
-  fechaCompra:       string;
-  montoCompra:       string;
-  rentaHora:         string;
-  rentaHoraMartillo: string;
-  rentaDia:          string;
-  rentaSemana:       string;
-  rentaMes:          string;
+  numeracion:  string;
+  descripcion: string;
+  tipoId:      string;
+  categoriaId: string;
+  serie:       string;
+  fechaCompra: string;
+  montoCompra: string;
+  rentaHora:   string;
+  rentaDia:    string;
+  rentaSemana: string;
+  rentaMes:    string;
+}
+
+interface ExtraActivo {
+  tipoExtraId: string;
+  rentaHora:   string; // string para el input
 }
 
 const emptyForm: FormState = {
   numeracion: '', descripcion: '', tipoId: '', categoriaId: '', serie: '',
   fechaCompra: '', montoCompra: '',
-  rentaHora: '', rentaHoraMartillo: '', rentaDia: '', rentaSemana: '', rentaMes: '',
+  rentaHora: '', rentaDia: '', rentaSemana: '', rentaMes: '',
 };
 
 export default function AgregarEquipoModal({ open, tipos, onClose, onCreated }: AgregarEquipoModalProps) {
-  const [form, setForm]         = useState<FormState>(emptyForm);
-  const [isSaving, setIsSaving] = useState(false);
-  const [apiError, setApiError] = useState<string | null>(null);
+  const [form,          setForm]          = useState<FormState>(emptyForm);
+  const [extrasActivos, setExtrasActivos] = useState<ExtraActivo[]>([]);
+  const [tiposExtra,    setTiposExtra]    = useState<TipoExtra[]>([]);
+  const [isSaving,      setIsSaving]      = useState(false);
+  const [apiError,      setApiError]      = useState<string | null>(null);
+
+  // Cargar catálogo de extras al abrir el modal
+  useEffect(() => {
+    if (!open) return;
+    extrasService.getAll().then(setTiposExtra).catch(() => {});
+  }, [open]);
 
   if (!open) return null;
 
+  const tipoSeleccionado  = tipos.find(t => t.id === form.tipoId);
+  const categoriasDelTipo = tipoSeleccionado?.categorias ?? [];
+  const modalidad         = tipoSeleccionado?.modalidad;
+
   const handleChange = (field: keyof FormState) =>
     (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-      const value = e.target.value;
       setForm(prev => ({
         ...prev,
-        [field]: value,
+        [field]: e.target.value,
         ...(field === 'tipoId' ? {
           categoriaId: '',
-          rentaHora: '', rentaHoraMartillo: '',
-          rentaDia: '', rentaSemana: '', rentaMes: '',
+          rentaHora: '', rentaDia: '', rentaSemana: '', rentaMes: '',
         } : {}),
       }));
+      if (field === 'tipoId') setExtrasActivos([]);
       setApiError(null);
     };
+
+  const toggleExtra = (tipoExtraId: string) => {
+    setExtrasActivos(prev => {
+      const existe = prev.find(e => e.tipoExtraId === tipoExtraId);
+      if (existe) return prev.filter(e => e.tipoExtraId !== tipoExtraId);
+      return [...prev, { tipoExtraId, rentaHora: '' }];
+    });
+  };
+
+  const updateExtraPrice = (tipoExtraId: string, rentaHora: string) => {
+    setExtrasActivos(prev =>
+      prev.map(e => e.tipoExtraId === tipoExtraId ? { ...e, rentaHora } : e),
+    );
+  };
 
   const handleOverlayClick = (e: MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget && !isSaving) handleClose();
@@ -62,25 +90,30 @@ export default function AgregarEquipoModal({ open, tipos, onClose, onCreated }: 
   const handleClose = () => {
     if (isSaving) return;
     setForm(emptyForm);
+    setExtrasActivos([]);
     setApiError(null);
     onClose();
   };
 
-  const tipoSeleccionado  = tipos.find(t => t.id === form.tipoId);
-  const categoriasDelTipo = tipoSeleccionado?.categorias ?? [];
-  const modalidad         = tipoSeleccionado?.modalidad;
-
   const handleSave = async () => {
     const numeracion  = form.numeracion.trim();
     const descripcion = form.descripcion.trim();
-    const fechaCompra = form.fechaCompra;
     const montoCompra = parseFloat(form.montoCompra);
 
-    if (!numeracion)                             { setApiError('La numeración es requerida.'); return; }
-    if (!descripcion)                            { setApiError('La descripción es requerida.'); return; }
-    if (!form.tipoId)                            { setApiError('El tipo de maquinaria es requerido.'); return; }
-    if (!fechaCompra)                            { setApiError('La fecha de compra es requerida.'); return; }
-    if (isNaN(montoCompra) || montoCompra < 0)  { setApiError('El monto de compra debe ser un número válido.'); return; }
+    if (!numeracion)                            { setApiError('La numeración es requerida.'); return; }
+    if (!descripcion)                           { setApiError('La descripción es requerida.'); return; }
+    if (!form.tipoId)                           { setApiError('El tipo de maquinaria es requerido.'); return; }
+    if (!form.fechaCompra)                      { setApiError('La fecha de compra es requerida.'); return; }
+    if (isNaN(montoCompra) || montoCompra < 0) { setApiError('El monto de compra debe ser un número válido.'); return; }
+
+    for (const extra of extrasActivos) {
+      const precio = parseFloat(extra.rentaHora);
+      if (isNaN(precio) || precio < 0) {
+        const nombre = tiposExtra.find(t => t.id === extra.tipoExtraId)?.nombre ?? extra.tipoExtraId;
+        setApiError(`El precio del extra "${nombre}" no es válido.`);
+        return;
+      }
+    }
 
     setIsSaving(true);
     setApiError(null);
@@ -92,11 +125,14 @@ export default function AgregarEquipoModal({ open, tipos, onClose, onCreated }: 
         tipoId:      form.tipoId,
         categoriaId: form.categoriaId || undefined,
         serie:       form.serie.trim() || undefined,
-        fechaCompra,
+        fechaCompra: form.fechaCompra,
         montoCompra,
         ...(modalidad === 'PESADA' ? {
-          rentaHora:         form.rentaHora         ? parseFloat(form.rentaHora)         : undefined,
-          rentaHoraMartillo: form.rentaHoraMartillo ? parseFloat(form.rentaHoraMartillo) : undefined,
+          rentaHora: form.rentaHora ? parseFloat(form.rentaHora) : undefined,
+          extras:    extrasActivos.map(e => ({
+            tipoExtraId: e.tipoExtraId,
+            rentaHora:   parseFloat(e.rentaHora),
+          })),
         } : {}),
         ...(modalidad === 'LIVIANA' ? {
           rentaDia:    form.rentaDia    ? parseFloat(form.rentaDia)    : undefined,
@@ -106,6 +142,7 @@ export default function AgregarEquipoModal({ open, tipos, onClose, onCreated }: 
       });
       onCreated(nuevo);
       setForm(emptyForm);
+      setExtrasActivos([]);
       onClose();
     } catch (err: unknown) {
       const msg =
@@ -161,9 +198,7 @@ export default function AgregarEquipoModal({ open, tipos, onClose, onCreated }: 
                   className={`${inputCls} bg-white`}>
                   <option value="">Seleccionar tipo...</option>
                   {tipos.map(t => (
-                    <option key={t.id} value={t.id}>
-                      {t.nombre.replace(/_/g, ' ')}
-                    </option>
+                    <option key={t.id} value={t.id}>{t.nombre.replace(/_/g, ' ')}</option>
                   ))}
                 </select>
               </div>
@@ -216,31 +251,85 @@ export default function AgregarEquipoModal({ open, tipos, onClose, onCreated }: 
               <div>
                 <label className={labelCls}>Monto de compra (Q) <span className="text-red-400">*</span></label>
                 <input type="text" inputMode="decimal" value={form.montoCompra} onChange={handleChange('montoCompra')}
-                  disabled={isSaving} placeholder="0.00"
-                  className={`${inputCls} font-mono`} />
+                  disabled={isSaving} placeholder="0.00" className={`${inputCls} font-mono`} />
               </div>
             </div>
           </div>
 
-          {/* Precios de renta — condicional según modalidad */}
+          {/* Precios PESADA */}
           {modalidad === 'PESADA' && (
             <div>
               <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">Precios de renta (Q)</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={labelCls}>Por hora</label>
-                  <input type="text" inputMode="decimal" value={form.rentaHora} onChange={handleChange('rentaHora')}
-                    disabled={isSaving} placeholder="0.00" className={`${inputCls} font-mono`} />
-                </div>
-                <div>
-                  <label className={labelCls}>Por hora (con martillo)</label>
-                  <input type="text" inputMode="decimal" value={form.rentaHoraMartillo} onChange={handleChange('rentaHoraMartillo')}
-                    disabled={isSaving} placeholder="0.00" className={`${inputCls} font-mono`} />
-                </div>
+              <div className="mb-3">
+                <label className={labelCls}>Tarifa base (Q/hora)</label>
+                <input type="text" inputMode="decimal" value={form.rentaHora} onChange={handleChange('rentaHora')}
+                  disabled={isSaving} placeholder="0.00" className={`${inputCls} font-mono`} />
               </div>
+
+              {/* Extras del equipo */}
+              {tiposExtra.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-slate-500 mb-2">Complementos disponibles</p>
+                  <div className="space-y-2">
+                    {tiposExtra.map(te => {
+                      const activo = extrasActivos.find(e => e.tipoExtraId === te.id);
+                      return (
+                        <div key={te.id}
+                          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-colors ${
+                            activo
+                              ? 'bg-amber-50 border-amber-200'
+                              : 'bg-slate-50 border-slate-200'
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => toggleExtra(te.id)}
+                            disabled={isSaving}
+                            className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                              activo
+                                ? 'bg-amber-500 border-amber-500 text-white'
+                                : 'border-slate-300 bg-white hover:border-amber-400'
+                            } disabled:opacity-50`}
+                          >
+                            {activo && (
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                                <polyline points="20 6 9 17 4 12"/>
+                              </svg>
+                            )}
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm font-medium ${activo ? 'text-amber-800' : 'text-slate-600'}`}>
+                              {te.nombre}
+                            </p>
+                            {te.descripcion && (
+                              <p className="text-[10px] text-slate-400 truncate">{te.descripcion}</p>
+                            )}
+                          </div>
+                          {activo && (
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                              <span className="text-xs text-amber-700 font-medium">Q</span>
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                value={activo.rentaHora}
+                                onChange={e => updateExtraPrice(te.id, e.target.value)}
+                                disabled={isSaving}
+                                placeholder="0.00"
+                                className="w-20 border border-amber-200 rounded-md px-2 py-1 text-xs font-mono text-amber-900 bg-white focus:outline-none focus:border-amber-400 disabled:opacity-60"
+                              />
+                              <span className="text-[10px] text-amber-600">/hr</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
+          {/* Precios LIVIANA */}
           {modalidad === 'LIVIANA' && (
             <div>
               <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">Precios de renta (Q)</p>

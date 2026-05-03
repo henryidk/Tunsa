@@ -280,8 +280,8 @@ function ItemResumen({ item }: { item: ItemSnapshot }) {
         <p className="text-xs text-slate-700">
           <span className="font-mono text-slate-400 mr-1">#{item.numeracion}</span>
           {item.descripcion}
-          {item.kind === 'pesada' && item.conMartillo && (
-            <span className="ml-1.5 text-[10px] font-semibold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded-full">+Martillo</span>
+          {item.kind === 'pesada' && item.extras.length > 0 && (
+            <span className="ml-1.5 text-[10px] font-semibold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded-full">{item.extras.map(e => `+${e.nombre}`).join(', ')}</span>
           )}
         </p>
         <TiempoPill duracion={duracionLabel} fecha={fechaLabel} />

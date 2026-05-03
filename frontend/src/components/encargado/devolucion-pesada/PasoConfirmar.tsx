@@ -32,7 +32,7 @@ export default function PasoConfirmar({ seleccionados, cargosValidos, totalCargo
               </svg>
               <span className="text-xs font-mono text-slate-400">#{it.numeracion}</span>
               <span className="text-xs font-medium text-slate-800">{it.descripcion}</span>
-              {it.conMartillo && <span className="text-[10px] text-orange-600">(+martillo)</span>}
+              {it.extras.length > 0 && <span className="text-[10px] text-orange-600">({it.extras.map(e => `+${e.nombre}`).join(', ')})</span>}
             </li>
           ))}
         </ul>

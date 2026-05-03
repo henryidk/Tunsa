@@ -9,7 +9,7 @@ export interface ItemRetorno {
   equipoId:            string;
   numeracion:          string;
   descripcion:         string;
-  conMartillo:         boolean;
+  extras:              import('../../../types/solicitud-renta.types').ExtraSeleccionado[];
   tarifaEfectiva:      number;
   horometroDevolucion: string;
   seleccionado:        boolean;

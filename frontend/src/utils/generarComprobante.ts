@@ -123,7 +123,7 @@ function buildFilasPesada(items: ItemSnapshot[]): string[][] {
     .map(item => [
       `#${item.numeracion}`,
       item.descripcion,
-      item.conMartillo ? 'Sí' : 'No',
+      item.extras.length > 0 ? item.extras.map(e => e.nombre).join(', ') : '—',
       item.horometroInicial != null
         ? item.horometroInicial.toLocaleString('es-GT', { minimumFractionDigits: 1 })
         : '—',
@@ -276,7 +276,7 @@ export async function generarComprobante(solicitud: SolicitudRenta): Promise<voi
   if (solicitud.esPesada) {
     autoTable(doc, {
       startY: y,
-      head: [['Cód.', 'Descripción', 'Martillo', 'Horóm. inicial', 'Días sol.', 'Tarifa/hr']],
+      head: [['Cód.', 'Descripción', 'Extras', 'Horóm. inicial', 'Días sol.', 'Tarifa/hr']],
       body: buildFilasPesada(solicitud.items),
       foot: [['', '', '', '', 'TOTAL', 'Por horómetro']],
       ...commonTableStyles,

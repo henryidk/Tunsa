@@ -122,7 +122,7 @@ function buildSeccionHorometro(
     doc.setFontSize(10);
     doc.setTextColor(...COLORES.alerta);
     doc.text(
-      `#${item.numeracion}  —  ${item.descripcion}${item.conMartillo ? '  (+Martillo)' : ''}`,
+      `#${item.numeracion}  —  ${item.descripcion}${item.extras.length > 0 ? '  (' + item.extras.map(e => `+${e.nombre}`).join(', ') + ')' : ''}`,
       18, y + 6,
     );
 

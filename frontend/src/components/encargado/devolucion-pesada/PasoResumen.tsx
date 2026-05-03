@@ -54,7 +54,7 @@ export default function PasoResumen({
                 </svg>
                 <span className="text-xs font-mono text-slate-400">#{it.numeracion}</span>
                 <span className="text-sm font-medium text-slate-800">{it.descripcion}</span>
-                {it.conMartillo && <span className="text-[10px] text-orange-600 font-semibold">(+martillo)</span>}
+                {it.extras.length > 0 && <span className="text-[10px] text-orange-600 font-semibold">({it.extras.map(e => `+${e.nombre}`).join(', ')})</span>}
               </div>
               <div className="flex items-center gap-4 pl-5 text-[11px]">
                 <span className="text-slate-400">

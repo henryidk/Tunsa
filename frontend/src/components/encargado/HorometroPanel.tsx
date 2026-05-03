@@ -268,9 +268,9 @@ export default function HorometroPanel({ solicitud, onClose }: Props) {
                       #{activeItem.numeracion}
                     </span>
                     <span className="text-sm font-semibold text-slate-800">{activeItem.descripcion}</span>
-                    {activeItem.conMartillo && (
+                    {activeItem.extras.length > 0 && (
                       <span className="ml-2 text-[10px] font-bold bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full">
-                        +Martillo
+                        {activeItem.extras.map(e => `+${e.nombre}`).join(', ')}
                       </span>
                     )}
                   </div>

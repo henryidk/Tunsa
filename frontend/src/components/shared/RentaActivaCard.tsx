@@ -272,7 +272,7 @@ function PesadaRow({ item, inicio, extensiones, ahora }: {
       <p className="text-xs font-medium text-slate-700 leading-tight">
         <span className="font-mono text-slate-400 mr-1">#{item.numeracion}</span>
         {item.descripcion}
-        {item.conMartillo && <span className="text-orange-600 ml-1">(+martillo)</span>}
+        {item.extras.length > 0 && <span className="text-orange-600 ml-1">({item.extras.map(e => `+${e.nombre}`).join(', ')})</span>}
       </p>
       <div className="flex-shrink-0 flex flex-col items-end gap-0.5">
         <span className="text-[10px] text-slate-400 whitespace-nowrap">

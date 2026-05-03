@@ -27,7 +27,7 @@ export default function PasoEquipos({ items, esItemUnico, loadingLectura, costoA
           <p className="text-sm font-semibold text-slate-800">
             <span className="font-mono text-slate-400 mr-1">#{items[0].numeracion}</span>
             {items[0].descripcion}
-            {items[0].conMartillo && <span className="text-orange-600 ml-1">(+martillo)</span>}
+            {items[0].extras.length > 0 && <span className="text-orange-600 ml-1">({items[0].extras.map(e => `+${e.nombre}`).join(", ")})</span>}
           </p>
           <p className="text-[11px] text-slate-400 mt-0.5">
             Tarifa: <span className="font-semibold text-amber-700">{formatQ(items[0].tarifaEfectiva)}/hr</span>
@@ -61,7 +61,7 @@ export default function PasoEquipos({ items, esItemUnico, loadingLectura, costoA
                   <p className="text-sm font-medium text-slate-800 leading-tight">
                     <span className="font-mono text-slate-400 mr-1">#{it.numeracion}</span>
                     {it.descripcion}
-                    {it.conMartillo && <span className="text-orange-600 ml-1">(+martillo)</span>}
+                    {it.extras.length > 0 && <span className="text-orange-600 ml-1">({it.extras.map(e => `+${e.nombre}`).join(', ')})</span>}
                   </p>
                   <p className="text-[11px] text-slate-400 mt-0.5">
                     Tarifa: <span className="font-semibold text-amber-700">{formatQ(it.tarifaEfectiva)}/hr</span>

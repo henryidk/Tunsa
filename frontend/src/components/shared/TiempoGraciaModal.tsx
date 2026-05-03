@@ -10,7 +10,7 @@ function itemRef(item: ItemSnapshot): string {
 
 function itemLabel(item: ItemSnapshot): string {
   if (item.kind === 'maquinaria') return `#${item.numeracion} ${item.descripcion}`;
-  if (item.kind === 'pesada')     return `#${item.numeracion} ${item.descripcion}${item.conMartillo ? ' +Martillo' : ''}`;
+  if (item.kind === 'pesada')     return `#${item.numeracion} ${item.descripcion}${item.extras.length > 0 ? ' ' + item.extras.map(e => `+${e.nombre}`).join(', ') : ''}`;
   return `${item.tipoLabel}${item.conMadera ? ' (c/madera)' : ''} × ${item.cantidad.toLocaleString('es-GT')}`;
 }
 

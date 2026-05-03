@@ -47,7 +47,7 @@ export default function DevolucionPesadaModal({
       equipoId:            p.equipoId,
       numeracion:          p.numeracion,
       descripcion:         p.descripcion,
-      conMartillo:         p.conMartillo,
+      extras:              p.extras,
       tarifaEfectiva:      p.tarifaEfectiva,
       horometroDevolucion: '',
       seleccionado:        esItemUnico,

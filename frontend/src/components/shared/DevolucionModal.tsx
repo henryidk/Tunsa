@@ -13,7 +13,7 @@ function itemRef(item: ItemSnapshot): string {
 
 function itemLabel(item: ItemSnapshot): string {
   if (item.kind === 'maquinaria' || item.kind === 'pesada') {
-    return `#${item.numeracion} ${item.descripcion}${item.kind === 'pesada' && item.conMartillo ? ' +Martillo' : ''}`;
+    return `#${item.numeracion} ${item.descripcion}${item.kind === 'pesada' && item.extras.length > 0 ? ' ' + item.extras.map(e => `+${e.nombre}`).join(', ') : ''}`;
   }
   return `${item.tipoLabel}${item.conMadera ? ' (c/madera)' : ''} × ${item.cantidad.toLocaleString('es-GT')}`;
 }

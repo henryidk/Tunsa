@@ -310,9 +310,8 @@ function SolicitudAprobadaCard({
                 </div>
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                   <input
-                    type="number"
-                    min="0"
-                    step="0.1"
+                    type="text"
+                    inputMode="decimal"
                     value={horometros.get(item.equipoId) ?? ''}
                     onChange={e => setHorometro(item.equipoId, e.target.value)}
                     placeholder="0.0"

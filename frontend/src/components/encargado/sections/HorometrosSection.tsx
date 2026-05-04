@@ -485,14 +485,12 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                       {tipoPendiente === 'inicio' ? 'Horómetro de inicio' : 'Horómetro de cierre (5PM)'}
                     </label>
                     <input
-                      type="number"
-                      min="0"
-                      step="0.1"
+                      type="text"
+                      inputMode="decimal"
                       value={valor}
                       onChange={e => setValor(e.target.value)}
                       placeholder="Ej: 1234.5"
                       className="px-3 py-2 border border-slate-200 rounded-lg text-sm w-36 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
-                      required
                       autoFocus
                     />
                   </div>
@@ -833,9 +831,8 @@ function CorregirInput({
       <label className="text-[11px] font-medium text-slate-500 block mb-1">{label}</label>
       <div className="flex gap-1.5">
         <input
-          type="number"
-          min="0"
-          step="0.1"
+          type="text"
+          inputMode="decimal"
           value={val}
           onChange={e => setVal(e.target.value)}
           className="px-2 py-1.5 border border-slate-200 rounded-lg text-sm w-28 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 bg-white"

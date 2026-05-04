@@ -15,6 +15,7 @@ import {
   DevolucionEntry,
   DevolucionItemEntry,
   CargoAdicional,
+  GRACE_MS,
   calcularFechaFinEstimada,
   calcularFechaFinEstimadaConExtensiones,
   calcularRecargoTotalConExtensiones,
@@ -406,6 +407,56 @@ export class SolicitudesService {
     });
 
     return serializeSolicitud(actualizada);
+  }
+
+  async previewDevolucion(
+    id:            string,
+    itemRefsInput: string[] | undefined,
+  ): Promise<{ itemRef: string; costoReal: number; diasCobrados: number }[]> {
+    const solicitud = await this.prisma.solicitud.findUnique({ where: { id } });
+    if (!solicitud || !solicitud.fechaInicioRenta) return [];
+
+    const fechaDevolucion  = new Date();
+    const fechaInicio      = solicitud.fechaInicioRenta;
+    const snapshotItems    = solicitud.items as unknown as ItemParaCalculo[];
+    const devolucionesViejas = (solicitud.devolucionesParciales ?? []) as unknown as DevolucionEntry[];
+
+    const yaDevueltosRefs = new Set<string>(
+      devolucionesViejas.flatMap(d => d.items.map(i => i.itemRef)),
+    );
+    const itemsPendientes = snapshotItems.filter(item => {
+      const ref = item.equipoId ?? item.tipo ?? '';
+      return !yaDevueltosRefs.has(ref);
+    });
+
+    const refsADevolver = itemRefsInput && itemRefsInput.length > 0
+      ? new Set(itemRefsInput)
+      : new Set(itemsPendientes.map(i => i.equipoId ?? i.tipo ?? ''));
+
+    const itemsADevolver = itemsPendientes.filter(i => refsADevolver.has(i.equipoId ?? i.tipo ?? ''));
+
+    const rentedMs      = fechaDevolucion.getTime() - fechaInicio.getTime();
+    const diasCompletos = Math.floor(rentedMs / 86_400_000);
+    const excesoMs      = rentedMs - diasCompletos * 86_400_000;
+    const diasCobrados  = Math.max(excesoMs <= GRACE_MS ? diasCompletos : diasCompletos + 1, 1);
+
+    const result: { itemRef: string; costoReal: number; diasCobrados: number }[] = [];
+
+    for (const item of itemsADevolver) {
+      const ref       = item.equipoId ?? item.tipo ?? '';
+      const cantidad  = item.cantidad  ?? 1;
+      const conMadera = item.conMadera ?? false;
+      const precios   = ref ? await this.fetchPreciosItem(item.kind, ref, conMadera) : null;
+
+      let costoReal = 0;
+      if (precios) {
+        ({ costoReal } = calcularDevolucionItem(fechaInicio, fechaDevolucion, precios, cantidad));
+      }
+
+      result.push({ itemRef: ref, costoReal, diasCobrados });
+    }
+
+    return result;
   }
 
   /**

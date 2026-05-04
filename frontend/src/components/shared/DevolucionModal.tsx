@@ -101,6 +101,8 @@ export default function DevolucionModal({
   const [generandoPdf, setGenerandoPdf] = useState(false);
   const [pdfError,     setPdfError]     = useState(false);
 
+  const [previewItems, setPreviewItems] = useState<{ itemRef: string; costoReal: number; diasCobrados: number }[]>([]);
+
   const [seleccionados, setSeleccionados] = useState<Set<string>>(
     () => new Set(esItemUnico ? [itemRef(itemsPendientes[0])] : []),
   );
@@ -142,24 +144,33 @@ export default function DevolucionModal({
       setGenerandoPdf(true);
       setPdfBlobUrl(null);
       setPdfError(false);
-      const diasCobrados = diasDesde(solicitud.fechaInicioRenta);
-      const devolucionPrevia: DevolucionEntry = {
-        fechaDevolucion:     new Date().toISOString(),
-        registradoPor:       '—',
-        esParcial:           !esDevolcionCompleta,
-        tipoDevolucion:      'A_TIEMPO',
-        items:               itemsADevolver.map(item => ({
-          itemRef:       itemRef(item),
-          kind:          item.kind as 'maquinaria' | 'granel' | 'pesada',
-          diasCobrados,
-          costoReal:     item.kind !== 'pesada' ? item.subtotal : 0,
-          recargoTiempo: 0,
-        })),
-        recargosAdicionales: cargosValidos.map(c => ({ descripcion: c.descripcion, monto: c.monto as number })),
-        totalLote:           subtotalItems + totalCargosAd,
-        liquidacionKey:      null,
-      };
-      generarLiquidacion(solicitud, devolucionPrevia)
+
+      const refs = esDevolcionCompleta ? undefined : itemsADevolver.map(itemRef);
+      solicitudesService.previewDevolucion(solicitud.id, refs)
+        .then(preview => {
+          setPreviewItems(preview);
+          const devolucionPrevia: DevolucionEntry = {
+            fechaDevolucion:     new Date().toISOString(),
+            registradoPor:       '—',
+            esParcial:           !esDevolcionCompleta,
+            tipoDevolucion:      'A_TIEMPO',
+            items:               itemsADevolver.map(item => {
+              const ref      = itemRef(item);
+              const pItem    = preview.find(p => p.itemRef === ref);
+              return {
+                itemRef:       ref,
+                kind:          item.kind as 'maquinaria' | 'granel' | 'pesada',
+                diasCobrados:  pItem?.diasCobrados ?? diasDesde(solicitud.fechaInicioRenta!),
+                costoReal:     pItem?.costoReal ?? 0,
+                recargoTiempo: 0,
+              };
+            }),
+            recargosAdicionales: cargosValidos.map(c => ({ descripcion: c.descripcion, monto: c.monto as number })),
+            totalLote:           preview.reduce((s, p) => s + p.costoReal, 0) + totalCargosAd,
+            liquidacionKey:      null,
+          };
+          return generarLiquidacion(solicitud, devolucionPrevia);
+        })
         .then(blob => setPdfBlobUrl(URL.createObjectURL(blob)))
         .catch(() => setPdfError(true))
         .finally(() => setGenerandoPdf(false));
@@ -392,18 +403,25 @@ export default function DevolucionModal({
                 </div>
               )}
 
-              {/* Estimado */}
-              {(subtotalItems > 0 || totalCargosAd > 0) && (
-                <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
-                  <div>
-                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Referencia estimada</p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">
-                      Basada en contrato original{cargosValidos.length > 0 ? ' + cargos' : ''}. El sistema ajusta según días reales al confirmar.
-                    </p>
+              {/* Total calculado con días reales */}
+              {(() => {
+                const totalReal = previewItems.reduce((s, p) => s + p.costoReal, 0) + totalCargosAd;
+                const diasCobrados = previewItems[0]?.diasCobrados ?? null;
+                if (totalReal === 0 && totalCargosAd === 0) return null;
+                return (
+                  <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
+                    <div>
+                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Total a cobrar</p>
+                      {diasCobrados !== null && (
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          {diasCobrados} día{diasCobrados !== 1 ? 's' : ''} de uso real{cargosValidos.length > 0 ? ' + cargos' : ''}
+                        </p>
+                      )}
+                    </div>
+                    <span className="text-lg font-bold text-slate-700 font-mono">{formatQ(totalReal)}</span>
                   </div>
-                  <span className="text-lg font-bold text-slate-700 font-mono">{formatQ(subtotalItems + totalCargosAd)}</span>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Liquidación previa */}
               <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">

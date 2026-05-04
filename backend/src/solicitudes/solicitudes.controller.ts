@@ -265,6 +265,16 @@ export class SolicitudesController {
     });
   }
 
+  @Get(':id/preview-devolucion')
+  @Roles('encargado_maquinas', 'admin', 'secretaria')
+  previewDevolucion(
+    @Param('id') id: string,
+    @Query('itemRefs') itemRefs?: string,
+  ) {
+    const refs = itemRefs ? itemRefs.split(',').filter(Boolean) : undefined;
+    return this.solicitudesService.previewDevolucion(id, refs);
+  }
+
   @Get(':id/comprobante')
   @Roles('admin', 'secretaria', 'encargado_maquinas')
   getComprobante(

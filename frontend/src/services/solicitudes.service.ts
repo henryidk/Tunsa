@@ -230,6 +230,18 @@ export const solicitudesService = {
     return res.data;
   },
 
+  async previewDevolucion(
+    solicitudId: string,
+    itemRefs?: string[],
+  ): Promise<{ itemRef: string; costoReal: number; diasCobrados: number }[]> {
+    const params = itemRefs && itemRefs.length > 0 ? { itemRefs: itemRefs.join(',') } : {};
+    const res = await api.get<{ itemRef: string; costoReal: number; diasCobrados: number }[]>(
+      `/solicitudes/${solicitudId}/preview-devolucion`,
+      { params },
+    );
+    return res.data;
+  },
+
   async registrarDevolucionPesada(
     solicitudId: string,
     data: {

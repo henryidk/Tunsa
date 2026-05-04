@@ -25,8 +25,9 @@ export default function HorometroRentaCard({ solicitud, lecturas, onVerDetalle, 
     ? solicitud.fechaInicioRenta.substring(0, 10)
     : hoy;
 
-  // Estado de hoy — derivado de ultimaLectura (sin esperar lecturas completas)
+  // Prioriza lecturas frescas del mapa; cae en ultimaLectura solo mientras cargan
   const estadoHoy = (() => {
+    if (lecturas !== null) return getDiaStatus(lecturas, hoy);
     const ul = solicitud.ultimaLectura;
     if (!ul || ul.fecha !== hoy) return 'sin-registro' as const;
     if (ul.completa)             return 'completo'     as const;

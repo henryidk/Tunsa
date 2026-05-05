@@ -16,6 +16,13 @@ export const rolGradient: Record<string, string> = {
   encargado_maquinas: 'linear-gradient(135deg,#f59e0b,#d97706)',
 };
 
+export function extractApiError(err: unknown, fallback: string): string {
+  const msg = (err as { response?: { data?: { message?: string | string[] } } })
+    ?.response?.data?.message;
+  if (Array.isArray(msg)) return msg[0] ?? fallback;
+  return msg ?? fallback;
+}
+
 export function getInitials(nombre: string): string {
   return nombre
     .split(' ')

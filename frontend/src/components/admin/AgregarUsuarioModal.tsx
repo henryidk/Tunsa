@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { ChangeEvent, MouseEvent } from 'react';
 import type { Usuario } from '../../types/auth.types';
 import { usuariosService } from '../../services/usuarios.service';
+import { extractApiError } from '../../utils/usuario.utils';
 import PasswordGeneradaModal from './PasswordGeneradaModal';
 
 interface AgregarUsuarioModalProps {
@@ -76,11 +77,7 @@ export default function AgregarUsuarioModal({ open, onClose, onCreated }: Agrega
       setTemporaryPassword(resultado.temporaryPassword);
       // El modal de contraseña generada se muestra; onClose se llama cuando el admin cierra ese modal
     } catch (err: unknown) {
-      const msg =
-        err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { data?: { message?: string | string[] } } }).response?.data?.message
-          : undefined;
-      setApiError(Array.isArray(msg) ? msg[0] : (msg ?? 'Ocurrió un error al crear el usuario.'));
+      setApiError(extractApiError(err, 'Ocurrió un error al crear el usuario.'));
     } finally {
       setIsSaving(false);
     }

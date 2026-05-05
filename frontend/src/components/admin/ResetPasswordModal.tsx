@@ -5,7 +5,7 @@ import { useState } from 'react';
 import type { MouseEvent } from 'react';
 import type { Usuario } from '../../types/auth.types';
 import { usuariosService } from '../../services/usuarios.service';
-import { rolLabel, rolGradient, getInitials } from '../../utils/usuario.utils';
+import { rolLabel, rolGradient, getInitials, extractApiError } from '../../utils/usuario.utils';
 
 interface ResetPasswordModalProps {
   usuario: Usuario | null;
@@ -48,11 +48,7 @@ export default function ResetPasswordModal({ usuario, open, onClose }: ResetPass
       setTemporaryPassword(result.temporaryPassword);
       setStep('success');
     } catch (err: unknown) {
-      const msg =
-        err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
-          : undefined;
-      setError(msg ?? 'Ocurrió un error al restablecer la contraseña.');
+      setError(extractApiError(err, 'Ocurrió un error al restablecer la contraseña.'));
     } finally {
       setIsLoading(false);
     }

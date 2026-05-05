@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import type { ChangeEvent, MouseEvent } from 'react';
 import type { Usuario } from '../../types/auth.types';
 import { usuariosService } from '../../services/usuarios.service';
-import { rolLabel, rolBadge, rolGradient, getInitials } from '../../utils/usuario.utils';
+import { rolLabel, rolBadge, rolGradient, getInitials, extractApiError } from '../../utils/usuario.utils';
 
 interface EditarUsuarioModalProps {
   usuario: Usuario | null;
@@ -65,11 +65,7 @@ export default function EditarUsuarioModal({ usuario, open, onClose, onSave }: E
       onSave(updated);
       onClose();
     } catch (err: unknown) {
-      const msg =
-        err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
-          : undefined;
-      setApiError(msg ?? 'Ocurrió un error al guardar los cambios.');
+      setApiError(extractApiError(err, 'Ocurrió un error al guardar los cambios.'));
     } finally {
       setIsSaving(false);
     }

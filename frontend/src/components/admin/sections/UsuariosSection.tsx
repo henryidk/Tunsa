@@ -9,38 +9,12 @@ import ConfirmDesactivarModal from '../ConfirmDesactivarModal';
 import AgregarUsuarioModal from '../AgregarUsuarioModal';
 import ResetPasswordModal from '../ResetPasswordModal';
 
-import type { ToastType } from '../../../types/ui.types'
+import type { ToastType } from '../../../types/ui.types';
+import { rolLabel, rolBadge, rolGradient, getInitials } from '../../../utils/usuario.utils';
 
 interface UsuariosSectionProps {
   onShowToast: (type: ToastType, title: string, msg: string) => void;
   user: Usuario | null;
-}
-
-const rolBadge: Record<string, string> = {
-  admin: 'bg-violet-100 text-violet-800',
-  encargado_maquinas: 'bg-indigo-100 text-indigo-700',
-  secretaria: 'bg-sky-100 text-sky-700',
-};
-
-const rolLabel: Record<string, string> = {
-  admin: 'Administrador',
-  secretaria: 'Secretaria',
-  encargado_maquinas: 'Enc. Máquinas',
-};
-
-const rolGradient: Record<string, string> = {
-  admin: 'linear-gradient(135deg,#6366f1,#4f46e5)',
-  secretaria: 'linear-gradient(135deg,#06b6d4,#0891b2)',
-  encargado_maquinas: 'linear-gradient(135deg,#f59e0b,#d97706)',
-};
-
-function getInitials(nombre: string): string {
-  return nombre
-    .split(' ')
-    .slice(0, 2)
-    .map(n => n[0])
-    .join('')
-    .toUpperCase();
 }
 
 export default function UsuariosSection({ onShowToast, user }: UsuariosSectionProps) {

@@ -1,14 +1,18 @@
 // PasswordGeneradaModal.tsx — muestra la contraseña temporal generada al admin
 
 import { useState } from 'react';
+import type { Usuario } from '../../types/auth.types';
+import { rolLabel, rolGradient, getInitials } from '../../utils/usuario.utils';
 
 interface PasswordGeneradaModalProps {
   password: string;
-  onClose: () => void;
+  usuario:  Usuario;
+  onClose:  () => void;
 }
 
-export default function PasswordGeneradaModal({ password, onClose }: PasswordGeneradaModalProps) {
+export default function PasswordGeneradaModal({ password, usuario, onClose }: PasswordGeneradaModalProps) {
   const [copied, setCopied] = useState(false);
+  const rolKey = usuario.role.nombre;
 
   const handleCopy = async () => {
     try {
@@ -40,6 +44,22 @@ export default function PasswordGeneradaModal({ password, onClose }: PasswordGen
 
         {/* Body */}
         <div className="px-6 py-5 space-y-4">
+
+          {/* Tarjeta del usuario creado */}
+          <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl">
+            <div
+              className="w-10 h-10 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+              style={{ background: rolGradient[rolKey] ?? '#94a3b8' }}
+            >
+              {getInitials(usuario.nombre)}
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-slate-800">{usuario.nombre}</div>
+              <div className="text-xs text-slate-400 font-mono">
+                @{usuario.username} · {rolLabel[rolKey] ?? rolKey}
+              </div>
+            </div>
+          </div>
 
           <p className="text-sm text-slate-600">
             Comparte esta contraseña con el usuario. Solo se muestra una vez.

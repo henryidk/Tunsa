@@ -38,6 +38,7 @@ export default function AgregarUsuarioModal({ open, onClose, onCreated }: Agrega
   const [isSaving, setIsSaving] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [temporaryPassword, setTemporaryPassword] = useState<string | null>(null);
+  const [usuarioCreado, setUsuarioCreado] = useState<Usuario | null>(null);
 
   if (!open) return null;
 
@@ -74,6 +75,7 @@ export default function AgregarUsuarioModal({ open, onClose, onCreated }: Agrega
       const resultado = await usuariosService.create({ nombre, username, telefono: telefono || undefined, rol });
       onCreated(resultado);
       setForm(emptyForm);
+      setUsuarioCreado(resultado);
       setTemporaryPassword(resultado.temporaryPassword);
       // El modal de contraseña generada se muestra; onClose se llama cuando el admin cierra ese modal
     } catch (err: unknown) {
@@ -84,12 +86,14 @@ export default function AgregarUsuarioModal({ open, onClose, onCreated }: Agrega
   };
 
   // Si ya tenemos la contraseña temporal, mostrar el modal de contraseña generada
-  if (temporaryPassword) {
+  if (temporaryPassword && usuarioCreado) {
     return (
       <PasswordGeneradaModal
         password={temporaryPassword}
+        usuario={usuarioCreado}
         onClose={() => {
           setTemporaryPassword(null);
+          setUsuarioCreado(null);
           onClose();
         }}
       />

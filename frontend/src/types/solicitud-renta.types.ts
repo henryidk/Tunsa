@@ -104,6 +104,7 @@ export interface SolicitudRenta {
   esPesada:       boolean;
   estado:         EstadoSolicitud;
   creadaPor:      string;
+  nombreCreador:  string | null;
   folio:          string | null;
   aprobadaPor:    string | null;
   fechaDecision:    string | null;

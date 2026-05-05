@@ -13,6 +13,15 @@ const PAGE_SIZE = 20;
 export class SolicitudesQueryService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private async buildNombresMap(usernames: string[]): Promise<Map<string, string>> {
+    if (usernames.length === 0) return new Map();
+    const usuarios = await this.prisma.usuario.findMany({
+      where:  { username: { in: usernames } },
+      select: { username: true, nombre: true },
+    });
+    return new Map(usuarios.map(u => [u.username, u.nombre]));
+  }
+
   /**
    * Devuelve los IDs de equipos bloqueados: PENDIENTE, APROBADA o ACTIVA.
    * Un equipo en renta activa sigue ocupado hasta que la renta finalice.
@@ -50,7 +59,8 @@ export class SolicitudesQueryService {
       include: { cliente: true },
       orderBy: { createdAt: 'desc' },
     });
-    return solicitudes.map(serializeSolicitud);
+    const nombres = await this.buildNombresMap(solicitudes.map(s => s.creadaPor));
+    return solicitudes.map(s => serializeSolicitud(s, nombres.get(s.creadaPor)));
   }
 
   async findMias(username: string) {
@@ -59,7 +69,7 @@ export class SolicitudesQueryService {
       include: { cliente: true },
       orderBy: { createdAt: 'desc' },
     });
-    return solicitudes.map(serializeSolicitud);
+    return solicitudes.map(s => serializeSolicitud(s));
   }
 
   async findVencidas() {
@@ -69,7 +79,8 @@ export class SolicitudesQueryService {
       include: { cliente: true, lecturas: { orderBy: { fecha: 'desc' }, take: 1 } },
       orderBy: { fechaFinEstimada: 'asc' },
     });
-    return solicitudes.map(s => serializeSolicitud(s as SolicitudConCliente));
+    const nombres = await this.buildNombresMap(solicitudes.map(s => s.creadaPor));
+    return solicitudes.map(s => serializeSolicitud(s as SolicitudConCliente, nombres.get(s.creadaPor)));
   }
 
   async findActivas() {
@@ -78,7 +89,8 @@ export class SolicitudesQueryService {
       include: { cliente: true, lecturas: { orderBy: { fecha: 'desc' }, take: 1 } },
       orderBy: { fechaEntrega: 'desc' },
     });
-    return solicitudes.map(s => serializeSolicitud(s as SolicitudConCliente));
+    const nombres = await this.buildNombresMap(solicitudes.map(s => s.creadaPor));
+    return solicitudes.map(s => serializeSolicitud(s as SolicitudConCliente, nombres.get(s.creadaPor)));
   }
 
   async getDashboardStatsEncargado(username: string) {
@@ -162,7 +174,7 @@ export class SolicitudesQueryService {
       include: { cliente: true },
       orderBy: { fechaFinEstimada: 'asc' },
     });
-    return solicitudes.map(serializeSolicitud);
+    return solicitudes.map(s => serializeSolicitud(s));
   }
 
   /**
@@ -200,7 +212,7 @@ export class SolicitudesQueryService {
       ? this.encodeCursor({ fechaDecision: last.fechaDecision!.toISOString(), id: last.id })
       : null;
 
-    return { data: pageData.map(serializeSolicitud), nextCursor };
+    return { data: pageData.map(s => serializeSolicitud(s as SolicitudConCliente)), nextCursor };
   }
 
   async findRechazadasMias(
@@ -234,7 +246,7 @@ export class SolicitudesQueryService {
       ? this.encodeCursor({ fechaDecision: last.fechaDecision!.toISOString(), id: last.id })
       : null;
 
-    return { data: pageData.map(serializeSolicitud), nextCursor };
+    return { data: pageData.map(s => serializeSolicitud(s as SolicitudConCliente)), nextCursor };
   }
 
   /**
@@ -275,7 +287,7 @@ export class SolicitudesQueryService {
         })
       : null;
 
-    return { data: pageData.map(serializeSolicitud), nextCursor };
+    return { data: pageData.map(s => serializeSolicitud(s as SolicitudConCliente)), nextCursor };
   }
 
   /**
@@ -315,7 +327,8 @@ export class SolicitudesQueryService {
         })
       : null;
 
-    return { data: pageData.map(serializeSolicitud), nextCursor };
+    const nombres = await this.buildNombresMap(pageData.map(s => s.creadaPor));
+    return { data: pageData.map(s => serializeSolicitud(s, nombres.get(s.creadaPor))), nextCursor };
   }
 
   // ── Cursor helpers ────────────────────────────────────────────────────────────

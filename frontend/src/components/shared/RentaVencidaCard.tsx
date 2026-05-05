@@ -95,7 +95,7 @@ export default function RentaVencidaCard({
           {showEncargado && (
             <div>
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Encargado</p>
-              <p className="text-xs font-mono text-slate-600">{solicitud.creadaPor}</p>
+              <p className="text-xs font-mono text-slate-600">{solicitud.nombreCreador ?? solicitud.creadaPor}</p>
             </div>
           )}
 

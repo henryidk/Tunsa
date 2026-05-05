@@ -12,7 +12,7 @@ export interface RechazadasPage {
   nextCursor: string | null;
 }
 
-export function serializeSolicitud(s: SolicitudConCliente) {
+export function serializeSolicitud(s: SolicitudConCliente, nombreCreador?: string) {
   const ultimaLectura = s.lecturas?.[0] ?? null;
   return {
     ...s,
@@ -27,5 +27,6 @@ export function serializeSolicitud(s: SolicitudConCliente) {
     ultimaLectura:         ultimaLectura
       ? { fecha: ultimaLectura.fecha.toISOString().substring(0, 10), completa: ultimaLectura.horometroFin5pm !== null }
       : null,
+    nombreCreador:         nombreCreador ?? null,
   };
 }

@@ -40,7 +40,7 @@ async function cargarLogoBase64(src: string): Promise<string | null> {
       el.src = src;
     });
 
-    const LOGO_PX = 160;
+    const LOGO_PX = 320;
     const scale  = Math.min(LOGO_PX / img.width, LOGO_PX / img.height, 1);
     const w = Math.round(img.width  * scale);
     const h = Math.round(img.height * scale);
@@ -49,7 +49,7 @@ async function cargarLogoBase64(src: string): Promise<string | null> {
     canvas.width  = w;
     canvas.height = h;
     const ctx = canvas.getContext('2d')!;
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = '#f8fafc'; // slate-50 — mismo fondo que el encabezado del PDF
     ctx.fillRect(0, 0, w, h);
     ctx.drawImage(img, 0, 0, w, h);
 
@@ -241,7 +241,7 @@ export async function generarLiquidacion(
   doc.roundedRect(10, y - 2, W - 20, 46, 3, 3, 'F');
 
   if (logoB64) {
-    doc.addImage(logoB64, 'JPEG', 13, y + 2, 30, 30);
+    doc.addImage(logoB64, 'JPEG', 13, y + 10, 44, 22);
   }
 
   const cx = W / 2;

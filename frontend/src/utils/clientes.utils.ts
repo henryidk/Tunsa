@@ -9,3 +9,13 @@ export function formatTelefono(raw: string): string {
   const digits = raw.replace(/\D/g, '').slice(0, 8);
   return digits.length > 4 ? digits.slice(0, 4) + '-' + digits.slice(4) : digits;
 }
+
+export function getClienteInitials(nombre: string): string {
+  return nombre
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(w => w[0])
+    .join('')
+    .toUpperCase();
+}

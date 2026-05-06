@@ -2,10 +2,11 @@
 // Carga la lista una sola vez (lazy, al primer foco). Filtrado local.
 // Incluye acceso directo al modal de registro formal para clientes nuevos.
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import type { ChangeEvent } from 'react';
 import { clientesService } from '../services/clientes.service';
 import type { Cliente } from '../services/clientes.service';
+import { getClienteInitials } from '../utils/clientes.utils';
 import RegistrarClienteModal from './admin/RegistrarClienteModal';
 
 interface Props {
@@ -14,23 +15,13 @@ interface Props {
 
 const MAX_DROPDOWN_RESULTS = 8;
 
-function clienteInitials(nombre: string): string {
-  return nombre
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map(w => w[0])
-    .join('')
-    .toUpperCase();
-}
-
 // ── Estado: cliente ya seleccionado ─────────────────────────────────────────
 
 function ClienteSeleccionado({ cliente, onClear }: { cliente: Cliente; onClear: () => void }) {
   return (
     <div className="flex items-center gap-3 p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
       <div className="w-9 h-9 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-sm flex-shrink-0">
-        {clienteInitials(cliente.nombre)}
+        {getClienteInitials(cliente.nombre)}
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-slate-800 truncate">{cliente.nombre}</p>
@@ -64,7 +55,7 @@ function ClienteRow({ cliente, onSelect }: { cliente: Cliente; onSelect: (c: Cli
         className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors text-left"
       >
         <div className="w-7 h-7 rounded-md bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600 flex-shrink-0">
-          {clienteInitials(cliente.nombre)}
+          {getClienteInitials(cliente.nombre)}
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-slate-800 truncate">{cliente.nombre}</p>
@@ -133,7 +124,7 @@ export default function ClienteSearchWidget({ onSelect }: Props) {
     if (!isOpen) setIsOpen(true);
   };
 
-  const filteredClientes = (() => {
+  const filteredClientes = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return clientes.slice(0, MAX_DROPDOWN_RESULTS);
     return clientes
@@ -143,7 +134,7 @@ export default function ClienteSearchWidget({ onSelect }: Props) {
         c.dpi.includes(q)
       )
       .slice(0, MAX_DROPDOWN_RESULTS);
-  })();
+  }, [clientes, query]);
 
   const handleSelect = (cliente: Cliente) => {
     setSelected(cliente);
@@ -169,23 +160,11 @@ export default function ClienteSearchWidget({ onSelect }: Props) {
     setRegistrarOpen(true);
   };
 
-  // ── Vista: cliente seleccionado ──
-  if (selected) {
-    return (
-      <>
-        <ClienteSeleccionado cliente={selected} onClear={handleClear} />
-        <RegistrarClienteModal
-          open={registrarOpen}
-          onClose={() => setRegistrarOpen(false)}
-          onSave={handleClienteRegistrado}
-        />
-      </>
-    );
-  }
-
-  // ── Vista: buscador con dropdown ──
   return (
     <>
+      {selected ? (
+        <ClienteSeleccionado cliente={selected} onClear={handleClear} />
+      ) : (
       <div ref={containerRef} className="relative">
 
         {/* Input de búsqueda */}
@@ -284,6 +263,7 @@ export default function ClienteSearchWidget({ onSelect }: Props) {
           </div>
         )}
       </div>
+      )}
 
       <RegistrarClienteModal
         open={registrarOpen}

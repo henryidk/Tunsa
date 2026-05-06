@@ -70,21 +70,27 @@ export default function EquiposSection({ onShowToast = () => {}, canEdit = true 
   }, [equipos, filtroTipo]);
 
   // ── Filtrado ──────────────────────────────────────────────────────────────
-  const base = equipos.filter(e => tab === 'activos' ? e.isActive : !e.isActive);
+  const base = useMemo(
+    () => equipos.filter(e => tab === 'activos' ? e.isActive : !e.isActive),
+    [equipos, tab],
+  );
 
-  const filtered = sortEquiposByNumeracion(base.filter(e => {
-    const q = search.toLowerCase();
-    const matchSearch = !q ||
-      e.numeracion.toLowerCase().includes(q)                ||
-      e.descripcion.toLowerCase().includes(q)               ||
-      (e.categoria?.nombre ?? '').toLowerCase().includes(q) ||
-      (e.serie ?? '').toLowerCase().includes(q);
+  const filtered = useMemo(() =>
+    sortEquiposByNumeracion(base.filter(e => {
+      const q = search.toLowerCase();
+      const matchSearch = !q ||
+        e.numeracion.toLowerCase().includes(q)                ||
+        e.descripcion.toLowerCase().includes(q)               ||
+        (e.categoria?.nombre ?? '').toLowerCase().includes(q) ||
+        (e.serie ?? '').toLowerCase().includes(q);
 
-    const matchTipo      = !filtroTipo      || e.tipo.nombre        === filtroTipo;
-    const matchCategoria = !filtroCategoria || e.categoria?.nombre  === filtroCategoria;
+      const matchTipo      = !filtroTipo      || e.tipo.nombre        === filtroTipo;
+      const matchCategoria = !filtroCategoria || e.categoria?.nombre  === filtroCategoria;
 
-    return matchSearch && matchTipo && matchCategoria;
-  }));
+      return matchSearch && matchTipo && matchCategoria;
+    })),
+    [base, search, filtroTipo, filtroCategoria],
+  );
 
   // ── Stats ─────────────────────────────────────────────────────────────────
   const activos    = useMemo(() => equipos.filter(e =>  e.isActive), [equipos]);

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import type { MouseEvent } from 'react';
 import type { Usuario } from '../../types/auth.types';
 import { usuariosService } from '../../services/usuarios.service';
-import { rolLabel, rolGradient, getInitials } from '../../utils/usuario.utils';
+import { rolLabel, rolGradient, getInitials, extractApiError } from '../../utils/usuario.utils';
 
 interface ConfirmDesactivarModalProps {
   usuario: Usuario | null;
@@ -33,11 +33,7 @@ export default function ConfirmDesactivarModal({ usuario, open, onClose, onConfi
       onConfirm(updated);
       onClose();
     } catch (err: unknown) {
-      const msg =
-        err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
-          : undefined;
-      setError(msg ?? 'Ocurrió un error al desactivar el usuario.');
+      setError(extractApiError(err, 'Ocurrió un error al desactivar el usuario.'));
     } finally {
       setIsLoading(false);
     }

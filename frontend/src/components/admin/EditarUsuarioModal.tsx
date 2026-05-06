@@ -50,6 +50,8 @@ export default function EditarUsuarioModal({ usuario, open, onClose, onSave }: E
   };
 
   const handleSave = async () => {
+    if (!usuario) return;
+
     const nombre = form.nombre.trim();
     const username = form.username.trim();
     const telefono = form.telefono.trim();
@@ -61,7 +63,11 @@ export default function EditarUsuarioModal({ usuario, open, onClose, onSave }: E
     setApiError(null);
 
     try {
-      const updated = await usuariosService.update(usuario.id, { nombre, username, telefono });
+      const updated = await usuariosService.update(usuario.id, {
+        nombre,
+        username,
+        ...(telefono && { telefono }),
+      });
       onSave(updated);
       onClose();
     } catch (err: unknown) {
@@ -151,6 +157,18 @@ export default function EditarUsuarioModal({ usuario, open, onClose, onSave }: E
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">
               Acceso al sistema
             </p>
+            <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+                Rol
+              </label>
+              <div className="flex items-center gap-2 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg">
+                <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${rolBadge[rolKey] ?? 'bg-slate-100 text-slate-600'}`}>
+                  {rolLabel[rolKey] ?? rolKey}
+                </span>
+                <span className="text-xs text-slate-400 ml-auto">El rol se asigna al crear el usuario</span>
+              </div>
+            </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1.5">
                 Nombre de usuario
@@ -166,6 +184,7 @@ export default function EditarUsuarioModal({ usuario, open, onClose, onSave }: E
                   className="w-full border border-slate-200 rounded-lg pl-7 pr-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all disabled:opacity-60 disabled:cursor-not-allowed font-mono"
                 />
               </div>
+            </div>
             </div>
           </div>
 

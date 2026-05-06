@@ -37,7 +37,7 @@ export class UsersController {
     return this.usersService.create(createUserDto, currentUser.username);
   }
 
-  @Patch('change-password')
+  @Patch('password/change')
   @SkipMustChangePassword()
   changePassword(
     @Body() dto: ChangePasswordDto,

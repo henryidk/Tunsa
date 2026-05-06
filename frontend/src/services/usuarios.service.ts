@@ -50,7 +50,7 @@ export const usuariosService = {
   },
 
   async changePassword(newPassword: string): Promise<void> {
-    await api.patch('/users/change-password', { newPassword });
+    await api.patch('/users/password/change', { newPassword });
   },
 
   async getEncargados(): Promise<{ username: string; nombre: string }[]> {

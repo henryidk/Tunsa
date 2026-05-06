@@ -15,6 +15,26 @@ interface ResetPasswordModalProps {
 
 type ModalStep = 'confirm' | 'success';
 
+function UserCard({ usuario }: { usuario: Usuario }) {
+  const rolKey = usuario.role.nombre;
+  return (
+    <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl">
+      <div
+        className="w-10 h-10 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+        style={{ background: rolGradient[rolKey] ?? '#94a3b8' }}
+      >
+        {getInitials(usuario.nombre)}
+      </div>
+      <div>
+        <div className="text-sm font-semibold text-slate-800">{usuario.nombre}</div>
+        <div className="text-xs text-slate-400 font-mono">
+          @{usuario.username} · {rolLabel[rolKey] ?? rolKey}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ResetPasswordModal({ usuario, open, onClose }: ResetPasswordModalProps) {
   const [step, setStep]                     = useState<ModalStep>('confirm');
   const [isLoading, setIsLoading]           = useState(false);
@@ -24,15 +44,12 @@ export default function ResetPasswordModal({ usuario, open, onClose }: ResetPass
 
   if (!open || !usuario) return null;
 
-  const rolKey = usuario.role.nombre;
-
   const handleOverlayClick = (e: MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget && !isLoading) handleClose();
   };
 
   const handleClose = () => {
     if (isLoading) return;
-    // Resetear estado interno al cerrar
     setStep('confirm');
     setError(null);
     setTemporaryPassword('');
@@ -64,24 +81,6 @@ export default function ResetPasswordModal({ usuario, open, onClose }: ResetPass
     }
   };
 
-  // ─── Tarjeta de usuario (reutilizada en ambos pasos) ───────────────────────
-  const UserCard = () => (
-    <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl">
-      <div
-        className="w-10 h-10 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-        style={{ background: rolGradient[rolKey] ?? '#94a3b8' }}
-      >
-        {getInitials(usuario.nombre)}
-      </div>
-      <div>
-        <div className="text-sm font-semibold text-slate-800">{usuario.nombre}</div>
-        <div className="text-xs text-slate-400 font-mono">
-          @{usuario.username} · {rolLabel[rolKey] ?? rolKey}
-        </div>
-      </div>
-    </div>
-  );
-
   // ─── Paso 1: Confirmación ──────────────────────────────────────────────────
   if (step === 'confirm') {
     return (
@@ -107,7 +106,7 @@ export default function ResetPasswordModal({ usuario, open, onClose }: ResetPass
 
           {/* Tarjeta del usuario */}
           <div className="mx-6 mb-5">
-            <UserCard />
+            <UserCard usuario={usuario} />
           </div>
 
           {/* Aviso de sesión */}
@@ -191,7 +190,7 @@ export default function ResetPasswordModal({ usuario, open, onClose }: ResetPass
         <div className="px-6 py-5 space-y-4">
 
           {/* Usuario */}
-          <UserCard />
+          <UserCard usuario={usuario} />
 
           <p className="text-sm text-slate-600">
             Comparte esta contraseña con el usuario. Solo se muestra una vez.

@@ -33,8 +33,11 @@ export class EquiposController {
 
   @Post()
   @Roles('admin', 'secretaria')
-  create(@Body() dto: CreateEquipoDto) {
-    return this.equiposService.create(dto);
+  create(
+    @Body() dto: CreateEquipoDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.equiposService.create(dto, user.username);
   }
 
   @Patch(':id')

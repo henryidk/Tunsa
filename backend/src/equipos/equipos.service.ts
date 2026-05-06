@@ -176,7 +176,7 @@ export class EquiposService {
     return this.serialize(equipo);
   }
 
-  async create(dto: CreateEquipoDto) {
+  async create(dto: CreateEquipoDto, usuarioNombre: string) {
     const taken = await this.prisma.equipo.findUnique({ where: { numeracion: dto.numeracion } });
     if (taken) throw new ConflictException(`Ya existe un equipo con la numeración "${dto.numeracion}"`);
 
@@ -203,6 +203,18 @@ export class EquiposService {
           : undefined,
       },
       include: EQUIPO_INCLUDE,
+    });
+
+    await this.prisma.bitacora.create({
+      data: {
+        modulo:        'equipo',
+        entidadId:     equipo.id,
+        entidadNombre: `#${equipo.numeracion} ${equipo.descripcion}`,
+        campo:         'creación',
+        valorAnterior: null,
+        valorNuevo:    equipo.numeracion,
+        realizadoPor:  usuarioNombre,
+      },
     });
 
     return this.serialize(equipo);

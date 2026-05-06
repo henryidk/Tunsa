@@ -4,7 +4,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import type { ModalidadTipo } from '@prisma/client';
+import type { ModalidadTipo, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateEquipoDto, ExtraEquipoDto } from './dto/create-equipo.dto';
 import { UpdateEquipoDto } from './dto/update-equipo.dto';
@@ -17,13 +17,15 @@ const EQUIPO_INCLUDE = {
   extras:    { include: { tipoExtra: { select: { id: true, nombre: true, descripcion: true } } } },
 } as const;
 
+type EquipoConRelaciones = Prisma.EquipoGetPayload<{ include: typeof EQUIPO_INCLUDE }>;
+
 @Injectable()
 export class EquiposService {
   constructor(private prisma: PrismaService) {}
 
   // ── Helpers ─────────────────────────────────────────────────────────────
 
-  private serialize(equipo: any) {
+  private serialize(equipo: EquipoConRelaciones) {
     return {
       ...equipo,
       fechaCompra: equipo.fechaCompra instanceof Date ? equipo.fechaCompra.toISOString().substring(0, 10) : equipo.fechaCompra,
@@ -33,7 +35,7 @@ export class EquiposService {
       rentaDia:    equipo.rentaDia    != null ? parseFloat(equipo.rentaDia.toString())     : null,
       rentaSemana: equipo.rentaSemana != null ? parseFloat(equipo.rentaSemana.toString())  : null,
       rentaMes:    equipo.rentaMes    != null ? parseFloat(equipo.rentaMes.toString())     : null,
-      extras: (equipo.extras ?? []).map((e: any) => ({
+      extras: equipo.extras.map(e => ({
         id:          e.id,
         tipoExtraId: e.tipoExtraId,
         nombre:      e.tipoExtra.nombre,
@@ -100,7 +102,7 @@ export class EquiposService {
   }
 
   private buildChanges(
-    equipo: any,
+    equipo: EquipoConRelaciones,
     dto: UpdateEquipoDto,
     categoriaNuevaNombre?: string | null,
     tipoNuevoNombre?: string,
@@ -108,8 +110,8 @@ export class EquiposService {
   ) {
     const changes: { campo: string; valorAnterior: string | null; valorNuevo: string | null }[] = [];
 
-    const fmt    = (v: any): string | null => (v != null ? String(v) : null);
-    const fmtNum = (v: any): string | null => (v != null ? parseFloat(v.toString()).toString() : null);
+    const fmt    = (v: string | null | undefined): string | null => (v != null ? v : null);
+    const fmtNum = (v: number | Prisma.Decimal | null | undefined): string | null => (v != null ? parseFloat(v.toString()).toString() : null);
     const track  = (campo: string, va: string | null, vn: string | null) => {
       if (va !== vn) changes.push({ campo, valorAnterior: va, valorNuevo: vn });
     };
@@ -252,14 +254,16 @@ export class EquiposService {
 
     const toNum = (v: unknown): number | null => v != null ? parseFloat(String(v)) : null;
 
-    const preciosActualizados = algoPrecio
+    const preciosNormalizados = algoPrecio
       ? this.normalizarPrecios(modalidadEfectiva, {
           rentaHora:   dto.rentaHora   !== undefined ? dto.rentaHora   : toNum(equipo.rentaHora),
           rentaDia:    dto.rentaDia    !== undefined ? dto.rentaDia    : toNum(equipo.rentaDia),
           rentaSemana: dto.rentaSemana !== undefined ? dto.rentaSemana : toNum(equipo.rentaSemana),
           rentaMes:    dto.rentaMes    !== undefined ? dto.rentaMes    : toNum(equipo.rentaMes),
         })
-      : {};
+      : null;
+
+    const preciosActualizados = preciosNormalizados ?? {};
 
     // Actualizar extras si el DTO los incluye (reemplazar completo: borrar + recrear)
     const extrasDto = dto.extras !== undefined ? (dto.extras ?? []) : null;
@@ -275,7 +279,7 @@ export class EquiposService {
       dto,
       categoriaNuevaNombre,
       tipoNuevoNombre,
-      algoPrecio ? (preciosActualizados as any) : undefined,
+      preciosNormalizados ?? undefined,
     );
 
     const updated = await this.prisma.$transaction(async tx => {

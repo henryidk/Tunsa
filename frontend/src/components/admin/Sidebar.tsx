@@ -189,6 +189,7 @@ const BADGE_STYLES: Record<string, string> = {
   'rentas-solicitudes': 'bg-amber-100 text-amber-700',
   'rentas-activas':     'bg-green-100 text-green-700',
   'rentas-vencidas':    'bg-red-100 text-red-700',
+  'horometros':         'bg-red-100 text-red-700',
 };
 
 export default function Sidebar({ activeSection, onNavTo, collapsed, onToggle, onLogout, user, badges = {} }: SidebarProps) {

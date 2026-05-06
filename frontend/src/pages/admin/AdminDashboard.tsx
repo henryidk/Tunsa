@@ -6,6 +6,7 @@ import { useAdminSocket } from '../../hooks/useAdminSocket'
 import { useNotificationSound } from '../../hooks/useNotificationSound'
 import { useSolicitudesStore, selectPendingCount, selectTodayCount } from '../../store/solicitudes.store'
 import { useNotificationsStore, selectUnreadCount } from '../../store/notifications.store'
+import { useHorometrosPendientes } from '../../hooks/useHorometrosPendientes'
 import Sidebar from '../../components/admin/Sidebar'
 import TopBar from '../../components/admin/TopBar'
 import Toast from '../../components/admin/Toast'
@@ -57,6 +58,8 @@ export default function AdminDashboard() {
   const pendienteCount = useSolicitudesStore(selectPendingCount)
   const todayCount     = useSolicitudesStore(selectTodayCount)
   const unreadCount    = useNotificationsStore(selectUnreadCount)
+
+  const horometrosPendientes = useHorometrosPendientes()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [toast, setToast] = useState<ToastState>({ visible: false, type: 'success', title: '', msg: '' })
   const [modalOpen, setModalOpen] = useState(false)
@@ -88,7 +91,7 @@ export default function AdminDashboard() {
         onToggle={() => setSidebarCollapsed(c => !c)}
         onLogout={logout}
         user={user}
-        badges={{ 'rentas-solicitudes': pendienteCount }}
+        badges={{ 'rentas-solicitudes': pendienteCount, 'horometros': horometrosPendientes }}
       />
 
       <div

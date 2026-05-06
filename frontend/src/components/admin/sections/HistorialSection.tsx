@@ -83,7 +83,10 @@ export default function HistorialSection() {
         cursor,
         ...(filtro.creadaPor && { creadaPor: filtro.creadaPor }),
       });
-      setSolicitudes(prev => [...prev, ...res.data]);
+      setSolicitudes(prev => {
+        const existingIds = new Set(prev.map(s => s.id));
+        return [...prev, ...res.data.filter(s => !existingIds.has(s.id))];
+      });
       setNextCursor(res.nextCursor);
     } catch {
       setError('No se pudo cargar más registros.');

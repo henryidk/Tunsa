@@ -74,7 +74,10 @@ export default function RechazadasTab() {
         fechaHasta: endOfDay(fechaHasta),
         cursor:     nextCursor,
       });
-      setApiData(prev => [...prev, ...res.data]);
+      setApiData(prev => {
+        const existingIds = new Set(prev.map(s => s.id));
+        return [...prev, ...res.data.filter(s => !existingIds.has(s.id))];
+      });
       setNextCursor(res.nextCursor);
     } catch {
       setError('Error al cargar más solicitudes.');
@@ -90,10 +93,10 @@ export default function RechazadasTab() {
 
   // Combinar store (real-time) + API (historial), deduplicando por id.
   // Las del store siempre van primero — son las más recientes de esta sesión.
-  const apiIds   = new Set(storeRechazadas.map(s => s.id));
+  const storeIds = new Set(storeRechazadas.map(s => s.id));
   const combined = [
     ...storeRechazadas,
-    ...apiData.filter(s => !apiIds.has(s.id)),
+    ...apiData.filter(s => !storeIds.has(s.id)),
   ];
 
   return (

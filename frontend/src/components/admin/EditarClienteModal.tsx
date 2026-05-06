@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import type { ChangeEvent, MouseEvent } from 'react';
 import { clientesService } from '../../services/clientes.service';
 import type { Cliente } from '../../services/clientes.service';
+import { formatDpi, formatTelefono } from '../../utils/clientes.utils';
+import { extractApiError } from '../../utils/usuario.utils';
 
 interface Props {
   cliente: Cliente | null;
@@ -16,26 +18,6 @@ interface FormState {
   dpi:      string;
   telefono: string;
 }
-
-function formatDpi(raw: string): string {
-  const digits = raw.replace(/\D/g, '').slice(0, 13);
-  if (digits.length > 9) return digits.slice(0, 4) + ' ' + digits.slice(4, 9) + ' ' + digits.slice(9);
-  if (digits.length > 4) return digits.slice(0, 4) + ' ' + digits.slice(4);
-  return digits;
-}
-
-function formatTelefono(raw: string): string {
-  const digits = raw.replace(/\D/g, '').slice(0, 8);
-  return digits.length > 4 ? digits.slice(0, 4) + '-' + digits.slice(4) : digits;
-}
-
-const extractApiError = (err: unknown): string => {
-  if (err && typeof err === 'object' && 'response' in err) {
-    const msg = (err as { response?: { data?: { message?: string } } }).response?.data?.message;
-    if (msg) return msg;
-  }
-  return 'Ocurrió un error inesperado.';
-};
 
 export default function EditarClienteModal({ cliente, onClose, onSave }: Props) {
   const [form,     setForm]     = useState<FormState>({ nombre: '', dpi: '', telefono: '' });
@@ -98,7 +80,7 @@ export default function EditarClienteModal({ cliente, onClose, onSave }: Props) 
       onSave(updated);
       onClose();
     } catch (err) {
-      setApiError(extractApiError(err));
+      setApiError(extractApiError(err, 'Ocurrió un error inesperado.'));
     } finally {
       setIsSaving(false);
     }

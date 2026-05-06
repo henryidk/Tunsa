@@ -4,6 +4,8 @@ import { useState, useRef } from 'react';
 import type { ChangeEvent, MouseEvent, DragEvent } from 'react';
 import { clientesService } from '../../services/clientes.service';
 import type { Cliente } from '../../services/clientes.service';
+import { formatDpi, formatTelefono } from '../../utils/clientes.utils';
+import { extractApiError } from '../../utils/usuario.utils';
 
 interface Props {
   open:    boolean;
@@ -47,18 +49,12 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
     };
 
   const handleDpiChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value.replace(/\D/g, '').slice(0, 13);
-    let fmt = raw;
-    if (raw.length > 4) fmt = raw.slice(0, 4) + ' ' + raw.slice(4);
-    if (raw.length > 9) fmt = raw.slice(0, 4) + ' ' + raw.slice(4, 9) + ' ' + raw.slice(9);
-    setForm(prev => ({ ...prev, dpi: fmt }));
+    setForm(prev => ({ ...prev, dpi: formatDpi(e.target.value) }));
     setApiError(null);
   };
 
   const handleTelefonoChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const digits = e.target.value.replace(/\D/g, '').slice(0, 8);
-    const fmt = digits.length > 4 ? digits.slice(0, 4) + '-' + digits.slice(4) : digits;
-    setForm(prev => ({ ...prev, telefono: fmt }));
+    setForm(prev => ({ ...prev, telefono: formatTelefono(e.target.value) }));
     setApiError(null);
   };
 
@@ -67,14 +63,6 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
 
   const handleOverlayClick = (e: MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget && !isSaving && !isChecking) handleClose();
-  };
-
-  const extractApiError = (err: unknown): string => {
-    if (err && typeof err === 'object' && 'response' in err) {
-      const msg = (err as { response?: { data?: { message?: string } } }).response?.data?.message;
-      if (msg) return msg;
-    }
-    return 'Ocurrió un error inesperado.';
   };
 
   const handleSaveWithoutDoc = () => registrarCliente(false);
@@ -142,7 +130,7 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
       onSave(cliente);
       handleClose();
     } catch (err: unknown) {
-      setApiError(extractApiError(err));
+      setApiError(extractApiError(err, 'Ocurrió un error inesperado.'));
       setStep(1);
     } finally {
       setIsSaving(false);

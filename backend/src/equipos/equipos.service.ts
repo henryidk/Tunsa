@@ -49,7 +49,10 @@ export class EquiposService {
    * Valida que el TipoEquipo exista y que, si se provee categoriaId,
    * la categoría pertenezca al mismo tipo.
    */
-  private async validarTipoYCategoria(tipoId: string, categoriaId?: string | null): Promise<ModalidadTipo> {
+  private async validarTipoYCategoria(
+    tipoId: string,
+    categoriaId?: string | null,
+  ): Promise<{ modalidad: ModalidadTipo; nombre: string }> {
     const tipo = await this.prisma.tipoEquipo.findUnique({ where: { id: tipoId } });
     if (!tipo) throw new BadRequestException(`Tipo de equipo no encontrado: "${tipoId}"`);
 
@@ -64,7 +67,7 @@ export class EquiposService {
       }
     }
 
-    return tipo.modalidad;
+    return { modalidad: tipo.modalidad, nombre: tipo.nombre };
   }
 
   /**
@@ -177,8 +180,8 @@ export class EquiposService {
     const taken = await this.prisma.equipo.findUnique({ where: { numeracion: dto.numeracion } });
     if (taken) throw new ConflictException(`Ya existe un equipo con la numeración "${dto.numeracion}"`);
 
-    const modalidad = await this.validarTipoYCategoria(dto.tipoId, dto.categoriaId);
-    const precios   = this.normalizarPrecios(modalidad, {
+    const { modalidad } = await this.validarTipoYCategoria(dto.tipoId, dto.categoriaId);
+    const precios       = this.normalizarPrecios(modalidad, {
       rentaHora: dto.rentaHora, rentaDia: dto.rentaDia, rentaSemana: dto.rentaSemana, rentaMes: dto.rentaMes,
     });
 
@@ -225,16 +228,13 @@ export class EquiposService {
 
     const categoriaIdEfectiva = dto.categoriaId !== undefined ? dto.categoriaId : equipo.categoriaId;
     let modalidadEfectiva: ModalidadTipo;
+    let tipoNuevoNombre: string | undefined = undefined;
     if (dto.tipoId !== undefined || dto.categoriaId !== undefined) {
-      modalidadEfectiva = await this.validarTipoYCategoria(tipoIdEfectivo, categoriaIdEfectiva);
+      const tipoValidado = await this.validarTipoYCategoria(tipoIdEfectivo, categoriaIdEfectiva);
+      modalidadEfectiva = tipoValidado.modalidad;
+      if (dto.tipoId !== undefined) tipoNuevoNombre = tipoValidado.nombre;
     } else {
       modalidadEfectiva = equipo.tipo.modalidad;
-    }
-
-    let tipoNuevoNombre: string | undefined = undefined;
-    if (dto.tipoId !== undefined) {
-      const tipo = await this.prisma.tipoEquipo.findUnique({ where: { id: dto.tipoId } });
-      tipoNuevoNombre = tipo?.nombre ?? dto.tipoId;
     }
 
     let categoriaNuevaNombre: string | null | undefined = undefined;

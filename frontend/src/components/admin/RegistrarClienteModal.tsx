@@ -30,14 +30,16 @@ const DOCS = [
 ];
 
 export default function RegistrarClienteModal({ open, onClose, onSave }: Props) {
-  const [step,       setStep]       = useState<1 | 2>(1);
-  const [form,       setForm]       = useState<FormState>(EMPTY);
-  const [isChecking, setIsChecking] = useState(false);
-  const [isSaving,   setIsSaving]   = useState(false);
-  const [apiError,   setApiError]   = useState<string | null>(null);
-  const [file,        setFile]        = useState<File | null>(null);
-  const [isDragging,  setIsDragging]  = useState(false);
+  const [step,          setStep]          = useState<1 | 2>(1);
+  const [form,          setForm]          = useState<FormState>(EMPTY);
+  const [isChecking,    setIsChecking]    = useState(false);
+  const [isSaving,      setIsSaving]      = useState(false);
+  const [apiError,      setApiError]      = useState<string | null>(null);
+  const [file,          setFile]          = useState<File | null>(null);
+  const [isDragging,    setIsDragging]    = useState(false);
   const [confirmSinDoc, setConfirmSinDoc] = useState(false);
+  const [uploadFailed,  setUploadFailed]  = useState<Cliente | null>(null);
+  const [isRetrying,    setIsRetrying]    = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!open) return null;
@@ -67,6 +69,26 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
 
   const handleSaveWithoutDoc = () => registrarCliente(false);
 
+  const handleCloseFromFailure = () => {
+    onSave(uploadFailed!);
+    handleClose();
+  };
+
+  const handleRetryUpload = async () => {
+    if (!uploadFailed || !file) return;
+    setIsRetrying(true);
+    setApiError(null);
+    try {
+      await clientesService.uploadDocumento(uploadFailed.id, file);
+      onSave({ ...uploadFailed, documentoKey: `clientes/${uploadFailed.id}/documento.pdf` });
+      handleClose();
+    } catch {
+      setApiError('No se pudo subir el documento. Inténtalo desde la lista de clientes.');
+    } finally {
+      setIsRetrying(false);
+    }
+  };
+
   const handleClose = () => {
     setStep(1);
     setForm(EMPTY);
@@ -74,6 +96,8 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
     setFile(null);
     setIsDragging(false);
     setConfirmSinDoc(false);
+    setUploadFailed(null);
+    setIsRetrying(false);
     onClose();
   };
 
@@ -120,9 +144,7 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
           await clientesService.uploadDocumento(cliente.id, file);
           cliente.documentoKey = `clientes/${cliente.id}/documento.pdf`;
         } catch {
-          // Cliente creado pero falló el upload — registrar sin doc y avisar
-          onSave(cliente);
-          handleClose();
+          setUploadFailed(cliente);
           return;
         }
       }
@@ -220,7 +242,7 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
         <div className="px-6 py-5">
 
           {/* ── Paso 1: Datos básicos ── */}
-          {step === 1 && (
+          {!uploadFailed && step === 1 && (
             <div className="space-y-4">
               <div>
                 <label className={labelCls}>Nombre completo</label>
@@ -270,8 +292,46 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
             </div>
           )}
 
+          {/* ── Resultado parcial: cliente creado pero documento falló ── */}
+          {uploadFailed && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 px-4 py-3.5 bg-emerald-50 border border-emerald-200 rounded-xl">
+                <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center flex-shrink-0">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">Cliente registrado</p>
+                  <code className="text-xs font-mono text-slate-500">{uploadFailed.id} · {uploadFailed.nombre}</code>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 px-4 py-3.5 bg-red-50 border border-red-200 rounded-xl">
+                <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-red-500">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">Documento no subido</p>
+                  <p className="text-xs text-slate-500">Puedes reintentarlo ahora o desde la lista</p>
+                </div>
+              </div>
+
+              {apiError && (
+                <div className="flex items-start gap-2.5 px-3.5 py-3 bg-red-50 border border-red-200 rounded-lg">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-red-500 flex-shrink-0 mt-0.5">
+                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                  </svg>
+                  <span className="text-xs text-red-600 font-medium">{apiError}</span>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* ── Paso 2: Documentación ── */}
-          {step === 2 && (
+          {!uploadFailed && step === 2 && (
             <div className="space-y-4">
 
               {/* Aviso */}
@@ -375,7 +435,28 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
         {/* Footer */}
         <div className="flex items-center justify-between gap-2.5 px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
 
-          {step === 1 ? (
+          {uploadFailed ? (
+            <>
+              <button
+                onClick={handleCloseFromFailure}
+                disabled={isRetrying}
+                className="px-4 py-2 rounded-lg text-sm font-medium border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 transition-colors disabled:opacity-40"
+              >
+                Cerrar
+              </button>
+              <button
+                onClick={handleRetryUpload}
+                disabled={isRetrying}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isRetrying ? (
+                  <><svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>Subiendo...</>
+                ) : (
+                  <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.48"/></svg>Reintentar subir</>
+                )}
+              </button>
+            </>
+          ) : step === 1 ? (
             <>
               <button onClick={handleClose} disabled={isSaving}
                 className="px-4 py-2 rounded-lg text-sm font-medium border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 transition-colors disabled:opacity-40">

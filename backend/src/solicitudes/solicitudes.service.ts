@@ -77,6 +77,37 @@ export class SolicitudesService {
     return null;
   }
 
+  // costoReal se capea en finEfectivo: los días de atraso los cubre recargoTiempo, no el costo base.
+  private async calcularCostosDevolucionItem(
+    item:            ItemParaCalculo,
+    fechaInicio:     Date,
+    fechaDevolucion: Date,
+    extensiones:     ExtensionEntry[],
+  ): Promise<{ costoReal: number; diasCobrados: number; recargoTiempo: number }> {
+    const ref         = item.equipoId ?? item.tipo ?? '';
+    const extsItem    = extensiones.filter(e => e.itemRef === ref);
+    const finEfectivo = calcularFinItemConExtensiones(fechaInicio, item, extsItem);
+
+    const recargoTiempo = item.tarifa != null
+      ? calcularRecargoItem(item.tarifa, finEfectivo, fechaDevolucion)
+      : 0;
+
+    const precios = ref
+      ? await this.fetchPreciosItem(item.kind, ref, item.conMadera ?? false)
+      : null;
+
+    let costoReal    = 0;
+    let diasCobrados = 1;
+    if (precios) {
+      const fechaParaCosto = fechaDevolucion <= finEfectivo ? fechaDevolucion : finEfectivo;
+      ({ costoReal, diasCobrados } = calcularDevolucionItem(
+        fechaInicio, fechaParaCosto, precios, item.cantidad ?? 1,
+      ));
+    }
+
+    return { costoReal, diasCobrados, recargoTiempo };
+  }
+
   async create(dto: CreateSolicitudDto, username: string) {
     const esPesada = dto.items.every(i => i.kind === 'pesada');
     const esMixta  = !esPesada && dto.items.some(i => i.kind === 'pesada');
@@ -412,13 +443,14 @@ export class SolicitudesService {
   async previewDevolucion(
     id:            string,
     itemRefsInput: string[] | undefined,
-  ): Promise<{ itemRef: string; costoReal: number; diasCobrados: number }[]> {
+  ): Promise<{ itemRef: string; costoReal: number; diasCobrados: number; recargoTiempo: number }[]> {
     const solicitud = await this.prisma.solicitud.findUnique({ where: { id } });
     if (!solicitud || !solicitud.fechaInicioRenta) return [];
 
-    const fechaDevolucion  = new Date();
-    const fechaInicio      = solicitud.fechaInicioRenta;
-    const snapshotItems    = solicitud.items as unknown as ItemParaCalculo[];
+    const fechaDevolucion    = new Date();
+    const fechaInicio        = solicitud.fechaInicioRenta;
+    const snapshotItems      = solicitud.items as unknown as ItemParaCalculo[];
+    const extensiones        = (solicitud.extensiones ?? []) as unknown as ExtensionEntry[];
     const devolucionesViejas = (solicitud.devolucionesParciales ?? []) as unknown as DevolucionEntry[];
 
     const yaDevueltosRefs = new Set<string>(
@@ -435,25 +467,12 @@ export class SolicitudesService {
 
     const itemsADevolver = itemsPendientes.filter(i => refsADevolver.has(i.equipoId ?? i.tipo ?? ''));
 
-    const rentedMs      = fechaDevolucion.getTime() - fechaInicio.getTime();
-    const diasCompletos = Math.floor(rentedMs / 86_400_000);
-    const excesoMs      = rentedMs - diasCompletos * 86_400_000;
-    const diasCobrados  = Math.max(excesoMs <= GRACE_MS ? diasCompletos : diasCompletos + 1, 1);
-
-    const result: { itemRef: string; costoReal: number; diasCobrados: number }[] = [];
+    const result: { itemRef: string; costoReal: number; diasCobrados: number; recargoTiempo: number }[] = [];
 
     for (const item of itemsADevolver) {
-      const ref       = item.equipoId ?? item.tipo ?? '';
-      const cantidad  = item.cantidad  ?? 1;
-      const conMadera = item.conMadera ?? false;
-      const precios   = ref ? await this.fetchPreciosItem(item.kind, ref, conMadera) : null;
-
-      let costoReal = 0;
-      if (precios) {
-        ({ costoReal } = calcularDevolucionItem(fechaInicio, fechaDevolucion, precios, cantidad));
-      }
-
-      result.push({ itemRef: ref, costoReal, diasCobrados });
+      const ref    = item.equipoId ?? item.tipo ?? '';
+      const costos = await this.calcularCostosDevolucionItem(item, fechaInicio, fechaDevolucion, extensiones);
+      result.push({ itemRef: ref, ...costos });
     }
 
     return result;
@@ -512,31 +531,10 @@ export class SolicitudesService {
     const devolucionItems: DevolucionItemEntry[] = [];
 
     for (const item of itemsADevolver) {
-      const itemRef     = item.equipoId ?? item.tipo ?? '';
-      const extsItem    = extensiones.filter(e => e.itemRef === itemRef);
-      const finEfectivo = calcularFinItemConExtensiones(fechaInicio, item, extsItem);
-
-      const recargoTiempo = item.tarifa != null
-        ? calcularRecargoItem(item.tarifa, finEfectivo, fechaDevolucion)
-        : 0;
-
-      let costoReal = 0;
-
-      const conMadera = item.conMadera ?? false;
-      const cantidad  = item.cantidad  ?? 1;
-      const precios   = itemRef ? await this.fetchPreciosItem(item.kind, itemRef, conMadera) : null;
-      if (precios) {
-        ({ costoReal } = calcularDevolucionItem(fechaInicio, fechaDevolucion, precios, cantidad));
-      }
-
-      devolucionItems.push({ itemRef, kind: item.kind as 'maquinaria' | 'granel', diasCobrados: 0, costoReal, recargoTiempo });
+      const itemRef = item.equipoId ?? item.tipo ?? '';
+      const costos  = await this.calcularCostosDevolucionItem(item, fechaInicio, fechaDevolucion, extensiones);
+      devolucionItems.push({ itemRef, kind: item.kind as 'maquinaria' | 'granel', ...costos });
     }
-
-    const rentedMs      = fechaDevolucion.getTime() - fechaInicio.getTime();
-    const diasCompletos = Math.floor(rentedMs / 86_400_000);
-    const excesoMs      = rentedMs - diasCompletos * 86_400_000;
-    const diasCobrados  = Math.max(excesoMs <= 3_600_000 ? diasCompletos : diasCompletos + 1, 1);
-    devolucionItems.forEach(i => { i.diasCobrados = diasCobrados; });
 
     const recargosAdicionales: CargoAdicional[] = (dto.recargosAdicionales ?? []).map(c => ({
       descripcion: c.descripcion,

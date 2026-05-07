@@ -233,9 +233,9 @@ export const solicitudesService = {
   async previewDevolucion(
     solicitudId: string,
     itemRefs?: string[],
-  ): Promise<{ itemRef: string; costoReal: number; diasCobrados: number }[]> {
+  ): Promise<{ itemRef: string; costoReal: number; diasCobrados: number; recargoTiempo: number }[]> {
     const params = itemRefs && itemRefs.length > 0 ? { itemRefs: itemRefs.join(',') } : {};
-    const res = await api.get<{ itemRef: string; costoReal: number; diasCobrados: number }[]>(
+    const res = await api.get<{ itemRef: string; costoReal: number; diasCobrados: number; recargoTiempo: number }[]>(
       `/solicitudes/${solicitudId}/preview-devolucion`,
       { params },
     );

@@ -162,11 +162,11 @@ export default function DevolucionModal({
                 kind:          item.kind as 'maquinaria' | 'granel' | 'pesada',
                 diasCobrados:  pItem?.diasCobrados ?? diasDesde(solicitud.fechaInicioRenta!),
                 costoReal:     pItem?.costoReal ?? 0,
-                recargoTiempo: 0,
+                recargoTiempo: pItem?.recargoTiempo ?? 0,
               };
             }),
             recargosAdicionales: cargosValidos.map(c => ({ descripcion: c.descripcion, monto: c.monto as number })),
-            totalLote:           preview.reduce((s, p) => s + p.costoReal, 0) + totalCargosAd,
+            totalLote:           preview.reduce((s, p) => s + p.costoReal + p.recargoTiempo, 0) + totalCargosAd,
             liquidacionKey:      null,
           };
           return generarLiquidacion(solicitud, devolucionPrevia);

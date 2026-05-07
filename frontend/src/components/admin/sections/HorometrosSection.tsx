@@ -14,7 +14,8 @@ export default function HorometrosSection({ initialSolicitudId }: Props) {
         solicitudesService.getActivas(),
         solicitudesService.getVencidas(),
       ]).then(([activas, vencidas]) =>
-        [...activas, ...vencidas].filter(s => s.esPesada),
+        [...new Map([...activas, ...vencidas].map(s => [s.id, s])).values()]
+          .filter(s => s.esPesada),
       ),
     [],
   );

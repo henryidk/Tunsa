@@ -71,15 +71,24 @@ export default function ClientesSection({ onShowToast, canEdit = true }: Props) 
       .finally(() => setIsLoading(false));
   }, []);
 
-  const filtrados = clientes.filter(c => {
+  const filtrados = useMemo(() => {
     const q = search.toLowerCase();
-    return (
+    return clientes.filter(c =>
       c.nombre.toLowerCase().includes(q) ||
       c.id.toLowerCase().includes(q) ||
       c.dpi.includes(q) ||
       (c.telefono ?? '').includes(q)
     );
-  });
+  }, [clientes, search]);
+
+  const stats = useMemo(() => {
+    const now = new Date();
+    return [
+      { label: 'Total clientes',       value: clientes.length,                                                                                                                              color: 'text-indigo-600', bg: 'bg-indigo-50'  },
+      { label: 'Registrados este mes', value: clientes.filter(c => { const d = new Date(c.createdAt); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); }).length, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+      { label: 'Sin documento',        value: clientes.filter(c => !c.documentoKey).length,                                                                                                 color: 'text-amber-600',  bg: 'bg-amber-50'  },
+    ];
+  }, [clientes]);
 
   const handleRegistrado = (cliente: Cliente) => {
     setClientes(prev => [cliente, ...prev]);
@@ -110,13 +119,7 @@ export default function ClientesSection({ onShowToast, canEdit = true }: Props) 
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-        {[
-          { label: 'Total clientes',    value: clientes.length,  color: 'text-indigo-600',  bg: 'bg-indigo-50' },
-          { label: 'Registrados este mes',
-            value: clientes.filter(c => { const d = new Date(c.createdAt); const n = new Date(); return d.getMonth() === n.getMonth() && d.getFullYear() === n.getFullYear(); }).length,
-            color: 'text-emerald-600', bg: 'bg-emerald-50' },
-          { label: 'Sin documento',     value: clientes.filter(c => !c.documentoKey).length, color: 'text-amber-600', bg: 'bg-amber-50' },
-        ].map(s => (
+        {stats.map(s => (
           <div key={s.label} className="bg-white border border-slate-200 rounded-xl px-4 py-3.5 shadow-sm">
             <div className={`inline-flex items-center justify-center w-8 h-8 rounded-lg ${s.bg} mb-2`}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={s.color}>

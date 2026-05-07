@@ -1,4 +1,5 @@
 import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { R2Service } from '../r2/r2.service';
 import { CreateClienteDto } from './dto/create-cliente.dto';
@@ -68,8 +69,18 @@ export class ClientesService {
       if (telExiste) throw new ConflictException('Ya existe un cliente registrado con ese número de teléfono.');
     }
 
-    const id      = await this.generarCodigo();
-    const cliente = await this.prisma.cliente.create({ data: { id, ...dto } });
+    let cliente;
+    try {
+      const id = await this.generarCodigo();
+      cliente = await this.prisma.cliente.create({ data: { id, ...dto } });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        const id = await this.generarCodigo();
+        cliente = await this.prisma.cliente.create({ data: { id, ...dto } });
+      } else {
+        throw err;
+      }
+    }
 
     await this.prisma.bitacora.create({
       data: {

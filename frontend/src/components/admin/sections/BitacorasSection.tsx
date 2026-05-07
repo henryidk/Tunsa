@@ -1,6 +1,6 @@
 // BitacorasSection.tsx — registro de cambios del sistema (cursor-based pagination)
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { bitacorasService } from '../../../services/bitacoras.service';
 import type { BitacoraEntry, BitacoraStats } from '../../../services/bitacoras.service';
 
@@ -159,12 +159,28 @@ export default function BitacorasSection() {
     setFiltroModulo('');
   };
 
-  const modulosPresentes = stats
-    ? [
-        ...Object.keys(MODULO_CONFIG).filter(m => stats.porModulo[m]),
-        ...Object.keys(stats.porModulo).filter(m => !MODULO_CONFIG[m]),
-      ]
-    : [];
+  const modulosPresentes = useMemo(() =>
+    stats
+      ? [
+          ...Object.keys(MODULO_CONFIG).filter(m => stats.porModulo[m]),
+          ...Object.keys(stats.porModulo).filter(m => !MODULO_CONFIG[m]),
+        ]
+      : [],
+  [stats]);
+
+  const statCards = useMemo(() => [
+    { label: 'Total de registros', value: stats?.total  ?? '—', color: 'text-indigo-600',  bg: 'bg-indigo-50' },
+    { label: 'Cambios hoy',        value: stats?.hoy    ?? '—', color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    ...modulosPresentes.map(m => {
+      const cfg = moduloDisplay(m);
+      return {
+        label: `En ${cfg.label.toLowerCase()}s`,
+        value: stats?.porModulo[m] ?? 0,
+        color: cfg.stat,
+        bg:    cfg.badge.split(' ')[0],
+      };
+    }),
+  ], [stats, modulosPresentes]);
 
   return (
     <div>
@@ -176,19 +192,7 @@ export default function BitacorasSection() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {[
-          { label: 'Total de registros', value: stats?.total  ?? '—', color: 'text-indigo-600',  bg: 'bg-indigo-50' },
-          { label: 'Cambios hoy',        value: stats?.hoy    ?? '—', color: 'text-emerald-600', bg: 'bg-emerald-50' },
-          ...modulosPresentes.map(m => {
-            const cfg = moduloDisplay(m);
-            return {
-              label: `En ${cfg.label.toLowerCase()}s`,
-              value: stats?.porModulo[m] ?? 0,
-              color: cfg.stat,
-              bg:    cfg.badge.split(' ')[0],
-            };
-          }),
-        ].map(s => (
+        {statCards.map(s => (
           <div key={s.label} className="bg-white border border-slate-200 rounded-xl px-4 py-3.5 shadow-sm">
             <div className={`inline-flex items-center justify-center w-8 h-8 rounded-lg ${s.bg} mb-2`}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={s.color}>
@@ -280,6 +284,7 @@ export default function BitacorasSection() {
               {!isLoading && !error && entradas.map(e => {
                 const { fecha, hora } = formatFechaHora(e.createdAt);
                 const campoBadge = CAMPO_BADGE[e.campo] ?? 'bg-indigo-50 text-indigo-700';
+                const moduloCfg  = moduloDisplay(e.modulo);
                 return (
                   <tr key={e.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
                     <td className="px-4 py-3 whitespace-nowrap">
@@ -287,8 +292,8 @@ export default function BitacorasSection() {
                       <div className="text-[11px] text-slate-400 font-mono">{hora}</div>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold ${moduloDisplay(e.modulo).badge}`}>
-                        {moduloDisplay(e.modulo).label}
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold ${moduloCfg.badge}`}>
+                        {moduloCfg.label}
                       </span>
                     </td>
                     <td className="px-4 py-3 max-w-[180px]">

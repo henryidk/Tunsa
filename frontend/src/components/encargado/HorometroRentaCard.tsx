@@ -1,7 +1,7 @@
 import type { SolicitudRenta, ItemSnapshot } from '../../types/solicitud-renta.types';
 import type { LecturaHorometro } from '../../services/solicitudes.service';
 import {
-  today, localDateOf, generarDias, getDiaStatus,
+  today, localDateOf, generarDias, getDiaStatus, ultimoDiaHorometro,
   DIA_BG, DIA_ICON, DIA_LABEL,
 } from '../../utils/horometro.utils';
 
@@ -25,20 +25,34 @@ export default function HorometroRentaCard({ solicitud, lecturas, onVerDetalle, 
     ? solicitud.fechaInicioRenta.substring(0, 10)
     : hoy;
 
+  const finEstimadaStr = solicitud.fechaFinEstimada?.substring(0, 10) ?? null;
+  const esVencida      = !!finEstimadaStr && finEstimadaStr < hoy;
+  const ultimoDia      = ultimoDiaHorometro(finEstimadaStr);
+
+  const diasAtraso = esVencida
+    ? Math.floor(
+        (new Date(hoy + 'T00:00:00').getTime() - new Date(finEstimadaStr! + 'T00:00:00').getTime())
+        / 86_400_000,
+      )
+    : 0;
+
+  // Para vencidas: el estado de referencia es el último día de trabajo, no hoy
+  const refDate = esVencida ? ultimoDia : hoy;
+
   // Prioriza lecturas frescas del mapa; cae en ultimaLectura solo mientras cargan
   const estadoHoy = (() => {
-    if (lecturas !== null) return getDiaStatus(lecturas, hoy);
+    if (lecturas !== null) return getDiaStatus(lecturas, refDate);
     const ul = solicitud.ultimaLectura;
-    if (!ul || ul.fecha !== hoy) return 'sin-registro' as const;
-    if (ul.completa)             return 'completo'     as const;
+    if (!ul || ul.fecha !== refDate) return 'sin-registro' as const;
+    if (ul.completa)                 return 'completo'     as const;
     return 'parcial' as const;
   })();
 
-  // Últimos 7 días acotados al inicio de la renta
-  const hace6Dias = new Date();
-  hace6Dias.setDate(hace6Dias.getDate() - 6);
-  const desde = localDateOf(hace6Dias);
-  const ultimos7 = generarDias(desde < fechaInicioStr ? fechaInicioStr : desde, hoy);
+  // Ventana de hasta 7 días anclada al último día de trabajo (no a hoy)
+  const hace6DiasDesdeFin = new Date(new Date(ultimoDia + 'T00:00:00').getTime() - 6 * 86_400_000);
+  const desdeUltimoDia    = localDateOf(hace6DiasDesdeFin);
+  const desdeEfectivo     = desdeUltimoDia < fechaInicioStr ? fechaInicioStr : desdeUltimoDia;
+  const ultimos7          = generarDias(desdeEfectivo, ultimoDia);
 
   const borderColor = {
     'completo':     'border-l-emerald-400',
@@ -47,18 +61,26 @@ export default function HorometroRentaCard({ solicitud, lecturas, onVerDetalle, 
   }[estadoHoy];
 
   const estadoBadge = {
-    'completo':     { cls: 'bg-emerald-100 text-emerald-700', label: '✓ Al día hoy' },
-    'parcial':      { cls: 'bg-amber-100 text-amber-700',     label: '~ Falta cierre' },
-    'sin-registro': { cls: 'bg-red-100 text-red-700',         label: '! Sin registros hoy' },
+    'completo':     {
+      cls:   'bg-emerald-100 text-emerald-700',
+      label: esVencida ? '✓ Lecturas al día' : '✓ Al día hoy',
+    },
+    'parcial':      {
+      cls:   'bg-amber-100 text-amber-700',
+      label: '~ Falta cierre',
+    },
+    'sin-registro': {
+      cls:   'bg-red-100 text-red-700',
+      label: esVencida ? '! Lecturas pendientes' : '! Sin registros hoy',
+    },
   }[estadoHoy];
 
-  const ctaLabel = estadoHoy === 'sin-registro'
-    ? 'Registrar inicio'
-    : estadoHoy === 'parcial'
-    ? 'Registrar cierre'
-    : null;
-
-  const esVencida = !!solicitud.fechaFinEstimada && new Date(solicitud.fechaFinEstimada) < new Date();
+  const ctaLabel = (() => {
+    if (esVencida)                    return estadoHoy !== 'completo' ? 'Completar lecturas' : null;
+    if (estadoHoy === 'sin-registro') return 'Registrar inicio';
+    if (estadoHoy === 'parcial')      return 'Registrar cierre';
+    return null;
+  })();
 
   return (
     <div className={`bg-white border border-slate-200 border-l-4 ${borderColor} rounded-xl shadow-sm p-5`}>
@@ -72,7 +94,7 @@ export default function HorometroRentaCard({ solicitud, lecturas, onVerDetalle, 
             </span>
             {esVencida && (
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-600 text-white">
-                Vencida
+                Vencida · {diasAtraso}d
               </span>
             )}
             <span className="text-[11px] font-mono text-slate-400">{solicitud.folio}</span>
@@ -111,8 +133,8 @@ export default function HorometroRentaCard({ solicitud, lecturas, onVerDetalle, 
             <div className="text-center">
               <p className="text-[10px] text-slate-400 leading-none mb-0.5">Fin est.</p>
               <p className={`text-xs font-mono font-semibold ${esVencida ? 'text-red-600' : 'text-slate-600'}`}>
-                {solicitud.fechaFinEstimada
-                  ? solicitud.fechaFinEstimada.substring(0, 10).split('-').reverse().join('/')
+                {finEstimadaStr
+                  ? finEstimadaStr.split('-').reverse().join('/')
                   : '—'}
               </p>
             </div>
@@ -135,15 +157,15 @@ export default function HorometroRentaCard({ solicitud, lecturas, onVerDetalle, 
         ) : (
           <div className="flex gap-1 flex-wrap">
             {ultimos7.map(d => {
-              const status = getDiaStatus(lecturas, d);
-              const esHoy  = d === hoy;
+              const status      = getDiaStatus(lecturas, d);
+              const esDestacado = esVencida ? d === ultimoDia : d === hoy;
               return (
                 <div
                   key={d}
                   title={`${d.split('-').reverse().join('/')} · ${DIA_LABEL[status]}`}
                   className={`flex flex-col items-center justify-center px-1.5 py-1.5 rounded-lg border text-[9px] font-bold min-w-[2.5rem]
                     ${DIA_BG[status]}
-                    ${esHoy ? 'ring-2 ring-indigo-400 ring-offset-1' : ''}`}
+                    ${esDestacado ? 'ring-2 ring-indigo-400 ring-offset-1' : ''}`}
                 >
                   <span className="text-[11px]">{DIA_ICON[status]}</span>
                   <span className="font-mono mt-0.5">{d.substring(8)}/{d.substring(5, 7)}</span>
@@ -174,7 +196,9 @@ export default function HorometroRentaCard({ solicitud, lecturas, onVerDetalle, 
             {ctaLabel}
           </button>
         ) : (
-          <span className="text-xs text-emerald-600 font-semibold">Completo hoy ✓</span>
+          <span className="text-xs text-emerald-600 font-semibold">
+            {esVencida ? 'Lecturas completas ✓' : 'Completo hoy ✓'}
+          </span>
         )}
       </div>
     </div>

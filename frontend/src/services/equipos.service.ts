@@ -1,35 +1,6 @@
 import type { Equipo } from '../types/equipo.types';
 import { api } from './auth.service';
 
-export interface BitacoraEntry {
-  id:            string;
-  modulo:        string;
-  entidadId:     string;
-  entidadNombre: string;
-  campo:         string;
-  valorAnterior: string | null;
-  valorNuevo:    string | null;
-  realizadoPor:  string;
-  createdAt:     string;
-}
-
-export interface BitacoraPageParams {
-  cursor?:  string;
-  modulo?:  string;
-  search?:  string;
-}
-
-export interface BitacoraPageResult {
-  data:       BitacoraEntry[];
-  nextCursor: string | null;
-}
-
-export interface BitacoraStats {
-  total:     number;
-  hoy:       number;
-  porModulo: Record<string, number>;
-}
-
 export interface ExtraEquipoInput {
   tipoExtraId: string;
   rentaHora:   number;
@@ -116,13 +87,4 @@ export const equiposService = {
     return res.data;
   },
 
-  async getBitacoraStats(): Promise<BitacoraStats> {
-    const res = await api.get<BitacoraStats>('/bitacoras/stats');
-    return res.data;
-  },
-
-  async getBitacoras(params: BitacoraPageParams = {}): Promise<BitacoraPageResult> {
-    const res = await api.get<BitacoraPageResult>('/bitacoras', { params });
-    return res.data;
-  },
 };

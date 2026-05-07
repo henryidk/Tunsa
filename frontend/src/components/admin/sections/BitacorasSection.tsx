@@ -1,8 +1,8 @@
 // BitacorasSection.tsx — registro de cambios del sistema (cursor-based pagination)
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { equiposService } from '../../../services/equipos.service';
-import type { BitacoraEntry, BitacoraStats } from '../../../services/equipos.service';
+import { bitacorasService } from '../../../services/bitacoras.service';
+import type { BitacoraEntry, BitacoraStats } from '../../../services/bitacoras.service';
 
 const CAMPO_LABEL: Record<string, string> = {
   // equipos
@@ -95,7 +95,7 @@ export default function BitacorasSection() {
 
   // Cargar stats una sola vez al montar
   useEffect(() => {
-    equiposService.getBitacoraStats()
+    bitacorasService.getStats()
       .then(s => setStats(s))
       .catch(() => {/* stats son decorativas, no bloquear */});
   }, []);
@@ -105,7 +105,7 @@ export default function BitacorasSection() {
     setIsLoading(true);
     setError(null);
     try {
-      const result = await equiposService.getBitacoras({
+      const result = await bitacorasService.getBitacoras({
         modulo:  modulo  || undefined,
         search:  search  || undefined,
       });
@@ -139,7 +139,7 @@ export default function BitacorasSection() {
     if (!nextCursor || isLoadingMore) return;
     setIsLoadingMore(true);
     try {
-      const result = await equiposService.getBitacoras({
+      const result = await bitacorasService.getBitacoras({
         cursor:  nextCursor,
         modulo:  filtroModulo || undefined,
         search:  debouncedSearch || undefined,

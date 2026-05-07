@@ -1,7 +1,8 @@
 import type { SolicitudRenta, ItemSnapshot } from '../../../types/solicitud-renta.types';
 import type { LecturaHorometro } from '../../../services/solicitudes.service';
+import { generarDias } from '../../../utils/horometro.utils';
 
-export type BloqueoRazon = 'sin-lecturas' | 'sin-fin5pm';
+export type BloqueoRazon = 'sin-lecturas' | 'sin-fin5pm' | 'dias-incompletos';
 
 export type Paso = 1 | 2 | 3 | 4 | 'resultado';
 
@@ -72,11 +73,14 @@ export function estimarLecturasConDevolucion(
 
 /**
  * Determina qué ítems seleccionados no pueden procesarse aún y por qué.
- * Regla: toda devolución requiere al menos una lectura completa (inicio + fin5pm).
+ * Verifica que todos los días desde fechaInicio hasta ultimoDiaObligatorio
+ * tengan lecturas completas (inicio + fin5pm) antes de permitir la devolución.
  */
 export function calcularBloqueos(
-  lecturas:      LecturaHorometro[],
-  seleccionados: ItemRetorno[],
+  lecturas:             LecturaHorometro[],
+  seleccionados:        ItemRetorno[],
+  fechaInicio:          string,
+  ultimoDiaObligatorio: string,
 ): Map<string, BloqueoRazon> {
   const lecturasPorEquipo = new Map<string, LecturaHorometro[]>();
   for (const l of lecturas) {
@@ -85,14 +89,32 @@ export function calcularBloqueos(
     lecturasPorEquipo.set(l.equipoId, arr);
   }
 
+  const diasRequeridos = fechaInicio <= ultimoDiaObligatorio
+    ? generarDias(fechaInicio, ultimoDiaObligatorio)
+    : [];
+
   const resultado = new Map<string, BloqueoRazon>();
   for (const it of seleccionados) {
-    const lects = lecturasPorEquipo.get(it.equipoId) ?? [];
+    const lects          = lecturasPorEquipo.get(it.equipoId) ?? [];
+    const lecturasPorFecha = new Map(lects.map(l => [l.fecha, l]));
+
     if (lects.length === 0) {
       resultado.set(it.equipoId, 'sin-lecturas');
-    } else {
-      const ultima = lects.reduce((a, b) => (a.fecha >= b.fecha ? a : b));
-      if (ultima.horometroFin5pm == null) resultado.set(it.equipoId, 'sin-fin5pm');
+      continue;
+    }
+
+    const ultima = lects.reduce((a, b) => (a.fecha >= b.fecha ? a : b));
+    if (ultima.horometroFin5pm == null) {
+      resultado.set(it.equipoId, 'sin-fin5pm');
+      continue;
+    }
+
+    const diasFaltantes = diasRequeridos.filter(d => {
+      const l = lecturasPorFecha.get(d);
+      return !l || l.horometroFin5pm == null;
+    });
+    if (diasFaltantes.length > 0) {
+      resultado.set(it.equipoId, 'dias-incompletos');
     }
   }
   return resultado;

@@ -2,8 +2,9 @@ import type { ItemRetorno, BloqueoRazon } from './types';
 import { formatQ } from './types';
 
 const MENSAJES_BLOQUEO: Record<BloqueoRazon, string> = {
-  'sin-lecturas': 'Registra primero los horómetros del día en el módulo de horómetros.',
-  'sin-fin5pm':   'El horómetro de fin (5PM) del último día no está registrado. Complétalo antes de continuar.',
+  'sin-lecturas':     'Registra primero los horómetros del día en el módulo de horómetros.',
+  'sin-fin5pm':       'El horómetro de fin (5PM) del último día no está registrado. Complétalo antes de continuar.',
+  'dias-incompletos': 'Hay días con lecturas faltantes o incompletas. Registra todos los horómetros pendientes antes de procesar la devolución.',
 };
 
 interface Props {

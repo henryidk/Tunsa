@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { solicitudesService, type LecturaHorometro } from '../../services/solicitudes.service';
 import { generarLiquidacion } from '../../utils/generarLiquidacion';
+import { ultimoDiaHorometro, localDateOf } from '../../utils/horometro.utils';
 import type { SolicitudRenta, DevolucionEntry } from '../../types/solicitud-renta.types';
 import { type ItemRetorno, type CargoRow, type Paso, getPendientes, estimarLecturasConDevolucion, calcularBloqueos } from './devolucion-pesada/types';
 import PasoIndicador from './devolucion-pesada/PasoIndicador';
@@ -78,9 +79,14 @@ export default function DevolucionPesadaModal({
 
   const seleccionados = items.filter(it => it.seleccionado);
 
+  const fechaInicioStr = solicitud.fechaInicioRenta?.substring(0, 10) ?? '';
+  const ayer = localDateOf(new Date(new Date().getTime() - 86_400_000));
+  const ultimoDia = ultimoDiaHorometro(solicitud.fechaFinEstimada);
+  const ultimoDiaObligatorio = ultimoDia <= ayer ? ultimoDia : ayer;
+
   const bloqueoItems = useMemo(
-    () => calcularBloqueos(lecturas, seleccionados),
-    [lecturas, seleccionados],
+    () => calcularBloqueos(lecturas, seleccionados, fechaInicioStr, ultimoDiaObligatorio),
+    [lecturas, seleccionados, fechaInicioStr, ultimoDiaObligatorio],
   );
 
   const paso1Valido = seleccionados.length > 0

@@ -5,6 +5,7 @@ import type { ChangeEvent, KeyboardEvent } from 'react';
 import { categoriasService } from '../../services/categorias.service';
 import type { TipoAdmin, CategoriaAdmin } from '../../services/categorias.service';
 import { TIPO_BADGE } from '../../types/equipo.types';
+import { extractApiError } from '../../utils/usuario.utils';
 
 interface CategoriasPanelProps {
   open:                boolean;
@@ -52,15 +53,6 @@ export default function CategoriasPanel({ open, onClose, onCategoriasChanged }: 
 
   const tipoActivo = tipos[tabIdx];
 
-  // ── Helpers de error ──────────────────────────────────────────────────────────
-  function extractMsg(err: unknown): string {
-    if (err && typeof err === 'object' && 'response' in err) {
-      const msg = (err as { response?: { data?: { message?: string } } }).response?.data?.message;
-      return msg ?? 'Ocurrió un error.';
-    }
-    return 'Ocurrió un error.';
-  }
-
   // ── Agregar ───────────────────────────────────────────────────────────────────
   const handleAdd = async () => {
     const nombre = newNombre.trim();
@@ -77,7 +69,7 @@ export default function CategoriasPanel({ open, onClose, onCategoriasChanged }: 
       onCategoriasChanged();
       addInputRef.current?.focus();
     } catch (err) {
-      setAddingErr(extractMsg(err));
+      setAddingErr(extractApiError(err, 'Ocurrió un error.'));
     } finally {
       setAction({ type: 'idle' });
     }
@@ -102,7 +94,7 @@ export default function CategoriasPanel({ open, onClose, onCategoriasChanged }: 
       ));
       onCategoriasChanged();
     } catch (err) {
-      setApiErr(extractMsg(err));
+      setApiErr(extractApiError(err, 'Ocurrió un error.'));
     } finally {
       setAction({ type: 'idle' });
     }
@@ -118,7 +110,7 @@ export default function CategoriasPanel({ open, onClose, onCategoriasChanged }: 
       ));
       onCategoriasChanged();
     } catch (err) {
-      setApiErr(extractMsg(err));
+      setApiErr(extractApiError(err, 'Ocurrió un error.'));
     } finally {
       setAction({ type: 'idle' });
     }

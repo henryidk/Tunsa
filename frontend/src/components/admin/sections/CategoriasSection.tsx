@@ -19,7 +19,6 @@ interface CategoriasSectionProps {
 type CatAction =
   | { type: 'idle' }
   | { type: 'editing'; nombre: string }
-  | { type: 'deleting' }
   | { type: 'saving' };
 
 const INPUT_CLS = 'w-full text-sm border border-indigo-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-100 disabled:opacity-60';
@@ -167,22 +166,6 @@ export default function CategoriasSection({ onShowToast }: CategoriasSectionProp
     } catch {
       onShowToast('error', 'Error', 'No se pudo renombrar la categoría.');
     } finally {
-      setAction(cat.id, { type: 'idle' });
-    }
-  };
-
-  const handleDeleteConfirm = async (cat: CategoriaAdmin) => {
-    setAction(cat.id, { type: 'saving' });
-    try {
-      await categoriasService.delete(cat.id);
-      setTipos(prev => prev.map(t =>
-        t.nombre === tipoActivo
-          ? { ...t, categorias: t.categorias.filter(c => c.id !== cat.id) }
-          : t,
-      ));
-      onShowToast('success', 'Eliminada', `Categoría "${cat.nombre}" eliminada.`);
-    } catch (err: unknown) {
-      onShowToast('error', 'No se puede eliminar', extractApiError(err) ?? 'La categoría tiene equipos asignados.');
       setAction(cat.id, { type: 'idle' });
     }
   };

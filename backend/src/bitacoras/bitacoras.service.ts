@@ -1,4 +1,6 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import type { Bitacora } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { inicioHoyGT } from '../common/utils/date.util';
 
@@ -17,7 +19,7 @@ export interface BitacoraStatsResult {
 }
 
 export interface BitacoraPageResult {
-  data:       any[];
+  data:       Bitacora[];
   nextCursor: string | null;  // null = no hay más páginas
 }
 
@@ -50,7 +52,7 @@ export class BitacorasService {
   async findAll(params: BitacoraPageParams): Promise<BitacoraPageResult> {
     const { cursor, modulo, search } = params;
 
-    const where: any = {};
+    const where: Prisma.BitacoraWhereInput = {};
 
     if (modulo) {
       where.modulo = modulo;

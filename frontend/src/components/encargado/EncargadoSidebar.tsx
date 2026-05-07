@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import type { Usuario } from '../../types/auth.types';
 import { useAprobadasStore } from '../../store/aprobadas.store';
 import { useActivasStore } from '../../store/activas.store';
+import { useVencidasStore } from '../../store/vencidas.store';
 import { today } from '../../utils/horometro.utils';
 
 interface NavItem {
@@ -190,6 +191,7 @@ const badgeCls: Record<string, string> = {
 export default function EncargadoSidebar({ activeSection, onNavTo, collapsed, onToggle, onLogout, user }: Props) {
   const nombre = user?.nombre ?? '';
   const porEntregarCount = useAprobadasStore(s => s.solicitudes.length);
+  const vencidasCount    = useVencidasStore(s => s.solicitudes.length);
 
   const activasSolicitudes = useActivasStore(s => s.solicitudes);
   const hoyStr = today();
@@ -287,7 +289,12 @@ export default function EncargadoSidebar({ activeSection, onNavTo, collapsed, on
                             {horometrosPendientes}
                           </span>
                         )}
-                        {item.id !== 'por-entregar' && item.id !== 'horometros' && item.badge && (
+                        {item.id === 'vencidas' && vencidasCount > 0 && (
+                          <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${badgeCls['danger']}`}>
+                            {vencidasCount}
+                          </span>
+                        )}
+                        {item.id !== 'por-entregar' && item.id !== 'horometros' && item.id !== 'vencidas' && item.badge && (
                           <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${badgeCls[item.badgeVariant ?? 'default']}`}>
                             {item.badge}
                           </span>

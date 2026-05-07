@@ -8,7 +8,8 @@ import { equiposService } from '../../../services/equipos.service';
 import { solicitudesService } from '../../../services/solicitudes.service';
 import { usePendientesStore } from '../../../store/pendientes.store';
 import { useReservadosStore } from '../../../store/reservados.store';
-import { formatQ } from '../../../types/solicitud.types';
+import { formatQ, unidadLabel } from '../../../types/solicitud.types';
+import type { UnidadDuracion } from '../../../types/solicitud.types';
 
 interface Props {
   onShowToast?: (type: ToastType, title: string, msg: string) => void;
@@ -17,8 +18,18 @@ interface Props {
 interface PesadaItem {
   equipo:              Equipo;
   extrasSeleccionados: ExtraSeleccionado[];
-  diasSolicitados:     number;
+  duracion:            number;
+  unidad:              UnidadDuracion;
   fechaInicio:         string;
+}
+
+function diasDesdeDuracion(fechaInicio: string, duracion: number, unidad: UnidadDuracion): number {
+  if (unidad === 'dias')    return duracion;
+  if (unidad === 'semanas') return duracion * 7;
+  const inicio = new Date(fechaInicio + 'T00:00:00');
+  const fin    = new Date(inicio);
+  fin.setMonth(fin.getMonth() + duracion);
+  return Math.round((fin.getTime() - inicio.getTime()) / 86_400_000);
 }
 
 function today(): string {
@@ -87,18 +98,21 @@ export default function NuevaSolicitudPesadaSection({ onShowToast = () => {} }: 
     setShowNoNotasModal(false);
     setIsSubmitting(true);
     try {
-      const snapItems = items.map(it => ({
-        kind:            'pesada' as const,
-        equipoId:        it.equipo.id,
-        numeracion:      it.equipo.numeracion,
-        descripcion:     it.equipo.descripcion,
-        extras:          it.extrasSeleccionados,
-        diasSolicitados: it.diasSolicitados,
-        fechaInicio:     it.fechaInicio,
-        duracion:        it.diasSolicitados,
-        unidad:          'dias',
-        subtotal:        0,
-      }));
+      const snapItems = items.map(it => {
+        const dias = diasDesdeDuracion(it.fechaInicio, it.duracion, it.unidad);
+        return {
+          kind:            'pesada' as const,
+          equipoId:        it.equipo.id,
+          numeracion:      it.equipo.numeracion,
+          descripcion:     it.equipo.descripcion,
+          extras:          it.extrasSeleccionados,
+          diasSolicitados: dias,
+          fechaInicio:     it.fechaInicio,
+          duracion:        dias,
+          unidad:          'dias',
+          subtotal:        0,
+        };
+      });
 
       const nueva = await solicitudesService.create({
         clienteId: cliente.id,
@@ -251,7 +265,7 @@ function ItemRow({ item, onChange, onRemove }: ItemRowProps) {
         </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <div>
           <label className="text-[11px] font-medium text-slate-500 block mb-1">Fecha inicio</label>
           <input type="date" value={item.fechaInicio}
@@ -259,10 +273,20 @@ function ItemRow({ item, onChange, onRemove }: ItemRowProps) {
             className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:border-amber-400" />
         </div>
         <div>
-          <label className="text-[11px] font-medium text-slate-500 block mb-1">Días solicitados</label>
-          <input type="number" min="1" value={item.diasSolicitados}
-            onChange={e => onChange({ diasSolicitados: Math.max(1, parseInt(e.target.value) || 1) })}
-            className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:border-amber-400" />
+          <label className="text-[11px] font-medium text-slate-500 block mb-1">Duración</label>
+          <input type="number" min="1" value={item.duracion}
+            onChange={e => onChange({ duracion: Math.max(1, parseInt(e.target.value) || 1) })}
+            className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:border-amber-400 font-mono" />
+        </div>
+        <div>
+          <label className="text-[11px] font-medium text-slate-500 block mb-1">Unidad</label>
+          <select value={item.unidad}
+            onChange={e => onChange({ unidad: e.target.value as UnidadDuracion })}
+            className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:border-amber-400">
+            <option value="dias">días</option>
+            <option value="semanas">semanas</option>
+            <option value="meses">meses</option>
+          </select>
         </div>
       </div>
 
@@ -353,7 +377,7 @@ function PesadaResumen({ cliente, items, canEnviar, isSubmitting, onEnviar, onCa
                         {it.equipo.descripcion}
                       </p>
                       <p className="text-[10px] text-slate-400">
-                        {it.diasSolicitados} día{it.diasSolicitados > 1 ? 's' : ''}
+                        {unidadLabel(it.duracion, it.unidad)}
                         {it.extrasSeleccionados.map(e => ` · ${e.nombre}`)}
                       </p>
                     </div>
@@ -419,7 +443,8 @@ function PesadaPickerForm({ disponibles, isLoading, onAdd }: PesadaPickerFormPro
   const [extrasSeleccionados,  setExtrasSeleccionados]  = useState<ExtraSeleccionado[]>([]);
   const [dropdown,             setDropdown]             = useState(false);
   const [fechaInicio,          setFechaInicio]          = useState(today());
-  const [diasSolicitados,      setDiasSolicitados]      = useState(1);
+  const [duracion,             setDuracion]             = useState(1);
+  const [unidad,               setUnidad]               = useState<UnidadDuracion>('dias');
   const [error,                setError]                = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -461,12 +486,13 @@ function PesadaPickerForm({ disponibles, isLoading, onAdd }: PesadaPickerFormPro
 
   const handleAdd = () => {
     if (!seleccionado) { setError('Selecciona un equipo.'); return; }
-    if (diasSolicitados < 1) { setError('Los días deben ser al menos 1.'); return; }
-    onAdd({ equipo: seleccionado, extrasSeleccionados, diasSolicitados, fechaInicio });
+    if (duracion < 1) { setError('La duración debe ser al menos 1.'); return; }
+    onAdd({ equipo: seleccionado, extrasSeleccionados, duracion, unidad, fechaInicio });
     setSeleccionado(null);
     setExtrasSeleccionados([]);
     setBusqueda('');
-    setDiasSolicitados(1);
+    setDuracion(1);
+    setUnidad('dias');
     setFechaInicio(today());
     setError(null);
   };
@@ -562,20 +588,29 @@ function PesadaPickerForm({ disponibles, isLoading, onAdd }: PesadaPickerFormPro
         </div>
       )}
 
-      {/* Días y fecha */}
+      {/* Fecha, duración y unidad */}
       <div className="flex flex-wrap gap-3 items-end">
         <div>
           <label className="block text-xs font-semibold text-slate-600 mb-1.5">Fecha inicio</label>
           <input type="date" value={fechaInicio} onChange={e => setFechaInicio(e.target.value)}
             className="px-2.5 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:border-amber-400" />
         </div>
-        <div className="w-24">
+        <div className="w-20">
           <label className="block text-xs font-semibold text-slate-600 mb-1.5">
-            Días sol. <span className="text-red-400">*</span>
+            Duración <span className="text-red-400">*</span>
           </label>
-          <input type="number" min="1" value={diasSolicitados}
-            onChange={e => { setDiasSolicitados(Math.max(1, parseInt(e.target.value) || 1)); setError(null); }}
+          <input type="number" min="1" value={duracion}
+            onChange={e => { setDuracion(Math.max(1, parseInt(e.target.value) || 1)); setError(null); }}
             className="w-full px-2.5 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:border-amber-400 font-mono" />
+        </div>
+        <div className="w-28">
+          <label className="block text-xs font-semibold text-slate-600 mb-1.5">Unidad</label>
+          <select value={unidad} onChange={e => { setUnidad(e.target.value as UnidadDuracion); setError(null); }}
+            className="w-full px-2.5 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:border-amber-400">
+            <option value="dias">días</option>
+            <option value="semanas">semanas</option>
+            <option value="meses">meses</option>
+          </select>
         </div>
         <button onClick={handleAdd} disabled={!seleccionado}
           className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed">

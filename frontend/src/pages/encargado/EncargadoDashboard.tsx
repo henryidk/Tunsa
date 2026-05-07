@@ -1,10 +1,13 @@
 // EncargadoDashboard.tsx — layout principal del encargado de máquinas
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useAuthStore } from '../../store/auth.store';
 import { useNotificationSound } from '../../hooks/useNotificationSound';
 import { useEncargadoSocket } from '../../hooks/useEncargadoSocket';
 import { useMisPendientes } from '../../hooks/useMisPendientes';
+import { solicitudesService } from '../../services/solicitudes.service';
+import { useActivasStore } from '../../store/activas.store';
+import { useVencidasStore } from '../../store/vencidas.store';
 import EncargadoSidebar from '../../components/encargado/EncargadoSidebar';
 import EncargadoTopBar from '../../components/encargado/EncargadoTopBar';
 import Toast from '../../components/admin/Toast';
@@ -60,9 +63,18 @@ export default function EncargadoDashboard() {
   const { playSound } = useNotificationSound();
   useEncargadoSocket({ playSound, showToast });
 
-  // Carga PENDIENTE + APROBADA en el montaje del dashboard, no en cada sección.
-  // Así el aprobadasStore está listo independientemente de qué sección visite primero.
+  // Carga datos en el montaje del dashboard, no en cada sección,
+  // para que los badges del sidebar sean visibles desde el primer render.
   const misPendientes = useMisPendientes();
+
+  useEffect(() => {
+    solicitudesService.getActivasMias()
+      .then(data => useActivasStore.getState().setSolicitudes(data))
+      .catch(() => {});
+    solicitudesService.getVencidasMias()
+      .then(data => useVencidasStore.getState().setSolicitudes(data))
+      .catch(() => {});
+  }, []);
 
   const renderSection = () => {
     switch (activeSection) {

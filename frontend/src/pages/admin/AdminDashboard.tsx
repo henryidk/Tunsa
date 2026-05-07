@@ -1,6 +1,6 @@
 // AdminDashboard.tsx — layout principal y estado global
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuthStore } from '../../store/auth.store'
 import { useAdminSocket } from '../../hooks/useAdminSocket'
 import { useNotificationSound } from '../../hooks/useNotificationSound'
@@ -8,6 +8,7 @@ import { useSolicitudesStore, selectPendingCount, selectTodayCount } from '../..
 import { useNotificationsStore, selectUnreadCount } from '../../store/notifications.store'
 import { useHorometrosPendientes } from '../../hooks/useHorometrosPendientes'
 import { useAdminVencidasStore } from '../../store/vencidas.store'
+import { solicitudesService } from '../../services/solicitudes.service'
 import Sidebar from '../../components/admin/Sidebar'
 import TopBar from '../../components/admin/TopBar'
 import Toast from '../../components/admin/Toast'
@@ -62,6 +63,13 @@ export default function AdminDashboard() {
 
   const horometrosPendientes = useHorometrosPendientes()
   const vencidasCount        = useAdminVencidasStore(s => s.solicitudes.length)
+
+  // Carga vencidas al montar el dashboard para que el badge sea visible sin visitar la sección.
+  useEffect(() => {
+    solicitudesService.getVencidas()
+      .then(data => useAdminVencidasStore.getState().setSolicitudes(data))
+      .catch(() => {});
+  }, []);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [toast, setToast] = useState<ToastState>({ visible: false, type: 'success', title: '', msg: '' })
   const [modalOpen, setModalOpen] = useState(false)

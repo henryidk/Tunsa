@@ -449,6 +449,22 @@ model DetalleHorometro {
   @@map("detalles_horometro")
 }
 
+// ==================== RECAUDACIÓN MENSUAL ====================
+
+model RecaudacionMensual {
+  id        String   @id @default(cuid())
+  encargado String
+  anio      Int
+  mes       Int
+  pesada    Decimal  @default(0) @db.Decimal(12, 2)
+  liviana   Decimal  @default(0) @db.Decimal(12, 2)
+  updatedAt DateTime @updatedAt
+
+  @@unique([encargado, anio, mes])
+  @@index([encargado, anio, mes])
+  @@map("recaudacion_mensual")
+}
+
 // ==================== AUDIT LOG ====================
 
 model AuditLog {

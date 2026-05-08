@@ -570,15 +570,16 @@ export class SolicitudesService {
       fechaUltimaDevolucion: fechaDevolucion,
     };
 
+    let totalFinalLiviana = 0;
     if (devolucionCompleta) {
-      const totalFinal   = todasLasDevoluciones.reduce((s, d) => s + d.totalLote, 0);
+      totalFinalLiviana  = todasLasDevoluciones.reduce((s, d) => s + d.totalLote, 0);
       const recargoTotal = todasLasDevoluciones.reduce(
         (s, d) => s + d.items.reduce((si, i) => si + i.recargoTiempo, 0), 0,
       );
       updateData.estado          = 'DEVUELTA';
       updateData.fechaDevolucion = fechaDevolucion;
       updateData.recargoTotal    = recargoTotal;
-      updateData.totalFinal      = totalFinal;
+      updateData.totalFinal      = totalFinalLiviana;
     } else {
       const refsDevueltosAhora = new Set([...yaDevueltosRefs, ...devolucionItems.map(i => i.itemRef)]);
       const itemsRestantes     = snapshotItems.filter(i => !refsDevueltosAhora.has(i.equipoId ?? i.tipo ?? ''));
@@ -601,6 +602,16 @@ export class SolicitudesService {
             diasCobrados: devItem.diasCobrados,
             costoFinal:   devItem.costoReal + devItem.recargoTiempo,
           },
+        });
+      }
+
+      if (devolucionCompleta) {
+        const anio = fechaDevolucion.getFullYear();
+        const mes  = fechaDevolucion.getMonth() + 1;
+        await tx.recaudacionMensual.upsert({
+          where:  { encargado_anio_mes: { encargado: solicitud.creadaPor, anio, mes } },
+          create: { encargado: solicitud.creadaPor, anio, mes, liviana: totalFinalLiviana },
+          update: { liviana: { increment: totalFinalLiviana } },
         });
       }
 

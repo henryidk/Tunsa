@@ -361,12 +361,13 @@ export class HorometroService {
         fechaUltimaDevolucion: fechaDevolucion,
       };
 
+      let totalFinalPesada = 0;
       if (devolucionCompleta) {
-        const totalFinal           = todasLasDevoluciones.reduce((s, d) => s + d.totalLote, 0);
+        totalFinalPesada           = todasLasDevoluciones.reduce((s, d) => s + d.totalLote, 0);
         updateData.estado          = 'DEVUELTA';
         updateData.fechaDevolucion = fechaDevolucion;
         updateData.recargoTotal    = 0;
-        updateData.totalFinal      = totalFinal;
+        updateData.totalFinal      = totalFinalPesada;
       } else {
         const refsDevueltosAhora = new Set([...yaDevueltosRefs, ...devolucionItems.map(i => i.itemRef)]);
         const itemsRestantes     = snapshotItems.filter(i => !refsDevueltosAhora.has(i.equipoId));
@@ -377,11 +378,23 @@ export class HorometroService {
         }
       }
 
-      return tx.solicitud.update({
+      const s = await tx.solicitud.update({
         where:   { id: solicitudId },
         data:    updateData,
         include: { cliente: true },
       });
+
+      if (devolucionCompleta) {
+        const anio = fechaDevolucion.getFullYear();
+        const mes  = fechaDevolucion.getMonth() + 1;
+        await tx.recaudacionMensual.upsert({
+          where:  { encargado_anio_mes: { encargado: solicitud.creadaPor, anio, mes } },
+          create: { encargado: solicitud.creadaPor, anio, mes, pesada: totalFinalPesada },
+          update: { pesada: { increment: totalFinalPesada } },
+        });
+      }
+
+      return s;
     });
 
     return actualizada;

@@ -26,6 +26,11 @@ export class EquiposController {
     );
   }
 
+  @Get('disponibilidad')
+  getDisponibilidad() {
+    return this.equiposService.getDisponibilidad();
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.equiposService.findById(id);

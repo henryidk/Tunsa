@@ -360,4 +360,100 @@ export class EquiposService {
     });
     return this.serialize(updated);
   }
+
+  // ── Disponibilidad de flota ───────────────────────────────────────────────
+
+  async getDisponibilidad() {
+    const inicioHoy = new Date();
+    inicioHoy.setHours(0, 0, 0, 0);
+
+    const [equipos, itemsEnRenta] = await Promise.all([
+      this.prisma.equipo.findMany({
+        where:   { isActive: true },
+        select: {
+          id:          true,
+          numeracion:  true,
+          descripcion: true,
+          tipo:        { select: { modalidad: true } },
+          categoria:   { select: { nombre: true } },
+        },
+        orderBy: { numeracion: 'asc' },
+      }),
+      this.prisma.resumenItem.findMany({
+        where: {
+          fechaDevolucion: null,
+          equipoId:        { not: null },
+          solicitud:       { estado: 'ACTIVA' },
+        },
+        select: {
+          equipoId: true,
+          solicitud: {
+            select: {
+              id:               true,
+              folio:            true,
+              esPesada:         true,
+              fechaFinEstimada: true,
+              cliente:          { select: { nombre: true } },
+            },
+          },
+        },
+      }),
+    ]);
+
+    const rentalMap = new Map<string, {
+      id:               string;
+      folio:            string | null;
+      clienteNombre:    string;
+      fechaFinEstimada: string | null;
+      esPesada:         boolean;
+    }>();
+
+    for (const item of itemsEnRenta) {
+      if (!item.equipoId || rentalMap.has(item.equipoId)) continue;
+      rentalMap.set(item.equipoId, {
+        id:               item.solicitud.id,
+        folio:            item.solicitud.folio,
+        clienteNombre:    item.solicitud.cliente.nombre,
+        fechaFinEstimada: item.solicitud.fechaFinEstimada
+          ? item.solicitud.fechaFinEstimada.toISOString().substring(0, 10)
+          : null,
+        esPesada:         item.solicitud.esPesada,
+      });
+    }
+
+    const items = equipos.map(equipo => {
+      const esPesada = equipo.tipo.modalidad === 'PESADA';
+      const renta    = rentalMap.get(equipo.id);
+
+      if (!renta) {
+        return {
+          equipoId:    equipo.id,
+          numeracion:  equipo.numeracion,
+          descripcion: equipo.descripcion,
+          categoria:   equipo.categoria?.nombre ?? null,
+          esPesada,
+          estado:      'disponible' as const,
+        };
+      }
+
+      const esVencida = renta.fechaFinEstimada
+        ? new Date(renta.fechaFinEstimada + 'T00:00:00') < inicioHoy
+        : false;
+
+      return {
+        equipoId:    equipo.id,
+        numeracion:  equipo.numeracion,
+        descripcion: equipo.descripcion,
+        categoria:   equipo.categoria?.nombre ?? null,
+        esPesada,
+        estado:      esVencida ? 'vencida' as const : 'en-renta' as const,
+        renta,
+      };
+    });
+
+    const orden = { 'vencida': 0, 'en-renta': 1, 'disponible': 2 } as const;
+    items.sort((a, b) => orden[a.estado] - orden[b.estado] || a.numeracion.localeCompare(b.numeracion));
+
+    return items;
+  }
 }

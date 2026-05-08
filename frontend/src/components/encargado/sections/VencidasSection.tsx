@@ -13,12 +13,16 @@ import DevolucionModal from '../../shared/DevolucionModal';
 import DevolucionPesadaModal from '../DevolucionPesadaModal';
 import StatCard from '../../shared/StatCard';
 
-export default function VencidasSection() {
+export default function VencidasSection({ initialFolio }: { initialFolio?: string } = {}) {
   const { solicitudes, setSolicitudes, removeRenta, updateRenta } = useVencidasStore();
 
   const [isLoading,       setIsLoading]       = useState(true);
   const [error,           setError]           = useState<string | null>(null);
-  const [busqueda,        setBusqueda]        = useState('');
+  const [busqueda,        setBusqueda]        = useState(initialFolio ?? '');
+
+  useEffect(() => {
+    if (initialFolio) setBusqueda(initialFolio);
+  }, [initialFolio]);
   const [ahora,           setAhora]           = useState(() => Date.now());
   const [abriendo,        setAbriendo]        = useState<string | null>(null);
   const [modalAmpliar,    setModalAmpliar]    = useState<SolicitudRenta | null>(null);

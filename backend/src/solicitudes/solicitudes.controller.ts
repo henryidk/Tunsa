@@ -23,6 +23,7 @@ import { MustChangePasswordGuard } from '../auth/guards/must-change-password.gua
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
+import { tieneAccesoGlobal } from '../auth/utils/roles.util';
 
 const MAX_PDF_SIZE = 10 * 1024 * 1024; // 10 MB
 
@@ -182,10 +183,18 @@ export class SolicitudesController {
     return this.solicitudesQueryService.getEquiposReservados();
   }
 
+  @Post('recaudacion/backfill')
+  @Roles('admin')
+  backfillRecaudacion() {
+    return this.solicitudesQueryService.backfillRecaudacion();
+  }
+
   @Get('dashboard-stats')
-  @Roles('encargado_maquinas')
+  @Roles('encargado_maquinas', 'admin', 'secretaria')
   getDashboardStats(@CurrentUser() user: AuthenticatedUser) {
-    return this.solicitudesQueryService.getDashboardStatsEncargado(user.username);
+    return tieneAccesoGlobal(user)
+      ? this.solicitudesQueryService.getDashboardStatsGlobal()
+      : this.solicitudesQueryService.getDashboardStatsEncargado(user.username);
   }
 
   @Get('mias')

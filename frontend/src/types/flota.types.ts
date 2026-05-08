@@ -6,6 +6,7 @@ export interface FlotaRentaInfo {
   clienteNombre:    string;
   fechaFinEstimada: string | null;
   esPesada:         boolean;
+  creadaPor:        string;
 }
 
 export interface FlotaItem {

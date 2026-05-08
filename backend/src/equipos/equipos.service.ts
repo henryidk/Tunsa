@@ -393,6 +393,7 @@ export class EquiposService {
               folio:            true,
               esPesada:         true,
               fechaFinEstimada: true,
+              creadaPor:        true,
               cliente:          { select: { nombre: true } },
             },
           },
@@ -406,6 +407,7 @@ export class EquiposService {
       clienteNombre:    string;
       fechaFinEstimada: string | null;
       esPesada:         boolean;
+      creadaPor:        string;
     }>();
 
     for (const item of itemsEnRenta) {
@@ -418,6 +420,7 @@ export class EquiposService {
           ? item.solicitud.fechaFinEstimada.toISOString().substring(0, 10)
           : null,
         esPesada:         item.solicitud.esPesada,
+        creadaPor:        item.solicitud.creadaPor,
       });
     }
 

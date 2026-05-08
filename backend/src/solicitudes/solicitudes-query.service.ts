@@ -116,31 +116,82 @@ export class SolicitudesQueryService {
       }),
     ]);
 
-    // Recaudado este mes: rentas DEVUELTA del mes, separadas por tipo en JS
-    // (esPesada no está en Prisma types — se detecta desde el JSON de items)
-    const devueltasMes = await this.prisma.solicitud.findMany({
-      where: {
-        creadaPor:       username,
-        estado:          'DEVUELTA',
-        fechaDevolucion: { gte: inicioMes },
-      },
-      select: { items: true, totalFinal: true },
+    const recaudacion = await this.prisma.recaudacionMensual.findUnique({
+      where: { encargado_anio_mes: { encargado: username, anio: now.getFullYear(), mes: now.getMonth() + 1 } },
     });
 
-    const esPesada = (s: { items: unknown }) => {
-      const items = s.items as Array<{ kind: string }>;
-      return items.some(i => i.kind === 'pesada');
-    };
-
-    const pesadaRecaudadaMes  = devueltasMes
-      .filter(s =>  esPesada(s))
-      .reduce((sum, s) => sum + (Number(s.totalFinal) || 0), 0);
-
-    const livianaRecaudadaMes = devueltasMes
-      .filter(s => !esPesada(s))
-      .reduce((sum, s) => sum + (Number(s.totalFinal) || 0), 0);
+    const pesadaRecaudadaMes  = recaudacion ? Number(recaudacion.pesada)  : 0;
+    const livianaRecaudadaMes = recaudacion ? Number(recaudacion.liviana) : 0;
 
     return { pendientes, activas, vencidas, solicitudesEsteMes, pesadaRecaudadaMes, livianaRecaudadaMes };
+  }
+
+  async getDashboardStatsGlobal() {
+    const now       = new Date();
+    const inicioMes = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const [pendientes, activas, vencidas, solicitudesEsteMes, recaudacionAgg] = await this.prisma.$transaction([
+      this.prisma.solicitud.count({
+        where: { estado: { in: ['PENDIENTE', 'APROBADA'] } },
+      }),
+      this.prisma.solicitud.count({
+        where: {
+          estado: 'ACTIVA',
+          OR: [{ fechaFinEstimada: null }, { fechaFinEstimada: { gte: now } }],
+        },
+      }),
+      this.prisma.solicitud.count({
+        where: { estado: 'ACTIVA', fechaFinEstimada: { lt: now } },
+      }),
+      this.prisma.solicitud.count({
+        where: { createdAt: { gte: inicioMes } },
+      }),
+      this.prisma.recaudacionMensual.aggregate({
+        where: { anio: now.getFullYear(), mes: now.getMonth() + 1 },
+        _sum:  { pesada: true, liviana: true },
+      }),
+    ]);
+
+    const pesadaRecaudadaMes  = Number(recaudacionAgg._sum.pesada  ?? 0);
+    const livianaRecaudadaMes = Number(recaudacionAgg._sum.liviana ?? 0);
+
+    return { pendientes, activas, vencidas, solicitudesEsteMes, pesadaRecaudadaMes, livianaRecaudadaMes };
+  }
+
+  async backfillRecaudacion() {
+    const devueltas = await this.prisma.solicitud.findMany({
+      where:  { estado: 'DEVUELTA', fechaDevolucion: { not: null } },
+      select: { creadaPor: true, fechaDevolucion: true, totalFinal: true, items: true },
+    });
+
+    const esPesada = (items: unknown) =>
+      (items as Array<{ kind: string }>).some(i => i.kind === 'pesada');
+
+    const map = new Map<string, { encargado: string; anio: number; mes: number; pesada: number; liviana: number }>();
+
+    for (const s of devueltas) {
+      const fecha = s.fechaDevolucion!;
+      const anio  = fecha.getFullYear();
+      const mes   = fecha.getMonth() + 1;
+      const key   = `${s.creadaPor}:${anio}:${mes}`;
+      const total = Number(s.totalFinal) || 0;
+      const tipo  = esPesada(s.items) ? 'pesada' : 'liviana';
+
+      if (!map.has(key)) {
+        map.set(key, { encargado: s.creadaPor, anio, mes, pesada: 0, liviana: 0 });
+      }
+      map.get(key)![tipo] += total;
+    }
+
+    for (const entry of map.values()) {
+      await this.prisma.recaudacionMensual.upsert({
+        where:  { encargado_anio_mes: { encargado: entry.encargado, anio: entry.anio, mes: entry.mes } },
+        create: entry,
+        update: { pesada: entry.pesada, liviana: entry.liviana },
+      });
+    }
+
+    return { solicitudesProcesadas: devueltas.length, registrosGenerados: map.size };
   }
 
   async findActivasMias(username: string) {

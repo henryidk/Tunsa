@@ -24,6 +24,7 @@ import UsuariosSection from '../../components/admin/sections/UsuariosSection'
 import BitacorasSection from '../../components/admin/sections/BitacorasSection'
 import CategoriasSection from '../../components/admin/sections/CategoriasSection'
 import HorometrosSection from '../../components/admin/sections/HorometrosSection'
+import DisponibilidadFlotaSection from '../../components/shared/DisponibilidadFlotaSection'
 import CambiarPasswordModal from '../../components/admin/CambiarPasswordModal'
 
 export type Section =
@@ -33,6 +34,7 @@ export type Section =
   | 'rentas-historial'
   | 'rentas-vencidas'
   | 'horometros'
+  | 'flota'
   | 'equipos'
   | 'categorias'
   | 'clientes'
@@ -53,6 +55,7 @@ export default function AdminDashboard() {
   const { user, logout, mustChangePassword } = useAuthStore()
   const [activeSection,    setActiveSection]    = useState<Section>('dashboard')
   const [navSolicitudId,   setNavSolicitudId]   = useState<string | undefined>(undefined)
+  const [navFolio,         setNavFolio]         = useState<string | undefined>(undefined)
 
   const { playSound }  = useNotificationSound()
   // Mantiene el socket activo durante toda la sesión y alimenta ambos stores
@@ -87,9 +90,10 @@ export default function AdminDashboard() {
 
   const closeModal = () => setModalOpen(false)
 
-  const navTo = (section: string, state?: { solicitudId?: string }) => {
+  const navTo = (section: string, state?: { solicitudId?: string; folio?: string }) => {
     setActiveSection(section as Section)
     setNavSolicitudId(state?.solicitudId)
+    setNavFolio(state?.folio)
   }
 
   return (
@@ -119,13 +123,16 @@ export default function AdminDashboard() {
             <SolicitudesSection />
           )}
           {activeSection === 'rentas-activas' && (
-            <RentasActivasSection onNavTo={navTo} />
+            <RentasActivasSection onNavTo={navTo} initialFolio={navFolio} />
           )}
           {activeSection === 'rentas-historial' && (
             <HistorialSection />
           )}
           {activeSection === 'rentas-vencidas' && (
-            <VencidasSection />
+            <VencidasSection initialFolio={navFolio} />
+          )}
+          {activeSection === 'flota' && (
+            <DisponibilidadFlotaSection onNavTo={navTo} sectionActivas="rentas-activas" sectionVencidas="rentas-vencidas" />
           )}
           {activeSection === 'horometros' && (
             <HorometrosSection initialSolicitudId={navSolicitudId} />

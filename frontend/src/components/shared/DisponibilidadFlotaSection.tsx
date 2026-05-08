@@ -7,23 +7,42 @@ type FiltroEstado = FlotaEstado | 'todos';
 type FiltroTipo   = 'todos' | 'pesada' | 'liviana';
 
 interface Props {
-  onNavTo?: (section: string, state?: { folio?: string }) => void;
+  onNavTo?:         (section: string, state?: { folio?: string }) => void;
+  sectionActivas?:  string;
+  sectionVencidas?: string;
 }
 
-const FILTRO_CFG: { key: FiltroEstado; label: string; activeClass: string; countClass: string }[] = [
-  { key: 'todos',       label: 'Total',       activeClass: 'bg-slate-800 text-white border-slate-800',         countClass: 'text-slate-800' },
-  { key: 'disponible',  label: 'Disponibles', activeClass: 'bg-emerald-600 text-white border-emerald-600',     countClass: 'text-emerald-700' },
-  { key: 'en-renta',    label: 'En renta',    activeClass: 'bg-indigo-600 text-white border-indigo-600',       countClass: 'text-indigo-700' },
-  { key: 'vencida',     label: 'Vencidas',    activeClass: 'bg-red-600 text-white border-red-600',             countClass: 'text-red-700' },
+const FILTRO_CFG: {
+  key:           FiltroEstado;
+  label:         string;
+  activeBg:      string;
+  activeBorder:  string;
+  activeCount:   string;
+  activeLabel:   string;
+  inactiveCount: string;
+}[] = [
+  { key: 'todos',      label: 'Total',       activeBg: 'bg-slate-100',  activeBorder: 'border-slate-400',   activeCount: 'text-slate-800',   activeLabel: 'text-slate-600',   inactiveCount: 'text-slate-700' },
+  { key: 'disponible', label: 'Disponibles', activeBg: 'bg-emerald-50', activeBorder: 'border-emerald-400', activeCount: 'text-emerald-700', activeLabel: 'text-emerald-600', inactiveCount: 'text-slate-700' },
+  { key: 'en-renta',   label: 'En renta',    activeBg: 'bg-indigo-50',  activeBorder: 'border-indigo-400',  activeCount: 'text-indigo-700',  activeLabel: 'text-indigo-600',  inactiveCount: 'text-slate-700' },
+  { key: 'vencida',    label: 'Vencidas',    activeBg: 'bg-red-50',     activeBorder: 'border-red-400',     activeCount: 'text-red-700',     activeLabel: 'text-red-600',     inactiveCount: 'text-slate-700' },
 ];
 
-export default function DisponibilidadFlotaSection({ onNavTo }: Props) {
+const GRUPOS_ORDER: FlotaEstado[] = ['vencida', 'en-renta', 'disponible'];
+
+const GRUPO_CFG: Record<FlotaEstado, { label: string; badgeCls: string }> = {
+  vencida:    { label: 'Vencidas',    badgeCls: 'bg-red-100 text-red-700 border-red-200'              },
+  'en-renta': { label: 'En renta',    badgeCls: 'bg-indigo-100 text-indigo-700 border-indigo-200'     },
+  disponible: { label: 'Disponibles', badgeCls: 'bg-emerald-100 text-emerald-700 border-emerald-200'  },
+};
+
+export default function DisponibilidadFlotaSection({ onNavTo, sectionActivas = 'rentas-activas', sectionVencidas = 'vencidas' }: Props) {
   const { items, isLoading, error, refresh } = useFlotaDisponibilidad();
 
   const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>('todos');
   const [filtroTipo,   setFiltroTipo]   = useState<FiltroTipo>('todos');
   const [busqueda,     setBusqueda]     = useState('');
 
+  // Contadores siempre del dataset completo — no se ven afectados por búsqueda/tipo
   const counts = useMemo(() => ({
     todos:      items.length,
     disponible: items.filter(i => i.estado === 'disponible').length,
@@ -31,9 +50,9 @@ export default function DisponibilidadFlotaSection({ onNavTo }: Props) {
     vencida:    items.filter(i => i.estado === 'vencida').length,
   }), [items]);
 
-  const itemsFiltrados = useMemo(() => {
+  // Items con solo filtro de tipo + búsqueda (sin estado) — base para secciones agrupadas
+  const itemsBase = useMemo(() => {
     return items.filter(item => {
-      if (filtroEstado !== 'todos' && item.estado !== filtroEstado) return false;
       if (filtroTipo === 'pesada'  && !item.esPesada) return false;
       if (filtroTipo === 'liviana' &&  item.esPesada) return false;
       if (busqueda.trim()) {
@@ -46,18 +65,26 @@ export default function DisponibilidadFlotaSection({ onNavTo }: Props) {
       }
       return true;
     });
-  }, [items, filtroEstado, filtroTipo, busqueda]);
+  }, [items, filtroTipo, busqueda]);
+
+  // Items con todos los filtros — para vista plana al hacer drill-down por estado
+  const itemsFiltrados = useMemo(
+    () => filtroEstado === 'todos' ? itemsBase : itemsBase.filter(i => i.estado === filtroEstado),
+    [itemsBase, filtroEstado],
+  );
 
   const handleVerRenta = (folio: string, estado: 'en-renta' | 'vencida') => {
-    onNavTo?.(estado === 'en-renta' ? 'activas' : 'vencidas', { folio });
+    onNavTo?.(estado === 'en-renta' ? sectionActivas : sectionVencidas, { folio });
   };
+
+  const hayFiltroActivo = filtroEstado !== 'todos' || filtroTipo !== 'todos' || busqueda.trim().length > 0;
 
   return (
     <div>
       {/* Header */}
       <div className="flex items-start justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Disponibilidad de Flota</h1>
+          <h1 className="text-2xl font-bold text-slate-800">Disponibilidad</h1>
           <p className="text-sm text-slate-500 mt-1">Estado actual de todos los equipos activos</p>
         </div>
         <button
@@ -74,26 +101,27 @@ export default function DisponibilidadFlotaSection({ onNavTo }: Props) {
         </button>
       </div>
 
-      {/* Filtros de estado (stat cards clicables) */}
+      {/* Stat cards — resumen siempre visible, clic para drill-down */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-        {FILTRO_CFG.map(({ key, label, activeClass, countClass }) => {
+        {FILTRO_CFG.map(({ key, label, activeBg, activeBorder, activeCount, activeLabel, inactiveCount }) => {
           const count  = counts[key as keyof typeof counts];
           const activo = filtroEstado === key;
           return (
             <button
               key={key}
               onClick={() => setFiltroEstado(activo ? 'todos' : key)}
+              title={activo ? 'Ver todos' : `Filtrar por ${label.toLowerCase()}`}
               className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all shadow-sm ${
                 activo
-                  ? `${activeClass} shadow-md`
+                  ? `${activeBg} ${activeBorder} shadow-md`
                   : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50'
               }`}
             >
               <div className="min-w-0">
-                <p className={`text-xl font-bold font-mono leading-none ${activo ? 'text-white' : countClass}`}>
+                <p className={`text-xl font-bold font-mono leading-none ${activo ? activeCount : inactiveCount}`}>
                   {isLoading ? '—' : count}
                 </p>
-                <p className={`text-[11px] font-semibold mt-0.5 ${activo ? 'text-white/80' : 'text-slate-500'}`}>
+                <p className={`text-[11px] font-semibold mt-0.5 ${activo ? activeLabel : 'text-slate-500'}`}>
                   {label}
                 </p>
               </div>
@@ -102,7 +130,7 @@ export default function DisponibilidadFlotaSection({ onNavTo }: Props) {
         })}
       </div>
 
-      {/* Búsqueda + filtro de tipo */}
+      {/* Búsqueda + filtro tipo */}
       <div className="flex flex-wrap items-center gap-3 mb-5">
         <input
           type="search"
@@ -116,7 +144,7 @@ export default function DisponibilidadFlotaSection({ onNavTo }: Props) {
             <button
               key={tipo}
               onClick={() => setFiltroTipo(tipo)}
-              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors capitalize ${
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
                 filtroTipo === tipo
                   ? 'bg-white text-slate-800 shadow-sm'
                   : 'text-slate-500 hover:text-slate-700'
@@ -136,25 +164,52 @@ export default function DisponibilidadFlotaSection({ onNavTo }: Props) {
         </div>
       )}
 
-      {/* Lista */}
+      {/* Contenido */}
       {isLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3, 4].map(i => (
-            <div key={i} className="h-20 bg-white border border-slate-200 rounded-xl animate-pulse" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {[1, 2, 3, 4, 5, 6].map(i => (
+            <div key={i} className="h-36 bg-white border border-slate-200 rounded-xl animate-pulse" />
           ))}
         </div>
-      ) : itemsFiltrados.length === 0 ? (
-        <EmptyState hayFiltro={filtroEstado !== 'todos' || filtroTipo !== 'todos' || busqueda.trim().length > 0} />
+      ) : filtroEstado === 'todos' ? (
+        /* Vista agrupada por estado (default) */
+        itemsBase.length === 0 ? (
+          <EmptyState hayFiltro={hayFiltroActivo} />
+        ) : (
+          <div className="space-y-7">
+            {GRUPOS_ORDER.map(estado => {
+              const grupo = itemsBase.filter(i => i.estado === estado);
+              if (grupo.length === 0) return null;
+              const cfg = GRUPO_CFG[estado];
+              return (
+                <div key={estado}>
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${cfg.badgeCls}`}>
+                      {cfg.label} · {grupo.length}
+                    </span>
+                    <div className="flex-1 h-px bg-slate-100" />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {grupo.map(item => (
+                      <FlotaEquipoCard key={item.equipoId} item={item} onVerRenta={handleVerRenta} />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )
       ) : (
-        <div className="space-y-2.5">
-          {itemsFiltrados.map(item => (
-            <FlotaEquipoCard
-              key={item.equipoId}
-              item={item}
-              onVerRenta={handleVerRenta}
-            />
-          ))}
-        </div>
+        /* Vista plana al hacer drill-down por estado */
+        itemsFiltrados.length === 0 ? (
+          <EmptyState hayFiltro={true} />
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {itemsFiltrados.map(item => (
+              <FlotaEquipoCard key={item.equipoId} item={item} onVerRenta={handleVerRenta} />
+            ))}
+          </div>
+        )
       )}
     </div>
   );

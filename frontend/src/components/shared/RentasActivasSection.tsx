@@ -17,18 +17,23 @@ interface Props {
   fetchSolicitudes: () => Promise<SolicitudRenta[]>;
   showEncargado?:   boolean;
   showBusqueda?:    boolean;
+  initialFolio?:    string;
   subtitle?:        string;
-  onNavTo?:         (section: string, state?: { solicitudId?: string }) => void;
+  onNavTo?:         (section: string, state?: { solicitudId?: string; folio?: string }) => void;
 }
 
 export default function RentasActivasSection({
   solicitudes, setSolicitudes, updateRenta, removeRenta, addVencida,
-  fetchSolicitudes, showEncargado = false, showBusqueda = false,
+  fetchSolicitudes, showEncargado = false, showBusqueda = false, initialFolio,
   subtitle = 'Equipos actualmente rentados por tus clientes', onNavTo,
 }: Props) {
   const [isLoading,          setIsLoading]          = useState(true);
   const [error,              setError]              = useState<string | null>(null);
-  const [busqueda,           setBusqueda]           = useState('');
+  const [busqueda,           setBusqueda]           = useState(initialFolio ?? '');
+
+  useEffect(() => {
+    if (initialFolio) setBusqueda(initialFolio);
+  }, [initialFolio]);
   const [abriendo,           setAbriendo]           = useState<string | null>(null);
   const [modalAmpliar,       setModalAmpliar]       = useState<SolicitudRenta | null>(null);
   const [modalDevolucion,    setModalDevolucion]    = useState<SolicitudRenta | null>(null);
@@ -89,7 +94,7 @@ export default function RentasActivasSection({
     setModalDevPesada(null);
   };
 
-  const solicitudesFiltradas = showBusqueda && busqueda.trim()
+  const solicitudesFiltradas = (showBusqueda || !!initialFolio) && busqueda.trim()
     ? solicitudes.filter(s => {
         const q = busqueda.toLowerCase().trim();
         return (s.folio ?? '').toLowerCase().includes(q) || s.cliente.nombre.toLowerCase().includes(q);
@@ -207,7 +212,7 @@ export default function RentasActivasSection({
         </div>
       )}
 
-      {showBusqueda && (
+      {(showBusqueda || !!initialFolio) && (
         <div className="mb-4">
           <input
             type="search"

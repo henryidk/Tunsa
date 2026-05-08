@@ -22,6 +22,7 @@ import VencidasSection from '../../components/encargado/sections/VencidasSection
 import HistorialSection from '../../components/encargado/sections/HistorialSection';
 import EquiposSection from '../../components/encargado/sections/EquiposSection';
 import ClientesSection from '../../components/encargado/sections/ClientesSection';
+import DisponibilidadFlotaSection from '../../components/shared/DisponibilidadFlotaSection';
 import CambiarPasswordModal from '../../components/admin/CambiarPasswordModal';
 import type { ToastType } from '../../types/ui.types';
 import type { ToastState } from '../admin/AdminDashboard';
@@ -36,10 +37,11 @@ type Section =
   | 'horometros'
   | 'vencidas'
   | 'historial'
+  | 'flota'
   | 'equipos'
   | 'clientes';
 
-type NavState = { solicitudId?: string };
+type NavState = { solicitudId?: string; folio?: string };
 
 export default function EncargadoDashboard() {
   const { user, logout, mustChangePassword } = useAuthStore();
@@ -83,10 +85,11 @@ export default function EncargadoDashboard() {
       case 'nueva-solicitud-pesada': return <NuevaSolicitudPesadaSection onShowToast={showToast} />;
       case 'por-entregar':    return <PorEntregarSection onShowToast={showToast} />;
       case 'mis-solicitudes': return <MisSolicitudesSection onNavTo={navTo} misPendientes={misPendientes} />;
-      case 'rentas-activas':  return <RentasActivasSection onNavTo={navTo} />;
+      case 'rentas-activas':  return <RentasActivasSection onNavTo={navTo} initialFolio={navState.folio} />;
       case 'horometros':      return <HorometrosSection key={horometrosKey} initialSolicitudId={navState.solicitudId} />;
-      case 'vencidas':        return <VencidasSection />;
+      case 'vencidas':        return <VencidasSection initialFolio={navState.folio} />;
       case 'historial':       return <HistorialSection />;
+      case 'flota':           return <DisponibilidadFlotaSection onNavTo={navTo} />;
       case 'equipos':         return <EquiposSection />;
       case 'clientes':        return <ClientesSection onShowToast={showToast} />;
       default:                return <DashboardSection onNavTo={navTo} />;

@@ -35,6 +35,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
   const [lecturasMap,   setLecturasMap]   = useState<Record<string, LecturaHorometro[]>>({});
   const [isLoadingList, setIsLoadingList] = useState(true);
   const [listError,     setListError]     = useState<string | null>(null);
+  const [busqueda,      setBusqueda]      = useState('');
 
   // Detail view state
   const [selectedId,  setSelectedId]  = useState<string | null>(initialSolicitudId ?? null);
@@ -689,6 +690,13 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
   // ── LIST VIEW ─────────────────────────────────────────────────────────────────
   const pendientesCobrar = solicitudes.reduce((sum, s) => sum + s.costoAcumuladoPesada, 0);
 
+  const solicitudesFiltradas = busqueda.trim()
+    ? solicitudes.filter(s => {
+        const q = busqueda.toLowerCase().trim();
+        return (s.folio ?? '').toLowerCase().includes(q) || s.cliente.nombre.toLowerCase().includes(q);
+      })
+    : solicitudes;
+
   return (
     <div>
       <div className="mb-6">
@@ -726,6 +734,16 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
         </div>
       )}
 
+      <div className="mb-4">
+        <input
+          type="search"
+          value={busqueda}
+          onChange={e => setBusqueda(e.target.value)}
+          placeholder="Buscar por folio o cliente..."
+          className="w-full sm:w-72 border border-slate-200 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+        />
+      </div>
+
       {!isLoadingList && pendientesHoy > 0 && (
         <div className="flex items-center gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 mb-6">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="flex-shrink-0">
@@ -749,19 +767,28 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
         <div className="space-y-3">
           {[1, 2, 3].map(i => <div key={i} className="h-40 bg-white border border-slate-200 rounded-xl animate-pulse" />)}
         </div>
-      ) : solicitudes.length === 0 ? (
+      ) : solicitudesFiltradas.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-400">
           <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2">
             <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
           </svg>
-          <p className="text-sm font-medium">Sin rentas pesadas activas</p>
-          <p className="text-xs text-center max-w-xs leading-relaxed">
-            Las rentas pesadas activas aparecerán aquí para registrar las lecturas diarias.
-          </p>
+          {busqueda.trim() ? (
+            <>
+              <p className="text-sm font-medium">Sin resultados para esa búsqueda</p>
+              <p className="text-xs text-center max-w-xs leading-relaxed">Intenta con otro folio o nombre de cliente.</p>
+            </>
+          ) : (
+            <>
+              <p className="text-sm font-medium">Sin rentas pesadas activas</p>
+              <p className="text-xs text-center max-w-xs leading-relaxed">
+                Las rentas pesadas activas aparecerán aquí para registrar las lecturas diarias.
+              </p>
+            </>
+          )}
         </div>
       ) : (
         <div className="space-y-4">
-          {solicitudes.map(s => (
+          {solicitudesFiltradas.map(s => (
             <HorometroRentaCard
               key={s.id}
               solicitud={s}

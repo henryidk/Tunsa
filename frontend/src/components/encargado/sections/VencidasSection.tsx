@@ -18,6 +18,7 @@ export default function VencidasSection() {
 
   const [isLoading,       setIsLoading]       = useState(true);
   const [error,           setError]           = useState<string | null>(null);
+  const [busqueda,        setBusqueda]        = useState('');
   const [ahora,           setAhora]           = useState(() => Date.now());
   const [abriendo,        setAbriendo]        = useState<string | null>(null);
   const [modalAmpliar,    setModalAmpliar]    = useState<SolicitudRenta | null>(null);
@@ -95,6 +96,13 @@ export default function VencidasSection() {
 
   const equiposPendientes = solicitudes.reduce((sum, s) => sum + s.items.length, 0);
 
+  const solicitudesFiltradas = busqueda.trim()
+    ? solicitudes.filter(s => {
+        const q = busqueda.toLowerCase().trim();
+        return (s.folio ?? '').toLowerCase().includes(q) || s.cliente.nombre.toLowerCase().includes(q);
+      })
+    : solicitudes;
+
   return (
     <div>
       {modalAmpliar && (
@@ -138,6 +146,16 @@ export default function VencidasSection() {
         />
       </div>
 
+      <div className="mb-4">
+        <input
+          type="search"
+          value={busqueda}
+          onChange={e => setBusqueda(e.target.value)}
+          placeholder="Buscar por folio o cliente..."
+          className="w-full sm:w-72 border border-slate-200 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+        />
+      </div>
+
       {error && (
         <div className="flex items-center gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 mb-4">
           {error}
@@ -148,11 +166,11 @@ export default function VencidasSection() {
         <div className="space-y-3">
           {[1, 2, 3].map(i => <div key={i} className="h-40 bg-white border border-slate-200 rounded-xl animate-pulse" />)}
         </div>
-      ) : solicitudes.length === 0 ? (
-        <EmptyState />
+      ) : solicitudesFiltradas.length === 0 ? (
+        <EmptyState hayFiltro={busqueda.trim().length > 0} />
       ) : (
         <div className="space-y-4">
-          {solicitudes.map(s => s.esPesada ? (
+          {solicitudesFiltradas.map(s => s.esPesada ? (
             <RentaVencidaPesadaCard
               key={s.id}
               solicitud={s}
@@ -182,14 +200,18 @@ export default function VencidasSection() {
   );
 }
 
-function EmptyState() {
+function EmptyState({ hayFiltro = false }: { hayFiltro?: boolean }) {
   return (
     <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-400">
       <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2">
         <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
       </svg>
-      <p className="text-sm font-medium">Sin rentas vencidas</p>
-      <p className="text-xs text-center max-w-xs leading-relaxed">Todas tus rentas activas están dentro de plazo.</p>
+      <p className="text-sm font-medium">
+        {hayFiltro ? 'Sin resultados para esa búsqueda' : 'Sin rentas vencidas'}
+      </p>
+      <p className="text-xs text-center max-w-xs leading-relaxed">
+        {hayFiltro ? 'Intenta con otro folio o nombre de cliente.' : 'Todas tus rentas activas están dentro de plazo.'}
+      </p>
     </div>
   );
 }

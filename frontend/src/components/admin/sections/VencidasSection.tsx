@@ -85,7 +85,10 @@ export default function VencidasSection() {
   };
 
   const solicitudesFiltradas = busqueda.trim()
-    ? solicitudes.filter(s => s.cliente.nombre.toLowerCase().includes(busqueda.toLowerCase().trim()))
+    ? solicitudes.filter(s => {
+        const q = busqueda.toLowerCase().trim();
+        return (s.folio ?? '').toLowerCase().includes(q) || s.cliente.nombre.toLowerCase().includes(q);
+      })
     : solicitudes;
 
   const totalRecargo = solicitudes.reduce((suma, s) => {
@@ -155,7 +158,7 @@ export default function VencidasSection() {
           type="search"
           value={busqueda}
           onChange={e => setBusqueda(e.target.value)}
-          placeholder="Buscar por cliente..."
+          placeholder="Buscar por folio o cliente..."
           className="w-full sm:w-72 border border-slate-200 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
         />
       </div>
@@ -211,7 +214,7 @@ function EmptyState({ hayFiltro }: { hayFiltro: boolean }) {
       </p>
       <p className="text-xs text-center max-w-xs leading-relaxed">
         {hayFiltro
-          ? 'Intenta con otro nombre de cliente.'
+          ? 'Intenta con otro folio o nombre de cliente.'
           : 'Todas las rentas activas están dentro de plazo.'}
       </p>
     </div>

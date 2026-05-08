@@ -1,4 +1,5 @@
 import type { Equipo } from '../types/equipo.types';
+import type { FlotaItem } from '../types/flota.types';
 import { api } from './auth.service';
 
 export interface ExtraEquipoInput {
@@ -84,6 +85,11 @@ export const equiposService = {
 
   async reactivar(id: string): Promise<Equipo> {
     const res = await api.patch<Equipo>(`/equipos/${id}/reactivar`);
+    return res.data;
+  },
+
+  async getDisponibilidad(): Promise<FlotaItem[]> {
+    const res = await api.get<FlotaItem[]>('/equipos/disponibilidad');
     return res.data;
   },
 

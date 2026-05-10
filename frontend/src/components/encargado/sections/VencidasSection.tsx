@@ -13,7 +13,9 @@ import DevolucionModal from '../../shared/DevolucionModal';
 import DevolucionPesadaModal from '../DevolucionPesadaModal';
 import StatCard from '../../shared/StatCard';
 
-export default function VencidasSection({ initialFolio }: { initialFolio?: string } = {}) {
+type NavTo = (section: string, state?: { solicitudId?: string; folio?: string }) => void;
+
+export default function VencidasSection({ initialFolio, onNavTo }: { initialFolio?: string; onNavTo?: NavTo } = {}) {
   const { solicitudes, setSolicitudes, removeRenta, updateRenta } = useVencidasStore();
 
   const [isLoading,       setIsLoading]       = useState(true);
@@ -184,6 +186,7 @@ export default function VencidasSection({ initialFolio }: { initialFolio?: strin
               onAmpliar={() => setModalAmpliar(s)}
               onGracia={() => setModalGracia(s)}
               onDevolucion={() => setModalDevPesada(s)}
+              onHorometro={onNavTo ? () => onNavTo('horometros', { solicitudId: s.id }) : undefined}
             />
           ) : (
             <RentaVencidaCard

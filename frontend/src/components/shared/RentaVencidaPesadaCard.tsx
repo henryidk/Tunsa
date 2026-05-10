@@ -1,7 +1,7 @@
 import type { SolicitudRenta, ItemSnapshot } from '../../types/solicitud-renta.types';
 import { formatFechaHora } from '../../types/solicitud.types';
 import { calcularVentanaGracia, msAtraso, formatAtraso, calcularRecargoPesada } from '../../utils/renta-tiempo.utils';
-import { today } from '../../utils/horometro.utils';
+import { ultimoDiaHorometro } from '../../utils/horometro.utils';
 
 type PesadaItem = Extract<ItemSnapshot, { kind: 'pesada' }>;
 
@@ -14,6 +14,7 @@ export interface RentaVencidaPesadaCardProps {
   onAmpliar:        () => void;
   onGracia:         () => void;
   onDevolucion:     () => void;
+  onHorometro?:     () => void;
 }
 
 export default function RentaVencidaPesadaCard({
@@ -25,6 +26,7 @@ export default function RentaVencidaPesadaCard({
   onAmpliar,
   onGracia,
   onDevolucion,
+  onHorometro,
 }: RentaVencidaPesadaCardProps) {
   const extensiones   = solicitud.extensiones ?? [];
   const vencimiento   = new Date(solicitud.fechaFinEstimada!);
@@ -36,10 +38,18 @@ export default function RentaVencidaPesadaCard({
   const penalizacion = calcularRecargoPesada(solicitud.items, vencimiento, ahora, ventanaGracia);
   const total        = solicitud.costoAcumuladoPesada + penalizacion;
 
-  const hoy = today();
+  const ultimoDia = ultimoDiaHorometro(solicitud.fechaFinEstimada);
   const lecturaPendienteHoy = !solicitud.ultimaLectura
-    || solicitud.ultimaLectura.fecha !== hoy
+    || solicitud.ultimaLectura.fecha < ultimoDia
     || !solicitud.ultimaLectura.completa;
+
+  const estadoHorometro = (() => {
+    const ul = solicitud.ultimaLectura;
+    if (!ul) return 'sin-registros' as const;
+    if (ul.fecha >= ultimoDia && ul.completa)  return 'hoy-completo' as const;
+    if (ul.fecha >= ultimoDia && !ul.completa) return 'hoy-inicio'   as const;
+    return 'pendiente' as const;
+  })();
 
   return (
     <div className={`bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden border-l-4 ${enGracia ? 'border-l-amber-400' : 'border-l-red-500'}`}>
@@ -162,6 +172,26 @@ export default function RentaVencidaPesadaCard({
             )}
           </div>
           <div className="flex items-center gap-2">
+            {onHorometro && (
+              <button
+                onClick={onHorometro}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-200 bg-white hover:bg-amber-50 text-xs font-semibold text-amber-700 transition-colors"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                </svg>
+                Horómetro
+                {estadoHorometro === 'hoy-completo' && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" title="Hoy completo" />
+                )}
+                {estadoHorometro === 'hoy-inicio' && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400" title="Falta cierre de hoy" />
+                )}
+                {(estadoHorometro === 'pendiente' || estadoHorometro === 'sin-registros') && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-400" title="Pendiente de registro" />
+                )}
+              </button>
+            )}
             <button onClick={onGracia} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-200 bg-white hover:bg-amber-50 text-xs font-semibold text-amber-600 transition-colors">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
               Tiempo de gracia

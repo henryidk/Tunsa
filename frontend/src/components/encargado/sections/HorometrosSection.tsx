@@ -8,6 +8,8 @@ import {
 } from '../../../utils/horometro.utils';
 import HorometroRentaCard from '../HorometroRentaCard';
 import CalendarioMes from '../CalendarioMes';
+import { useActivasStore, useAdminActivasStore } from '../../../store/activas.store';
+import { useVencidasStore, useAdminVencidasStore } from '../../../store/vencidas.store';
 
 type PesadaItem = Extract<ItemSnapshot, { kind: 'pesada' }>;
 
@@ -108,9 +110,10 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
     setSubmitError(null);
   }, [selectedId, solicitudes]);
 
-  const refreshLecturas = useCallback(async (solicitudId: string) => {
+  const refreshLecturas = useCallback(async (solicitudId: string): Promise<LecturaHorometro[]> => {
     const l = await solicitudesService.getLecturas(solicitudId);
     setLecturasMap(prev => ({ ...prev, [solicitudId]: l }));
+    return l;
   }, []);
 
   // ── Detail-view derived data ──────────────────────────────────────────────────
@@ -218,7 +221,18 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
         valor:    pendingConfirm.valorNum,
       });
       setValor('');
-      await refreshLecturas(selectedId);
+      const freshLecturas = await refreshLecturas(selectedId);
+
+      // Sync ultimaLectura in all stores so vencidas/activas cards reflect the new state
+      const sorted = [...freshLecturas].sort((a, b) => b.fecha.localeCompare(a.fecha));
+      const latest = sorted[0] ?? null;
+      const newUltimaLectura = latest
+        ? { fecha: latest.fecha, completa: latest.horometroFin5pm !== null }
+        : null;
+      for (const store of [useActivasStore, useAdminActivasStore, useVencidasStore, useAdminVencidasStore]) {
+        const sol = store.getState().solicitudes.find(s => s.id === selectedId);
+        if (sol) store.getState().updateRenta({ ...sol, ultimaLectura: newUltimaLectura });
+      }
     } catch (err: unknown) {
       const msg = (err as any)?.response?.data?.message;
       setSubmitError(Array.isArray(msg) ? msg.join(' · ') : (msg ?? 'No se pudo registrar la lectura.'));

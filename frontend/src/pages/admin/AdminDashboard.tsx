@@ -129,7 +129,7 @@ export default function AdminDashboard() {
             <HistorialSection />
           )}
           {activeSection === 'rentas-vencidas' && (
-            <VencidasSection initialFolio={navFolio} />
+            <VencidasSection initialFolio={navFolio} onNavTo={navTo} />
           )}
           {activeSection === 'flota' && (
             <DisponibilidadFlotaSection onNavTo={navTo} sectionActivas="rentas-activas" sectionVencidas="rentas-vencidas" />

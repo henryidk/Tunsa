@@ -87,7 +87,7 @@ export default function EncargadoDashboard() {
       case 'mis-solicitudes': return <MisSolicitudesSection onNavTo={navTo} misPendientes={misPendientes} />;
       case 'rentas-activas':  return <RentasActivasSection onNavTo={navTo} initialFolio={navState.folio} />;
       case 'horometros':      return <HorometrosSection key={horometrosKey} initialSolicitudId={navState.solicitudId} />;
-      case 'vencidas':        return <VencidasSection initialFolio={navState.folio} />;
+      case 'vencidas':        return <VencidasSection initialFolio={navState.folio} onNavTo={navTo} />;
       case 'historial':       return <HistorialSection />;
       case 'flota':           return <DisponibilidadFlotaSection onNavTo={navTo} />;
       case 'equipos':         return <EquiposSection />;

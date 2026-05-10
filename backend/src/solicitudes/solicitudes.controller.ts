@@ -1,7 +1,7 @@
 import {
   Controller, Get, Post, Patch, Body, Param, Query,
   UseGuards, UseInterceptors, UploadedFile, ParseFilePipe,
-  MaxFileSizeValidator, FileTypeValidator,
+  MaxFileSizeValidator, FileTypeValidator, ParseIntPipe,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { SolicitudesService } from './solicitudes.service';
@@ -297,10 +297,10 @@ export class SolicitudesController {
   @Roles('encargado_maquinas', 'admin', 'secretaria')
   getLiquidacion(
     @Param('id') id: string,
-    @Param('loteIndex') loteIndex: string,
+    @Param('loteIndex', ParseIntPipe) loteIndex: number,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.solicitudesService.getLiquidacionUrl(id, parseInt(loteIndex, 10), user);
+    return this.solicitudesService.getLiquidacionUrl(id, loteIndex, user);
   }
 
   @Get(':id/horometro')

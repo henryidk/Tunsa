@@ -293,49 +293,67 @@ export class SolicitudesService {
         include: { cliente: true },
       });
 
-      if (solicitud.esPesada) {
-        const pesadaItems = solicitud.items as unknown as Array<{
-          kind: string; equipoId: string; tarifaEfectiva: number; horometroInicial?: number;
-        }>;
-        for (const item of pesadaItems) {
-          const resumenItem = await tx.resumenItem.create({
-            data: {
-              solicitudId:    id,
-              clienteId:      solicitud.clienteId,
-              equipoId:       item.equipoId,
-              itemRef:        item.equipoId,
-              tipoItem:       'pesada',
-              fechaEntrega,
-              tarifaEfectiva: item.tarifaEfectiva,
-            },
-          });
-          await tx.detalleHorometro.create({
-            data: { resumenItemId: resumenItem.id, horometroEntrega: item.horometroInicial ?? null },
-          });
-        }
-      } else {
-        const livItems = solicitud.items as unknown as ItemParaCalculo[];
-        for (const item of livItems) {
-          const itemRef = item.equipoId ?? item.tipo ?? '';
-          if (!itemRef) continue;
-          await tx.resumenItem.create({
-            data: {
-              solicitudId:    id,
-              clienteId:      solicitud.clienteId,
-              equipoId:       item.equipoId ?? null,
-              itemRef,
-              tipoItem:       item.kind,
-              fechaEntrega,
-              tarifaEfectiva: item.tarifa ?? 0,
-            },
-          });
-        }
-      }
+      await this.crearRegistrosSeguimiento(tx, solicitud, fechaEntrega);
 
       return s;
     });
 
     return serializeSolicitud(actualizada);
+  }
+
+  /**
+   * Crea los registros de seguimiento (resumenItem y detalleHorometro) dentro de
+   * la transacción de confirmarEntrega. Separado para mantener confirmarEntrega
+   * legible y facilitar extensiones futuras por tipo de ítem.
+   */
+  private async crearRegistrosSeguimiento(
+    tx: Prisma.TransactionClient,
+    solicitud: {
+      id:        string;
+      clienteId: string;
+      esPesada:  boolean;
+      items:     Prisma.JsonValue;
+    },
+    fechaEntrega: Date,
+  ): Promise<void> {
+    if (solicitud.esPesada) {
+      const pesadaItems = solicitud.items as unknown as Array<{
+        equipoId: string; tarifaEfectiva: number; horometroInicial?: number;
+      }>;
+      for (const item of pesadaItems) {
+        const resumenItem = await tx.resumenItem.create({
+          data: {
+            solicitudId:    solicitud.id,
+            clienteId:      solicitud.clienteId,
+            equipoId:       item.equipoId,
+            itemRef:        item.equipoId,
+            tipoItem:       'pesada',
+            fechaEntrega,
+            tarifaEfectiva: item.tarifaEfectiva,
+          },
+        });
+        await tx.detalleHorometro.create({
+          data: { resumenItemId: resumenItem.id, horometroEntrega: item.horometroInicial ?? null },
+        });
+      }
+    } else {
+      const livItems = solicitud.items as unknown as ItemParaCalculo[];
+      for (const item of livItems) {
+        const itemRef = item.equipoId ?? item.tipo ?? '';
+        if (!itemRef) continue;
+        await tx.resumenItem.create({
+          data: {
+            solicitudId:    solicitud.id,
+            clienteId:      solicitud.clienteId,
+            equipoId:       item.equipoId ?? null,
+            itemRef,
+            tipoItem:       item.kind,
+            fechaEntrega,
+            tarifaEfectiva: item.tarifa ?? 0,
+          },
+        });
+      }
+    }
   }
 
   /**

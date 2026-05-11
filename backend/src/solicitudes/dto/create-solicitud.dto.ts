@@ -1,6 +1,6 @@
 import {
-  IsArray, IsBoolean, IsEnum, IsIn, IsNumber,
-  IsOptional, IsString, Min, ValidateNested, ArrayMinSize,
+  IsArray, IsBoolean, IsDateString, IsEnum, IsIn, IsNotEmpty, IsNumber,
+  IsOptional, IsString, Min, ValidateIf, ValidateNested, ArrayMinSize,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ModalidadPago } from '@prisma/client';
@@ -10,7 +10,10 @@ export class ItemSolicitudDto {
   kind: 'maquinaria' | 'granel' | 'pesada';
 
   // Maquinaria / Pesada
-  @IsOptional() @IsString() equipoId?: string;
+  @ValidateIf(o => o.kind === 'maquinaria' || o.kind === 'pesada')
+  @IsString()
+  @IsNotEmpty()
+  equipoId?: string;
   @IsOptional() @IsString() numeracion?: string;
   @IsOptional() @IsString() descripcion?: string;
 
@@ -19,13 +22,16 @@ export class ItemSolicitudDto {
   @IsOptional() @IsNumber() @Min(1) diasSolicitados?: number;
 
   // Granel
-  @IsOptional() @IsString() tipo?: string;
+  @ValidateIf(o => o.kind === 'granel')
+  @IsString()
+  @IsNotEmpty()
+  tipo?: string;
   @IsOptional() @IsString() tipoLabel?: string;
   @IsOptional() @IsNumber() @Min(1) cantidad?: number;
   @IsOptional() @IsBoolean() conMadera?: boolean;
 
   // Común
-  @IsString() fechaInicio: string;
+  @IsDateString() fechaInicio: string;
   @IsOptional() @IsNumber() @Min(1) duracion?: number;
   @IsOptional() @IsIn(['dias', 'semanas', 'meses']) unidad?: string;
   @IsOptional() @IsNumber() tarifa?: number | null;
@@ -40,6 +46,7 @@ export class CreateSolicitudDto {
   modalidad: ModalidadPago;
 
   @IsString()
+  @IsNotEmpty()
   notas: string;
 
   @IsOptional()

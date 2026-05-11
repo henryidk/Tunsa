@@ -1,8 +1,9 @@
 import {
   IsArray, IsNumber, IsOptional, IsString, Min,
-  ValidateNested, ArrayMinSize,
+  ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { CargoAdicionalDto } from './registrar-devolucion.dto';
 
 export class DevolucionPesadaItemDto {
   @IsString()
@@ -12,16 +13,6 @@ export class DevolucionPesadaItemDto {
   @Min(0)
   @Type(() => Number)
   horometroDevolucion: number;
-}
-
-class CargoAdicionalDto {
-  @IsString()
-  descripcion: string;
-
-  @IsNumber()
-  @Min(0)
-  @Type(() => Number)
-  monto: number;
 }
 
 export class RegistrarDevolucionPesadaDto {

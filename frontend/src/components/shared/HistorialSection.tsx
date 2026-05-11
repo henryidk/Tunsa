@@ -14,8 +14,19 @@ function toDateInput(d: Date): string {
 
 function hoy(): string       { return toDateInput(new Date()); }
 function inicioMes(): string { const d = new Date(); d.setDate(1); return toDateInput(d); }
-function startOfDay(dateStr: string): string { return `${dateStr}T00:00:00.000Z`; }
-function endOfDay(dateStr: string):   string { return `${dateStr}T23:59:59.999Z`; }
+// Guatemala es UTC-6: medianoche GT = 06:00 UTC; 23:59 GT = 05:59 UTC del día siguiente
+function startOfDay(dateStr: string): string {
+  return `${dateStr}T06:00:00.000Z`;
+}
+
+function endOfDay(dateStr: string): string {
+  const next = new Date(dateStr + 'T06:00:00.000Z');
+  next.setUTCDate(next.getUTCDate() + 1);
+  const yyyy = next.getUTCFullYear();
+  const mm   = String(next.getUTCMonth() + 1).padStart(2, '0');
+  const dd   = String(next.getUTCDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}T05:59:59.999Z`;
+}
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 

@@ -8,6 +8,7 @@ import { RegistrarDevolucionDto } from './dto/registrar-devolucion.dto';
 import { IniciarEntregaDto } from './dto/iniciar-entrega.dto';
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
 import { tieneAccesoGlobal } from '../auth/utils/roles.util';
+import { fechaGT } from '../common/utils/date.util';
 import { serializeSolicitud } from './solicitudes.serializer';
 import { tieneEquipoId, type ItemParaCalculo, type ItemConKind } from './solicitudes.types';
 import {
@@ -624,8 +625,7 @@ export class SolicitudesService {
       }
 
       if (devolucionCompleta) {
-        const anio = fechaDevolucion.getFullYear();
-        const mes  = fechaDevolucion.getMonth() + 1;
+        const [anio, mes] = fechaGT(fechaDevolucion).split('-').map(Number) as [number, number];
         await tx.recaudacionMensual.upsert({
           where:  { encargado_anio_mes: { encargado: solicitud.creadaPor, anio, mes } },
           create: { encargado: solicitud.creadaPor, anio, mes, liviana: totalFinalLiviana },

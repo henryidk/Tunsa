@@ -67,3 +67,37 @@ export const DIA_LABEL: Record<DiaStatus, string> = {
   'parcial':      'Solo inicio',
   'sin-registro': 'Sin registro',
 };
+
+/**
+ * Valida un valor de horómetro de inicio contra las reglas de negocio.
+ * Retorna un objeto de error { titulo, mensaje } si no pasa, o null si es válido.
+ * Función pura: no produce efectos de UI, el caller decide qué hacer con el resultado.
+ */
+export function validarInicioHorometro(
+  valorNum:         number,
+  isFirstReading:   boolean,
+  horometroInicial: number | null | undefined,
+  lecturasEquipo:   LecturaHorometro[] | null | undefined,
+  fechaActiva:      string,
+): { titulo: string; mensaje: string } | null {
+  const fmt = (n: number) => n.toLocaleString('es-GT', { minimumFractionDigits: 1 });
+
+  if (isFirstReading && horometroInicial != null && valorNum <= horometroInicial) {
+    return {
+      titulo:  'Horómetro inválido',
+      mensaje: `El primer registro de inicio (${fmt(valorNum)} hrs) debe ser mayor al horómetro de entrega (${fmt(horometroInicial)} hrs).`,
+    };
+  }
+
+  const ayer = new Date(fechaActiva + 'T00:00:00');
+  ayer.setDate(ayer.getDate() - 1);
+  const lecturaAyer = lecturasEquipo?.find(l => l.fecha === localDateOf(ayer));
+  if (lecturaAyer?.horometroFin5pm != null && valorNum < lecturaAyer.horometroFin5pm) {
+    return {
+      titulo:  'Horómetro inválido',
+      mensaje: `El horómetro de inicio (${fmt(valorNum)} hrs) no puede ser menor al cierre del día anterior (${fmt(lecturaAyer.horometroFin5pm)} hrs).`,
+    };
+  }
+
+  return null;
+}

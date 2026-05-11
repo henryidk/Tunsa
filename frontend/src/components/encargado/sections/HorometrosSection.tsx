@@ -4,7 +4,7 @@ import type { SolicitudRenta, ItemSnapshot } from '../../../types/solicitud-rent
 import { formatQ } from '../../../types/solicitud.types';
 import {
   today, getDiaStatus, generarDias,
-  formatFechaCorta, localDateOf, ultimoDiaHorometro, type DiaStatus,
+  formatFechaCorta, localDateOf, ultimoDiaHorometro, validarInicioHorometro, type DiaStatus,
 } from '../../../utils/horometro.utils';
 import HorometroRentaCard from '../HorometroRentaCard';
 import CalendarioMes from '../CalendarioMes';
@@ -57,6 +57,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
     valorNum: number;
     fecha:    string;
   } | null>(null);
+  const [errorModal, setErrorModal] = useState<{ titulo: string; mensaje: string } | null>(null);
 
   const resolvedFetch  = fetchSolicitudes ?? fetchSolicitudesEncargado;
   const modoEncargado  = fetchSolicitudes == null;
@@ -202,6 +203,10 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
     if (tipoPendiente === 'fin5pm' && lecturaFecha?.horometroInicio != null && valorNum < lecturaFecha.horometroInicio) {
       setSubmitError('El horómetro de cierre no puede ser menor al de inicio.');
       return;
+    }
+    if (tipoPendiente === 'inicio') {
+      const error = validarInicioHorometro(valorNum, lecturasEquipo?.length === 0, activeItem?.horometroInicial, lecturasEquipo, fechaActiva);
+      if (error) { setErrorModal(error); return; }
     }
     setSubmitError(null);
     setPendingConfirm({ tipo: tipoPendiente, valorNum, fecha: fechaActiva });
@@ -451,6 +456,9 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                       defaultValue={lecturaFecha?.horometroInicio ?? undefined}
                       onConfirm={async v => {
                         if (!selectedId) return;
+                        const isFirstReading = !lecturasEquipo?.some(l => l.fecha < fechaActiva);
+                        const error = validarInicioHorometro(v, isFirstReading, activeItem?.horometroInicial, lecturasEquipo, fechaActiva);
+                        if (error) { setErrorModal(error); return; }
                         setIsSubmitting(true); setSubmitError(null);
                         try {
                           await solicitudesService.registrarLectura(selectedId, {
@@ -694,6 +702,31 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                   Confirmar
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {errorModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-sm p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-red-600">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                  </svg>
+                </div>
+                <p className="text-sm font-bold text-slate-800">{errorModal.titulo}</p>
+              </div>
+              <p className="text-sm text-slate-600 mb-5">{errorModal.mensaje}</p>
+              <button
+                type="button"
+                onClick={() => setErrorModal(null)}
+                className="w-full px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-sm font-semibold transition-colors"
+              >
+                Entendido
+              </button>
             </div>
           </div>
         )}

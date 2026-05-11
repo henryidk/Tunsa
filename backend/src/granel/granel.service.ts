@@ -102,6 +102,11 @@ export class GranelService {
       changes.push({ campo: 'precioUnitario', va: fmt(parseFloat(anterior.precioUnitario.toString())), vn: fmt(dto.precioUnitario) });
     if (dto.ubicacion      !== undefined && (dto.ubicacion || null) !== anterior.ubicacion)
       changes.push({ campo: 'ubicacion',      va: anterior.ubicacion, vn: dto.ubicacion || null });
+    if (dto.fechaCompra !== undefined) {
+      const anteriorStr = anterior.fechaCompra ? anterior.fechaCompra.toISOString().substring(0, 10) : null;
+      if (dto.fechaCompra !== anteriorStr)
+        changes.push({ campo: 'fechaCompra', va: anteriorStr, vn: dto.fechaCompra });
+    }
 
     if (changes.length > 0) {
       await this.prisma.bitacora.createMany({
@@ -145,6 +150,8 @@ export class GranelService {
   }
 
   async updateConfig(dto: UpdateConfigGranelDto, requestingUsername: string) {
+    const anterior = await this.prisma.configGranel.findUnique({ where: { tipo: dto.tipo } });
+
     const maderaFields = dto.tipo === 'ANDAMIO_SIMPLE'
       ? {
           rentaDiaConMadera:    dto.rentaDiaConMadera    ?? null,
@@ -159,13 +166,17 @@ export class GranelService {
       create: { tipo: dto.tipo, rentaDia: dto.rentaDia, rentaSemana: dto.rentaSemana, rentaMes: dto.rentaMes, ...maderaFields },
     });
 
+    const vaLabel = anterior
+      ? `Q${parseFloat(anterior.rentaDia.toString())}/día · Q${parseFloat(anterior.rentaSemana.toString())}/semana · Q${parseFloat(anterior.rentaMes.toString())}/mes`
+      : null;
+
     await this.prisma.bitacora.create({
       data: {
         modulo:        'granel',
         entidadId:     dto.tipo,
         entidadNombre: `Configuración de precios — ${dto.tipo}`,
         campo:         'precios_renta',
-        valorAnterior: null,
+        valorAnterior: vaLabel,
         valorNuevo:    `Q${dto.rentaDia}/día · Q${dto.rentaSemana}/semana · Q${dto.rentaMes}/mes`,
         realizadoPor:  requestingUsername,
       },

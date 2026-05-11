@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import type { SolicitudRenta, ItemSnapshot, DevolucionEntry } from '../../types/solicitud-renta.types';
 import { solicitudesService } from '../../services/solicitudes.service';
 import { generarLiquidacion } from '../../utils/generarLiquidacion';
-import { formatFechaHora, unidadLabel } from '../../types/solicitud.types';
+import { formatFechaHora, unidadLabel, formatQ } from '../../types/solicitud.types';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -18,9 +18,6 @@ function itemLabel(item: ItemSnapshot): string {
   return `${item.tipoLabel}${item.conMadera ? ' (c/madera)' : ''} × ${item.cantidad.toLocaleString('es-GT')}`;
 }
 
-function formatQ(n: number): string {
-  return `Q ${n.toLocaleString('es-GT', { minimumFractionDigits: 2 })}`;
-}
 
 function diasDesde(iso: string): number {
   return Math.max(1, Math.ceil((Date.now() - new Date(iso).getTime()) / 86_400_000));

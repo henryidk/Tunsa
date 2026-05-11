@@ -84,8 +84,12 @@ export class SolicitudesQueryService {
   }
 
   async findActivas() {
+    const now = new Date();
     const solicitudes = await this.prisma.solicitud.findMany({
-      where:   { estado: 'ACTIVA' },
+      where: {
+        estado: 'ACTIVA',
+        OR: [{ fechaFinEstimada: null }, { fechaFinEstimada: { gte: now } }],
+      },
       include: { cliente: true, lecturas: { orderBy: { fecha: 'desc' }, take: 1 } },
       orderBy: { fechaEntrega: 'desc' },
     });
@@ -222,10 +226,10 @@ export class SolicitudesQueryService {
         estado:           'ACTIVA',
         fechaFinEstimada: { lt: now },
       },
-      include: { cliente: true },
+      include: { cliente: true, lecturas: { orderBy: { fecha: 'desc' }, take: 1 } },
       orderBy: { fechaFinEstimada: 'asc' },
     });
-    return solicitudes.map(s => serializeSolicitud(s));
+    return solicitudes.map(s => serializeSolicitud(s as SolicitudConCliente));
   }
 
   /**

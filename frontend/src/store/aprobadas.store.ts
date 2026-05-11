@@ -16,7 +16,9 @@ export const useAprobadasStore = create<AprobadasState>((set) => ({
 
   addAprobada: (solicitud) =>
     set((state) => ({
-      solicitudes: [solicitud, ...state.solicitudes],
+      solicitudes: state.solicitudes.some(s => s.id === solicitud.id)
+        ? state.solicitudes
+        : [solicitud, ...state.solicitudes],
     })),
 
   updateSolicitud: (solicitud) =>

@@ -15,7 +15,9 @@ export const usePendientesStore = create<PendientesState>((set) => ({
 
   addSolicitud: (solicitud) =>
     set((state) => ({
-      solicitudes: [solicitud, ...state.solicitudes],
+      solicitudes: state.solicitudes.some(s => s.id === solicitud.id)
+        ? state.solicitudes
+        : [solicitud, ...state.solicitudes],
     })),
 
   removeSolicitud: (id) =>

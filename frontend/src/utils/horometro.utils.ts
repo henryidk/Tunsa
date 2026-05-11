@@ -69,6 +69,25 @@ export const DIA_LABEL: Record<DiaStatus, string> = {
 };
 
 /**
+ * Devuelve los días entre fechaInicioRenta y el día anterior a fechaActiva
+ * que no tienen registro completo (inicio + fin5pm).
+ * Lista vacía indica que no hay pendientes y se puede proceder.
+ */
+export function diasPendientesAnteriores(
+  fechaActiva:      string,
+  fechaInicioRenta: string,
+  lecturasEquipo:   LecturaHorometro[] | null | undefined,
+): string[] {
+  if (!lecturasEquipo) return [];
+  const ayer = new Date(fechaActiva + 'T00:00:00');
+  ayer.setDate(ayer.getDate() - 1);
+  const fechaAyer = localDateOf(ayer);
+  if (fechaAyer < fechaInicioRenta) return [];
+  return generarDias(fechaInicioRenta, fechaAyer)
+    .filter(d => getDiaStatus(lecturasEquipo, d) !== 'completo');
+}
+
+/**
  * Valida un valor de horómetro de inicio contra las reglas de negocio.
  * Retorna un objeto de error { titulo, mensaje } si no pasa, o null si es válido.
  * Función pura: no produce efectos de UI, el caller decide qué hacer con el resultado.

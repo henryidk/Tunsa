@@ -4,7 +4,7 @@ import type { SolicitudRenta, ItemSnapshot } from '../../../types/solicitud-rent
 import { formatQ } from '../../../types/solicitud.types';
 import {
   today, getDiaStatus, generarDias,
-  formatFechaCorta, localDateOf, ultimoDiaHorometro, validarInicioHorometro, type DiaStatus,
+  formatFechaCorta, localDateOf, ultimoDiaHorometro, validarInicioHorometro, diasPendientesAnteriores, type DiaStatus,
 } from '../../../utils/horometro.utils';
 import HorometroRentaCard from '../HorometroRentaCard';
 import CalendarioMes from '../CalendarioMes';
@@ -205,6 +205,16 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
       return;
     }
     if (tipoPendiente === 'inicio') {
+      const pendientes = diasPendientesAnteriores(fechaActiva, fechaInicioStr, lecturasEquipo);
+      if (pendientes.length > 0) {
+        const listadas = pendientes.slice(0, 3).map(formatFechaCorta).join(', ');
+        const resto    = pendientes.length > 3 ? ` y ${pendientes.length - 3} más` : '';
+        setErrorModal({
+          titulo:  'Días pendientes',
+          mensaje: `No puedes registrar esta fecha mientras haya días sin completar. Pendientes: ${listadas}${resto}.`,
+        });
+        return;
+      }
       const error = validarInicioHorometro(valorNum, lecturasEquipo?.length === 0, activeItem?.horometroInicial, lecturasEquipo, fechaActiva);
       if (error) { setErrorModal(error); return; }
     }

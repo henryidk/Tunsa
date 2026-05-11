@@ -364,8 +364,7 @@ export class EquiposService {
   // ── Disponibilidad de flota ───────────────────────────────────────────────
 
   async getDisponibilidad() {
-    const inicioHoy = new Date();
-    inicioHoy.setHours(0, 0, 0, 0);
+    const hoyGT = fechaHoyGT();
 
     const [equipos, itemsEnRenta] = await Promise.all([
       this.prisma.equipo.findMany({
@@ -440,7 +439,7 @@ export class EquiposService {
       }
 
       const esVencida = renta.fechaFinEstimada
-        ? new Date(renta.fechaFinEstimada + 'T00:00:00') < inicioHoy
+        ? renta.fechaFinEstimada < hoyGT
         : false;
 
       return {

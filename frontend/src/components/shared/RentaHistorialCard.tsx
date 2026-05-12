@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { solicitudesService } from '../../services/solicitudes.service';
 import type { SolicitudRenta, DevolucionEntry } from '../../types/solicitud-renta.types';
 import { formatFechaHora, formatQ } from '../../types/solicitud.types';
+import EspecialBadge from './EspecialBadge';
 import { resolverLabelItem } from '../../utils/devolucion.helpers';
 
 function contarItemsPendientes(solicitud: SolicitudRenta): number {
@@ -47,7 +48,10 @@ export default function RentaHistorialCard({ solicitud, showEncargado = false }:
           <span className="text-xs font-mono font-semibold text-slate-600">{solicitud.folio}</span>
         </div>
         <div className="text-right">
-          <p className="text-xs font-semibold text-slate-700">{solicitud.cliente.nombre}</p>
+          <div className="flex items-center gap-1.5 justify-end flex-wrap">
+            <p className="text-xs font-semibold text-slate-700">{solicitud.cliente.nombre}</p>
+            {solicitud.cliente.esEspecial && <EspecialBadge />}
+          </div>
           {showEncargado && (
             <p className="text-[10px] text-slate-400 font-mono">{solicitud.nombreCreador ?? solicitud.creadaPor}</p>
           )}

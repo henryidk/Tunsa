@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import EspecialBadge from '../../shared/EspecialBadge';
 import { useAprobadasStore } from '../../../store/aprobadas.store';
 import SubirComprobanteModal from '../SubirComprobanteModal';
 import { generarComprobante } from '../../../utils/generarComprobante';
@@ -156,7 +157,10 @@ function SolicitudAprobadaCard({
         <div className="space-y-2">
           <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Cliente</p>
           <div>
-            <p className="text-sm font-semibold text-slate-800">{solicitud.cliente.nombre}</p>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <p className="text-sm font-semibold text-slate-800">{solicitud.cliente.nombre}</p>
+              {solicitud.cliente.esEspecial && <EspecialBadge />}
+            </div>
             <p className="text-xs font-mono text-slate-400 mt-0.5">{solicitud.cliente.id}</p>
           </div>
           <div className="space-y-1 text-xs text-slate-600">

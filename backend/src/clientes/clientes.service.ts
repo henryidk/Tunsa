@@ -61,22 +61,38 @@ export class ClientesService {
   }
 
   async create(dto: CreateClienteDto, requestingUsername: string) {
-    const dpiExiste = await this.prisma.cliente.findUnique({ where: { dpi: dto.dpi } });
-    if (dpiExiste) throw new ConflictException('Ya existe un cliente registrado con ese DPI.');
-
-    if (dto.telefono) {
-      const telExiste = await this.prisma.cliente.findUnique({ where: { telefono: dto.telefono } });
-      if (telExiste) throw new ConflictException('Ya existe un cliente registrado con ese número de teléfono.');
+    if (dto.dpi) {
+      const dpiExiste = await this.prisma.cliente.findUnique({ where: { dpi: dto.dpi } });
+      if (dpiExiste) throw new ConflictException('Ya existe un cliente registrado con ese DPI.');
     }
+
+    const telExiste = await this.prisma.cliente.findUnique({ where: { telefono: dto.telefono } });
+    if (telExiste) throw new ConflictException('Ya existe un cliente registrado con ese número de teléfono.');
 
     let cliente;
     try {
       const id = await this.generarCodigo();
-      cliente = await this.prisma.cliente.create({ data: { id, ...dto } });
+      cliente = await this.prisma.cliente.create({
+        data: {
+          id,
+          nombre:     dto.nombre,
+          dpi:        dto.dpi ?? null,
+          telefono:   dto.telefono,
+          esEspecial: dto.esEspecial ?? false,
+        },
+      });
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
         const id = await this.generarCodigo();
-        cliente = await this.prisma.cliente.create({ data: { id, ...dto } });
+        cliente = await this.prisma.cliente.create({
+          data: {
+            id,
+            nombre:     dto.nombre,
+            dpi:        dto.dpi ?? null,
+            telefono:   dto.telefono,
+            esEspecial: dto.esEspecial ?? false,
+          },
+        });
       } else {
         throw err;
       }
@@ -192,7 +208,7 @@ export class ClientesService {
       changes.push({ campo: 'nombre', valorAnterior: anterior.nombre, valorNuevo: dto.nombre });
     }
     if (dto.dpi !== undefined && dto.dpi !== anterior.dpi) {
-      changes.push({ campo: 'dpi', valorAnterior: anterior.dpi, valorNuevo: dto.dpi });
+      changes.push({ campo: 'dpi', valorAnterior: anterior.dpi ?? null, valorNuevo: dto.dpi });
     }
     if (dto.telefono !== undefined) {
       const prev = anterior.telefono ?? null;
@@ -200,6 +216,13 @@ export class ClientesService {
       if (prev !== next) {
         changes.push({ campo: 'telefono', valorAnterior: prev, valorNuevo: next });
       }
+    }
+    if (dto.esEspecial !== undefined && dto.esEspecial !== anterior.esEspecial) {
+      changes.push({
+        campo:         'esEspecial',
+        valorAnterior: anterior.esEspecial ? 'especial' : 'regular',
+        valorNuevo:    dto.esEspecial      ? 'especial' : 'regular',
+      });
     }
 
     if (changes.length > 0) {

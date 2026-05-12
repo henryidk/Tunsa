@@ -1,4 +1,4 @@
-import { IsString, IsOptional, Length } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, Matches } from 'class-validator';
 
 export class UpdateClienteDto {
   @IsOptional()
@@ -7,11 +7,15 @@ export class UpdateClienteDto {
 
   @IsOptional()
   @IsString()
-  @Length(13, 13, { message: 'El DPI debe tener exactamente 13 dígitos' })
+  @Matches(/^\d{13}$/, { message: 'El DPI debe tener exactamente 13 dígitos numéricos' })
   dpi?: string;
 
   @IsOptional()
   @IsString()
-  @Length(8, 8, { message: 'El teléfono debe tener exactamente 8 dígitos' })
+  @Matches(/^\d{8}$/, { message: 'El teléfono debe tener exactamente 8 dígitos numéricos' })
   telefono?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  esEspecial?: boolean;
 }

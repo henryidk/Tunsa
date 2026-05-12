@@ -87,8 +87,9 @@ export type ItemSnapshot =
 export interface ClienteBasico {
   id:           string;
   nombre:       string;
-  dpi:          string;
+  dpi:          string | null;
   telefono?:    string | null;
+  esEspecial:   boolean;
   documentoKey: string | null;
 }
 

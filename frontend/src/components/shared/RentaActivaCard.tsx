@@ -1,4 +1,5 @@
 import type { SolicitudRenta, ItemSnapshot, ExtensionEntry } from '../../types/solicitud-renta.types';
+import EspecialBadge from './EspecialBadge';
 import { formatFechaHora } from '../../types/solicitud.types';
 import {
   calcularFinConExtensiones,
@@ -89,7 +90,10 @@ export default function RentaActivaCard({
         <div className="flex flex-col gap-3">
           <div>
             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Cliente</p>
-            <p className="text-sm font-semibold text-slate-800 leading-tight">{solicitud.cliente.nombre}</p>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <p className="text-sm font-semibold text-slate-800 leading-tight">{solicitud.cliente.nombre}</p>
+              {solicitud.cliente.esEspecial && <EspecialBadge />}
+            </div>
             <p className="text-xs font-mono text-slate-400 mt-0.5">{solicitud.cliente.id}</p>
             {solicitud.cliente.telefono && (
               <p className="text-xs text-slate-500 mt-0.5">{solicitud.cliente.telefono}</p>

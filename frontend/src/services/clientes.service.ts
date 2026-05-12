@@ -3,20 +3,27 @@ import { api } from './auth.service';
 export interface Cliente {
   id:           string;   // CLI-0001
   nombre:       string;
-  dpi:          string;
+  dpi:          string | null;
   telefono?:    string | null;
+  esEspecial:   boolean;
   documentoKey: string | null;
   createdAt:    string;
   updatedAt:    string;
 }
 
 interface CreateClienteData {
-  nombre:    string;
-  dpi:       string;
-  telefono?: string;
+  nombre:      string;
+  dpi?:        string;
+  telefono:    string;
+  esEspecial?: boolean;
 }
 
-interface UpdateClienteData extends Partial<CreateClienteData> {}
+interface UpdateClienteData {
+  nombre?:     string;
+  dpi?:        string;
+  telefono?:   string;
+  esEspecial?: boolean;
+}
 
 export const clientesService = {
   async getAll(): Promise<Cliente[]> {

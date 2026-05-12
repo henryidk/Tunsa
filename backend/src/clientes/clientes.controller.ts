@@ -3,6 +3,7 @@ import {
   Param, Body, Query, UseGuards,
   UseInterceptors, UploadedFile, ParseFilePipe,
   MaxFileSizeValidator, FileTypeValidator,
+  ForbiddenException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ClientesService } from './clientes.service';
@@ -14,6 +15,7 @@ import { MustChangePasswordGuard } from '../auth/guards/must-change-password.gua
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
+import { tieneAccesoGlobal } from '../auth/utils/roles.util';
 
 const MAX_PDF_SIZE = 10 * 1024 * 1024; // 10 MB
 
@@ -29,6 +31,9 @@ export class ClientesController {
     @Body() dto: CreateClienteDto,
     @CurrentUser() currentUser: AuthenticatedUser,
   ) {
+    if (dto.esEspecial && !tieneAccesoGlobal(currentUser)) {
+      throw new ForbiddenException('Solo admin y secretaria pueden registrar clientes especiales.');
+    }
     return this.clientesService.create(dto, currentUser.username);
   }
 

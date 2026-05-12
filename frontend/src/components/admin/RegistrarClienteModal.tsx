@@ -1,11 +1,10 @@
-// RegistrarClienteModal.tsx — registrar un nuevo cliente
-
 import { useState, useRef } from 'react';
 import type { ChangeEvent, MouseEvent, DragEvent } from 'react';
 import { clientesService } from '../../services/clientes.service';
 import type { Cliente } from '../../services/clientes.service';
 import { formatDpi, formatTelefono } from '../../utils/clientes.utils';
 import { extractApiError } from '../../utils/usuario.utils';
+import { useAuthStore } from '../../store/auth.store';
 
 interface Props {
   open:    boolean;
@@ -14,12 +13,13 @@ interface Props {
 }
 
 interface FormState {
-  nombre:   string;
-  dpi:      string;
-  telefono: string;
+  nombre:     string;
+  dpi:        string;
+  telefono:   string;
+  esEspecial: boolean;
 }
 
-const EMPTY: FormState = { nombre: '', dpi: '', telefono: '' };
+const EMPTY: FormState = { nombre: '', dpi: '', telefono: '', esEspecial: false };
 
 const DOCS = [
   'DPI (Documento Personal de Identificación)',
@@ -30,6 +30,9 @@ const DOCS = [
 ];
 
 export default function RegistrarClienteModal({ open, onClose, onSave }: Props) {
+  const { user } = useAuthStore();
+  const puedeCrearEspecial = user?.role.nombre === 'admin' || user?.role.nombre === 'secretaria';
+
   const [step,          setStep]          = useState<1 | 2>(1);
   const [form,          setForm]          = useState<FormState>(EMPTY);
   const [isChecking,    setIsChecking]    = useState(false);
@@ -57,6 +60,11 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
 
   const handleTelefonoChange = (e: ChangeEvent<HTMLInputElement>) => {
     setForm(prev => ({ ...prev, telefono: formatTelefono(e.target.value) }));
+    setApiError(null);
+  };
+
+  const toggleEspecial = () => {
+    setForm(prev => ({ ...prev, esEspecial: !prev.esEspecial, dpi: '' }));
     setApiError(null);
   };
 
@@ -104,20 +112,26 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
   const handleNext = async () => {
     const dpiClean = form.dpi.replace(/\D/g, '');
     const telClean = form.telefono.replace(/\D/g, '');
-    if (!form.nombre.trim())    { setApiError('El nombre es requerido.'); return; }
-    if (!dpiClean)              { setApiError('El DPI es requerido.'); return; }
-    if (dpiClean.length !== 13) { setApiError('El DPI debe tener exactamente 13 dígitos numéricos.'); return; }
-    if (telefonoDigits !== 8)   { setApiError('El teléfono debe tener exactamente 8 dígitos.'); return; }
+
+    if (!form.nombre.trim())  { setApiError('El nombre es requerido.'); return; }
+    if (telefonoDigits !== 8) { setApiError('El teléfono debe tener exactamente 8 dígitos.'); return; }
+
+    if (!form.esEspecial) {
+      if (!dpiClean)              { setApiError('El DPI es requerido.'); return; }
+      if (dpiClean.length !== 13) { setApiError('El DPI debe tener exactamente 13 dígitos numéricos.'); return; }
+    }
 
     setIsChecking(true);
     setApiError(null);
     try {
-      const [{ exists: dpiExiste }, { exists: telExiste }] = await Promise.all([
-        clientesService.checkDpi(dpiClean),
+      const checks = await Promise.all([
+        form.esEspecial ? Promise.resolve({ exists: false }) : clientesService.checkDpi(dpiClean),
         clientesService.checkTelefono(telClean),
       ]);
+      const [{ exists: dpiExiste }, { exists: telExiste }] = checks;
       if (dpiExiste) { setApiError('Ya existe un cliente registrado con ese DPI.'); return; }
       if (telExiste) { setApiError('Ya existe un cliente registrado con ese número de teléfono.'); return; }
+
       setStep(2);
     } catch {
       setApiError('No se pudo verificar los datos. Intenta de nuevo.');
@@ -134,9 +148,10 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
 
     try {
       const cliente = await clientesService.create({
-        nombre:   form.nombre.trim(),
-        dpi:      dpiClean,
-        telefono: form.telefono.replace(/\D/g, ''),
+        nombre:     form.nombre.trim(),
+        dpi:        dpiClean || undefined,
+        telefono:   form.telefono.replace(/\D/g, ''),
+        esEspecial: form.esEspecial,
       });
 
       if (conDocumento && file) {
@@ -194,7 +209,14 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-slate-200">
           <div>
-            <h2 className="font-bold text-slate-800 text-base">Registrar cliente</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="font-bold text-slate-800 text-base">Registrar cliente</h2>
+              {form.esEspecial && (
+                <span className="text-[10px] font-semibold text-amber-700 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded-full">
+                  Especial
+                </span>
+              )}
+            </div>
             <p className="text-xs text-slate-400 mt-0.5">El código se genera automáticamente</p>
           </div>
           <button onClick={handleClose} disabled={isSaving}
@@ -207,7 +229,6 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
 
         {/* Step indicator */}
         <div className="flex items-center gap-0 px-6 pt-4 pb-2">
-          {/* Step 1 */}
           <div className="flex items-center gap-2">
             <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
               step === 1 ? 'bg-indigo-600 text-white' : 'bg-emerald-500 text-white'
@@ -225,7 +246,6 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
 
           <div className={`flex-1 mx-3 h-px transition-colors ${step === 2 ? 'bg-emerald-400' : 'bg-slate-200'}`} />
 
-          {/* Step 2 */}
           <div className="flex items-center gap-2">
             <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
               step === 2 ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-400'
@@ -244,6 +264,43 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
           {/* ── Paso 1: Datos básicos ── */}
           {!uploadFailed && step === 1 && (
             <div className="space-y-4">
+
+              {/* Toggle cliente especial — solo admin/secretaria */}
+              {puedeCrearEspecial && (
+                <button
+                  type="button"
+                  onClick={toggleEspecial}
+                  disabled={isSaving}
+                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-colors disabled:opacity-50 ${
+                    form.esEspecial
+                      ? 'border-amber-300 bg-amber-50'
+                      : 'border-slate-200 bg-slate-50 hover:bg-slate-100'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                      className={form.esEspecial ? 'text-amber-600' : 'text-slate-400'}>
+                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                    </svg>
+                    <div className="text-left">
+                      <p className={`text-xs font-semibold ${form.esEspecial ? 'text-amber-800' : 'text-slate-600'}`}>
+                        Cliente especial
+                      </p>
+                      <p className={`text-[10px] ${form.esEspecial ? 'text-amber-600' : 'text-slate-400'}`}>
+                        {form.esEspecial ? 'DPI opcional · sin paso de documentación' : 'DPI y documentación requeridos'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className={`w-9 h-5 rounded-full transition-colors relative flex-shrink-0 ${
+                    form.esEspecial ? 'bg-amber-400' : 'bg-slate-300'
+                  }`}>
+                    <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${
+                      form.esEspecial ? 'left-[18px]' : 'left-0.5'
+                    }`} />
+                  </div>
+                </button>
+              )}
+
               <div>
                 <label className={labelCls}>Nombre completo</label>
                 <input type="text" value={form.nombre} onChange={handleChange('nombre')}
@@ -252,7 +309,12 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
               </div>
 
               <div>
-                <label className={labelCls}>DPI <span className="text-slate-400 font-normal">(13 dígitos)</span></label>
+                <label className={labelCls}>
+                  DPI{' '}
+                  <span className="text-slate-400 font-normal">
+                    {form.esEspecial ? '(opcional, 13 dígitos)' : '(13 dígitos)'}
+                  </span>
+                </label>
                 <div className="relative">
                   <input type="text" value={form.dpi} onChange={handleDpiChange}
                     placeholder="0000 00000 0101"
@@ -330,11 +392,9 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
             </div>
           )}
 
-          {/* ── Paso 2: Documentación ── */}
+          {/* ── Paso 2: Documentación (solo clientes regulares) ── */}
           {!uploadFailed && step === 2 && (
             <div className="space-y-4">
-
-              {/* Aviso */}
               <div className="flex items-start gap-2.5 px-3.5 py-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-blue-500 flex-shrink-0 mt-0.5">
                   <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
@@ -344,7 +404,6 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
                 </span>
               </div>
 
-              {/* Checklist */}
               <div className="border border-slate-200 rounded-xl overflow-hidden">
                 <div className="px-3.5 py-2.5 bg-slate-50 border-b border-slate-200">
                   <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">El PDF debe incluir</span>
@@ -361,9 +420,7 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
                 </ul>
               </div>
 
-              {/* Upload zone */}
               {file ? (
-                /* Archivo seleccionado */
                 <div className="flex items-center gap-3 px-4 py-3.5 border border-emerald-200 bg-emerald-50 rounded-xl">
                   <div className="w-9 h-9 rounded-lg bg-emerald-100 flex items-center justify-center flex-shrink-0">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-emerald-600">
@@ -375,26 +432,21 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
                     <p className="text-sm font-medium text-slate-800 truncate">{file.name}</p>
                     <p className="text-xs text-slate-400">{formatBytes(file.size)}</p>
                   </div>
-                  <button
-                    onClick={() => setFile(null)}
-                    className="p-1.5 rounded-lg hover:bg-emerald-100 text-slate-400 hover:text-red-500 transition-colors flex-shrink-0"
-                  >
+                  <button onClick={() => setFile(null)}
+                    className="p-1.5 rounded-lg hover:bg-emerald-100 text-slate-400 hover:text-red-500 transition-colors flex-shrink-0">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                     </svg>
                   </button>
                 </div>
               ) : (
-                /* Zona de drop */
                 <div
                   onClick={() => fileInputRef.current?.click()}
                   onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
                   onDragLeave={() => setIsDragging(false)}
                   onDrop={handleDrop}
                   className={`flex flex-col items-center justify-center gap-2 px-4 py-8 border-2 border-dashed rounded-xl cursor-pointer transition-colors ${
-                    isDragging
-                      ? 'border-indigo-400 bg-indigo-50'
-                      : 'border-slate-200 hover:border-indigo-300 hover:bg-slate-50'
+                    isDragging ? 'border-indigo-400 bg-indigo-50' : 'border-slate-200 hover:border-indigo-300 hover:bg-slate-50'
                   }`}
                 >
                   <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-slate-400">
@@ -412,13 +464,8 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
                 </div>
               )}
 
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf"
-                className="hidden"
-                onChange={e => handleFilePick(e.target.files?.[0])}
-              />
+              <input ref={fileInputRef} type="file" accept=".pdf" className="hidden"
+                onChange={e => handleFilePick(e.target.files?.[0])} />
 
               {apiError && (
                 <div className="flex items-start gap-2.5 px-3.5 py-3 bg-red-50 border border-red-200 rounded-lg">
@@ -437,18 +484,12 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
 
           {uploadFailed ? (
             <>
-              <button
-                onClick={handleCloseFromFailure}
-                disabled={isRetrying}
-                className="px-4 py-2 rounded-lg text-sm font-medium border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 transition-colors disabled:opacity-40"
-              >
+              <button onClick={handleCloseFromFailure} disabled={isRetrying}
+                className="px-4 py-2 rounded-lg text-sm font-medium border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 transition-colors disabled:opacity-40">
                 Cerrar
               </button>
-              <button
-                onClick={handleRetryUpload}
-                disabled={isRetrying}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-              >
+              <button onClick={handleRetryUpload} disabled={isRetrying}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
                 {isRetrying ? (
                   <><svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>Subiendo...</>
                 ) : (
@@ -462,10 +503,11 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
                 className="px-4 py-2 rounded-lg text-sm font-medium border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 transition-colors disabled:opacity-40">
                 Cancelar
               </button>
-              <button onClick={handleNext} disabled={isChecking}
+              <button onClick={handleNext} disabled={isChecking || isSaving}
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
-                {isChecking ? (
-                  <><svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>Verificando...</>
+                {isChecking || isSaving ? (
+                  <><svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                  {isSaving ? 'Registrando...' : 'Verificando...'}</>
                 ) : (
                   <>Siguiente<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></>
                 )}
@@ -490,16 +532,13 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
               </button>
             </>
           )}
-
         </div>
-
       </div>
 
       {/* Modal de advertencia: sin documentación */}
       {confirmSinDoc && (
         <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 overflow-hidden">
-
             <div className="flex flex-col items-center pt-7 pb-4 px-6">
               <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mb-4">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-500">
@@ -512,26 +551,19 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
                 No has subido ningún documento PDF. ¿Deseas registrar al cliente de todas formas?
               </p>
             </div>
-
             <div className="flex gap-2 px-6 pb-6">
-              <button
-                onClick={() => setConfirmSinDoc(false)}
-                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors"
-              >
+              <button onClick={() => setConfirmSinDoc(false)}
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors">
                 Volver
               </button>
-              <button
-                onClick={handleSaveWithoutDoc}
-                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium bg-amber-500 hover:bg-amber-600 text-white transition-colors"
-              >
+              <button onClick={handleSaveWithoutDoc}
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium bg-amber-500 hover:bg-amber-600 text-white transition-colors">
                 Registrar sin PDF
               </button>
             </div>
-
           </div>
         </div>
       )}
-
     </div>
   );
 }

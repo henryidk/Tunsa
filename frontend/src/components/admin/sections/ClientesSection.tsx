@@ -7,6 +7,7 @@ import { formatFecha } from '../../../utils/format';
 import RegistrarClienteModal from '../RegistrarClienteModal';
 import EditarClienteModal from '../EditarClienteModal';
 import SubirDocModal from '../SubirDocModal';
+import EspecialBadge from '../../shared/EspecialBadge';
 
 import type { ToastType } from '../../../types/ui.types'
 
@@ -24,9 +25,10 @@ function initiales(nombre: string): string {
     .join('');
 }
 
-function Avatar({ nombre }: { nombre: string }) {
+function Avatar({ nombre, especial }: { nombre: string; especial?: boolean }) {
+  const cls = especial ? 'bg-amber-100 text-amber-600' : 'bg-indigo-100 text-indigo-600';
   return (
-    <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 bg-indigo-100 text-indigo-600">
+    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 ${cls}`}>
       {initiales(nombre)}
     </div>
   );
@@ -76,7 +78,7 @@ export default function ClientesSection({ onShowToast, canEdit = true }: Props) 
     return clientes.filter(c =>
       c.nombre.toLowerCase().includes(q) ||
       c.id.toLowerCase().includes(q) ||
-      c.dpi.includes(q) ||
+      (c.dpi ?? '').includes(q) ||
       (c.telefono ?? '').includes(q)
     );
   }, [clientes, search]);
@@ -87,6 +89,7 @@ export default function ClientesSection({ onShowToast, canEdit = true }: Props) 
       { label: 'Total clientes',       value: clientes.length,                                                                                                                              color: 'text-indigo-600', bg: 'bg-indigo-50'  },
       { label: 'Registrados este mes', value: clientes.filter(c => { const d = new Date(c.createdAt); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); }).length, color: 'text-emerald-600', bg: 'bg-emerald-50' },
       { label: 'Sin documento',        value: clientes.filter(c => !c.documentoKey).length,                                                                                                 color: 'text-amber-600',  bg: 'bg-amber-50'  },
+      { label: 'Clientes especiales',  value: clientes.filter(c => c.esEspecial).length,                                                                                                    color: 'text-amber-600',  bg: 'bg-amber-50'  },
     ];
   }, [clientes]);
 
@@ -118,7 +121,7 @@ export default function ClientesSection({ onShowToast, canEdit = true }: Props) 
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {stats.map(s => (
           <div key={s.label} className="bg-white border border-slate-200 rounded-xl px-4 py-3.5 shadow-sm">
             <div className={`inline-flex items-center justify-center w-8 h-8 rounded-lg ${s.bg} mb-2`}>
@@ -185,11 +188,16 @@ export default function ClientesSection({ onShowToast, canEdit = true }: Props) 
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2.5">
-                      <Avatar nombre={c.nombre} />
-                      <span className="font-semibold text-slate-800">{c.nombre}</span>
+                      <Avatar nombre={c.nombre} especial={c.esEspecial} />
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-semibold text-slate-800">{c.nombre}</span>
+                        {c.esEspecial && <EspecialBadge />}
+                      </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 font-mono text-xs text-slate-700">{c.dpi}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-slate-700">
+                    {c.dpi ?? <span className="text-slate-300">—</span>}
+                  </td>
                   <td className="px-4 py-3 text-slate-600 text-xs">{c.telefono ?? <span className="text-slate-300">—</span>}</td>
                   <td className="px-4 py-3">
                     {c.documentoKey ? (

@@ -3,7 +3,6 @@ import {
   Param, Body, Query, UseGuards,
   UseInterceptors, UploadedFile, ParseFilePipe,
   MaxFileSizeValidator, FileTypeValidator,
-  ForbiddenException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ClientesService } from './clientes.service';
@@ -12,10 +11,10 @@ import { UpdateClienteDto } from './dto/update-cliente.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { MustChangePasswordGuard } from '../auth/guards/must-change-password.guard';
+import { EspecialClienteGuard } from './guards/especial-cliente.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
-import { tieneAccesoGlobal } from '../auth/utils/roles.util';
 
 const MAX_PDF_SIZE = 10 * 1024 * 1024; // 10 MB
 
@@ -27,13 +26,11 @@ export class ClientesController {
 
   @Post()
   @Roles('admin', 'secretaria', 'encargado_maquinas')
+  @UseGuards(EspecialClienteGuard)
   create(
     @Body() dto: CreateClienteDto,
     @CurrentUser() currentUser: AuthenticatedUser,
   ) {
-    if (dto.esEspecial && !tieneAccesoGlobal(currentUser)) {
-      throw new ForbiddenException('Solo admin y secretaria pueden registrar clientes especiales.');
-    }
     return this.clientesService.create(dto, currentUser.username);
   }
 

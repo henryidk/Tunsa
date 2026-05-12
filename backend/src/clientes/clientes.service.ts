@@ -1,4 +1,4 @@
-import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, BadRequestException, UnprocessableEntityException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { R2Service } from '../r2/r2.service';
@@ -185,6 +185,10 @@ export class ClientesService {
 
   async update(id: string, dto: UpdateClienteDto, requestingUsername: string) {
     const anterior = await this.findOne(id);
+
+    if (anterior.esEspecial && dto.esEspecial === false) {
+      throw new UnprocessableEntityException('Un cliente especial no puede revertirse a cliente regular.');
+    }
 
     if (dto.dpi) {
       const dpiExiste = await this.prisma.cliente.findFirst({

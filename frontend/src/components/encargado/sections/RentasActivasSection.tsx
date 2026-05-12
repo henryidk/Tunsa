@@ -20,6 +20,7 @@ export default function EncargadoRentasActivasSection({ onNavTo, initialFolio }:
       removeRenta={removeRenta}
       addVencida={addVencida}
       fetchSolicitudes={solicitudesService.getActivasMias}
+      showBusqueda
       initialFolio={initialFolio}
       subtitle="Equipos actualmente rentados por tus clientes"
       onNavTo={onNavTo}

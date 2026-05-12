@@ -1,4 +1,5 @@
 import type { SolicitudRenta, ItemSnapshot } from '../../types/solicitud-renta.types';
+import ClienteNombre from '../shared/ClienteNombre';
 import type { LecturaHorometro } from '../../services/solicitudes.service';
 import {
   today, localDateOf, generarDias, getDiaStatus, ultimoDiaHorometro,
@@ -115,7 +116,7 @@ export default function HorometroRentaCard({ solicitud, lecturas, onVerDetalle, 
             </p>
           )}
 
-          <p className="text-xs text-slate-500 mt-0.5">{solicitud.cliente.nombre}</p>
+          <ClienteNombre nombre={solicitud.cliente.nombre} esEspecial={solicitud.cliente.esEspecial} textCls="text-xs text-slate-500" className="flex items-center gap-1.5 flex-wrap mt-0.5" />
         </div>
 
         {/* Rango de fechas — esquina superior derecha */}

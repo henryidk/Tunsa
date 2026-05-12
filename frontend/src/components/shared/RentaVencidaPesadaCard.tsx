@@ -1,4 +1,5 @@
 import type { SolicitudRenta, ItemSnapshot } from '../../types/solicitud-renta.types';
+import ClienteNombre from './ClienteNombre';
 import { formatFechaHora } from '../../types/solicitud.types';
 import { calcularVentanaGracia, msAtraso, formatAtraso, calcularRecargoPesada } from '../../utils/renta-tiempo.utils';
 import { ultimoDiaHorometro } from '../../utils/horometro.utils';
@@ -88,7 +89,7 @@ export default function RentaVencidaPesadaCard({
         <div className="flex flex-col gap-4">
           <div>
             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Cliente</p>
-            <p className="text-sm font-semibold text-slate-800 leading-tight">{solicitud.cliente.nombre}</p>
+            <ClienteNombre nombre={solicitud.cliente.nombre} esEspecial={solicitud.cliente.esEspecial} textCls="text-sm font-semibold text-slate-800 leading-tight" />
             <p className="text-xs font-mono text-slate-400 mt-0.5">{solicitud.cliente.id}</p>
             {solicitud.cliente.telefono && (
               <p className="text-xs text-slate-500 mt-0.5">{solicitud.cliente.telefono}</p>

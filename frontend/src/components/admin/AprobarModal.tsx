@@ -3,6 +3,7 @@ import type { MouseEvent } from 'react';
 import { solicitudesService } from '../../services/solicitudes.service';
 import type { SolicitudRenta, ItemSnapshot } from '../../types/solicitud-renta.types';
 import { formatFechaCorta, unidadLabel } from '../../types/solicitud.types';
+import EspecialBadge from '../shared/EspecialBadge';
 
 interface AprobarModalProps {
   solicitud: SolicitudRenta | null;
@@ -68,7 +69,10 @@ export default function AprobarModal({ solicitud, open, onClose, onConfirm }: Ap
         <div className="mx-6 mb-4 flex items-start gap-3 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl">
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Cliente</p>
-            <p className="text-sm font-semibold text-slate-800">{solicitud.cliente.nombre}</p>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <p className="text-sm font-semibold text-slate-800">{solicitud.cliente.nombre}</p>
+              {solicitud.cliente.esEspecial && <EspecialBadge />}
+            </div>
             <p className="text-xs font-mono text-slate-400 mt-0.5">{solicitud.cliente.id}</p>
           </div>
           <div className="text-right flex-shrink-0">

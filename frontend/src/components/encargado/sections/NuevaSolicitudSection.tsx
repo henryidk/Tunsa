@@ -14,6 +14,7 @@ import { solicitudesService } from '../../../services/solicitudes.service';
 import { usePendientesStore } from '../../../store/pendientes.store';
 import type { ItemSnapshot } from '../../../types/solicitud-renta.types';
 import type { ToastType } from '../../../types/ui.types';
+import EspecialBadge from '../../shared/EspecialBadge';
 
 interface Props {
   onNavTo?:     (section: string) => void;
@@ -534,7 +535,10 @@ function SolicitudResumen({ cliente, items, summary, modalidadPago, onLimpiarIte
           <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Cliente</div>
           {cliente ? (
             <>
-              <p className="text-sm font-semibold text-slate-800 truncate">{cliente.nombre}</p>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <p className="text-sm font-semibold text-slate-800 truncate">{cliente.nombre}</p>
+                {cliente.esEspecial && <EspecialBadge />}
+              </div>
               <p className="text-xs text-slate-400 font-mono">{cliente.id}</p>
             </>
           ) : (

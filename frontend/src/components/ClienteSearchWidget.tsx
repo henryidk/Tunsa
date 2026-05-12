@@ -8,6 +8,7 @@ import { clientesService } from '../services/clientes.service';
 import type { Cliente } from '../services/clientes.service';
 import { getClienteInitials } from '../utils/clientes.utils';
 import RegistrarClienteModal from './admin/RegistrarClienteModal';
+import EspecialBadge from './shared/EspecialBadge';
 
 interface Props {
   onSelect: (cliente: Cliente | null) => void;
@@ -18,13 +19,21 @@ const MAX_DROPDOWN_RESULTS = 8;
 // ── Estado: cliente ya seleccionado ─────────────────────────────────────────
 
 function ClienteSeleccionado({ cliente, onClear }: { cliente: Cliente; onClear: () => void }) {
+  const especial = cliente.esEspecial;
   return (
-    <div className="flex items-center gap-3 p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
-      <div className="w-9 h-9 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-sm flex-shrink-0">
+    <div className={`flex items-center gap-3 p-3 border rounded-xl ${
+      especial ? 'bg-amber-50 border-amber-200' : 'bg-indigo-50 border-indigo-200'
+    }`}>
+      <div className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold text-sm flex-shrink-0 ${
+        especial ? 'bg-amber-100 text-amber-600' : 'bg-indigo-100 text-indigo-600'
+      }`}>
         {getClienteInitials(cliente.nombre)}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-slate-800 truncate">{cliente.nombre}</p>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <p className="text-sm font-semibold text-slate-800 truncate">{cliente.nombre}</p>
+          {especial && <EspecialBadge />}
+        </div>
         <p className="text-xs text-slate-500 font-mono">
           {cliente.id}
           {cliente.telefono ? ` · ${cliente.telefono}` : ''}
@@ -58,7 +67,10 @@ function ClienteRow({ cliente, onSelect }: { cliente: Cliente; onSelect: (c: Cli
           {getClienteInitials(cliente.nombre)}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-slate-800 truncate">{cliente.nombre}</p>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <p className="text-sm font-medium text-slate-800 truncate">{cliente.nombre}</p>
+            {cliente.esEspecial && <EspecialBadge />}
+          </div>
           <p className="text-xs text-slate-400 font-mono">
             {cliente.id}
             {cliente.telefono ? ` · ${cliente.telefono}` : ''}

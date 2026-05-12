@@ -10,6 +10,7 @@ import { usePendientesStore } from '../../../store/pendientes.store';
 import { useReservadosStore } from '../../../store/reservados.store';
 import { formatQ, unidadLabel } from '../../../types/solicitud.types';
 import type { UnidadDuracion } from '../../../types/solicitud.types';
+import EspecialBadge from '../../shared/EspecialBadge';
 
 interface Props {
   onShowToast?: (type: ToastType, title: string, msg: string) => void;
@@ -350,7 +351,10 @@ function PesadaResumen({ cliente, items, canEnviar, isSubmitting, onEnviar, onCa
           <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Cliente</div>
           {cliente ? (
             <>
-              <p className="text-sm font-semibold text-slate-800 truncate">{cliente.nombre}</p>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <p className="text-sm font-semibold text-slate-800 truncate">{cliente.nombre}</p>
+                {cliente.esEspecial && <EspecialBadge />}
+              </div>
               <p className="text-xs text-slate-400 font-mono">{cliente.id}</p>
             </>
           ) : (

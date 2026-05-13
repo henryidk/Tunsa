@@ -8,16 +8,17 @@ const MENSAJES_BLOQUEO: Record<BloqueoRazon, string> = {
 };
 
 interface Props {
-  items:              ItemRetorno[];
-  esItemUnico:        boolean;
-  loadingLectura:     boolean;
-  costoAcumPorEquipo: Map<string, number>;
-  bloqueoItems:       Map<string, BloqueoRazon>;
-  onToggle:           (equipoId: string) => void;
-  onHorometro:        (equipoId: string, val: string) => void;
+  items:                    ItemRetorno[];
+  esItemUnico:              boolean;
+  loadingLectura:           boolean;
+  costoAcumPorEquipo:       Map<string, number>;
+  bloqueoItems:             Map<string, BloqueoRazon>;
+  minHorometroDevolucion:   Map<string, number>;
+  onToggle:                 (equipoId: string) => void;
+  onHorometro:              (equipoId: string, val: string) => void;
 }
 
-export default function PasoEquipos({ items, esItemUnico, loadingLectura, costoAcumPorEquipo, bloqueoItems, onToggle, onHorometro }: Props) {
+export default function PasoEquipos({ items, esItemUnico, loadingLectura, costoAcumPorEquipo, bloqueoItems, minHorometroDevolucion, onToggle, onHorometro }: Props) {
   const seleccionados = items.filter(it => it.seleccionado);
 
   return (
@@ -91,26 +92,43 @@ export default function PasoEquipos({ items, esItemUnico, loadingLectura, costoA
                 </svg>
                 <span className="text-xs text-amber-800 font-medium">{MENSAJES_BLOQUEO[bloqueo]}</span>
               </div>
-            ) : (
-              <>
-                <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide block">
-                  Horómetro final — #{it.numeracion}
-                  <span className="text-red-500 ml-1">*</span>
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  value={it.horometroDevolucion}
-                  onChange={e => onHorometro(it.equipoId, e.target.value)}
-                  placeholder="Ej: 1345.2"
-                  className="w-40 px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200 bg-white"
-                />
-                <p className="text-[10px] text-slate-400">
-                  Lectura del horómetro al momento de entregar el equipo. Si es mayor al último fin 5PM, la diferencia se cobra como horas nocturnas.
-                </p>
-              </>
-            )}
+            ) : (() => {
+              const min        = minHorometroDevolucion.get(it.equipoId);
+              const val        = parseFloat(it.horometroDevolucion);
+              const esInvalido = it.horometroDevolucion !== '' && !isNaN(val) && min != null && val < min;
+              const fmt        = (n: number) => n.toLocaleString('es-GT', { minimumFractionDigits: 1 });
+              return (
+                <>
+                  <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide block">
+                    Horómetro final — #{it.numeracion}
+                    <span className="text-red-500 ml-1">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={it.horometroDevolucion}
+                    onChange={e => onHorometro(it.equipoId, e.target.value)}
+                    placeholder="Ej: 1345.2"
+                    className={`w-40 px-3 py-1.5 border rounded-lg text-sm focus:outline-none focus:ring-2 bg-white ${
+                      esInvalido
+                        ? 'border-red-300 focus:border-red-400 focus:ring-red-100'
+                        : 'border-slate-200 focus:border-slate-400 focus:ring-slate-200'
+                    }`}
+                  />
+                  {esInvalido ? (
+                    <p className="text-[10px] text-red-600 font-medium">
+                      No puede ser menor al último fin 5PM registrado ({fmt(min!)} hrs).
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-slate-400">
+                      {min != null
+                        ? `Mínimo: ${fmt(min)} hrs (último fin 5PM). Si es mayor, la diferencia se cobra como horas nocturnas.`
+                        : 'Lectura del horómetro al momento de entregar el equipo.'}
+                    </p>
+                  )}
+                </>
+              );
+            })()}
           </div>
         );
       })}

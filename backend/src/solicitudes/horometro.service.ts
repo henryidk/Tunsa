@@ -235,6 +235,26 @@ export class HorometroService {
     if (itemsADevolver.length === 0)
       throw new BadRequestException('Ninguno de los ítems indicados está pendiente de devolución.');
 
+    // Validar que el horómetro de devolución no sea menor al último fin 5PM registrado
+    for (const item of itemsADevolver) {
+      const devItem = dto.items?.find(d => d.equipoId === item.equipoId);
+      if (devItem?.horometroDevolucion == null) continue;
+
+      const ultimaLectura = await this.prisma.lecturaHorometro.findFirst({
+        where:   { solicitudId, equipoId: item.equipoId },
+        orderBy: { fecha: 'desc' },
+      });
+
+      if (ultimaLectura?.horometroFin5pm != null) {
+        const finAnterior = parseFloat(ultimaLectura.horometroFin5pm.toString());
+        if (devItem.horometroDevolucion < finAnterior) {
+          throw new BadRequestException(
+            `El horómetro de devolución del equipo #${item.numeracion} (${devItem.horometroDevolucion} hrs) no puede ser menor al último cierre registrado (${finAnterior} hrs).`,
+          );
+        }
+      }
+    }
+
     const fechaDevolucion = new Date();
 
     const actualizada = await this.prisma.$transaction(async (tx) => {

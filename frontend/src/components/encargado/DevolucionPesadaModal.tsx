@@ -89,9 +89,27 @@ export default function DevolucionPesadaModal({
     [lecturas, seleccionados, fechaInicioStr, ultimoDiaObligatorio],
   );
 
+  // Último horometroFin5pm registrado por equipo — el horometroDevolucion no puede ser menor a este valor
+  const minHorometroDevolucion = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const it of items) {
+      const ultima = lecturas
+        .filter(l => l.equipoId === it.equipoId)
+        .sort((a, b) => b.fecha.localeCompare(a.fecha))[0];
+      if (ultima?.horometroFin5pm != null) map.set(it.equipoId, ultima.horometroFin5pm);
+    }
+    return map;
+  }, [lecturas, items]);
+
   const paso1Valido = seleccionados.length > 0
-    && seleccionados.every(it => it.horometroDevolucion !== '')
-    && bloqueoItems.size === 0;
+    && bloqueoItems.size === 0
+    && seleccionados.every(it => {
+      if (it.horometroDevolucion === '') return false;
+      const val = parseFloat(it.horometroDevolucion);
+      if (isNaN(val)) return false;
+      const min = minHorometroDevolucion.get(it.equipoId);
+      return min == null || val >= min;
+    });
   const cargosValidos  = !hayCargos ? [] : cargos.filter(c => c.descripcion.trim() !== '' && c.monto !== '' && (c.monto as number) > 0);
   const cargosConError = hayCargos && cargos.some(c => c.descripcion.trim() === '' && c.monto !== '');
   const totalCargosAd  = cargosValidos.reduce((s, c) => s + (c.monto as number), 0);
@@ -230,6 +248,7 @@ export default function DevolucionPesadaModal({
               loadingLectura={loadingLectura}
               costoAcumPorEquipo={costoAcumPorEquipo}
               bloqueoItems={bloqueoItems}
+              minHorometroDevolucion={minHorometroDevolucion}
               onToggle={toggleItem}
               onHorometro={setHorometro}
             />

@@ -23,6 +23,14 @@ export interface CargoAdicional {
   monto:       number;
 }
 
+/** Descuento aplicado por el admin/secretaria a un lote de devolución. */
+export interface DescuentoAplicado {
+  tipo:          'porcentaje' | 'monto_fijo';
+  valor:         number;
+  montoOriginal: number;
+  montoFinal:    number;
+}
+
 /** Detalle de facturación de un ítem individual dentro de una devolución. */
 export interface DevolucionItemEntry {
   itemRef:       string;
@@ -43,7 +51,8 @@ export interface DevolucionEntry {
   tipoDevolucion:      'A_TIEMPO' | 'TARDIA';
   items:               DevolucionItemEntry[];
   recargosAdicionales: CargoAdicional[];
-  totalLote:           number;                  // suma de costoReal + recargoTiempo + cargosAdicionales
+  descuento?:          DescuentoAplicado;
+  totalLote:           number;                  // monto final a cobrar (después de descuento si aplica)
   liquidacionKey:      string | null;           // R2 key del PDF de liquidación
 }
 

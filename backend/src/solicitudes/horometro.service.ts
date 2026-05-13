@@ -9,7 +9,7 @@ import { RegistrarLecturaDto } from './dto/lectura-horometro.dto';
 import { RegistrarDevolucionPesadaDto } from './dto/registrar-devolucion-pesada.dto';
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
 import { tieneAccesoGlobal } from '../auth/utils/roles.util';
-import type { DevolucionEntry, DevolucionItemEntry, CargoAdicional } from './recargo.util';
+import type { DevolucionEntry, DevolucionItemEntry, CargoAdicional, DescuentoAplicado } from './recargo.util';
 import type { ItemPesadaSnapshot } from './solicitudes.types';
 
 @Injectable()
@@ -359,8 +359,24 @@ export class HorometroService {
 
       const subtotalItems       = devolucionItems.reduce((s, i) => s + i.costoReal, 0);
       const subtotalAdicionales = recargosAdicionales.reduce((s, c) => s + c.monto, 0);
-      const totalLote           = subtotalItems + subtotalAdicionales;
-      const esParcial           = itemsADevolver.length < itemsPendientes.length;
+      const subtotalLote        = subtotalItems + subtotalAdicionales;
+
+      let descuentoAplicado: DescuentoAplicado | undefined;
+      if (dto.descuento) {
+        const { tipo, valor } = dto.descuento;
+        if (tipo === 'monto_fijo') {
+          if (valor >= subtotalLote)
+            throw new BadRequestException('El monto fijo de descuento debe ser menor al total calculado.');
+          descuentoAplicado = { tipo, valor, montoOriginal: subtotalLote, montoFinal: valor };
+        } else {
+          if (valor <= 0 || valor >= 100)
+            throw new BadRequestException('El porcentaje de descuento debe ser entre 0 y 100.');
+          descuentoAplicado = { tipo, valor, montoOriginal: subtotalLote, montoFinal: subtotalLote * (1 - valor / 100) };
+        }
+      }
+
+      const totalLote = descuentoAplicado?.montoFinal ?? subtotalLote;
+      const esParcial = itemsADevolver.length < itemsPendientes.length;
 
       const nuevaEntrada: DevolucionEntry = {
         fechaDevolucion:     fechaDevolucion.toISOString(),
@@ -369,6 +385,7 @@ export class HorometroService {
         tipoDevolucion:      'A_TIEMPO',
         items:               devolucionItems,
         recargosAdicionales,
+        descuento:           descuentoAplicado,
         totalLote,
         liquidacionKey:      null,
       };

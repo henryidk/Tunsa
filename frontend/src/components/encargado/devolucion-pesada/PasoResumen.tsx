@@ -2,6 +2,7 @@ import type { ItemRetorno, CargoRow } from './types';
 import { formatQ } from './types';
 import { formatFechaHora } from '../../../types/solicitud.types';
 import type { SolicitudRenta } from '../../../types/solicitud-renta.types';
+import type { DescuentoAplicado } from '../../../types/descuento.types';
 
 interface Props {
   solicitud:           SolicitudRenta;
@@ -10,6 +11,7 @@ interface Props {
   costoAcumPorEquipo:  Map<string, number>;
   costoEstimadoTotal:  number;
   totalCargosAd:       number;
+  descuento?:          DescuentoAplicado;
   loadingLectura:      boolean;
   generandoPdf:        boolean;
   pdfBlobUrl:          string | null;
@@ -18,7 +20,7 @@ interface Props {
 
 export default function PasoResumen({
   solicitud, seleccionados, cargosValidos, costoAcumPorEquipo,
-  costoEstimadoTotal, totalCargosAd, loadingLectura, generandoPdf, pdfBlobUrl, pdfError,
+  costoEstimadoTotal, totalCargosAd, descuento, loadingLectura, generandoPdf, pdfBlobUrl, pdfError,
 }: Props) {
   return (
     <div className="space-y-4">
@@ -91,17 +93,38 @@ export default function PasoResumen({
         </div>
       )}
 
-      <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
-        <div>
-          <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Total estimado</p>
-          <p className="text-[11px] text-slate-400 mt-0.5">
-            Incluye horómetro final{cargosValidos.length > 0 ? ' + cargos adicionales' : ''}.
-          </p>
+      {descuento ? (
+        <div className="bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3 space-y-1.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-slate-500">Total antes de descuento</span>
+            <span className="font-mono text-slate-600 line-through">{formatQ(descuento.montoOriginal)}</span>
+          </div>
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-red-600 font-medium">
+              Descuento{descuento.tipo === 'porcentaje' ? ` (${descuento.valor}%)` : ' (monto fijo)'}
+            </span>
+            <span className="font-mono font-semibold text-red-600">
+              − {formatQ(descuento.montoOriginal - descuento.montoFinal)}
+            </span>
+          </div>
+          <div className="border-t border-indigo-200 pt-1.5 flex items-center justify-between">
+            <span className="text-sm font-bold text-indigo-800">Total a cobrar</span>
+            <span className="text-lg font-bold font-mono text-indigo-700">{formatQ(descuento.montoFinal)}</span>
+          </div>
         </div>
-        <span className="text-lg font-bold text-slate-700 font-mono">
-          {loadingLectura ? '…' : formatQ(costoEstimadoTotal + totalCargosAd)}
-        </span>
-      </div>
+      ) : (
+        <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
+          <div>
+            <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Total estimado</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              Incluye horómetro final{cargosValidos.length > 0 ? ' + cargos adicionales' : ''}.
+            </p>
+          </div>
+          <span className="text-lg font-bold text-slate-700 font-mono">
+            {loadingLectura ? '…' : formatQ(costoEstimadoTotal + totalCargosAd)}
+          </span>
+        </div>
+      )}
 
       <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
         <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Documento de liquidación</p>

@@ -1,13 +1,15 @@
 import type { ItemRetorno, CargoRow } from './types';
 import { formatQ } from './types';
+import type { DescuentoAplicado } from '../../../types/descuento.types';
 
 interface Props {
   seleccionados: ItemRetorno[];
   cargosValidos: CargoRow[];
   totalCargosAd: number;
+  descuento?:    DescuentoAplicado;
 }
 
-export default function PasoConfirmar({ seleccionados, cargosValidos, totalCargosAd }: Props) {
+export default function PasoConfirmar({ seleccionados, cargosValidos, totalCargosAd, descuento }: Props) {
   return (
     <div className="space-y-4">
       <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
@@ -44,6 +46,16 @@ export default function PasoConfirmar({ seleccionados, cargosValidos, totalCargo
             {cargosValidos.length} cargo{cargosValidos.length > 1 ? 's' : ''} adicional{cargosValidos.length > 1 ? 'es' : ''}
           </span>
           <span className="text-xs font-bold text-amber-700">{formatQ(totalCargosAd)}</span>
+        </div>
+      )}
+      {descuento && (
+        <div className="flex items-center justify-between bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2.5">
+          <span className="text-xs text-indigo-700 font-medium">
+            Descuento{descuento.tipo === 'porcentaje' ? ` ${descuento.valor}%` : ' monto fijo'}
+          </span>
+          <span className="text-xs font-bold text-indigo-700">
+            − {formatQ(descuento.montoOriginal - descuento.montoFinal)}
+          </span>
         </div>
       )}
     </div>

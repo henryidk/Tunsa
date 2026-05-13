@@ -3,7 +3,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { CargoAdicionalDto } from './registrar-devolucion.dto';
+import { CargoAdicionalDto, DescuentoDto } from './registrar-devolucion.dto';
 
 export class DevolucionPesadaItemDto {
   @IsString()
@@ -31,4 +31,10 @@ export class RegistrarDevolucionPesadaDto {
   @ValidateNested({ each: true })
   @Type(() => CargoAdicionalDto)
   recargosAdicionales?: CargoAdicionalDto[];
+
+  /** Descuento sobre el total del lote. Solo para clientes especiales con rol admin/secretaria. */
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => DescuentoDto)
+  descuento?: DescuentoDto;
 }

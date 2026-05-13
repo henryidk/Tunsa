@@ -3,6 +3,15 @@ import type { SolicitudRenta, ItemSnapshot, DevolucionEntry } from '../../types/
 import { solicitudesService } from '../../services/solicitudes.service';
 import { generarLiquidacion } from '../../utils/generarLiquidacion';
 import { formatFechaHora, unidadLabel, formatQ } from '../../types/solicitud.types';
+import { useAuthStore, selectUserRole } from '../../store/auth.store';
+import {
+  type DescuentoFormState,
+  type DescuentoAplicado,
+  DESCUENTO_INICIAL,
+  calcularDescuento,
+  descuentoEsValido,
+} from '../../types/descuento.types';
+import PasoDescuento from './PasoDescuento';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -18,7 +27,6 @@ function itemLabel(item: ItemSnapshot): string {
   return `${item.tipoLabel}${item.conMadera ? ' (c/madera)' : ''} × ${item.cantidad.toLocaleString('es-GT')}`;
 }
 
-
 function diasDesde(iso: string): number {
   return Math.max(1, Math.ceil((Date.now() - new Date(iso).getTime()) / 86_400_000));
 }
@@ -30,7 +38,9 @@ interface CargoRow {
   monto:       number | '';
 }
 
-type Paso = 1 | 2 | 3 | 4 | 'resultado';
+type PasoKey = 'items' | 'cargos' | 'descuento' | 'resumen' | 'confirmar' | 'resultado';
+
+interface PasoMeta { key: PasoKey; label: string }
 
 interface Resultado {
   solicitudActualizada: SolicitudRenta;
@@ -40,25 +50,26 @@ interface Resultado {
 
 // ── Paso indicator ────────────────────────────────────────────────────────────
 
-function PasoIndicador({ paso }: { paso: Paso }) {
-  const pasos      = [{ n: 1, label: 'Ítems' }, { n: 2, label: 'Cargos' }, { n: 3, label: 'Resumen' }, { n: 4, label: 'Confirmar' }];
-  const pasoActual = paso === 'resultado' ? 4 : paso;
+function PasoIndicador({ secuencia, pasoActual }: { secuencia: PasoMeta[]; pasoActual: PasoKey }) {
+  const currentIdx = secuencia.findIndex(p => p.key === pasoActual);
   return (
     <div className="flex items-center gap-2 px-6 py-2 border-b border-slate-100 bg-slate-50">
-      {pasos.map((p, idx) => (
-        <div key={p.n} className="flex items-center gap-1.5">
-          {idx > 0 && <div className={`h-px w-6 ${pasoActual > p.n ? 'bg-indigo-400' : 'bg-slate-200'}`} />}
-          <div className={`flex items-center gap-1 ${pasoActual === p.n ? 'text-indigo-700' : pasoActual > p.n ? 'text-emerald-600' : 'text-slate-400'}`}>
+      {secuencia.map((p, idx) => (
+        <div key={p.key} className="flex items-center gap-1.5">
+          {idx > 0 && <div className={`h-px w-6 ${idx <= currentIdx ? 'bg-indigo-400' : 'bg-slate-200'}`} />}
+          <div className={`flex items-center gap-1 ${
+            idx === currentIdx ? 'text-indigo-700' : idx < currentIdx ? 'text-emerald-600' : 'text-slate-400'
+          }`}>
             <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold border flex-shrink-0 ${
-              pasoActual > p.n
+              idx < currentIdx
                 ? 'bg-emerald-100 border-emerald-300 text-emerald-700'
-                : pasoActual === p.n
+                : idx === currentIdx
                   ? 'bg-indigo-600 border-indigo-600 text-white'
                   : 'bg-white border-slate-300 text-slate-400'
             }`}>
-              {pasoActual > p.n
+              {idx < currentIdx
                 ? <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
-                : p.n}
+                : idx + 1}
             </span>
             <span className="text-[11px] font-semibold">{p.label}</span>
           </div>
@@ -79,6 +90,8 @@ export default function DevolucionModal({
   onClose:      () => void;
   onDevolucion: (actualizada: SolicitudRenta) => void;
 }) {
+  const rolNombre = useAuthStore(selectUserRole);
+
   const itemsPendientes = useMemo(() => {
     const yaDevueltos = new Set<string>(
       (solicitud.devolucionesParciales ?? []).flatMap(d => d.items.map(i => i.itemRef)),
@@ -86,10 +99,28 @@ export default function DevolucionModal({
     return solicitud.items.filter(item => !yaDevueltos.has(itemRef(item)));
   }, [solicitud]);
 
-  const esItemUnico       = itemsPendientes.length === 1;
-  const diasUso           = solicitud.fechaInicioRenta ? diasDesde(solicitud.fechaInicioRenta) : null;
+  const puedeDescuento = solicitud.cliente.esEspecial && (rolNombre === 'admin' || rolNombre === 'secretaria');
 
-  const [paso,      setPaso]      = useState<Paso>(1);
+  const secuencia: PasoMeta[] = useMemo(() => puedeDescuento
+    ? [
+        { key: 'items',     label: 'Ítems'     },
+        { key: 'cargos',    label: 'Cargos'    },
+        { key: 'descuento', label: 'Descuento' },
+        { key: 'resumen',   label: 'Resumen'   },
+        { key: 'confirmar', label: 'Confirmar' },
+      ]
+    : [
+        { key: 'items',     label: 'Ítems'     },
+        { key: 'cargos',    label: 'Cargos'    },
+        { key: 'resumen',   label: 'Resumen'   },
+        { key: 'confirmar', label: 'Confirmar' },
+      ],
+  [puedeDescuento]);
+
+  const esItemUnico = itemsPendientes.length === 1;
+  const diasUso     = solicitud.fechaInicioRenta ? diasDesde(solicitud.fechaInicioRenta) : null;
+
+  const [paso,      setPaso]      = useState<PasoKey>('items');
   const [guardando, setGuardando] = useState(false);
   const [error,     setError]     = useState<string | null>(null);
   const [resultado, setResultado] = useState<Resultado | null>(null);
@@ -98,7 +129,10 @@ export default function DevolucionModal({
   const [generandoPdf, setGenerandoPdf] = useState(false);
   const [pdfError,     setPdfError]     = useState(false);
 
-  const [previewItems, setPreviewItems] = useState<{ itemRef: string; costoReal: number; diasCobrados: number }[]>([]);
+  const [previewItems,  setPreviewItems]  = useState<{ itemRef: string; costoReal: number; diasCobrados: number; recargoTiempo: number }[]>([]);
+  const [loadingPreview, setLoadingPreview] = useState(false);
+
+  const [descuentoState, setDescuentoState] = useState<DescuentoFormState>(DESCUENTO_INICIAL);
 
   const [seleccionados, setSeleccionados] = useState<Set<string>>(
     () => new Set(esItemUnico ? [itemRef(itemsPendientes[0])] : []),
@@ -134,50 +168,99 @@ export default function DevolucionModal({
     const tieneMonto       = c.monto !== '' && Number(c.monto) > 0;
     return tieneDescripcion !== tieneMonto;
   });
-  const totalCargosAd   = cargosValidos.reduce((s, c) => s + (c.monto as number), 0);
-  const subtotalItems   = itemsADevolver.reduce((s, item) => s + (item.kind !== 'pesada' ? item.subtotal : 0), 0);
+  const totalCargosAd = cargosValidos.reduce((s, c) => s + (c.monto as number), 0);
+
+  const montoBasePreview = previewItems.reduce((s, p) => s + p.costoReal + p.recargoTiempo, 0) + totalCargosAd;
+
+  const pasoIdx    = secuencia.findIndex(p => p.key === paso);
+  const siguienteKey = pasoIdx >= 0 && pasoIdx < secuencia.length - 1 ? secuencia[pasoIdx + 1].key : null;
+  const anteriorKey  = pasoIdx > 0 ? secuencia[pasoIdx - 1].key : null;
+
+  const generarPdfConDescuento = (descuentoAplicado: DescuentoAplicado | null) => {
+    setGenerandoPdf(true);
+    setPdfBlobUrl(null);
+    setPdfError(false);
+
+    const devolucionPrevia: DevolucionEntry = {
+      fechaDevolucion:     new Date().toISOString(),
+      registradoPor:       '—',
+      esParcial:           !esDevolcionCompleta,
+      tipoDevolucion:      'A_TIEMPO',
+      items:               itemsADevolver.map(item => {
+        const ref   = itemRef(item);
+        const pItem = previewItems.find(p => p.itemRef === ref);
+        return {
+          itemRef:       ref,
+          kind:          item.kind as 'maquinaria' | 'granel' | 'pesada',
+          diasCobrados:  pItem?.diasCobrados ?? diasDesde(solicitud.fechaInicioRenta!),
+          costoReal:     pItem?.costoReal ?? 0,
+          recargoTiempo: pItem?.recargoTiempo ?? 0,
+        };
+      }),
+      recargosAdicionales: cargosValidos.map(c => ({ descripcion: c.descripcion, monto: c.monto as number })),
+      descuento:           descuentoAplicado ?? undefined,
+      totalLote:           descuentoAplicado ? descuentoAplicado.montoFinal : montoBasePreview,
+      liquidacionKey:      null,
+    };
+    generarLiquidacion(solicitud, devolucionPrevia)
+      .then(blob => setPdfBlobUrl(URL.createObjectURL(blob)))
+      .catch(() => setPdfError(true))
+      .finally(() => setGenerandoPdf(false));
+  };
 
   const irSiguiente = () => {
-    if (paso === 1 && seleccionados.size === 0) return;
-    if (paso === 2 && cargosConError) return;
+    if (paso === 'items' && seleccionados.size === 0) return;
+    if (paso === 'cargos' && cargosConError) return;
+    if (paso === 'descuento' && !descuentoEsValido(descuentoState, montoBasePreview)) return;
 
-    if (paso === 2 && solicitud.fechaInicioRenta) {
-      setGenerandoPdf(true);
-      setPdfBlobUrl(null);
-      setPdfError(false);
-
+    if (paso === 'cargos' && solicitud.fechaInicioRenta) {
       const refs = esDevolcionCompleta ? undefined : itemsADevolver.map(itemRef);
+      setLoadingPreview(true);
       solicitudesService.previewDevolucion(solicitud.id, refs)
         .then(preview => {
           setPreviewItems(preview);
-          const devolucionPrevia: DevolucionEntry = {
-            fechaDevolucion:     new Date().toISOString(),
-            registradoPor:       '—',
-            esParcial:           !esDevolcionCompleta,
-            tipoDevolucion:      'A_TIEMPO',
-            items:               itemsADevolver.map(item => {
-              const ref      = itemRef(item);
-              const pItem    = preview.find(p => p.itemRef === ref);
-              return {
-                itemRef:       ref,
-                kind:          item.kind as 'maquinaria' | 'granel' | 'pesada',
-                diasCobrados:  pItem?.diasCobrados ?? diasDesde(solicitud.fechaInicioRenta!),
-                costoReal:     pItem?.costoReal ?? 0,
-                recargoTiempo: pItem?.recargoTiempo ?? 0,
-              };
-            }),
-            recargosAdicionales: cargosValidos.map(c => ({ descripcion: c.descripcion, monto: c.monto as number })),
-            totalLote:           preview.reduce((s, p) => s + p.costoReal + p.recargoTiempo, 0) + totalCargosAd,
-            liquidacionKey:      null,
-          };
-          return generarLiquidacion(solicitud, devolucionPrevia);
+          if (siguienteKey !== 'descuento') {
+            // Sin paso de descuento: generar PDF directamente
+            const total = preview.reduce((s, p) => s + p.costoReal + p.recargoTiempo, 0) + totalCargosAd;
+            setGenerandoPdf(true);
+            setPdfBlobUrl(null);
+            setPdfError(false);
+            const devolucionPrevia: DevolucionEntry = {
+              fechaDevolucion:     new Date().toISOString(),
+              registradoPor:       '—',
+              esParcial:           !esDevolcionCompleta,
+              tipoDevolucion:      'A_TIEMPO',
+              items:               itemsADevolver.map(item => {
+                const ref   = itemRef(item);
+                const pItem = preview.find(p => p.itemRef === ref);
+                return {
+                  itemRef:       ref,
+                  kind:          item.kind as 'maquinaria' | 'granel' | 'pesada',
+                  diasCobrados:  pItem?.diasCobrados ?? diasDesde(solicitud.fechaInicioRenta!),
+                  costoReal:     pItem?.costoReal ?? 0,
+                  recargoTiempo: pItem?.recargoTiempo ?? 0,
+                };
+              }),
+              recargosAdicionales: cargosValidos.map(c => ({ descripcion: c.descripcion, monto: c.monto as number })),
+              totalLote:           total,
+              liquidacionKey:      null,
+            };
+            generarLiquidacion(solicitud, devolucionPrevia)
+              .then(blob => setPdfBlobUrl(URL.createObjectURL(blob)))
+              .catch(() => setPdfError(true))
+              .finally(() => setGenerandoPdf(false));
+          }
         })
-        .then(blob => setPdfBlobUrl(URL.createObjectURL(blob)))
-        .catch(() => setPdfError(true))
-        .finally(() => setGenerandoPdf(false));
+        .catch(() => {})
+        .finally(() => setLoadingPreview(false));
     }
 
-    setPaso(p => (p as number) + 1 as Paso);
+    if (paso === 'descuento') {
+      const descuentoAplicado = calcularDescuento(descuentoState, montoBasePreview);
+      generarPdfConDescuento(descuentoAplicado);
+    }
+
+    if (siguienteKey) setPaso(siguienteKey);
   };
 
   const handleConfirmar = async () => {
@@ -188,23 +271,30 @@ export default function DevolucionModal({
         ? cargosValidos.map(c => ({ descripcion: c.descripcion.trim(), monto: c.monto as number }))
         : undefined;
 
+      const descuentoPayload = descuentoState.aplicar && puedeDescuento
+        ? calcularDescuento(descuentoState, montoBasePreview)
+        : null;
+
       const solicitudActualizada = solicitud.esPesada
         ? await solicitudesService.registrarDevolucionPesada(solicitud.id, {
             recargosAdicionales: recargosPayload,
+            descuento:           descuentoPayload ? { tipo: descuentoPayload.tipo, valor: descuentoPayload.valor } : undefined,
           })
         : await solicitudesService.registrarDevolucion(solicitud.id, {
-            itemRefs: esDevolcionCompleta ? undefined : itemsADevolver.map(itemRef),
+            itemRefs:            esDevolcionCompleta ? undefined : itemsADevolver.map(itemRef),
             recargosAdicionales: recargosPayload,
+            descuento:           descuentoPayload ? { tipo: descuentoPayload.tipo, valor: descuentoPayload.valor } : undefined,
           });
-      const devoluciones         = solicitudActualizada.devolucionesParciales ?? [];
-      const devolucion           = devoluciones[devoluciones.length - 1];
+
+      const devoluciones = solicitudActualizada.devolucionesParciales ?? [];
+      const devolucion   = devoluciones[devoluciones.length - 1];
       if (!devolucion) throw new Error('No se recibió confirmación del servidor.');
 
       let liquidacionUrl: string | null = null;
       try {
-        const pdfBlob        = await generarLiquidacion(solicitudActualizada, devolucion);
-        const { url }        = await solicitudesService.subirLiquidacion(solicitud.id, pdfBlob);
-        liquidacionUrl       = url;
+        const pdfBlob   = await generarLiquidacion(solicitudActualizada, devolucion);
+        const { url }   = await solicitudesService.subirLiquidacion(solicitud.id, pdfBlob);
+        liquidacionUrl  = url;
       } catch {
         // No bloquear la devolución si el PDF falla
       }
@@ -212,8 +302,9 @@ export default function DevolucionModal({
       setResultado({ solicitudActualizada, devolucion, liquidacionUrl });
       setPaso('resultado');
       onDevolucion(solicitudActualizada);
-    } catch {
-      setError('No se pudo registrar la devolución. Intenta de nuevo.');
+    } catch (err: any) {
+      const msg = err?.response?.data?.message;
+      setError(Array.isArray(msg) ? msg.join(' · ') : (msg ?? 'No se pudo registrar la devolución. Intenta de nuevo.'));
     } finally {
       setGuardando(false);
     }
@@ -238,13 +329,13 @@ export default function DevolucionModal({
           )}
         </div>
 
-        {paso !== 'resultado' && <PasoIndicador paso={paso} />}
+        {paso !== 'resultado' && <PasoIndicador secuencia={secuencia} pasoActual={paso} />}
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-6 py-4">
 
-          {/* ── PASO 1: Ítems ────────────────────────────────────────────── */}
-          {paso === 1 && (
+          {/* ── Ítems ────────────────────────────────────────────────────── */}
+          {paso === 'items' && (
             <div className="space-y-4">
               {esDevolcionCompleta && !esItemUnico && (
                 <div className="flex items-start gap-2.5 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 text-xs text-emerald-800">
@@ -289,8 +380,8 @@ export default function DevolucionModal({
             </div>
           )}
 
-          {/* ── PASO 2: Cargos ───────────────────────────────────────────── */}
-          {paso === 2 && (
+          {/* ── Cargos ───────────────────────────────────────────────────── */}
+          {paso === 'cargos' && (
             <div className="space-y-4">
               <p className="text-xs text-slate-500 leading-relaxed">
                 Registra cargos adicionales por daños, faltantes u otras condiciones del equipo. Estos se suman al costo calculado de la renta.
@@ -356,11 +447,20 @@ export default function DevolucionModal({
             </div>
           )}
 
-          {/* ── PASO 3: Resumen ──────────────────────────────────────────── */}
-          {paso === 3 && (
+          {/* ── Descuento ────────────────────────────────────────────────── */}
+          {paso === 'descuento' && (
+            <PasoDescuento
+              montoBase={montoBasePreview}
+              loadingMonto={loadingPreview}
+              estado={descuentoState}
+              onChange={setDescuentoState}
+            />
+          )}
+
+          {/* ── Resumen ──────────────────────────────────────────────────── */}
+          {paso === 'resumen' && (
             <div className="space-y-4">
 
-              {/* Período */}
               {solicitud.fechaInicioRenta && (
                 <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
                   <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Período de renta</p>
@@ -385,7 +485,6 @@ export default function DevolucionModal({
                 </div>
               )}
 
-              {/* Ítems */}
               <div>
                 <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-2">
                   {esDevolcionCompleta ? 'Devolución completa' : `Devolución parcial — ${itemsADevolver.length} ítem${itemsADevolver.length > 1 ? 's' : ''}`}
@@ -410,7 +509,6 @@ export default function DevolucionModal({
                 </ul>
               </div>
 
-              {/* Cargos adicionales */}
               {cargosValidos.length > 0 && (
                 <div>
                   <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-2">Cargos adicionales</p>
@@ -425,9 +523,32 @@ export default function DevolucionModal({
                 </div>
               )}
 
-              {/* Total calculado con días reales */}
+              {/* Total / Descuento */}
               {(() => {
-                const totalReal = previewItems.reduce((s, p) => s + p.costoReal, 0) + totalCargosAd;
+                const descuentoAplicado = calcularDescuento(descuentoState, montoBasePreview);
+                if (descuentoAplicado) {
+                  return (
+                    <div className="bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3 space-y-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-500">Total sin descuento</span>
+                        <span className="font-mono text-slate-600 line-through">{formatQ(descuentoAplicado.montoOriginal)}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-red-600 font-medium">
+                          Descuento{descuentoAplicado.tipo === 'porcentaje' ? ` (${descuentoAplicado.valor}%)` : ' (monto fijo)'}
+                        </span>
+                        <span className="font-mono font-semibold text-red-600">
+                          − {formatQ(descuentoAplicado.montoOriginal - descuentoAplicado.montoFinal)}
+                        </span>
+                      </div>
+                      <div className="border-t border-indigo-200 pt-1.5 flex items-center justify-between">
+                        <span className="text-sm font-bold text-indigo-800">Total a cobrar</span>
+                        <span className="text-lg font-bold font-mono text-indigo-700">{formatQ(descuentoAplicado.montoFinal)}</span>
+                      </div>
+                    </div>
+                  );
+                }
+                const totalReal    = previewItems.reduce((s, p) => s + p.costoReal, 0) + totalCargosAd;
                 const diasCobrados = previewItems[0]?.diasCobrados ?? null;
                 if (totalReal === 0 && totalCargosAd === 0) return null;
                 return (
@@ -474,8 +595,8 @@ export default function DevolucionModal({
             </div>
           )}
 
-          {/* ── PASO 4: Confirmar ────────────────────────────────────────── */}
-          {paso === 4 && (
+          {/* ── Confirmar ────────────────────────────────────────────────── */}
+          {paso === 'confirmar' && (
             <div className="space-y-4">
               <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
                 <svg className="shrink-0 mt-0.5 text-amber-500" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -507,13 +628,26 @@ export default function DevolucionModal({
                   <span className="text-xs font-bold text-amber-700">{formatQ(totalCargosAd)}</span>
                 </div>
               )}
+              {descuentoState.aplicar && puedeDescuento && (() => {
+                const d = calcularDescuento(descuentoState, montoBasePreview);
+                if (!d) return null;
+                return (
+                  <div className="flex items-center justify-between bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2.5">
+                    <span className="text-xs text-indigo-700 font-medium">
+                      Descuento{d.tipo === 'porcentaje' ? ` ${d.valor}%` : ' monto fijo'}
+                    </span>
+                    <span className="text-xs font-bold text-indigo-700">
+                      − {formatQ(d.montoOriginal - d.montoFinal)}
+                    </span>
+                  </div>
+                );
+              })()}
             </div>
           )}
 
-          {/* ── RESULTADO ───────────────────────────────────────────────── */}
+          {/* ── Resultado ────────────────────────────────────────────────── */}
           {paso === 'resultado' && resultado && (
             <div className="space-y-4 py-1">
-              {/* Banner éxito */}
               <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
                 <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
                   <svg className="text-emerald-600" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
@@ -528,7 +662,6 @@ export default function DevolucionModal({
                 </div>
               </div>
 
-              {/* Resumen de cobro */}
               <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 space-y-2">
                 <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Resumen de cobro</p>
                 {resultado.devolucion.items.map((entry, i) => {
@@ -554,13 +687,27 @@ export default function DevolucionModal({
                     ))}
                   </>
                 )}
+                {resultado.devolucion.descuento && (
+                  <>
+                    <div className="border-t border-slate-200 my-1" />
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-indigo-600">
+                        Descuento{resultado.devolucion.descuento.tipo === 'porcentaje'
+                          ? ` (${resultado.devolucion.descuento.valor}%)`
+                          : ' (monto fijo)'}
+                      </span>
+                      <span className="text-indigo-600 font-medium">
+                        − {formatQ(resultado.devolucion.descuento.montoOriginal - resultado.devolucion.descuento.montoFinal)}
+                      </span>
+                    </div>
+                  </>
+                )}
                 <div className="border-t border-slate-200 pt-2 flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-700">Total este lote</span>
                   <span className="text-sm font-bold text-slate-800">{formatQ(resultado.devolucion.totalLote)}</span>
                 </div>
               </div>
 
-              {/* Liquidación PDF */}
               {resultado.liquidacionUrl ? (
                 <div className="space-y-2">
                   <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Documento de liquidación</p>
@@ -605,8 +752,8 @@ export default function DevolucionModal({
             </button>
           ) : (
             <div className="flex items-center justify-between gap-3">
-              {paso > 1 ? (
-                <button onClick={() => setPaso(p => (p as number) - 1 as Paso)} disabled={guardando} className="px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-sm font-medium text-slate-600 transition-colors disabled:opacity-60">
+              {anteriorKey ? (
+                <button onClick={() => setPaso(anteriorKey)} disabled={guardando} className="px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-sm font-medium text-slate-600 transition-colors disabled:opacity-60">
                   Atrás
                 </button>
               ) : (
@@ -614,12 +761,20 @@ export default function DevolucionModal({
                   Cancelar
                 </button>
               )}
-              {paso < 4 ? (
+              {paso !== 'confirmar' ? (
                 <button
                   onClick={irSiguiente}
-                  disabled={(paso === 1 && seleccionados.size === 0) || (paso === 2 && cargosConError)}
+                  disabled={
+                    (paso === 'items' && seleccionados.size === 0) ||
+                    (paso === 'cargos' && cargosConError) ||
+                    (paso === 'descuento' && !descuentoEsValido(descuentoState, montoBasePreview)) ||
+                    loadingPreview
+                  }
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-sm font-semibold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
+                  {loadingPreview && paso === 'cargos'
+                    ? <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                    : null}
                   Siguiente
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
                 </button>

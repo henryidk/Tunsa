@@ -436,52 +436,65 @@ export async function generarLiquidacion(
 
   // ── RESUMEN TOTAL ─────────────────────────────────────────────────────────────
 
-  if (y + 30 > contentBottom) { doc.addPage(); y = 18; }
-
   const costoBase          = devolucion.items.reduce((s, i) => s + i.costoReal,     0);
   const totalRecargoTiempo = devolucion.items.reduce((s, i) => s + i.recargoTiempo, 0);
   const totalCargosAd      = devolucion.recargosAdicionales.reduce((s, c) => s + c.monto, 0);
+  const hayDescuento       = !!devolucion.descuento;
+
+  const lineasResumen: number = 1
+    + (totalRecargoTiempo > 0 ? 1 : 0)
+    + (totalCargosAd > 0 ? 1 : 0)
+    + (hayDescuento ? 1 : 0);
+  const boxH = 16 + lineasResumen * 7;
+
+  if (y + boxH + 10 > contentBottom) { doc.addPage(); y = 18; }
 
   const boxW = 80;
   const boxX = W - 14 - boxW;
 
   doc.setFillColor(...COLORES.fondo);
-  doc.roundedRect(boxX, y, boxW, 32, 2, 2, 'F');
+  doc.roundedRect(boxX, y, boxW, boxH, 2, 2, 'F');
   doc.setDrawColor(...COLORES.borde);
   doc.setLineWidth(0.3);
-  doc.roundedRect(boxX, y, boxW, 32, 2, 2, 'S');
+  doc.roundedRect(boxX, y, boxW, boxH, 2, 2, 'S');
 
-  const lineaResumen = (label: string, valor: string, ly: number, bold = false) => {
-    doc.setFont('helvetica', bold ? 'bold' : 'normal');
-    doc.setFontSize(bold ? 12 : 11);
-    doc.setTextColor(...(bold ? COLORES.texto : COLORES.textoSuave));
+  const lineaResumen = (label: string, valor: string, ly: number, color: [number,number,number] = COLORES.textoSuave) => {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(...color);
     doc.text(label, boxX + 5, ly);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(bold ? 12 : 11);
-    doc.setTextColor(...(bold ? COLORES.texto : COLORES.textoSuave));
+    doc.setFontSize(10);
+    doc.setTextColor(...color);
     doc.text(valor, boxX + boxW - 5, ly, { align: 'right' });
   };
 
-  lineaResumen(solicitud.esPesada ? 'Costo por horómetro:' : 'Costo de renta:', formatQ(costoBase), y + 8);
-  if (totalRecargoTiempo > 0) {
-    lineaResumen('Recargo por atraso:',  formatQ(totalRecargoTiempo), y + 15);
-  }
-  if (totalCargosAd > 0) {
-    lineaResumen('Cargos adicionales:',  formatQ(totalCargosAd), y + (totalRecargoTiempo > 0 ? 22 : 15));
+  let ry = y + 8;
+  lineaResumen(solicitud.esPesada ? 'Costo por horómetro:' : 'Costo de renta:', formatQ(costoBase), ry);
+  if (totalRecargoTiempo > 0) { ry += 7; lineaResumen('Recargo por atraso:', formatQ(totalRecargoTiempo), ry); }
+  if (totalCargosAd > 0)      { ry += 7; lineaResumen('Cargos adicionales:', formatQ(totalCargosAd), ry); }
+
+  if (hayDescuento) {
+    ry += 7;
+    const descLabel = devolucion.descuento!.tipo === 'porcentaje'
+      ? `Descuento (${devolucion.descuento!.valor}%):`
+      : 'Descuento (monto fijo):';
+    const descMonto = devolucion.descuento!.montoOriginal - devolucion.descuento!.montoFinal;
+    lineaResumen(descLabel, `− ${formatQ(descMonto)}`, ry, [220, 38, 38]);
   }
 
-  const totalLineY = y + 25;
+  const totalLineY = y + boxH - 9;
   doc.setDrawColor(...COLORES.borde);
   doc.setLineWidth(0.3);
-  doc.line(boxX + 5, totalLineY, boxX + boxW - 5, totalLineY);
+  doc.line(boxX + 5, totalLineY - 2, boxX + boxW - 5, totalLineY - 2);
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(13);
   doc.setTextColor(...COLORES.exitoso);
-  doc.text('TOTAL', boxX + 5, totalLineY + 7);
-  doc.text(formatQ(devolucion.totalLote), boxX + boxW - 5, totalLineY + 7, { align: 'right' });
+  doc.text('TOTAL', boxX + 5, totalLineY + 5);
+  doc.text(formatQ(devolucion.totalLote), boxX + boxW - 5, totalLineY + 5, { align: 'right' });
 
-  y += 42;
+  y += boxH + 10;
 
   // ── ESTADO GLOBAL DE LA RENTA ────────────────────────────────────────────────
 

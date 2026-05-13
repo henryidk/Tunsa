@@ -16,6 +16,7 @@ import {
   DevolucionEntry,
   DevolucionItemEntry,
   CargoAdicional,
+  DescuentoAplicado,
   GRACE_MS,
   calcularFechaFinEstimada,
   calcularFechaFinEstimadaConExtensiones,
@@ -563,7 +564,23 @@ export class SolicitudesService {
     const subtotalItems       = devolucionItems.reduce((s, i) => s + i.costoReal,     0);
     const subtotalRecargos    = devolucionItems.reduce((s, i) => s + i.recargoTiempo, 0);
     const subtotalAdicionales = recargosAdicionales.reduce((s, c) => s + c.monto, 0);
-    const totalLote           = subtotalItems + subtotalRecargos + subtotalAdicionales;
+    const subtotalLote        = subtotalItems + subtotalRecargos + subtotalAdicionales;
+
+    let descuentoAplicado: DescuentoAplicado | undefined;
+    if (dto.descuento) {
+      const { tipo, valor } = dto.descuento;
+      if (tipo === 'monto_fijo') {
+        if (valor >= subtotalLote)
+          throw new BadRequestException('El monto fijo de descuento debe ser menor al total calculado.');
+        descuentoAplicado = { tipo, valor, montoOriginal: subtotalLote, montoFinal: valor };
+      } else {
+        if (valor <= 0 || valor >= 100)
+          throw new BadRequestException('El porcentaje de descuento debe ser entre 0 y 100.');
+        descuentoAplicado = { tipo, valor, montoOriginal: subtotalLote, montoFinal: subtotalLote * (1 - valor / 100) };
+      }
+    }
+
+    const totalLote = descuentoAplicado?.montoFinal ?? subtotalLote;
 
     const tipoDevolucion: 'A_TIEMPO' | 'TARDIA' =
       devolucionItems.some(i => i.recargoTiempo > 0) ? 'TARDIA' : 'A_TIEMPO';
@@ -577,6 +594,7 @@ export class SolicitudesService {
       tipoDevolucion,
       items:               devolucionItems,
       recargosAdicionales,
+      descuento:           descuentoAplicado,
       totalLote,
       liquidacionKey:      null,
     };

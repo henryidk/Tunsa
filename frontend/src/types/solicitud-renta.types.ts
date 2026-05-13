@@ -32,6 +32,7 @@ export interface DevolucionEntry {
   tipoDevolucion:      'A_TIEMPO' | 'TARDIA';
   items:               DevolucionItemEntry[];
   recargosAdicionales: CargoAdicional[];
+  descuento?:          import('./descuento.types').DescuentoAplicado;
   totalLote:           number;
   liquidacionKey:      string | null;
 }

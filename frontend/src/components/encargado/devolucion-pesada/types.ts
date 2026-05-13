@@ -4,7 +4,26 @@ import { generarDias } from '../../../utils/horometro.utils';
 
 export type BloqueoRazon = 'sin-lecturas' | 'sin-fin5pm' | 'dias-incompletos';
 
-export type Paso = 1 | 2 | 3 | 4 | 'resultado';
+export type PasoKey = 'equipos' | 'cargos' | 'descuento' | 'resumen' | 'confirmar' | 'resultado';
+
+export interface PasoMeta { key: PasoKey; label: string }
+
+export function buildSecuencia(puedeDescuento: boolean): PasoMeta[] {
+  const base: PasoMeta[] = [
+    { key: 'equipos',  label: 'Equipos'  },
+    { key: 'cargos',   label: 'Cargos'   },
+    { key: 'resumen',  label: 'Resumen'  },
+    { key: 'confirmar', label: 'Confirmar' },
+  ];
+  if (!puedeDescuento) return base;
+  return [
+    { key: 'equipos',   label: 'Equipos'   },
+    { key: 'cargos',    label: 'Cargos'    },
+    { key: 'descuento', label: 'Descuento' },
+    { key: 'resumen',   label: 'Resumen'   },
+    { key: 'confirmar', label: 'Confirmar' },
+  ];
+}
 
 export interface ItemRetorno {
   equipoId:            string;

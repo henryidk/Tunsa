@@ -1,5 +1,5 @@
 import {
-  IsArray, IsOptional, IsString, IsNumber, Min, ValidateNested,
+  IsArray, IsIn, IsOptional, IsString, IsNumber, Min, ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -10,6 +10,15 @@ export class CargoAdicionalDto {
   @IsNumber()
   @Min(0)
   monto: number;
+}
+
+export class DescuentoDto {
+  @IsIn(['porcentaje', 'monto_fijo'])
+  tipo: 'porcentaje' | 'monto_fijo';
+
+  @IsNumber()
+  @Min(0)
+  valor: number;
 }
 
 /**
@@ -33,4 +42,10 @@ export class RegistrarDevolucionDto {
   @ValidateNested({ each: true })
   @Type(() => CargoAdicionalDto)
   recargosAdicionales?: CargoAdicionalDto[];
+
+  /** Descuento sobre el total del lote. Solo para clientes especiales con rol admin/secretaria. */
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => DescuentoDto)
+  descuento?: DescuentoDto;
 }

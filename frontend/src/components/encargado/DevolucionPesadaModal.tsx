@@ -3,13 +3,31 @@ import { solicitudesService, type LecturaHorometro } from '../../services/solici
 import { generarLiquidacion } from '../../utils/generarLiquidacion';
 import { ultimoDiaHorometro, localDateOf } from '../../utils/horometro.utils';
 import type { SolicitudRenta, DevolucionEntry } from '../../types/solicitud-renta.types';
-import { type ItemRetorno, type CargoRow, type Paso, getPendientes, estimarLecturasConDevolucion, calcularBloqueos } from './devolucion-pesada/types';
+import { useAuthStore, selectUserRole } from '../../store/auth.store';
+import {
+  type DescuentoFormState,
+  type DescuentoAplicado,
+  DESCUENTO_INICIAL,
+  calcularDescuento,
+  descuentoEsValido,
+} from '../../types/descuento.types';
+import {
+  type ItemRetorno,
+  type CargoRow,
+  type PasoKey,
+  type PasoMeta,
+  buildSecuencia,
+  getPendientes,
+  estimarLecturasConDevolucion,
+  calcularBloqueos,
+} from './devolucion-pesada/types';
 import PasoIndicador from './devolucion-pesada/PasoIndicador';
 import PasoEquipos   from './devolucion-pesada/PasoEquipos';
 import PasoCargos    from './devolucion-pesada/PasoCargos';
 import PasoResumen   from './devolucion-pesada/PasoResumen';
 import PasoConfirmar from './devolucion-pesada/PasoConfirmar';
 import PasoResultado from './devolucion-pesada/PasoResultado';
+import PasoDescuento from '../shared/PasoDescuento';
 
 export default function DevolucionPesadaModal({
   solicitud,
@@ -20,10 +38,18 @@ export default function DevolucionPesadaModal({
   onClose:      () => void;
   onDevolucion: (actualizada: SolicitudRenta) => void;
 }) {
-  const pendientes  = useMemo(() => getPendientes(solicitud), [solicitud]);
+  const rolNombre  = useAuthStore(selectUserRole);
+  const pendientes = useMemo(() => getPendientes(solicitud), [solicitud]);
   const esItemUnico = pendientes.length === 1;
 
-  const [paso,           setPaso]          = useState<Paso>(1);
+  const puedeDescuento = solicitud.cliente.esEspecial && (rolNombre === 'admin' || rolNombre === 'secretaria');
+
+  const secuencia: PasoMeta[] = useMemo(
+    () => buildSecuencia(puedeDescuento),
+    [puedeDescuento],
+  );
+
+  const [paso,           setPaso]          = useState<PasoKey>('equipos');
   const [guardando,      setGuardando]     = useState(false);
   const [error,          setError]         = useState<string | null>(null);
   const [resultado,      setResultado]     = useState<SolicitudRenta | null>(null);
@@ -35,6 +61,8 @@ export default function DevolucionPesadaModal({
 
   const [lecturas,       setLecturas]       = useState<LecturaHorometro[]>([]);
   const [loadingLectura, setLoadingLectura] = useState(true);
+
+  const [descuentoState, setDescuentoState] = useState<DescuentoFormState>(DESCUENTO_INICIAL);
 
   useEffect(() => {
     solicitudesService.getLecturas(solicitud.id)
@@ -89,7 +117,6 @@ export default function DevolucionPesadaModal({
     [lecturas, seleccionados, fechaInicioStr, ultimoDiaObligatorio],
   );
 
-  // Último horometroFin5pm registrado por equipo — el horometroDevolucion no puede ser menor a este valor
   const minHorometroDevolucion = useMemo(() => {
     const map = new Map<string, number>();
     for (const it of items) {
@@ -110,13 +137,14 @@ export default function DevolucionPesadaModal({
       const min = minHorometroDevolucion.get(it.equipoId);
       return min == null || val >= min;
     });
+
   const cargosValidos  = !hayCargos ? [] : cargos.filter(c => c.descripcion.trim() !== '' && c.monto !== '' && (c.monto as number) > 0);
   const cargosConError = hayCargos && cargos.some(c => {
     const tieneDescripcion = c.descripcion.trim() !== '';
     const tieneMonto       = c.monto !== '' && Number(c.monto) > 0;
     return tieneDescripcion !== tieneMonto;
   });
-  const totalCargosAd  = cargosValidos.reduce((s, c) => s + (c.monto as number), 0);
+  const totalCargosAd = cargosValidos.reduce((s, c) => s + (c.monto as number), 0);
 
   const costoAcumPorEquipo = useMemo(() => {
     const map = new Map<string, number>();
@@ -126,7 +154,6 @@ export default function DevolucionPesadaModal({
 
   const costoAcumTotal = seleccionados.reduce((s, it) => s + (costoAcumPorEquipo.get(it.equipoId) ?? 0), 0);
 
-  // Costo estimado incluyendo el efecto del horometroDevolucion de cada equipo seleccionado
   const costoEstimadoPorEquipo = useMemo(() => {
     const sel = items.filter(it => it.seleccionado);
     const estimadas = estimarLecturasConDevolucion(lecturas, sel);
@@ -136,49 +163,72 @@ export default function DevolucionPesadaModal({
   }, [lecturas, items]);
 
   const costoEstimadoTotal = seleccionados.reduce((s, it) => s + (costoEstimadoPorEquipo.get(it.equipoId) ?? 0), 0);
+  const montoBaseDescuento = costoEstimadoTotal + totalCargosAd;
 
-  const irSiguiente = () => {
-    if (paso === 1 && !paso1Valido)    return;
-    if (paso === 2 && cargosConError)  return;
+  const pasoIdx     = secuencia.findIndex(p => p.key === paso);
+  const siguienteKey = pasoIdx >= 0 && pasoIdx < secuencia.length - 1 ? secuencia[pasoIdx + 1].key : null;
+  const anteriorKey  = pasoIdx > 0 ? secuencia[pasoIdx - 1].key : null;
 
-    if (paso === 2) {
-      setGenerandoPdf(true);
-      setPdfBlobUrl(null);
-      setPdfError(false);
+  const generarPdf = (descuentoAplicado: DescuentoAplicado | null) => {
+    setGenerandoPdf(true);
+    setPdfBlobUrl(null);
+    setPdfError(false);
 
-      const lecturasEstimadas = estimarLecturasConDevolucion(lecturas, seleccionados);
+    const lecturasEstimadas = estimarLecturasConDevolucion(lecturas, seleccionados);
+    const totalBase         = costoEstimadoTotal + totalCargosAd;
 
-      const devolucionPrevia: DevolucionEntry = {
-        fechaDevolucion:     new Date().toISOString(),
-        registradoPor:       '—',
-        esParcial:           seleccionados.length < pendientes.length,
-        tipoDevolucion:      'A_TIEMPO',
-        items:               seleccionados.map(it => ({
-          itemRef:       it.equipoId,
-          kind:          'pesada' as const,
-          diasCobrados:  0,
-          costoReal:     costoEstimadoPorEquipo.get(it.equipoId) ?? 0,
-          recargoTiempo: 0,
-        })),
-        recargosAdicionales: cargosValidos.map(c => ({ descripcion: c.descripcion, monto: c.monto as number })),
-        totalLote:           costoEstimadoTotal + totalCargosAd,
-        liquidacionKey:      null,
-      };
-      generarLiquidacion(solicitud, devolucionPrevia, lecturasEstimadas)
-        .then(blob => setPdfBlobUrl(URL.createObjectURL(blob)))
-        .catch(() => setPdfError(true))
-        .finally(() => setGenerandoPdf(false));
-    }
-
-    setPaso(p => (p as number) + 1 as Paso);
+    const devolucionPrevia: DevolucionEntry = {
+      fechaDevolucion:     new Date().toISOString(),
+      registradoPor:       '—',
+      esParcial:           seleccionados.length < pendientes.length,
+      tipoDevolucion:      'A_TIEMPO',
+      items:               seleccionados.map(it => ({
+        itemRef:       it.equipoId,
+        kind:          'pesada' as const,
+        diasCobrados:  0,
+        costoReal:     costoEstimadoPorEquipo.get(it.equipoId) ?? 0,
+        recargoTiempo: 0,
+      })),
+      recargosAdicionales: cargosValidos.map(c => ({ descripcion: c.descripcion, monto: c.monto as number })),
+      descuento:           descuentoAplicado ?? undefined,
+      totalLote:           descuentoAplicado ? descuentoAplicado.montoFinal : totalBase,
+      liquidacionKey:      null,
+    };
+    generarLiquidacion(solicitud, devolucionPrevia, lecturasEstimadas)
+      .then(blob => setPdfBlobUrl(URL.createObjectURL(blob)))
+      .catch(() => setPdfError(true))
+      .finally(() => setGenerandoPdf(false));
   };
 
-  const irAtras = () => setPaso(p => (p as number) - 1 as Paso);
+  const irSiguiente = () => {
+    if (paso === 'equipos' && !paso1Valido)   return;
+    if (paso === 'cargos'  && cargosConError)  return;
+    if (paso === 'descuento' && !descuentoEsValido(descuentoState, montoBaseDescuento)) return;
+
+    if (paso === 'cargos') {
+      if (siguienteKey !== 'descuento') {
+        generarPdf(null);
+      }
+    }
+
+    if (paso === 'descuento') {
+      const descuentoAplicado = calcularDescuento(descuentoState, montoBaseDescuento);
+      generarPdf(descuentoAplicado);
+    }
+
+    if (siguienteKey) setPaso(siguienteKey);
+  };
+
+  const irAtras = () => { if (anteriorKey) setPaso(anteriorKey); };
 
   const handleConfirmar = async () => {
     setError(null);
     setGuardando(true);
     try {
+      const descuentoPayload = descuentoState.aplicar && puedeDescuento
+        ? calcularDescuento(descuentoState, montoBaseDescuento)
+        : null;
+
       const actualizada = await solicitudesService.registrarDevolucionPesada(solicitud.id, {
         items: seleccionados.map(it => ({
           equipoId:            it.equipoId,
@@ -187,10 +237,13 @@ export default function DevolucionPesadaModal({
         recargosAdicionales: cargosValidos.length > 0
           ? cargosValidos.map(c => ({ descripcion: c.descripcion.trim(), monto: c.monto as number }))
           : undefined,
+        descuento: descuentoPayload
+          ? { tipo: descuentoPayload.tipo, valor: descuentoPayload.valor }
+          : undefined,
       });
 
       let url: string | null = null;
-      const devs      = actualizada.devolucionesParciales ?? [];
+      const devs       = actualizada.devolucionesParciales ?? [];
       const devolucion = devs[devs.length - 1] as DevolucionEntry | undefined;
       if (devolucion) {
         try {
@@ -214,6 +267,11 @@ export default function DevolucionPesadaModal({
       setGuardando(false);
     }
   };
+
+  const descuentoAplicado: DescuentoAplicado | null = useMemo(
+    () => (puedeDescuento ? calcularDescuento(descuentoState, montoBaseDescuento) : null),
+    [puedeDescuento, descuentoState, montoBaseDescuento],
+  );
 
   return (
     <div
@@ -241,11 +299,11 @@ export default function DevolucionPesadaModal({
           )}
         </div>
 
-        {paso !== 'resultado' && <PasoIndicador paso={paso} />}
+        {paso !== 'resultado' && <PasoIndicador secuencia={secuencia} pasoActual={paso} />}
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-6 py-4">
-          {paso === 1 && (
+          {paso === 'equipos' && (
             <PasoEquipos
               items={items}
               esItemUnico={esItemUnico}
@@ -257,7 +315,7 @@ export default function DevolucionPesadaModal({
               onHorometro={setHorometro}
             />
           )}
-          {paso === 2 && (
+          {paso === 'cargos' && (
             <PasoCargos
               hayCargos={hayCargos}
               onToggle={() => setHayCargos(p => !p)}
@@ -268,7 +326,15 @@ export default function DevolucionPesadaModal({
               onActualizar={actualizarCargo}
             />
           )}
-          {paso === 3 && (
+          {paso === 'descuento' && (
+            <PasoDescuento
+              montoBase={montoBaseDescuento}
+              loadingMonto={loadingLectura}
+              estado={descuentoState}
+              onChange={setDescuentoState}
+            />
+          )}
+          {paso === 'resumen' && (
             <PasoResumen
               solicitud={solicitud}
               seleccionados={seleccionados}
@@ -276,17 +342,19 @@ export default function DevolucionPesadaModal({
               costoAcumPorEquipo={costoAcumPorEquipo}
               costoEstimadoTotal={costoEstimadoTotal}
               totalCargosAd={totalCargosAd}
+              descuento={descuentoAplicado ?? undefined}
               loadingLectura={loadingLectura}
               generandoPdf={generandoPdf}
               pdfBlobUrl={pdfBlobUrl}
               pdfError={pdfError}
             />
           )}
-          {paso === 4 && (
+          {paso === 'confirmar' && (
             <PasoConfirmar
               seleccionados={seleccionados}
               cargosValidos={cargosValidos}
               totalCargosAd={totalCargosAd}
+              descuento={descuentoAplicado ?? undefined}
             />
           )}
           {paso === 'resultado' && resultado && (
@@ -307,7 +375,7 @@ export default function DevolucionPesadaModal({
             </button>
           ) : (
             <div className="flex items-center justify-between gap-3">
-              {paso > 1 ? (
+              {anteriorKey ? (
                 <button
                   onClick={irAtras}
                   disabled={guardando}
@@ -324,10 +392,14 @@ export default function DevolucionPesadaModal({
                 </button>
               )}
 
-              {paso < 4 ? (
+              {paso !== 'confirmar' ? (
                 <button
                   onClick={irSiguiente}
-                  disabled={(paso === 1 && !paso1Valido) || (paso === 2 && cargosConError)}
+                  disabled={
+                    (paso === 'equipos'   && !paso1Valido) ||
+                    (paso === 'cargos'    && cargosConError) ||
+                    (paso === 'descuento' && !descuentoEsValido(descuentoState, montoBaseDescuento))
+                  }
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-sm font-semibold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Siguiente

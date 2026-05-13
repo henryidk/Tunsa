@@ -1,6 +1,7 @@
 import { api } from './auth.service';
 import type { SolicitudRenta, UnidadDuracion } from '../types/solicitud-renta.types';
 import type { ItemSnapshot, ModalidadPago } from '../types/solicitud-renta.types';
+import type { TipoDescuento } from '../types/descuento.types';
 
 export interface ExtensionItemPayload {
   itemRef:  string;
@@ -167,6 +168,7 @@ export const solicitudesService = {
     data?: {
       itemRefs?:             string[];
       recargosAdicionales?:  { descripcion: string; monto: number }[];
+      descuento?:            { tipo: TipoDescuento; valor: number };
     },
   ): Promise<SolicitudRenta> {
     const res = await api.patch<SolicitudRenta>(
@@ -247,6 +249,7 @@ export const solicitudesService = {
     data: {
       items?: { equipoId: string; horometroDevolucion: number }[];
       recargosAdicionales?: { descripcion: string; monto: number }[];
+      descuento?:           { tipo: TipoDescuento; valor: number };
     },
   ): Promise<SolicitudRenta> {
     const res = await api.patch<SolicitudRenta>(

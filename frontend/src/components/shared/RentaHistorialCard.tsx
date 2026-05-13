@@ -159,6 +159,19 @@ function LoteRow({
         </div>
       )}
 
+      {lote.descuento && (
+        <div className="flex items-center justify-between mb-3 pl-3 border-l-2 border-indigo-200 text-xs">
+          <span className="text-indigo-600 font-medium">
+            Descuento{lote.descuento.tipo === 'porcentaje'
+              ? ` (${lote.descuento.valor}%)`
+              : ' (monto fijo)'}
+          </span>
+          <span className="text-indigo-600 font-medium">
+            − {formatQ(lote.descuento.montoOriginal - lote.descuento.montoFinal)}
+          </span>
+        </div>
+      )}
+
       <div className="flex items-center justify-between pt-2 border-t border-slate-100">
         <span className="text-xs font-bold text-slate-700">
           Total lote: <span className="font-mono">{formatQ(lote.totalLote)}</span>

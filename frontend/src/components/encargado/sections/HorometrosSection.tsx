@@ -24,6 +24,7 @@ const fetchSolicitudesEncargado = () =>
 export interface HorometrosSectionProps {
   initialSolicitudId?: string;
   fetchSolicitudes?:   () => Promise<SolicitudRenta[]>;
+  onNavTo?:            (section: string, state?: { solicitudId?: string; folio?: string }) => void;
 }
 
 const MESES = [
@@ -31,7 +32,7 @@ const MESES = [
   'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre',
 ];
 
-export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes }: HorometrosSectionProps) {
+export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes, onNavTo }: HorometrosSectionProps) {
   const hoy = today();
   const [solicitudes,   setSolicitudes]   = useState<SolicitudRenta[]>([]);
   const [lecturasMap,   setLecturasMap]   = useState<Record<string, LecturaHorometro[]>>({});
@@ -845,15 +846,23 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
         </div>
       ) : (
         <div className="space-y-4">
-          {solicitudesFiltradas.map(s => (
-            <HorometroRentaCard
-              key={s.id}
-              solicitud={s}
-              lecturas={lecturasMap[s.id] ?? null}
-              onVerDetalle={() => setSelectedId(s.id)}
-              onRegistrar={() => setSelectedId(s.id)}
-            />
-          ))}
+          {solicitudesFiltradas.map(s => {
+            const seccionDestino = (() => {
+              const esVencida = !!s.fechaFinEstimada && s.fechaFinEstimada.substring(0, 10) < hoy;
+              if (!esVencida) return 'rentas-activas';
+              return modoEncargado ? 'vencidas' : 'rentas-vencidas';
+            })();
+            return (
+              <HorometroRentaCard
+                key={s.id}
+                solicitud={s}
+                lecturas={lecturasMap[s.id] ?? null}
+                onVerDetalle={() => setSelectedId(s.id)}
+                onRegistrar={() => setSelectedId(s.id)}
+                onVerRenta={onNavTo ? () => onNavTo(seccionDestino, { folio: s.folio }) : undefined}
+              />
+            );
+          })}
         </div>
       )}
     </div>

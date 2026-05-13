@@ -101,10 +101,10 @@ export function validarInicioHorometro(
 ): { titulo: string; mensaje: string } | null {
   const fmt = (n: number) => n.toLocaleString('es-GT', { minimumFractionDigits: 1 });
 
-  if (isFirstReading && horometroInicial != null && valorNum <= horometroInicial) {
+  if (isFirstReading && horometroInicial != null && valorNum < horometroInicial) {
     return {
       titulo:  'Horómetro inválido',
-      mensaje: `El primer registro de inicio (${fmt(valorNum)} hrs) debe ser mayor al horómetro de entrega (${fmt(horometroInicial)} hrs).`,
+      mensaje: `El primer registro de inicio (${fmt(valorNum)} hrs) no puede ser menor al horómetro de entrega (${fmt(horometroInicial)} hrs).`,
     };
   }
 

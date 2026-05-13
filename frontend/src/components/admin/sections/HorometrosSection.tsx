@@ -5,9 +5,10 @@ import type { SolicitudRenta } from '../../../types/solicitud-renta.types';
 
 interface Props {
   initialSolicitudId?: string;
+  onNavTo?:            (section: string, state?: { solicitudId?: string; folio?: string }) => void;
 }
 
-export default function HorometrosSection({ initialSolicitudId }: Props) {
+export default function HorometrosSection({ initialSolicitudId, onNavTo }: Props) {
   const fetchSolicitudes = useCallback(
     (): Promise<SolicitudRenta[]> =>
       Promise.all([
@@ -24,6 +25,7 @@ export default function HorometrosSection({ initialSolicitudId }: Props) {
     <EncargadoHorometrosSection
       initialSolicitudId={initialSolicitudId}
       fetchSolicitudes={fetchSolicitudes}
+      onNavTo={onNavTo}
     />
   );
 }

@@ -13,9 +13,10 @@ interface Props {
   lecturas:     LecturaHorometro[] | null; // null = cargando
   onVerDetalle: () => void;
   onRegistrar:  () => void;
+  onVerRenta?:  () => void;
 }
 
-export default function HorometroRentaCard({ solicitud, lecturas, onVerDetalle, onRegistrar }: Props) {
+export default function HorometroRentaCard({ solicitud, lecturas, onVerDetalle, onRegistrar, onVerRenta }: Props) {
   const hoy         = today();
   const pesadaItems = (solicitud.items as ItemSnapshot[]).filter(
     (i): i is PesadaItem => i.kind === 'pesada',
@@ -186,21 +187,34 @@ export default function HorometroRentaCard({ solicitud, lecturas, onVerDetalle, 
           Ver historial →
         </button>
 
-        {ctaLabel ? (
-          <button
-            onClick={onRegistrar}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold transition-colors"
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-            </svg>
-            {ctaLabel}
-          </button>
-        ) : (
-          <span className="text-xs text-emerald-600 font-semibold">
-            {esVencida ? 'Lecturas completas ✓' : 'Completo hoy ✓'}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {onVerRenta && (
+            <button
+              onClick={onVerRenta}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-600 transition-colors"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 17h3v3M17 14h3v3M14 14h3"/>
+              </svg>
+              Ver renta
+            </button>
+          )}
+          {ctaLabel ? (
+            <button
+              onClick={onRegistrar}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold transition-colors"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              {ctaLabel}
+            </button>
+          ) : (
+            <span className="text-xs text-emerald-600 font-semibold">
+              {esVencida ? 'Lecturas completas ✓' : 'Completo hoy ✓'}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

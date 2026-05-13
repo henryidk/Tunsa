@@ -135,7 +135,7 @@ export default function AdminDashboard() {
             <DisponibilidadFlotaSection onNavTo={navTo} sectionActivas="rentas-activas" sectionVencidas="rentas-vencidas" />
           )}
           {activeSection === 'horometros' && (
-            <HorometrosSection initialSolicitudId={navSolicitudId} />
+            <HorometrosSection initialSolicitudId={navSolicitudId} onNavTo={navTo} />
           )}
           {activeSection === 'equipos' && (
             <EquiposSection onShowToast={showToast} />

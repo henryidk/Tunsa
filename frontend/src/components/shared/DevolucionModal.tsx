@@ -128,8 +128,12 @@ export default function DevolucionModal({
   const itemsADevolver      = itemsPendientes.filter(item => seleccionados.has(itemRef(item)));
   const esDevolcionCompleta = seleccionados.size === itemsPendientes.length;
 
-  const cargosValidos   = !hayCargos ? [] : cargosAdicionales.filter(c => c.descripcion.trim() !== '' && c.monto !== '' && c.monto > 0);
-  const cargosConError  = hayCargos && cargosAdicionales.some(c => c.descripcion.trim() === '' && c.monto !== '');
+  const cargosValidos  = !hayCargos ? [] : cargosAdicionales.filter(c => c.descripcion.trim() !== '' && c.monto !== '' && c.monto > 0);
+  const cargosConError = hayCargos && cargosAdicionales.some(c => {
+    const tieneDescripcion = c.descripcion.trim() !== '';
+    const tieneMonto       = c.monto !== '' && Number(c.monto) > 0;
+    return tieneDescripcion !== tieneMonto;
+  });
   const totalCargosAd   = cargosValidos.reduce((s, c) => s + (c.monto as number), 0);
   const subtotalItems   = itemsADevolver.reduce((s, item) => s + (item.kind !== 'pesada' ? item.subtotal : 0), 0);
 
@@ -303,11 +307,32 @@ export default function DevolucionModal({
                     <div key={idx} className="flex items-end gap-2">
                       <div className="flex-1">
                         <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-1">Descripción</label>
-                        <input type="text" value={cargo.descripcion} onChange={e => actualizarCargo(idx, 'descripcion', e.target.value)} placeholder="Ej: Daño en panel lateral" className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400 placeholder-slate-300" />
+                        <input
+                          type="text"
+                          value={cargo.descripcion}
+                          onChange={e => actualizarCargo(idx, 'descripcion', e.target.value)}
+                          placeholder="Ej: Daño en panel lateral"
+                          className={`w-full border rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 placeholder-slate-300 ${
+                            cargo.descripcion.trim() === '' && cargo.monto !== '' && Number(cargo.monto) > 0
+                              ? 'border-red-300 focus:ring-red-200 focus:border-red-400'
+                              : 'border-slate-300 focus:ring-slate-400'
+                          }`}
+                        />
                       </div>
                       <div className="w-28">
                         <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-1">Monto (Q)</label>
-                        <input type="text" inputMode="decimal" value={cargo.monto} onChange={e => actualizarCargo(idx, 'monto', e.target.value)} placeholder="0.00" className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400" />
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={cargo.monto}
+                          onChange={e => actualizarCargo(idx, 'monto', e.target.value)}
+                          placeholder="0.00"
+                          className={`w-full border rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 ${
+                            cargo.descripcion.trim() !== '' && (cargo.monto === '' || Number(cargo.monto) <= 0)
+                              ? 'border-red-300 focus:ring-red-200 focus:border-red-400'
+                              : 'border-slate-300 focus:ring-slate-400'
+                          }`}
+                        />
                       </div>
                       {cargosAdicionales.length > 1 && (
                         <button onClick={() => eliminarCargo(idx)} className="mb-0.5 p-1.5 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors">

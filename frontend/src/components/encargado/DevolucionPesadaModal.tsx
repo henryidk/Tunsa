@@ -111,7 +111,11 @@ export default function DevolucionPesadaModal({
       return min == null || val >= min;
     });
   const cargosValidos  = !hayCargos ? [] : cargos.filter(c => c.descripcion.trim() !== '' && c.monto !== '' && (c.monto as number) > 0);
-  const cargosConError = hayCargos && cargos.some(c => c.descripcion.trim() === '' && c.monto !== '');
+  const cargosConError = hayCargos && cargos.some(c => {
+    const tieneDescripcion = c.descripcion.trim() !== '';
+    const tieneMonto       = c.monto !== '' && Number(c.monto) > 0;
+    return tieneDescripcion !== tieneMonto;
+  });
   const totalCargosAd  = cargosValidos.reduce((s, c) => s + (c.monto as number), 0);
 
   const costoAcumPorEquipo = useMemo(() => {

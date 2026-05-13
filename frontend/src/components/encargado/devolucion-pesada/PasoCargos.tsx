@@ -30,7 +30,12 @@ export default function PasoCargos({ hayCargos, onToggle, cargos, totalCargosAd,
       </label>
       {hayCargos && (
         <div className="space-y-3">
-          {cargos.map((cargo, idx) => (
+          {cargos.map((cargo, idx) => {
+            const tieneDescripcion = cargo.descripcion.trim() !== '';
+            const tieneMonto       = cargo.monto !== '' && Number(cargo.monto) > 0;
+            const faltaDescripcion = tieneMonto && !tieneDescripcion;
+            const faltaMonto       = tieneDescripcion && !tieneMonto;
+            return (
             <div key={idx} className="flex items-end gap-2">
               <div className="flex-1">
                 <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-1">Descripción</label>
@@ -39,7 +44,11 @@ export default function PasoCargos({ hayCargos, onToggle, cargos, totalCargosAd,
                   value={cargo.descripcion}
                   onChange={e => onActualizar(idx, 'descripcion', e.target.value)}
                   placeholder="Ej: Daño en panel lateral"
-                  className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400 placeholder-slate-300"
+                  className={`w-full border rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 placeholder-slate-300 ${
+                    faltaDescripcion
+                      ? 'border-red-300 focus:ring-red-200 focus:border-red-400'
+                      : 'border-slate-300 focus:ring-slate-400'
+                  }`}
                 />
               </div>
               <div className="w-28">
@@ -50,7 +59,11 @@ export default function PasoCargos({ hayCargos, onToggle, cargos, totalCargosAd,
                   value={cargo.monto}
                   onChange={e => onActualizar(idx, 'monto', e.target.value)}
                   placeholder="0.00"
-                  className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400"
+                  className={`w-full border rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 ${
+                    faltaMonto
+                      ? 'border-red-300 focus:ring-red-200 focus:border-red-400'
+                      : 'border-slate-300 focus:ring-slate-400'
+                  }`}
                 />
               </div>
               {cargos.length > 1 && (
@@ -65,7 +78,8 @@ export default function PasoCargos({ hayCargos, onToggle, cargos, totalCargosAd,
                 </button>
               )}
             </div>
-          ))}
+            );
+          })}
           <button
             onClick={onAgregar}
             className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors"

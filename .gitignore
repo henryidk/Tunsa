@@ -24,6 +24,7 @@ build/
 
 # Archivos locales de trabajo (capturas, documentos, etc.)
 varios/
+documentacionF/
 
 # OS
 .DS_Store
@@ -36,3 +37,6 @@ Thumbs.db
 # Logs
 logs/
 *.log
+
+
+CLAUDE.md

@@ -117,10 +117,11 @@ export function calcularRecargoActual(
   extensiones: ExtensionEntry[],
 ): number {
   return items.reduce((suma, item) => {
-    const tarifa = (item as { tarifa?: number | null }).tarifa ?? null;
+    const tarifa   = (item as { tarifa?: number | null }).tarifa ?? null;
     if (tarifa === null) return suma;
-    const fin = calcularFinConExtensiones(inicio, item, extensiones);
-    return suma + calcularRecargoItem(tarifa, fin, ahora);
+    const cantidad = item.kind === 'granel' ? item.cantidad : 1;
+    const fin      = calcularFinConExtensiones(inicio, item, extensiones);
+    return suma + calcularRecargoItem(tarifa, fin, ahora) * cantidad;
   }, 0);
 }
 

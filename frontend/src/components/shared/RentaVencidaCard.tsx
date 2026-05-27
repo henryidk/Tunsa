@@ -234,7 +234,7 @@ function GranelRow({ item, inicio, extensiones, ahoraRecargo }: {
 }) {
   const fin     = calcularFinConExtensiones(inicio, item, extensiones);
   const tarifa  = (item as { tarifa?: number | null }).tarifa ?? 0;
-  const itemRec = calcularRecargoItem(tarifa, fin, ahoraRecargo);
+  const itemRec = calcularRecargoItem(tarifa, fin, ahoraRecargo) * item.cantidad;
   return (
     <div className="flex items-start justify-between gap-2 py-1.5 border-b border-slate-100 last:border-0">
       <p className="text-xs font-medium text-slate-700 leading-tight">

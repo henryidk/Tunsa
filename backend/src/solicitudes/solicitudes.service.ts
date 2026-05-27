@@ -91,7 +91,7 @@ export class SolicitudesService {
     const finEfectivo = calcularFinItemConExtensiones(fechaInicio, item, extsItem);
 
     const recargoTiempo = item.tarifa != null
-      ? calcularRecargoItem(item.tarifa, finEfectivo, fechaDevolucion)
+      ? calcularRecargoItem(item.tarifa, finEfectivo, fechaDevolucion) * (item.cantidad ?? 1)
       : 0;
 
     const precios = ref

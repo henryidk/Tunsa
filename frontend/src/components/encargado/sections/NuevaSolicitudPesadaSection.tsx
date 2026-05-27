@@ -166,33 +166,20 @@ export default function NuevaSolicitudPesadaSection({ onShowToast = () => {} }: 
           <SectionCard
             icon={<CraneIcon />}
             title="Maquinaria Pesada"
-            subtitle="Selecciona equipos y configura los días y complementos"
+            subtitle="Un equipo por solicitud · Facturación por horómetro"
             locked={!cliente}
           >
-            <PesadaPickerForm
-              disponibles={pesadaDisponibles}
-              isLoading={isLoadingEqs}
-              onAdd={item => setItems(prev => [...prev, item])}
-            />
-
-            {items.length > 0 && (
-              <>
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="flex-1 border-t border-slate-200" />
-                  <span className="text-xs text-slate-400 font-medium">En solicitud ({items.length})</span>
-                  <div className="flex-1 border-t border-slate-200" />
-                </div>
-                <div className="space-y-3">
-                  {items.map(it => (
-                    <ItemRow
-                      key={it.equipo.id}
-                      item={it}
-                      onChange={changes => updateItem(it.equipo.id, changes)}
-                      onRemove={() => removeEquipo(it.equipo.id)}
-                    />
-                  ))}
-                </div>
-              </>
+            {items.length === 0 ? (
+              <PesadaPickerForm
+                disponibles={pesadaDisponibles}
+                isLoading={isLoadingEqs}
+                onAdd={item => setItems([item])}
+              />
+            ) : (
+              <EquipoAgregado
+                item={items[0]}
+                onQuitar={() => removeEquipo(items[0].equipo.id)}
+              />
             )}
           </SectionCard>
 
@@ -319,6 +306,54 @@ function ItemRow({ item, onChange, onRemove }: ItemRowProps) {
   );
 }
 
+// ── EquipoAgregado ────────────────────────────────────────────────────────────
+
+function EquipoAgregado({ item, onQuitar }: { item: PesadaItem; onQuitar: () => void }) {
+  const tarifa = calcTarifa(item.equipo, item.extrasSeleccionados);
+  return (
+    <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="text-emerald-600">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+          </div>
+          <span className="text-[11px] font-semibold text-emerald-700 uppercase tracking-wide">Equipo en solicitud</span>
+        </div>
+        <button
+          onClick={onQuitar}
+          className="flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 hover:text-red-500 text-slate-400 text-[11px] font-medium transition-colors flex-shrink-0"
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+          Quitar
+        </button>
+      </div>
+
+      <div className="mt-3 space-y-1">
+        <p className="text-sm font-semibold text-slate-800">
+          <span className="font-mono text-xs text-slate-400 mr-1.5">#{item.equipo.numeracion}</span>
+          {item.equipo.descripcion}
+        </p>
+        <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-slate-500">
+          <span>{unidadLabel(item.duracion, item.unidad)} estimados</span>
+          <span>Inicio: {item.fechaInicio}</span>
+          {item.extrasSeleccionados.length > 0 && (
+            <span className="text-amber-600 font-medium">
+              {item.extrasSeleccionados.map(e => `+ ${e.nombre}`).join(' · ')}
+            </span>
+          )}
+        </div>
+        <p className="text-xs font-semibold text-amber-700 mt-0.5">
+          {formatQ(tarifa)}/hr · facturado por horómetro real
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ── PesadaResumen ─────────────────────────────────────────────────────────────
 
 interface PesadaResumenProps {
@@ -363,36 +398,33 @@ function PesadaResumen({ cliente, items, canEnviar, isSubmitting, onEnviar, onCa
         </div>
 
         <div className="px-5 py-3 border-b border-slate-100 max-h-52 overflow-y-auto">
-          <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Equipos ({items.length})</div>
+          <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Equipo asignado</div>
           {items.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-6 gap-1.5 text-slate-300">
               <CraneIcon />
-              <p className="text-xs text-center">Sin equipos añadidos</p>
+              <p className="text-xs text-center">Sin equipo seleccionado</p>
             </div>
-          ) : (
-            <div className="space-y-2">
-              {items.map(it => {
-                const tarifa = calcTarifa(it.equipo, it.extrasSeleccionados);
-                return (
-                  <div key={it.equipo.id} className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-slate-700 truncate">
-                        <span className="font-mono text-[10px] text-slate-400">#{it.equipo.numeracion} </span>
-                        {it.equipo.descripcion}
-                      </p>
-                      <p className="text-[10px] text-slate-400">
-                        {unidadLabel(it.duracion, it.unidad)}
-                        {it.extrasSeleccionados.map(e => ` · ${e.nombre}`)}
-                      </p>
-                    </div>
-                    <span className="text-xs font-mono font-semibold text-amber-700 flex-shrink-0 whitespace-nowrap">
-                      {formatQ(tarifa)}/hr
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          ) : (() => {
+            const it     = items[0];
+            const tarifa = calcTarifa(it.equipo, it.extrasSeleccionados);
+            return (
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-slate-700 truncate">
+                    <span className="font-mono text-[10px] text-slate-400">#{it.equipo.numeracion} </span>
+                    {it.equipo.descripcion}
+                  </p>
+                  <p className="text-[10px] text-slate-400">
+                    {unidadLabel(it.duracion, it.unidad)}
+                    {it.extrasSeleccionados.map(e => ` · ${e.nombre}`)}
+                  </p>
+                </div>
+                <span className="text-xs font-mono font-semibold text-amber-700 flex-shrink-0 whitespace-nowrap">
+                  {formatQ(tarifa)}/hr
+                </span>
+              </div>
+            );
+          })()}
         </div>
 
         <div className="px-5 py-4 bg-slate-50">

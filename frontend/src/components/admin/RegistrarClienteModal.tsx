@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import type { ChangeEvent, MouseEvent, DragEvent } from 'react';
+import type { ChangeEvent, DragEvent } from 'react';
 import { clientesService } from '../../services/clientes.service';
 import type { Cliente } from '../../services/clientes.service';
 import { formatDpi, formatTelefono } from '../../utils/clientes.utils';
@@ -70,10 +70,6 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
 
   const dpiDigits      = form.dpi.replace(/\D/g, '').length;
   const telefonoDigits = form.telefono.replace(/\D/g, '').length;
-
-  const handleOverlayClick = (e: MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget && !isSaving && !isChecking) handleClose();
-  };
 
   const handleSaveWithoutDoc = () => registrarCliente(false);
 
@@ -203,7 +199,6 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
   return (
     <div
       className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/45 backdrop-blur-sm"
-      onClick={handleOverlayClick}
     >
       <div className="bg-white rounded-2xl w-full max-w-[480px] shadow-2xl flex flex-col">
 

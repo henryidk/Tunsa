@@ -175,6 +175,7 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
   };
 
   const handleSave = async () => {
+    if (!file && !form.esEspecial) { setApiError('La documentación es obligatoria para clientes normales.'); return; }
     if (!file) { setConfirmSinDoc(true); return; }
     await registrarCliente(true);
   };

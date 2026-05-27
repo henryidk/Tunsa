@@ -194,7 +194,7 @@ export class EquiposService {
         descripcion: dto.descripcion,
         serie:       dto.serie       || null,
         fechaCompra: new Date(dto.fechaCompra),
-        montoCompra: dto.montoCompra,
+        montoCompra: dto.montoCompra ?? null,
         tipoId:      dto.tipoId,
         categoriaId: dto.categoriaId ?? null,
         ...precios,

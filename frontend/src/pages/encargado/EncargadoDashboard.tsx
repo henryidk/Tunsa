@@ -1,6 +1,6 @@
 // EncargadoDashboard.tsx — layout principal del encargado de máquinas
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useAuthStore } from '../../store/auth.store';
 import { useNotificationSound } from '../../hooks/useNotificationSound';
 import { useEncargadoSocket } from '../../hooks/useEncargadoSocket';
@@ -48,6 +48,14 @@ export default function EncargadoDashboard() {
   const [activeSection,    setActiveSection]    = useState<Section>('dashboard');
   const [navState,         setNavState]         = useState<NavState>({});
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const togglingRef = useRef(false);
+
+  const handleToggle = useCallback(() => {
+    if (togglingRef.current) return;
+    togglingRef.current = true;
+    setSidebarCollapsed(c => !c);
+    setTimeout(() => { togglingRef.current = false; }, 220);
+  }, []);
   const [toast,            setToast]            = useState<ToastState>({ visible: false, type: 'success', title: '', msg: '' });
   const [horometrosKey,    setHorometrosKey]    = useState(0);
 
@@ -59,7 +67,7 @@ export default function EncargadoDashboard() {
 
   const showToast = useCallback((type: ToastType, title: string, msg: string) => {
     setToast({ visible: true, type, title, msg });
-    setTimeout(() => setToast(t => ({ ...t, visible: false })), 3500);
+    setTimeout(() => setToast(t => ({ ...t, visible: false })), 5000);
   }, []);
 
   const { playSound } = useNotificationSound();
@@ -102,13 +110,13 @@ export default function EncargadoDashboard() {
         activeSection={activeSection}
         onNavTo={navTo}
         collapsed={sidebarCollapsed}
-        onToggle={() => setSidebarCollapsed(c => !c)}
+        onToggle={handleToggle}
         onLogout={logout}
         user={user}
       />
 
       <div
-        className={`flex flex-col flex-1 min-w-0 transition-all duration-300 ${
+        className={`flex flex-col flex-1 min-w-0 transition-[margin-left] duration-200 ease-out ${
           sidebarCollapsed ? 'ml-16' : 'ml-60'
         }`}
       >

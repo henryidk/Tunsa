@@ -48,10 +48,11 @@ export class CreateEquipoDto {
   @IsDateString({}, { message: 'La fecha de compra debe ser una fecha válida' })
   fechaCompra: string;
 
+  @IsOptional()
   @IsNumber({}, { message: 'El monto de compra debe ser un número' })
   @Min(0, { message: 'El monto de compra no puede ser negativo' })
   @Type(() => Number)
-  montoCompra: number;
+  montoCompra?: number;
 
   @IsOptional()
   @IsNumber()

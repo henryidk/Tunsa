@@ -1,7 +1,8 @@
 // Sidebar.tsx — sidebar colapsable con navegación
 
-import type { ReactNode } from 'react';
+import { memo, type ReactNode } from 'react';
 import type { Usuario } from '../../types/auth.types';
+import logoTunsa from '../../assets/logo-tunsa.png';
 
 interface NavItem {
   id: string;
@@ -29,18 +30,6 @@ const rolLabels: Record<string, string> = {
   secretaria: 'Secretaria',
   encargado_maquinas: 'Enc. de Máquinas',
 };
-
-const ChevronLeft = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M15 18l-6-6 6-6" />
-  </svg>
-);
-
-const ChevronRight = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M9 18l6-6-6-6" />
-  </svg>
-);
 
 const LogoutIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -203,7 +192,7 @@ const BADGE_STYLES: Record<string, string> = {
   'horometros':         'bg-red-100 text-red-700',
 };
 
-export default function Sidebar({ activeSection, onNavTo, collapsed, onToggle, onLogout, user, badges = {} }: SidebarProps) {
+const Sidebar = memo(function Sidebar({ activeSection, onNavTo, collapsed, onToggle, onLogout, user, badges = {} }: SidebarProps) {
   const nombre = user?.nombre ?? '';
   const rolLabel = rolLabels[user?.role.nombre ?? ''] ?? 'Usuario';
 
@@ -216,28 +205,42 @@ export default function Sidebar({ activeSection, onNavTo, collapsed, onToggle, o
 
   return (
     <aside
-      className={`fixed left-0 top-0 h-screen flex flex-col bg-white border-r border-slate-200 shadow-sm z-50 transition-all duration-300 ${
+      className={`fixed left-0 top-0 h-screen flex flex-col bg-white border-r border-slate-200 shadow-sm z-50 transition-[width] duration-200 ease-out ${
         collapsed ? 'w-16' : 'w-60'
       }`}
     >
+      {/* Botón toggle — pestaña adherida al borde derecho */}
+      <button
+        onClick={onToggle}
+        className="absolute -right-3 top-6 w-6 h-6 rounded-full bg-white border border-slate-200 shadow-md hover:shadow-lg text-slate-500 hover:text-slate-800 flex items-center justify-center transition-all z-20"
+        title={collapsed ? 'Expandir' : 'Colapsar'}
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <path d={collapsed ? 'M9 18l6-6-6-6' : 'M15 18l-6-6 6-6'} />
+        </svg>
+      </button>
+
       {/* Header */}
       <div className="flex items-center h-14 px-3 border-b border-slate-200 gap-2 flex-shrink-0">
-        {!collapsed && (
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <svg className="flex-shrink-0 text-indigo-600" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="3"/>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-            </svg>
-            <span className="font-bold text-slate-800 text-sm truncate">Sistema Ferretería</span>
+        {collapsed && (
+          <div
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm flex-shrink-0 mx-auto"
+            style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}
+            aria-label="TUNSA"
+          >
+            T
           </div>
         )}
-        <button
-          onClick={onToggle}
-          className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors flex-shrink-0 ml-auto"
-          title={collapsed ? 'Expandir' : 'Colapsar'}
-        >
-          {collapsed ? <ChevronRight /> : <ChevronLeft />}
-        </button>
+        {!collapsed && (
+          <div className="flex items-center flex-1 min-w-0">
+            <img
+              src={logoTunsa}
+              alt="TUNSA"
+              className="h-8 w-auto flex-shrink-0 select-none"
+              draggable={false}
+            />
+          </div>
+        )}
       </div>
 
       {/* Usuario logueado */}
@@ -319,4 +322,6 @@ export default function Sidebar({ activeSection, onNavTo, collapsed, onToggle, o
       </div>
     </aside>
   );
-}
+});
+
+export default Sidebar;

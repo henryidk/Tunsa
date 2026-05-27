@@ -123,12 +123,12 @@ export default function LoteGranelTab({ tipo, tipoLabel, onShowToast = () => {},
               { label: 'Por semana', value: config.rentaSemanaConMadera },
               { label: 'Por mes',    value: config.rentaMesConMadera },
             ].map(({ label, value }) => (
-              <div key={label} className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3.5">
-                <div className="text-xs text-amber-600 font-semibold uppercase tracking-wide mb-1">{label}</div>
-                <div className="text-lg font-bold text-amber-800 font-mono">
+              <div key={label} className="bg-white border border-slate-200 rounded-xl px-4 py-3.5 shadow-sm">
+                <div className="text-xs text-slate-400 font-semibold uppercase tracking-wide mb-1">{label}</div>
+                <div className="text-lg font-bold text-slate-800 font-mono">
                   {value != null ? formatQ(value) : <span className="text-slate-300">—</span>}
                 </div>
-                <div className="text-[11px] text-amber-500 mt-0.5">por unidad</div>
+                <div className="text-[11px] text-slate-400 mt-0.5">por unidad</div>
               </div>
             ))}
           </div>

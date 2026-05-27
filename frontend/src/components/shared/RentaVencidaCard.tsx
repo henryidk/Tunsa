@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import type { SolicitudRenta, ItemSnapshot, ExtensionEntry } from '../../types/solicitud-renta.types';
 import ClienteNombre from './ClienteNombre';
 import { formatFechaHora } from '../../types/solicitud.types';
@@ -9,6 +10,7 @@ import {
   calcularVentanaGracia,
   msAtraso,
   formatAtraso,
+  formatGraciaRestante,
 } from '../../utils/renta-tiempo.utils';
 
 export interface RentaVencidaCardProps {
@@ -44,6 +46,17 @@ export default function RentaVencidaCard({
   const ventanaGracia = calcularVentanaGracia(extensiones);
   const enGracia      = atrasoMs <= ventanaGracia;
   const recargo       = calcularRecargoActual(solicitud.items, inicio, ahoraRecargo, extensiones);
+
+  // Tick de 1 segundo solo mientras está en gracia, para el conteo regresivo
+  const [localNow, setLocalNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!enGracia) return;
+    const id = setInterval(() => setLocalNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [enGracia]);
+
+  const graciaRestanteMs  = enGracia ? Math.max(0, ventanaGracia - msAtraso(vencimiento, localNow)) : 0;
+  const graciaUrgente     = enGracia && graciaRestanteMs <= 60_000;
   const total    = solicitud.totalEstimado + recargo;
 
   const maquinaria = solicitud.items.filter((i): i is Extract<ItemSnapshot, { kind: 'maquinaria' }> => i.kind === 'maquinaria');
@@ -56,9 +69,12 @@ export default function RentaVencidaCard({
       <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-slate-50">
         <div className="flex items-center gap-2.5 flex-wrap">
           {enGracia ? (
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+            <span className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${graciaUrgente ? 'bg-orange-100 text-orange-700 border-orange-300' : 'bg-amber-100 text-amber-700 border-amber-200'}`}>
+              <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${graciaUrgente ? 'bg-orange-500' : 'bg-amber-500'}`} />
               En gracia
+              <span className="font-mono tabular-nums tracking-tight">
+                · {formatGraciaRestante(graciaRestanteMs)}
+              </span>
             </span>
           ) : (
             <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">

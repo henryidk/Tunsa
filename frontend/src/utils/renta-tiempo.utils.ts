@@ -166,6 +166,21 @@ export function proximoCambioGlobal(solicitudes: SolicitudRenta[], ahora: number
   }, Infinity);
 }
 
+/**
+ * Tiempo restante dentro de la ventana de gracia, en formato legible.
+ * Usa notación monospace-friendly: "45m 23s", "5m 02s", "23s".
+ */
+export function formatGraciaRestante(ms: number): string {
+  const totalSeg = Math.max(0, Math.ceil(ms / 1000));
+  const mins     = Math.floor(totalSeg / 60);
+  const segs     = totalSeg % 60;
+  if (mins >= 60) {
+    return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+  }
+  if (mins > 0) return `${mins}m ${String(segs).padStart(2, '0')}s`;
+  return `${segs}s`;
+}
+
 export function formatAtraso(ms: number, ventanaGracia = GRACE_MS): string {
   if (ms <= ventanaGracia) return 'En gracia';
   const totalMin = Math.floor((ms - ventanaGracia) / 60_000);

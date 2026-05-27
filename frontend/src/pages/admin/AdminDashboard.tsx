@@ -1,6 +1,6 @@
 // AdminDashboard.tsx — layout principal y estado global
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuthStore } from '../../store/auth.store'
 import { useAdminSocket } from '../../hooks/useAdminSocket'
 import { useNotificationSound } from '../../hooks/useNotificationSound'
@@ -74,13 +74,21 @@ export default function AdminDashboard() {
       .catch(() => {});
   }, []);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const togglingRef = useRef(false)
   const [toast, setToast] = useState<ToastState>({ visible: false, type: 'success', title: '', msg: '' })
+
+  const handleToggle = useCallback(() => {
+    if (togglingRef.current) return;
+    togglingRef.current = true;
+    setSidebarCollapsed(c => !c);
+    setTimeout(() => { togglingRef.current = false; }, 220);
+  }, []);
   const [modalOpen, setModalOpen] = useState(false)
   const [modalRentaId, setModalRentaId] = useState('')
 
   const showToast = (type: ToastType, title: string, msg: string) => {
     setToast({ visible: true, type, title, msg })
-    setTimeout(() => setToast(t => ({ ...t, visible: false })), 3500)
+    setTimeout(() => setToast(t => ({ ...t, visible: false })), 5000)
   }
 
   const openModal = (rentaId: string) => {
@@ -102,14 +110,14 @@ export default function AdminDashboard() {
         activeSection={activeSection}
         onNavTo={navTo}
         collapsed={sidebarCollapsed}
-        onToggle={() => setSidebarCollapsed(c => !c)}
+        onToggle={handleToggle}
         onLogout={logout}
         user={user}
         badges={{ 'rentas-solicitudes': pendienteCount, 'horometros': horometrosPendientes, 'rentas-vencidas': vencidasCount }}
       />
 
       <div
-        className={`flex flex-col flex-1 min-w-0 transition-all duration-300 ${
+        className={`flex flex-col flex-1 min-w-0 transition-[margin-left] duration-200 ease-out ${
           sidebarCollapsed ? 'ml-16' : 'ml-60'
         }`}
       >

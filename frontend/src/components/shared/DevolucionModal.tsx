@@ -477,9 +477,9 @@ export default function DevolucionModal({
                       <p className="font-semibold text-slate-700">{formatFechaHora(new Date().toISOString())}</p>
                     </div>
                   </div>
-                  {diasUso !== null && (
-                    <p className="text-[11px] text-indigo-600 font-semibold mt-2">
-                      {diasUso} día{diasUso !== 1 ? 's' : ''} de uso
+                  {solicitud.fechaFinEstimada && (
+                    <p className="text-[11px] text-slate-400 mt-2">
+                      Venció: <span className="font-semibold text-slate-600">{formatFechaHora(solicitud.fechaFinEstimada)}</span>
                     </p>
                   )}
                 </div>
@@ -490,22 +490,37 @@ export default function DevolucionModal({
                   {esDevolcionCompleta ? 'Devolución completa' : `Devolución parcial — ${itemsADevolver.length} ítem${itemsADevolver.length > 1 ? 's' : ''}`}
                 </p>
                 <ul className="space-y-1.5">
-                  {itemsADevolver.map(item => (
-                    <li key={itemRef(item)} className="flex items-center justify-between gap-3 bg-white border border-slate-200 rounded-lg px-3 py-2.5">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <svg className="shrink-0 text-slate-400" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
-                        <div className="min-w-0">
-                          <p className="text-xs font-medium text-slate-800 truncate">{itemLabel(item)}</p>
-                          <p className="text-[10px] text-slate-400 mt-0.5">
-                            {item.kind !== 'pesada' ? unidadLabel(item.duracion, item.unidad) : 'Por horómetro'}
-                          </p>
+                  {itemsADevolver.map(item => {
+                    const ref   = itemRef(item);
+                    const pItem = previewItems.find(p => p.itemRef === ref);
+                    return (
+                      <li key={ref} className="flex items-center justify-between gap-3 bg-white border border-slate-200 rounded-lg px-3 py-2.5">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <svg className="shrink-0 text-slate-400" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium text-slate-800 truncate">{itemLabel(item)}</p>
+                            <p className="text-[10px] text-slate-400 mt-0.5">
+                              {item.kind !== 'pesada' ? unidadLabel(item.duracion, item.unidad) : 'Por horómetro'}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                      {item.kind !== 'pesada' && item.subtotal > 0 && (
-                        <span className="text-xs font-mono font-semibold text-slate-600 flex-shrink-0">{formatQ(item.subtotal)}</span>
-                      )}
-                    </li>
-                  ))}
+                        {item.kind !== 'pesada' && (
+                          <div className="text-right flex-shrink-0">
+                            {(pItem?.costoReal ?? item.subtotal) > 0 && (
+                              <p className="text-xs font-mono font-semibold text-slate-600">
+                                {formatQ(pItem?.costoReal ?? item.subtotal)}
+                              </p>
+                            )}
+                            {pItem && pItem.recargoTiempo > 0 && (
+                              <p className="text-[10px] font-mono font-semibold text-amber-600">
+                                + {formatQ(pItem.recargoTiempo)} atraso
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
 
@@ -548,7 +563,8 @@ export default function DevolucionModal({
                     </div>
                   );
                 }
-                const totalReal    = previewItems.reduce((s, p) => s + p.costoReal, 0) + totalCargosAd;
+                const totalReal    = previewItems.reduce((s, p) => s + p.costoReal + p.recargoTiempo, 0) + totalCargosAd;
+                const totalRecargo = previewItems.reduce((s, p) => s + p.recargoTiempo, 0);
                 const diasCobrados = previewItems[0]?.diasCobrados ?? null;
                 if (totalReal === 0 && totalCargosAd === 0) return null;
                 return (
@@ -557,7 +573,10 @@ export default function DevolucionModal({
                       <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Total a cobrar</p>
                       {diasCobrados !== null && (
                         <p className="text-[11px] text-slate-400 mt-0.5">
-                          {diasCobrados} día{diasCobrados !== 1 ? 's' : ''} de uso real{cargosValidos.length > 0 ? ' + cargos' : ''}
+                          {totalRecargo > 0
+                            ? `${diasCobrados} días cobrados (incluye atraso)${cargosValidos.length > 0 ? ' + cargos' : ''}`
+                            : `${diasCobrados} día${diasCobrados !== 1 ? 's' : ''} de uso real${cargosValidos.length > 0 ? ' + cargos' : ''}`
+                          }
                         </p>
                       )}
                     </div>

@@ -247,8 +247,8 @@ export async function generarComprobante(solicitud: SolicitudRenta): Promise<voi
   };
 
   const { cliente } = solicitud;
-  campo('Nombre completo', cliente.nombre,           14,      y);
-  campo('DPI',             cliente.dpi,              W / 2,   y);
+  campo('Nombre completo', cliente.nombre,            14,      y);
+  campo('DPI',             cliente.dpi ?? '—',       W / 2,   y);
   campo('Teléfono',        cliente.telefono ?? '—',  W - 60,  y);
   y += 14;
   campo('Modalidad de pago',
@@ -381,7 +381,7 @@ export async function generarComprobante(solicitud: SolicitudRenta): Promise<voi
   doc.setFontSize(11);
   doc.setTextColor(...COLORES.textoSuave);
   doc.text(cliente.nombre, W / 2, y + 14, { align: 'center' });
-  doc.text(`DPI: ${cliente.dpi}`, W / 2, y + 21, { align: 'center' });
+  doc.text(`DPI: ${cliente.dpi ?? '—'}`, W / 2, y + 21, { align: 'center' });
 
   // ── PIE DE PÁGINA — se dibuja en TODAS las páginas ───────────────────────────
 

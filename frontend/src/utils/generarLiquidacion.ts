@@ -325,7 +325,7 @@ export async function generarLiquidacion(
 
   const { cliente } = solicitud;
   campo('Nombre completo', cliente.nombre,           14,      y);
-  campo('DPI',             cliente.dpi,              W / 2,   y);
+  campo('DPI',             cliente.dpi ?? '—',       W / 2,   y);
   campo('Teléfono',        cliente.telefono ?? '—',  W - 60,  y);
   y += 14;
 

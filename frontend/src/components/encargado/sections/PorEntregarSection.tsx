@@ -30,12 +30,21 @@ export default function PorEntregarSection({ onShowToast = () => {} }: Props) {
     horometrosIniciales?: { equipoId: string; valor: number }[],
   ) => {
     setGenerandoPdf(solicitud.id);
+    let conFecha: SolicitudRenta;
     try {
-      const conFecha = await solicitudesService.iniciarEntrega(solicitud.id, horometrosIniciales);
+      conFecha = await solicitudesService.iniciarEntrega(solicitud.id, horometrosIniciales);
       updateSolicitud(conFecha);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message;
+      const texto = Array.isArray(msg) ? msg.join(' · ') : (msg ?? 'No se pudo registrar la entrega.');
+      onShowToast('error', 'Error al registrar entrega', texto);
+      setGenerandoPdf(null);
+      return;
+    }
+    try {
       await generarComprobante(conFecha);
     } catch {
-      onShowToast('error', 'Error al generar PDF', 'No se pudo generar el comprobante. Intenta de nuevo.');
+      onShowToast('error', 'Error al generar PDF', 'La entrega fue registrada pero no se pudo generar el comprobante.');
     } finally {
       setGenerandoPdf(null);
     }

@@ -62,6 +62,10 @@ export default function RentaVencidaCard({
   const maquinaria = solicitud.items.filter((i): i is Extract<ItemSnapshot, { kind: 'maquinaria' }> => i.kind === 'maquinaria');
   const granel     = solicitud.items.filter((i): i is Extract<ItemSnapshot, { kind: 'granel' }>     => i.kind === 'granel');
 
+  const todosItems     = [...maquinaria, ...granel];
+  const vencidasCount  = todosItems.filter(item => calcularFinConExtensiones(inicio, item, extensiones).getTime() < ahora).length;
+  const hayMixto       = vencidasCount > 0 && vencidasCount < todosItems.length;
+
   return (
     <div className={`bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden border-l-4 ${enGracia ? 'border-l-amber-400' : 'border-l-red-500'}`}>
 
@@ -144,13 +148,20 @@ export default function RentaVencidaCard({
 
         {/* Columna derecha: equipos */}
         <div>
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Equipos a devolver</p>
+          <div className="flex items-center gap-2 mb-2">
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Equipos a devolver</p>
+            {hayMixto && (
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-red-50 text-red-500 border border-red-100">
+                {vencidasCount} de {todosItems.length} vencido{vencidasCount !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
           <div className="space-y-2">
             {maquinaria.map((item, i) => (
-              <MaquinariaRow key={i} item={item} inicio={inicio} extensiones={extensiones} ahoraRecargo={ahoraRecargo} />
+              <MaquinariaRow key={i} item={item} inicio={inicio} extensiones={extensiones} ahoraRecargo={ahoraRecargo} ahora={ahora} />
             ))}
             {granel.map((item, i) => (
-              <GranelRow key={i} item={item} inicio={inicio} extensiones={extensiones} ahoraRecargo={ahoraRecargo} />
+              <GranelRow key={i} item={item} inicio={inicio} extensiones={extensiones} ahoraRecargo={ahoraRecargo} ahora={ahora} />
             ))}
           </div>
         </div>
@@ -199,23 +210,30 @@ export default function RentaVencidaCard({
 
 // ── Sub-filas de equipos ──────────────────────────────────────────────────────
 
-function MaquinariaRow({ item, inicio, extensiones, ahoraRecargo }: {
-  item:        Extract<ItemSnapshot, { kind: 'maquinaria' }>;
-  inicio:      Date;
-  extensiones: ExtensionEntry[];
+function MaquinariaRow({ item, inicio, extensiones, ahoraRecargo, ahora }: {
+  item:         Extract<ItemSnapshot, { kind: 'maquinaria' }>;
+  inicio:       Date;
+  extensiones:  ExtensionEntry[];
   ahoraRecargo: number;
+  ahora:        number;
 }) {
-  const fin     = calcularFinConExtensiones(inicio, item, extensiones);
-  const tarifa  = (item as { tarifa?: number | null }).tarifa ?? 0;
-  const itemRec = calcularRecargoItem(tarifa, fin, ahoraRecargo);
+  const fin      = calcularFinConExtensiones(inicio, item, extensiones);
+  const tarifa   = (item as { tarifa?: number | null }).tarifa ?? 0;
+  const itemRec  = calcularRecargoItem(tarifa, fin, ahoraRecargo);
+  const yaVencio = fin.getTime() < ahora;
   return (
     <div className="flex items-start justify-between gap-2 py-1.5 border-b border-slate-100 last:border-0">
-      <p className="text-xs font-medium text-slate-700 leading-tight">
-        <span className="font-mono text-slate-400 mr-1">#{item.numeracion}</span>
-        {item.descripcion}
-      </p>
+      <div className="flex items-start gap-1.5 min-w-0">
+        <span className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${yaVencio ? 'bg-red-500' : 'bg-amber-400'}`} />
+        <p className="text-xs font-medium text-slate-700 leading-tight">
+          <span className="font-mono text-slate-400 mr-1">#{item.numeracion}</span>
+          {item.descripcion}
+        </p>
+      </div>
       <div className="flex-shrink-0 flex flex-col items-end gap-0.5">
-        <span className="text-[10px] text-slate-400 whitespace-nowrap">Venció {formatFechaHora(fin.toISOString())}</span>
+        <span className="text-[10px] font-medium whitespace-nowrap text-slate-800">
+          {yaVencio ? 'Venció' : 'Vence'} {formatFechaHora(fin.toISOString())}
+        </span>
         {itemRec > 0 && (
           <span className="text-[10px] font-semibold text-red-600 font-mono">
             +Q {itemRec.toLocaleString('es-GT', { minimumFractionDigits: 2 })}
@@ -226,24 +244,31 @@ function MaquinariaRow({ item, inicio, extensiones, ahoraRecargo }: {
   );
 }
 
-function GranelRow({ item, inicio, extensiones, ahoraRecargo }: {
-  item:        Extract<ItemSnapshot, { kind: 'granel' }>;
-  inicio:      Date;
-  extensiones: ExtensionEntry[];
+function GranelRow({ item, inicio, extensiones, ahoraRecargo, ahora }: {
+  item:         Extract<ItemSnapshot, { kind: 'granel' }>;
+  inicio:       Date;
+  extensiones:  ExtensionEntry[];
   ahoraRecargo: number;
+  ahora:        number;
 }) {
-  const fin     = calcularFinConExtensiones(inicio, item, extensiones);
-  const tarifa  = (item as { tarifa?: number | null }).tarifa ?? 0;
-  const itemRec = calcularRecargoItem(tarifa, fin, ahoraRecargo) * item.cantidad;
+  const fin      = calcularFinConExtensiones(inicio, item, extensiones);
+  const tarifa   = (item as { tarifa?: number | null }).tarifa ?? 0;
+  const itemRec  = calcularRecargoItem(tarifa, fin, ahoraRecargo) * item.cantidad;
+  const yaVencio = fin.getTime() < ahora;
   return (
     <div className="flex items-start justify-between gap-2 py-1.5 border-b border-slate-100 last:border-0">
-      <p className="text-xs font-medium text-slate-700 leading-tight">
-        <span className="font-mono text-indigo-500 mr-1">{item.cantidad.toLocaleString('es-GT')}</span>
-        {item.tipoLabel}
-        {item.conMadera && <span className="text-amber-600 ml-1">(c/madera)</span>}
-      </p>
+      <div className="flex items-start gap-1.5 min-w-0">
+        <span className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${yaVencio ? 'bg-red-500' : 'bg-amber-400'}`} />
+        <p className="text-xs font-medium text-slate-700 leading-tight">
+          <span className="font-mono text-indigo-500 mr-1">{item.cantidad.toLocaleString('es-GT')}</span>
+          {item.tipoLabel}
+          {item.conMadera && <span className="text-amber-600 ml-1">(c/madera)</span>}
+        </p>
+      </div>
       <div className="flex-shrink-0 flex flex-col items-end gap-0.5">
-        <span className="text-[10px] text-slate-400 whitespace-nowrap">Venció {formatFechaHora(fin.toISOString())}</span>
+        <span className="text-[10px] font-medium whitespace-nowrap text-slate-800">
+          {yaVencio ? 'Venció' : 'Vence'} {formatFechaHora(fin.toISOString())}
+        </span>
         {itemRec > 0 && (
           <span className="text-[10px] font-semibold text-red-600 font-mono">
             +Q {itemRec.toLocaleString('es-GT', { minimumFractionDigits: 2 })}

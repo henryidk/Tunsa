@@ -50,8 +50,8 @@ export interface ExtensionEntry {
 
 interface ItemSnapshotBase {
   fechaInicio: string;
-  duracion:    number;
-  unidad:      UnidadDuracion;
+  duracion?:   number;
+  unidad?:     UnidadDuracion;
   tarifa:      number | null;
   subtotal:    number;
 }
@@ -103,8 +103,9 @@ export interface SolicitudRenta {
   notas:          string;
   motivoRechazo:  string | null;
   totalEstimado:  number;
-  esPesada:       boolean;
-  estado:         EstadoSolicitud;
+  esPesada:        boolean;
+  esIndefinida?:   boolean;
+  estado:          EstadoSolicitud;
   creadaPor:      string;
   nombreCreador:  string | null;
   folio:          string | null;

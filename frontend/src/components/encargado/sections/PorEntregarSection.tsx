@@ -197,7 +197,7 @@ function SolicitudAprobadaCard({
                   {item.descripcion}
                 </p>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  {unidadLabel(item.duracion, item.unidad)}
+                  {unidadLabel(item.duracion ?? 0, item.unidad ?? 'dias')}
                 </p>
               </div>
             ))}
@@ -209,7 +209,7 @@ function SolicitudAprobadaCard({
                   {item.conMadera && <span className="text-amber-600 ml-1">(c/madera)</span>}
                 </p>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  {unidadLabel(item.duracion, item.unidad)}
+                  {unidadLabel(item.duracion ?? 0, item.unidad ?? 'dias')}
                 </p>
               </div>
             ))}

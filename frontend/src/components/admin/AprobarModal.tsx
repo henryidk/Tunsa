@@ -96,7 +96,7 @@ export default function AprobarModal({ solicitud, open, onClose, onConfirm }: Ap
                     {item.descripcion}
                   </p>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    {unidadLabel(item.duracion, item.unidad)} desde {formatFechaCorta(item.fechaInicio)}
+                    {unidadLabel(item.duracion ?? 0, item.unidad ?? 'dias')} desde {formatFechaCorta(item.fechaInicio)}
                   </p>
                 </div>
                 <span className="text-xs font-mono font-semibold text-slate-600 ml-4">
@@ -113,7 +113,7 @@ export default function AprobarModal({ solicitud, open, onClose, onConfirm }: Ap
                     {item.conMadera && <span className="text-amber-600 ml-1">(c/madera)</span>}
                   </p>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    {unidadLabel(item.duracion, item.unidad)} desde {formatFechaCorta(item.fechaInicio)}
+                    {unidadLabel(item.duracion ?? 0, item.unidad ?? 'dias')} desde {formatFechaCorta(item.fechaInicio)}
                   </p>
                 </div>
                 <span className="text-xs font-mono font-semibold text-slate-600 ml-4">

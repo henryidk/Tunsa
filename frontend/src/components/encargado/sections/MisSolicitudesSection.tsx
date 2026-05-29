@@ -238,7 +238,7 @@ function ItemResumen({ item }: { item: ItemSnapshot }) {
     );
   }
 
-  const duracionLabel = unidadLabel(item.duracion, item.unidad);
+  const duracionLabel = unidadLabel(item.duracion ?? 0, item.unidad ?? 'dias');
   const fechaLabel    = formatFechaCorta(item.fechaInicio);
 
   if (item.kind === 'maquinaria') {

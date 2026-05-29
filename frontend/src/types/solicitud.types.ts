@@ -96,8 +96,8 @@ export interface ItemMaquinaria {
   kind:        'maquinaria';
   equipo:      Equipo;
   fechaInicio: string;
-  duracion:    number;
-  unidad:      UnidadDuracion;
+  duracion?:   number;
+  unidad?:     UnidadDuracion;
 }
 
 export interface ItemGranel {
@@ -106,8 +106,8 @@ export interface ItemGranel {
   tipoLabel:   string;
   cantidad:    number;
   fechaInicio: string;
-  duracion:    number;
-  unidad:      UnidadDuracion;
+  duracion?:   number;
+  unidad?:     UnidadDuracion;
   config:      ConfigGranel | null;
   /** Solo aplica a ANDAMIO_SIMPLE: indica si se rentan con madera */
   conMadera?:  boolean;
@@ -146,7 +146,8 @@ export function getRentaRate(
  * cuando el equipo tiene precio semanal configurado.
  */
 export function calcSubtotal(item: ItemSolicitud): number {
-  if (item.kind === 'pesada') return 0; // sin total estimado — se factura por horómetro
+  if (item.kind === 'pesada') return 0;
+  if (!item.duracion || !item.unidad) return 0; // renta indefinida — sin subtotal estimado
   if (item.kind === 'maquinaria') {
     const decomp = descomponerDuracion(item.fechaInicio, item.duracion, item.unidad);
     return subtotalDescompuesto(decomp, {
@@ -156,8 +157,8 @@ export function calcSubtotal(item: ItemSolicitud): number {
     });
   }
   if (!item.config) return 0;
-  const decomp   = descomponerDuracion(item.fechaInicio, item.duracion, item.unidad);
-  const tarifas  = item.conMadera
+  const decomp  = descomponerDuracion(item.fechaInicio, item.duracion, item.unidad);
+  const tarifas = item.conMadera
     ? { dia: item.config.rentaDiaConMadera, semana: item.config.rentaSemanaConMadera, mes: item.config.rentaMesConMadera }
     : { dia: item.config.rentaDia,          semana: item.config.rentaSemana,          mes: item.config.rentaMes          };
   return subtotalDescompuesto(decomp, tarifas) * item.cantidad;

@@ -43,8 +43,8 @@ export function calcularFinConExtensiones(
     ? item.equipoId
     : item.tipo;
   const exts = extensiones.filter(e => e.itemRef === ref && e.tipo !== 'gracia');
-  const dur  = item.kind === 'pesada' ? item.diasSolicitados : item.duracion;
-  const uni  = item.kind === 'pesada' ? 'dias' : item.unidad;
+  const dur  = item.kind === 'pesada' ? item.diasSolicitados : (item.duracion ?? 0);
+  const uni  = item.kind === 'pesada' ? 'dias' : (item.unidad ?? 'dias');
   let fin = calcularFin(inicio, dur, uni as UnidadDuracion);
   for (const ext of exts) fin = calcularFin(fin, ext.duracion, ext.unidad);
   return fin;

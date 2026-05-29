@@ -332,7 +332,7 @@ function ItemRow({ item }: { item: ItemSnapshot }) {
   const tiempo = (
     <span className="flex items-center gap-1 mt-0.5 text-[11px] text-slate-400">
       <span className="inline-flex items-center gap-1 font-medium text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-md">
-        {unidadLabel(item.duracion, item.unidad)}
+        {unidadLabel(item.duracion ?? 0, item.unidad ?? 'dias')}
       </span>
       <span>desde {formatFechaCorta(item.fechaInicio)}</span>
     </span>

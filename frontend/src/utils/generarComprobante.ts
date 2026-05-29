@@ -83,9 +83,9 @@ function buildFilasLiviana(items: ItemSnapshot[], fechaInicio: Date): string[][]
 
   for (const item of items) {
     if (item.kind === 'pesada') continue;
-    const fin      = calcularFin(fechaInicio, item.duracion, item.unidad);
+    const fin      = calcularFin(fechaInicio, item.duracion ?? 0, item.unidad ?? 'dias');
     const finStr   = formatFechaHoraCorta(fin.toISOString());
-    const duracion = unidadLabel(item.duracion, item.unidad);
+    const duracion = unidadLabel(item.duracion ?? 0, item.unidad ?? 'dias');
 
     if (item.kind === 'maquinaria') {
       filas.push([

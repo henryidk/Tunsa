@@ -83,7 +83,14 @@ export function calcularFinItem(
   if (unidad === 'horas')   return new Date(fechaInicio.getTime() + duracion * 3_600_000);
   if (unidad === 'dias')    return new Date(fechaInicio.getTime() + duracion * 86_400_000);
   if (unidad === 'semanas') return new Date(fechaInicio.getTime() + duracion * 7 * 86_400_000);
-  return new Date(fechaInicio.getTime() + duracion * 30 * 86_400_000);
+  // meses: calendario real — 29/X + 1 mes = 29/(X+1), clampeado al último día si el mes es más corto
+  const tgtMonth  = fechaInicio.getUTCMonth() + duracion;
+  const tgtYear   = fechaInicio.getUTCFullYear() + Math.floor(tgtMonth / 12);
+  const normMonth = ((tgtMonth % 12) + 12) % 12;
+  const lastDay   = new Date(Date.UTC(tgtYear, normMonth + 1, 0)).getUTCDate();
+  const tgtDay    = Math.min(fechaInicio.getUTCDate(), lastDay);
+  return new Date(Date.UTC(tgtYear, normMonth, tgtDay,
+    fechaInicio.getUTCHours(), fechaInicio.getUTCMinutes(), fechaInicio.getUTCSeconds(), fechaInicio.getUTCMilliseconds()));
 }
 
 /**
@@ -156,6 +163,54 @@ export function descomponerDias(
   }
 
   return { meses, semanas: Math.floor(diasRestantes / 7), dias: diasRestantes % 7 };
+}
+
+/**
+ * Descompone el período entre dos fechas en meses calendario, semanas y días sueltos.
+ * Opera directamente sobre fechas GT (sin convertir a días intermedios) para que
+ * "1 mes" sea siempre un mes de calendario real: enero 31 → febrero 28 = 1 mes,
+ * abril 29 → mayo 29 = 1 mes, etc.
+ * Usar para rentas indefinidas en lugar de descomponerDias.
+ */
+export function descomponerCalendario(
+  fechaInicio:     Date,
+  fechaDevolucion: Date,
+): { meses: number; semanas: number; dias: number; diasCobrados: number } {
+  const [iY, iM, iD] = fechaGT(fechaInicio).split('-').map(Number);
+  const [eY, eM, eD] = fechaGT(fechaDevolucion).split('-').map(Number);
+
+  let curY = iY, curM = iM, curD = iD; // month 1-indexed
+  let meses = 0;
+
+  while (true) {
+    let nextM = curM + 1;
+    let nextY = curY;
+    if (nextM > 12) { nextM = 1; nextY++; }
+
+    // Clamp day to last valid day of next month (e.g. Jan 31 → Feb 28)
+    const daysInNext = new Date(Date.UTC(nextY, nextM - 1 + 1, 0)).getUTCDate();
+    const nextD = Math.min(curD, daysInNext);
+
+    if (Date.UTC(nextY, nextM - 1, nextD) > Date.UTC(eY, eM - 1, eD)) break;
+
+    meses++;
+    curY = nextY;
+    curM = nextM;
+    curD = nextD;
+  }
+
+  const cursorTs     = Date.UTC(curY, curM - 1, curD);
+  const endTs        = Date.UTC(eY,   eM - 1,   eD);
+  const inicioTs     = Date.UTC(iY,   iM - 1,   iD);
+  const diasRestantes = Math.round((endTs - cursorTs) / 86_400_000);
+  const diasCobrados  = Math.max(Math.round((endTs - inicioTs) / 86_400_000), 1);
+
+  return {
+    meses,
+    semanas: Math.floor(diasRestantes / 7),
+    dias:    diasRestantes % 7,
+    diasCobrados,
+  };
 }
 
 /**

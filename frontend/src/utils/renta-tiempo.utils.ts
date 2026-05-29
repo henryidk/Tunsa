@@ -20,7 +20,14 @@ export function calcularFin(inicio: Date, duracion: number, unidad: UnidadDuraci
   if (unidad === 'horas')   return new Date(inicio.getTime() + duracion * 3_600_000);
   if (unidad === 'dias')    return new Date(inicio.getTime() + duracion * 86_400_000);
   if (unidad === 'semanas') return new Date(inicio.getTime() + duracion * 7 * 86_400_000);
-  return new Date(inicio.getTime() + duracion * 30 * 86_400_000);
+  // meses: calendario real — 29/X + 1 mes = 29/(X+1), clampeado al último día si el mes es más corto
+  const tgtMonth  = inicio.getUTCMonth() + duracion;
+  const tgtYear   = inicio.getUTCFullYear() + Math.floor(tgtMonth / 12);
+  const normMonth = ((tgtMonth % 12) + 12) % 12;
+  const lastDay   = new Date(Date.UTC(tgtYear, normMonth + 1, 0)).getUTCDate();
+  const tgtDay    = Math.min(inicio.getUTCDate(), lastDay);
+  return new Date(Date.UTC(tgtYear, normMonth, tgtDay,
+    inicio.getUTCHours(), inicio.getUTCMinutes(), inicio.getUTCSeconds(), inicio.getUTCMilliseconds()));
 }
 
 function duracionEnMs(duracion: number, unidad: UnidadDuracion): number {
@@ -55,10 +62,16 @@ export function calcularFinConExtensiones(
  * Usar en lugar de GRACE_MS para mostrar el badge "En gracia" y calcular el atraso visible.
  */
 export function calcularVentanaGracia(extensiones: ExtensionEntry[]): number {
-  const extraMs = extensiones
-    .filter(e => e.tipo === 'gracia')
-    .reduce((sum, e) => sum + duracionEnMs(e.duracion, e.unidad as UnidadDuracion), 0);
-  return GRACE_MS + extraMs;
+  const gracias = extensiones.filter(e => e.tipo === 'gracia');
+  if (gracias.length === 0) return GRACE_MS;
+  // Suma por ítem (múltiples aplicaciones acumulan), luego máximo entre ítems
+  const sumByItem = new Map<string, number>();
+  for (const e of gracias) {
+    const ms = duracionEnMs(e.duracion, e.unidad as UnidadDuracion);
+    sumByItem.set(e.itemRef, (sumByItem.get(e.itemRef) ?? 0) + ms);
+  }
+  const maxExtraMs = Math.max(...sumByItem.values());
+  return GRACE_MS + maxExtraMs;
 }
 
 export function msRestantes(

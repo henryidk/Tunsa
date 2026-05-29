@@ -34,6 +34,7 @@ interface CreateSolicitudPayload {
   notas:          string;
   totalEstimado?: number;
   items:          ItemSnapshot[];
+  esIndefinida?:  boolean;
 }
 
 export interface LecturaHorometro {

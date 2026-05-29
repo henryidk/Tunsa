@@ -236,9 +236,9 @@ export const solicitudesService = {
   async previewDevolucion(
     solicitudId: string,
     itemRefs?: string[],
-  ): Promise<{ itemRef: string; costoReal: number; diasCobrados: number; recargoTiempo: number }[]> {
+  ): Promise<{ itemRef: string; costoReal: number; diasCobrados: number; recargoTiempo: number; desglose?: { meses: number; semanas: number; dias: number }; tarifas?: { dia: number | null; semana: number | null; mes: number | null } }[]> {
     const params = itemRefs && itemRefs.length > 0 ? { itemRefs: itemRefs.join(',') } : {};
-    const res = await api.get<{ itemRef: string; costoReal: number; diasCobrados: number; recargoTiempo: number }[]>(
+    const res = await api.get<{ itemRef: string; costoReal: number; diasCobrados: number; recargoTiempo: number; desglose?: { meses: number; semanas: number; dias: number }; tarifas?: { dia: number | null; semana: number | null; mes: number | null } }[]>(
       `/solicitudes/${solicitudId}/preview-devolucion`,
       { params },
     );

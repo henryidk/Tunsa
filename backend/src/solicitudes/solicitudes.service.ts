@@ -27,6 +27,7 @@ import {
   calcularCostoAdaptativo,
   calcularDevolucionItem,
   calcularCostosItemIndefinido,
+  descomponerDias,
 } from './recargo.util';
 
 const PDF_MAGIC_BYTES = Buffer.from([0x25, 0x50, 0x44, 0x46]); // %PDF
@@ -511,9 +512,16 @@ export class SolicitudesService {
 
     for (const item of itemsADevolver) {
       const ref = item.equipoId ?? item.tipo ?? '';
-      let costos: { costoReal: number; diasCobrados: number; recargoTiempo: number };
+      let costos: { costoReal: number; diasCobrados: number; recargoTiempo: number; desglose?: { meses: number; semanas: number; dias: number }; tarifas?: { dia: number | null; semana: number | null; mes: number | null } };
       if (solicitud.esIndefinida) {
-        costos = calcularCostosItemIndefinido(fechaInicio, fechaDevolucion, item.tarifa ?? 0, item.cantidad ?? 1);
+        const precios = ref ? await this.fetchPreciosItem(item.kind, ref, item.conMadera ?? false) : null;
+        if (precios) {
+          const { costoReal, diasCobrados } = calcularDevolucionItem(fechaInicio, fechaDevolucion, precios, item.cantidad ?? 1);
+          const desglose = descomponerDias(fechaInicio, diasCobrados);
+          costos = { costoReal, diasCobrados, recargoTiempo: 0, desglose, tarifas: precios };
+        } else {
+          costos = calcularCostosItemIndefinido(fechaInicio, fechaDevolucion, item.tarifa ?? 0, item.cantidad ?? 1);
+        }
       } else {
         costos = await this.calcularCostosDevolucionItem(item, fechaInicio, fechaDevolucion, extensiones);
         if (solicitud.cliente.esEspecial) {
@@ -580,9 +588,16 @@ export class SolicitudesService {
 
     for (const item of itemsADevolver) {
       const itemRef = item.equipoId ?? item.tipo ?? '';
-      let costos: { costoReal: number; diasCobrados: number; recargoTiempo: number };
+      let costos: { costoReal: number; diasCobrados: number; recargoTiempo: number; desglose?: { meses: number; semanas: number; dias: number }; tarifas?: { dia: number | null; semana: number | null; mes: number | null } };
       if (solicitud.esIndefinida) {
-        costos = calcularCostosItemIndefinido(fechaInicio, fechaDevolucion, item.tarifa ?? 0, item.cantidad ?? 1);
+        const precios = itemRef ? await this.fetchPreciosItem(item.kind, itemRef, item.conMadera ?? false) : null;
+        if (precios) {
+          const { costoReal, diasCobrados } = calcularDevolucionItem(fechaInicio, fechaDevolucion, precios, item.cantidad ?? 1);
+          const desglose = descomponerDias(fechaInicio, diasCobrados);
+          costos = { costoReal, diasCobrados, recargoTiempo: 0, desglose, tarifas: precios };
+        } else {
+          costos = calcularCostosItemIndefinido(fechaInicio, fechaDevolucion, item.tarifa ?? 0, item.cantidad ?? 1);
+        }
       } else {
         costos = await this.calcularCostosDevolucionItem(item, fechaInicio, fechaDevolucion, extensiones);
         if (solicitud.cliente.esEspecial) {

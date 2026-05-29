@@ -195,6 +195,8 @@ export default function DevolucionModal({
           diasCobrados:  pItem?.diasCobrados ?? diasDesde(solicitud.fechaInicioRenta!),
           costoReal:     pItem?.costoReal ?? 0,
           recargoTiempo: pItem?.recargoTiempo ?? 0,
+          desglose:      pItem?.desglose,
+          tarifas:       pItem?.tarifas,
         };
       }),
       recargosAdicionales: cargosValidos.map(c => ({ descripcion: c.descripcion, monto: c.monto as number })),
@@ -239,6 +241,8 @@ export default function DevolucionModal({
                   diasCobrados:  pItem?.diasCobrados ?? diasDesde(solicitud.fechaInicioRenta!),
                   costoReal:     pItem?.costoReal ?? 0,
                   recargoTiempo: pItem?.recargoTiempo ?? 0,
+                  desglose:      pItem?.desglose,
+                  tarifas:       pItem?.tarifas,
                 };
               }),
               recargosAdicionales: cargosValidos.map(c => ({ descripcion: c.descripcion, monto: c.monto as number })),

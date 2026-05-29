@@ -22,6 +22,8 @@ export interface DevolucionItemEntry {
   diasCobrados:  number;
   costoReal:     number;
   recargoTiempo: number;
+  desglose?:     { meses: number; semanas: number; dias: number };
+  tarifas?:      { dia: number | null; semana: number | null; mes: number | null };
 }
 
 /** Registro de un evento de devolución (parcial o completo). */

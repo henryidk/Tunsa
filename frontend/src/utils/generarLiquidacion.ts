@@ -82,6 +82,14 @@ function fmt1(n: number | null): string {
   return n != null ? n.toFixed(1) : '—';
 }
 
+function formatDesglose(d: { meses: number; semanas: number; dias: number }): string {
+  const partes: string[] = [];
+  if (d.meses   > 0) partes.push(`${d.meses} mes${d.meses   > 1 ? 'es' : ''}`);
+  if (d.semanas > 0) partes.push(`${d.semanas} sem.`);
+  if (d.dias    > 0) partes.push(`${d.dias} día${d.dias > 1 ? 's' : ''}`);
+  return partes.length > 0 ? partes.join(' + ') : '1 día';
+}
+
 // ── Horometer section builder ─────────────────────────────────────────────────
 
 function buildSeccionHorometro(
@@ -344,7 +352,8 @@ export async function generarLiquidacion(
   doc.setFontSize(11);
   doc.setTextColor(...COLORES.primario);
   doc.text(
-    solicitud.esPesada ? 'DETALLE DE HORAS TRABAJADAS' : 'DETALLE DE ÍTEMS DEVUELTOS',
+    solicitud.esPesada     ? 'DETALLE DE HORAS TRABAJADAS' :
+    solicitud.esIndefinida ? 'DETALLE DE COBRO'            : 'DETALLE DE ÍTEMS DEVUELTOS',
     14, y,
   );
   y += 6;
@@ -353,47 +362,116 @@ export async function generarLiquidacion(
     // Tabla de horómetro por equipo
     y = buildSeccionHorometro(doc, solicitud, devolucion, lecturas, y, W, contentBottom);
   } else {
-    // Tabla genérica para liviana / pesada sin lecturas
-    y -= 3;
-    const filaItems: string[][] = devolucion.items.map(entry => [
-      resolverLabelItem(solicitud, entry),
-      `${entry.diasCobrados} día${entry.diasCobrados === 1 ? '' : 's'}`,
-      formatQ(entry.costoReal),
-      entry.recargoTiempo > 0 ? formatQ(entry.recargoTiempo) : '—',
-      formatQ(entry.costoReal + entry.recargoTiempo),
-    ]);
+    if (!solicitud.esIndefinida) {
+      // Tabla genérica para liviana / pesada sin lecturas (no aplica a indefinidas)
+      y -= 3;
+      const filaItems: string[][] = devolucion.items.map(entry => [
+        resolverLabelItem(solicitud, entry),
+        `${entry.diasCobrados} día${entry.diasCobrados === 1 ? '' : 's'}`,
+        formatQ(entry.costoReal),
+        entry.recargoTiempo > 0 ? formatQ(entry.recargoTiempo) : '—',
+        formatQ(entry.costoReal + entry.recargoTiempo),
+      ]);
 
-    autoTable(doc, {
-      startY: y,
-      head: [['Equipo / Material', 'Días cobrados', 'Costo base', 'Recargo tiempo', 'Subtotal']],
-      body: filaItems,
-      margin: { left: 14, right: 14, bottom: FOOTER_RESERVE + 2 },
-      styles: {
-        fontSize: 11,
-        cellPadding: 3,
-        textColor: COLORES.texto,
-        lineColor: COLORES.borde,
-        lineWidth: 0.2,
-      },
-      headStyles: {
-        fillColor: COLORES.primario,
-        textColor: COLORES.blanco,
-        fontStyle: 'bold',
-        fontSize: 11,
-      },
-      alternateRowStyles: {
-        fillColor: [250, 252, 255] as [number, number, number],
-      },
-      columnStyles: {
-        1: { halign: 'center', cellWidth: 28 },
-        2: { halign: 'right',  cellWidth: 26 },
-        3: { halign: 'right',  cellWidth: 28 },
-        4: { halign: 'right',  cellWidth: 26, fontStyle: 'bold' },
-      },
-    });
+      autoTable(doc, {
+        startY: y,
+        head: [['Equipo / Material', 'Días cobrados', 'Costo base', 'Recargo tiempo', 'Subtotal']],
+        body: filaItems,
+        margin: { left: 14, right: 14, bottom: FOOTER_RESERVE + 2 },
+        styles: {
+          fontSize: 11,
+          cellPadding: 3,
+          textColor: COLORES.texto,
+          lineColor: COLORES.borde,
+          lineWidth: 0.2,
+        },
+        headStyles: {
+          fillColor: COLORES.primario,
+          textColor: COLORES.blanco,
+          fontStyle: 'bold',
+          fontSize: 11,
+        },
+        alternateRowStyles: {
+          fillColor: [250, 252, 255] as [number, number, number],
+        },
+        columnStyles: {
+          1: { halign: 'center', cellWidth: 28 },
+          2: { halign: 'right',  cellWidth: 26 },
+          3: { halign: 'right',  cellWidth: 28 },
+          4: { halign: 'right',  cellWidth: 26, fontStyle: 'bold' },
+        },
+      });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    y = (doc as any).lastAutoTable.finalY + 6;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      y = (doc as any).lastAutoTable.finalY + 6;
+    }
+
+    // ── DETALLE DE COBRO (solo rentas indefinidas con desglose disponible) ──────
+    const itemsConDetalle = devolucion.items.filter(e => e.desglose && e.tarifas);
+    if (itemsConDetalle.length > 0) {
+      if (y + 20 > contentBottom) { doc.addPage(); y = 18; }
+
+      const filasDetalle: string[][] = [];
+
+      for (const entry of itemsConDetalle) {
+        const d  = entry.desglose!;
+        const tf = entry.tarifas!;
+        const label = resolverLabelItem(solicitud, entry);
+
+        const snapshotItem = (solicitud.items as ItemSnapshot[]).find(i =>
+          (i.kind === 'granel' && i.tipo === entry.itemRef) ||
+          ((i.kind === 'maquinaria' || i.kind === 'pesada') && i.equipoId === entry.itemRef),
+        );
+        const cantidad: number = snapshotItem?.kind === 'granel' ? snapshotItem.cantidad : 1;
+        const porUnidad = cantidad > 1 ? ` × ${cantidad} uds.` : '';
+
+        if (d.meses > 0 && tf.mes != null) {
+          const sub = d.meses * tf.mes * cantidad;
+          filasDetalle.push([label, `${d.meses} mes${d.meses > 1 ? 'es' : ''}`, `${formatQ(tf.mes)}/mes${porUnidad}`, formatQ(sub)]);
+        }
+        if (d.semanas > 0 && tf.semana != null) {
+          const sub = d.semanas * tf.semana * cantidad;
+          filasDetalle.push([d.meses > 0 ? '' : label, `${d.semanas} semana${d.semanas > 1 ? 's' : ''}`, `${formatQ(tf.semana)}/sem${porUnidad}`, formatQ(sub)]);
+        }
+        if (d.dias > 0 && tf.dia != null) {
+          const sub = d.dias * tf.dia * cantidad;
+          const mostrarLabel = d.meses === 0 && d.semanas === 0 ? label : '';
+          filasDetalle.push([mostrarLabel, `${d.dias} día${d.dias > 1 ? 's' : ''}`, `${formatQ(tf.dia)}/día${porUnidad}`, formatQ(sub)]);
+        }
+      }
+
+      autoTable(doc, {
+        startY: y,
+        head: [['Ítem', 'Tramo', 'Tarifa aplicada', 'Subtotal tramo']],
+        body: filasDetalle,
+        margin: { left: 14, right: 14, bottom: FOOTER_RESERVE + 2 },
+        styles: {
+          fontSize: 10,
+          cellPadding: 2.5,
+          textColor: COLORES.texto,
+          lineColor: COLORES.borde,
+          lineWidth: 0.2,
+        },
+        headStyles: {
+          fillColor: [79, 70, 229] as [number, number, number],
+          textColor: COLORES.blanco,
+          fontStyle: 'bold',
+          fontSize: 10,
+        },
+        alternateRowStyles: {
+          fillColor: [245, 245, 255] as [number, number, number],
+        },
+        columnStyles: {
+          0: { cellWidth: 55, fontStyle: 'bold' },
+          1: { cellWidth: 28, halign: 'center' },
+          2: { halign: 'right' },
+          3: { cellWidth: 32, halign: 'right', fontStyle: 'bold' },
+        },
+      });
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      y = (doc as any).lastAutoTable.finalY + 6;
+    }
   }
 
   // ── CARGOS ADICIONALES ───────────────────────────────────────────────────────

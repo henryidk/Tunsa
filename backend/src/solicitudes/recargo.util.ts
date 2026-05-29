@@ -40,6 +40,8 @@ export interface DevolucionItemEntry {
   diasCobrados:  number;
   costoReal:     number;   // costo adaptativo sobre días reales usados
   recargoTiempo: number;   // cargo por atraso (0 si a tiempo)
+  desglose?:     { meses: number; semanas: number; dias: number }; // solo para rentas indefinidas
+  tarifas?:      { dia: number | null; semana: number | null; mes: number | null }; // solo para rentas indefinidas
 }
 
 /**
@@ -132,7 +134,7 @@ export function calcularRecargoTotal(
  * Descompone un número de días en meses calendario + semanas + días sueltos.
  * Usa la misma lógica que el frontend para mantener consistencia en el precio adaptativo.
  */
-function descomponerDias(
+export function descomponerDias(
   fechaInicio:   Date,
   totalDias:     number,
 ): { meses: number; semanas: number; dias: number } {

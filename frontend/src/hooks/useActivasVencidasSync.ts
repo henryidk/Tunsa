@@ -18,9 +18,16 @@ export function useActivasVencidasSync(
   useEffect(() => {
     const recienVencidas = solicitudes.filter(s => {
       if (!s.fechaFinEstimada) return false;
-      const extensiones = s.extensiones ?? [];
-      const inicio      = s.fechaInicioRenta ? new Date(s.fechaInicioRenta) : new Date();
-      return msMinimos(s.items, inicio, extensiones, ahora) < 0;
+      const extensiones   = s.extensiones ?? [];
+      const inicio        = s.fechaInicioRenta ? new Date(s.fechaInicioRenta) : new Date();
+      const yaDevueltos   = new Set(
+        (s.devolucionesParciales ?? []).flatMap(d => d.items.map(i => i.itemRef)),
+      );
+      const pendientes = s.items.filter(i => {
+        const ref = i.kind === 'maquinaria' || i.kind === 'pesada' ? i.equipoId : i.tipo;
+        return !yaDevueltos.has(ref ?? '');
+      });
+      return msMinimos(pendientes, inicio, extensiones, ahora) < 0;
     });
 
     if (recienVencidas.length === 0) return;

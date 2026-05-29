@@ -6,7 +6,7 @@ import MaquinariaPickerForm from '../MaquinariaPickerForm';
 import GranelPickerSection from '../GranelPickerSection';
 import PaymentModeSelector from '../PaymentModeSelector';
 import type { Cliente } from '../../../services/clientes.service';
-import type { ItemSolicitud, ItemMaquinaria, ModalidadPago } from '../../../types/solicitud.types';
+import type { ItemSolicitud, ModalidadPago } from '../../../types/solicitud.types';
 import { calcSubtotal, formatQ, formatFechaCorta, unidadLabel, rateSuffix, getRentaRate, descomponerDuracion, formatDesglose, esAdaptado } from '../../../types/solicitud.types';
 import { useSolicitudData } from '../../../hooks/useSolicitudData';
 import { useSolicitudCart } from '../../../hooks/useSolicitudCart';
@@ -31,6 +31,7 @@ export default function NuevaSolicitudSection({ onShowToast = () => {} }: Props)
   const [showNoPagoModal,     setShowNoPagoModal]     = useState(false);
   const [showNoNotasModal,    setShowNoNotasModal]    = useState(false);
   const [isSubmitting,        setIsSubmitting]        = useState(false);
+  const [indefinido,          setIndefinido]          = useState(false);
 
   const { equiposLiviana, granelData, reservedIds, isLoading, error: dataError, refreshReservedIds } = useSolicitudData();
   const cart = useSolicitudCart();
@@ -40,6 +41,19 @@ export default function NuevaSolicitudSection({ onShowToast = () => {} }: Props)
     () => equiposLiviana.filter(e => !cart.hasEquipo(e.id) && !reservedIds.has(e.id)),
     [equiposLiviana, cart.items, reservedIds],
   );
+
+  const handleClienteSelect = (cliente: Cliente | null) => {
+    if (cliente?.id !== clienteSeleccionado?.id) {
+      setIndefinido(false);
+      cart.clear();
+    }
+    setClienteSeleccionado(cliente);
+  };
+
+  const handleToggleIndefinido = (val: boolean) => {
+    setIndefinido(val);
+    cart.clear();
+  };
 
   const handleLimpiarItems = () => {
     cart.clear();
@@ -53,6 +67,7 @@ export default function NuevaSolicitudSection({ onShowToast = () => {} }: Props)
     setClienteKey(k => k + 1);
     setModalidadPago(null);
     setNotas('');
+    setIndefinido(false);
   };
 
   const handleEnviar = () => {
@@ -72,9 +87,9 @@ export default function NuevaSolicitudSection({ onShowToast = () => {} }: Props)
     setShowNoNotasModal(false);
     setIsSubmitting(true);
     try {
-      const items: ItemSnapshot[] = cart.items.map(item => {
+      const items: ItemSnapshot[] = cart.items.flatMap((item): ItemSnapshot[] => {
         if (item.kind === 'maquinaria') {
-          return {
+          return [{
             kind:        'maquinaria',
             equipoId:    item.equipo.id,
             numeracion:  item.equipo.numeracion,
@@ -82,26 +97,27 @@ export default function NuevaSolicitudSection({ onShowToast = () => {} }: Props)
             fechaInicio: item.fechaInicio,
             duracion:    item.duracion,
             unidad:      item.unidad,
-            // Siempre tarifa diaria: el recargo por atraso se calcula en días
             tarifa:      item.equipo.rentaDia ?? null,
             subtotal:    calcSubtotal(item),
-          };
+          }];
         }
-        return {
-          kind:        'granel',
-          tipo:        item.tipo,
-          tipoLabel:   item.tipoLabel,
-          cantidad:    item.cantidad,
-          conMadera:   item.conMadera,
-          fechaInicio: item.fechaInicio,
-          duracion:    item.duracion,
-          unidad:      item.unidad,
-          // Siempre tarifa diaria: el recargo por atraso se calcula en días
-          tarifa:      item.conMadera
-            ? (item.config?.rentaDiaConMadera ?? null)
-            : (item.config?.rentaDia ?? null),
-          subtotal:    calcSubtotal(item),
-        };
+        if (item.kind === 'granel') {
+          return [{
+            kind:        'granel',
+            tipo:        item.tipo,
+            tipoLabel:   item.tipoLabel,
+            cantidad:    item.cantidad,
+            conMadera:   item.conMadera ?? false,
+            fechaInicio: item.fechaInicio,
+            duracion:    item.duracion,
+            unidad:      item.unidad,
+            tarifa:      item.conMadera
+              ? (item.config?.rentaDiaConMadera ?? null)
+              : (item.config?.rentaDia ?? null),
+            subtotal:    calcSubtotal(item),
+          }];
+        }
+        return [];
       });
 
       const nuevaSolicitud = await solicitudesService.create({
@@ -110,6 +126,7 @@ export default function NuevaSolicitudSection({ onShowToast = () => {} }: Props)
         notas:         notas.trim(),
         totalEstimado: cart.summary.total,
         items,
+        esIndefinida:  indefinido,
       });
 
       addPendiente(nuevaSolicitud);
@@ -159,7 +176,26 @@ export default function NuevaSolicitudSection({ onShowToast = () => {} }: Props)
               ? 'Cliente seleccionado — haz clic en × para cambiar'
               : 'Busca un cliente registrado o regístralo desde aquí'}
           >
-            <ClienteSearchWidget key={clienteKey} onSelect={setClienteSeleccionado} />
+            <ClienteSearchWidget key={clienteKey} onSelect={handleClienteSelect} />
+            {clienteSeleccionado?.esEspecial && (
+              <div className="mt-3 flex items-center justify-between px-3 py-2.5 bg-violet-50 border border-violet-200 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <span className="text-base font-bold text-violet-500 leading-none">∞</span>
+                  <div>
+                    <p className="text-xs font-semibold text-violet-800">Renta indefinida</p>
+                    <p className="text-[11px] text-violet-600 leading-snug">El costo se calcula en días al momento de devolver</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleToggleIndefinido(!indefinido)}
+                  className={`relative inline-flex w-10 h-5 rounded-full transition-colors flex-shrink-0 focus:outline-none ${indefinido ? 'bg-violet-600' : 'bg-slate-300'}`}
+                  aria-label="Activar renta indefinida"
+                >
+                  <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${indefinido ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
+            )}
           </SectionCard>
 
           {/* 2. Equipos */}
@@ -194,6 +230,7 @@ export default function NuevaSolicitudSection({ onShowToast = () => {} }: Props)
                   equiposDisponibles={equiposDisponibles}
                   isLoading={isLoading}
                   onAdd={item => cart.addMaquinaria(item)}
+                  indefinido={indefinido}
                 />
               </div>
             )}
@@ -205,6 +242,7 @@ export default function NuevaSolicitudSection({ onShowToast = () => {} }: Props)
                   isLoading={isLoading}
                   inCart={tipo => cart.hasGranel(tipo)}
                   onAdd={item => cart.addGranel(item)}
+                  indefinido={indefinido}
                 />
               </div>
             )}
@@ -250,6 +288,7 @@ export default function NuevaSolicitudSection({ onShowToast = () => {} }: Props)
           items={cart.items}
           summary={cart.summary}
           modalidadPago={modalidadPago}
+          esIndefinida={indefinido}
           onLimpiarItems={handleLimpiarItems}
           canLimpiarItems={cart.items.length > 0 || !!notas}
           onCancelar={handleCancelarSolicitud}
@@ -400,7 +439,7 @@ function CartTable({ items, onRemove, summary }: CartTableProps) {
               </tr>
             ) : (
               items.map((item, idx) => (
-                <CartRow key={item.kind === 'maquinaria' ? item.equipo.id : `granel-${item.tipo}`}
+                <CartRow key={item.kind === 'maquinaria' ? item.equipo.id : item.kind === 'granel' ? `granel-${item.tipo}` : item.equipo.id}
                   item={item} onRemove={() => onRemove(idx)} />
               ))
             )}
@@ -428,17 +467,20 @@ interface CartRowProps {
 }
 
 function CartRow({ item, onRemove }: CartRowProps) {
-  const subtotal = calcSubtotal(item);
-  const decomp   = descomponerDuracion(item.fechaInicio, item.duracion, item.unidad);
-  const adapted  = esAdaptado(item.unidad, decomp);
+  const subtotal    = calcSubtotal(item);
+  const hasSchedule = item.kind !== 'pesada' && item.duracion != null;
+  const decomp      = hasSchedule
+    ? descomponerDuracion(item.fechaInicio, item.duracion!, item.unidad!)
+    : null;
+  const adapted     = hasSchedule && !!decomp && esAdaptado(item.unidad!, decomp);
 
   // Tarifa base para mostrar cuando no hay adaptación
   const tarifaBase = item.kind === 'maquinaria'
-    ? getRentaRate(item.unidad, item.equipo.rentaDia, item.equipo.rentaSemana, item.equipo.rentaMes)
-    : item.config
+    ? getRentaRate(item.unidad ?? 'dias', item.equipo.rentaDia, item.equipo.rentaSemana, item.equipo.rentaMes)
+    : item.kind === 'granel' && item.config
       ? (item.conMadera
-          ? getRentaRate(item.unidad, item.config.rentaDiaConMadera, item.config.rentaSemanaConMadera, item.config.rentaMesConMadera)
-          : getRentaRate(item.unidad, item.config.rentaDia, item.config.rentaSemana, item.config.rentaMes))
+          ? getRentaRate(item.unidad ?? 'dias', item.config.rentaDiaConMadera, item.config.rentaSemanaConMadera, item.config.rentaMesConMadera)
+          : getRentaRate(item.unidad ?? 'dias', item.config.rentaDia, item.config.rentaSemana, item.config.rentaMes))
       : null;
 
   return (
@@ -453,14 +495,14 @@ function CartRow({ item, onRemove }: CartRowProps) {
               {item.equipo.descripcion}
             </span>
           </div>
-        ) : (
+        ) : item.kind === 'granel' ? (
           <div className="flex items-center gap-2">
             <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded flex-shrink-0">
               Granel
             </span>
             <span className="text-xs font-medium text-slate-800">{item.tipoLabel}</span>
           </div>
-        )}
+        ) : null}
       </td>
       <td className="px-3 py-3 text-xs font-mono text-slate-600">
         {item.kind === 'granel' ? item.cantidad.toLocaleString('es-GT') : '—'}
@@ -469,21 +511,26 @@ function CartRow({ item, onRemove }: CartRowProps) {
         {formatFechaCorta(item.fechaInicio)}
       </td>
       <td className="px-3 py-3 text-xs text-slate-700 whitespace-nowrap">
-        {unidadLabel(item.duracion, item.unidad)}
+        {hasSchedule
+          ? unidadLabel(item.duracion ?? 0, item.unidad ?? 'dias')
+          : <span className="font-semibold text-violet-600">Indefinido</span>
+        }
       </td>
       <td className="px-3 py-3 text-xs whitespace-nowrap">
-        {adapted ? (
-          <span className="font-medium text-amber-600">{formatDesglose(decomp)}</span>
+        {!hasSchedule ? (
+          <span className="text-slate-300">—</span>
+        ) : adapted ? (
+          <span className="font-medium text-amber-600">{formatDesglose(decomp!)}</span>
         ) : tarifaBase !== null ? (
           <span className="font-mono text-slate-600">
-            {formatQ(tarifaBase)}<span className="text-slate-400">{rateSuffix(item.unidad)}{item.kind === 'granel' ? '/u' : ''}</span>
+            {formatQ(tarifaBase)}<span className="text-slate-400">{rateSuffix(item.unidad ?? 'dias')}{item.kind === 'granel' ? '/u' : ''}</span>
           </span>
         ) : (
           <span className="text-slate-300">—</span>
         )}
       </td>
       <td className="px-3 py-3 text-xs font-mono font-bold text-slate-800 whitespace-nowrap">
-        {formatQ(subtotal)}
+        {hasSchedule ? formatQ(subtotal) : <span className="text-slate-400">—</span>}
       </td>
       <td className="px-3 py-3">
         <button onClick={onRemove}
@@ -502,6 +549,7 @@ interface SolicitudResumenProps {
   items:           ItemSolicitud[];
   summary:         { total: number; countMaquinaria: number; countGranel: number };
   modalidadPago:   ModalidadPago | null;
+  esIndefinida:    boolean;
   onLimpiarItems:  () => void;
   canLimpiarItems: boolean;
   onCancelar:      () => void;
@@ -511,7 +559,7 @@ interface SolicitudResumenProps {
   isSubmitting:    boolean;
 }
 
-function SolicitudResumen({ cliente, items, summary, modalidadPago, onLimpiarItems, canLimpiarItems, onCancelar, canCancelar, canEnviar, onEnviar, isSubmitting }: SolicitudResumenProps) {
+function SolicitudResumen({ cliente, items, summary, modalidadPago, esIndefinida, onLimpiarItems, canLimpiarItems, onCancelar, canCancelar, canEnviar, onEnviar, isSubmitting }: SolicitudResumenProps) {
   const [confirmandoCancelar, setConfirmandoCancelar] = useState(false);
   return (
     <div className="w-72 flex-shrink-0 sticky top-20 self-start">
@@ -561,7 +609,7 @@ function SolicitudResumen({ cliente, items, summary, modalidadPago, onLimpiarIte
           ) : (
             <div className="space-y-2">
               {items.map((item) => (
-                <div key={item.kind === 'maquinaria' ? item.equipo.id : `granel-${item.tipo}`}
+                <div key={item.kind === 'maquinaria' ? item.equipo.id : item.kind === 'granel' ? `granel-${item.tipo}` : item.equipo.id}
                   className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
                     {item.kind === 'maquinaria' ? (
@@ -569,21 +617,25 @@ function SolicitudResumen({ cliente, items, summary, modalidadPago, onLimpiarIte
                         <span className="font-mono text-[10px] text-slate-400">#{item.equipo.numeracion} </span>
                         {item.equipo.descripcion}
                       </p>
-                    ) : (
+                    ) : item.kind === 'granel' ? (
                       <p className="text-xs font-medium text-slate-700">
                         {item.tipoLabel}<span className="text-slate-400"> × {item.cantidad}</span>
                       </p>
-                    )}
-                    <p className="text-[10px] text-slate-400">{unidadLabel(item.duracion, item.unidad)}</p>
-                    {(() => {
-                      const d = descomponerDuracion(item.fechaInicio, item.duracion, item.unidad);
-                      return esAdaptado(item.unidad, d)
+                    ) : null}
+                    {(item.kind === 'maquinaria' || item.kind === 'granel') && !item.duracion ? (
+                      <p className="text-[10px] text-violet-500 font-medium">Tiempo indefinido</p>
+                    ) : (item.kind === 'maquinaria' || item.kind === 'granel') ? (
+                      <p className="text-[10px] text-slate-400">{unidadLabel(item.duracion ?? 0, item.unidad ?? 'dias')}</p>
+                    ) : null}
+                    {(item.kind === 'maquinaria' || item.kind === 'granel') && !!item.duracion && (() => {
+                      const d = descomponerDuracion(item.fechaInicio, item.duracion!, item.unidad!);
+                      return esAdaptado(item.unidad!, d)
                         ? <p className="text-[10px] text-amber-500 font-medium">→ {formatDesglose(d)}</p>
                         : null;
                     })()}
                   </div>
                   <span className="text-xs font-mono font-semibold text-slate-700 flex-shrink-0">
-                    {formatQ(calcSubtotal(item))}
+                    {(item.kind === 'maquinaria' || item.kind === 'granel') && !item.duracion ? '—' : formatQ(calcSubtotal(item))}
                   </span>
                 </div>
               ))}
@@ -617,10 +669,17 @@ function SolicitudResumen({ cliente, items, summary, modalidadPago, onLimpiarIte
         {/* Total */}
         <div className="px-5 py-4 bg-slate-50">
           <span className="text-xs text-slate-500 font-medium">Total estimado</span>
-          <div className="text-2xl font-bold text-slate-800 mt-0.5">
-            <span className="text-base font-semibold text-slate-500 mr-0.5">Q</span>
-            {summary.total.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
+          {esIndefinida ? (
+            <div className="mt-1 flex items-center gap-1.5">
+              <span className="text-2xl font-bold text-violet-600">∞</span>
+              <span className="text-xs text-violet-500 font-medium leading-tight">Se calcula al devolver</span>
+            </div>
+          ) : (
+            <div className="text-2xl font-bold text-slate-800 mt-0.5">
+              <span className="text-base font-semibold text-slate-500 mr-0.5">Q</span>
+              {summary.total.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+          )}
           <div className="text-xs text-slate-400 mt-0.5">
             {items.length === 0 ? '0 ítems seleccionados' : [
               summary.countMaquinaria > 0 ? `${summary.countMaquinaria} equipo${summary.countMaquinaria > 1 ? 's' : ''}` : null,

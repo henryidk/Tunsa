@@ -313,6 +313,7 @@ model ConfigGranel {
   rentaDiaConMadera    Decimal?   @db.Decimal(10, 2)
   rentaSemanaConMadera Decimal?   @db.Decimal(10, 2)
   rentaMesConMadera    Decimal?   @db.Decimal(10, 2)
+  enRenta              Int        @default(0)
   updatedAt            DateTime   @updatedAt
 
   @@map("config_granel")

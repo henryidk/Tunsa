@@ -28,6 +28,7 @@ import {
   calcularDevolucionItem,
   calcularCostosItemIndefinido,
   descomponerDias,
+  descomponerCalendario,
 } from './recargo.util';
 
 const PDF_MAGIC_BYTES = Buffer.from([0x25, 0x50, 0x44, 0x46]); // %PDF
@@ -516,8 +517,14 @@ export class SolicitudesService {
       if (solicitud.esIndefinida) {
         const precios = ref ? await this.fetchPreciosItem(item.kind, ref, item.conMadera ?? false) : null;
         if (precios) {
-          const { costoReal, diasCobrados } = calcularDevolucionItem(fechaInicio, fechaDevolucion, precios, item.cantidad ?? 1);
-          const desglose = descomponerDias(fechaInicio, diasCobrados);
+          const cantidad = item.cantidad ?? 1;
+          const { meses, semanas, dias, diasCobrados } = descomponerCalendario(fechaInicio, fechaDevolucion);
+          const desglose  = { meses, semanas, dias };
+          const costoReal = (
+            (precios.mes    ?? 0) * meses   +
+            (precios.semana ?? 0) * semanas +
+            (precios.dia    ?? 0) * dias
+          ) * cantidad;
           costos = { costoReal, diasCobrados, recargoTiempo: 0, desglose, tarifas: precios };
         } else {
           costos = calcularCostosItemIndefinido(fechaInicio, fechaDevolucion, item.tarifa ?? 0, item.cantidad ?? 1);
@@ -592,8 +599,14 @@ export class SolicitudesService {
       if (solicitud.esIndefinida) {
         const precios = itemRef ? await this.fetchPreciosItem(item.kind, itemRef, item.conMadera ?? false) : null;
         if (precios) {
-          const { costoReal, diasCobrados } = calcularDevolucionItem(fechaInicio, fechaDevolucion, precios, item.cantidad ?? 1);
-          const desglose = descomponerDias(fechaInicio, diasCobrados);
+          const cantidad = item.cantidad ?? 1;
+          const { meses, semanas, dias, diasCobrados } = descomponerCalendario(fechaInicio, fechaDevolucion);
+          const desglose  = { meses, semanas, dias };
+          const costoReal = (
+            (precios.mes    ?? 0) * meses   +
+            (precios.semana ?? 0) * semanas +
+            (precios.dia    ?? 0) * dias
+          ) * cantidad;
           costos = { costoReal, diasCobrados, recargoTiempo: 0, desglose, tarifas: precios };
         } else {
           costos = calcularCostosItemIndefinido(fechaInicio, fechaDevolucion, item.tarifa ?? 0, item.cantidad ?? 1);

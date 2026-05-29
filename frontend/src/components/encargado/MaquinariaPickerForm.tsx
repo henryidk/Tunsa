@@ -1,19 +1,20 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import type { Equipo } from '../../types/equipo.types';
 import type { UnidadDuracion, ItemMaquinaria } from '../../types/solicitud.types';
-import { getRentaRate, descomponerDuracion, formatDesglose, esAdaptado } from '../../types/solicitud.types';
+import { descomponerDuracion, formatDesglose, esAdaptado } from '../../types/solicitud.types';
 
 interface Props {
-  equiposDisponibles: Equipo[];   // ya filtrados: liviana + activos + no en carrito
+  equiposDisponibles: Equipo[];
   isLoading:          boolean;
   onAdd:              (item: Omit<ItemMaquinaria, 'kind'>) => void;
+  indefinido?:        boolean;
 }
 
 const inputCls  = 'w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50';
 const labelCls  = 'block text-xs font-semibold text-slate-600 mb-1.5';
 const selectCls = 'w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all';
 
-export default function MaquinariaPickerForm({ equiposDisponibles, isLoading, onAdd }: Props) {
+export default function MaquinariaPickerForm({ equiposDisponibles, isLoading, onAdd, indefinido = false }: Props) {
   const [busqueda,     setBusqueda]     = useState('');
   const [seleccionado, setSeleccionado] = useState<Equipo | null>(null);
   const d = new Date();
@@ -56,11 +57,17 @@ export default function MaquinariaPickerForm({ equiposDisponibles, isLoading, on
 
   const handleAdd = () => {
     if (!seleccionado) { setError('Selecciona un equipo.'); return; }
-    // fechaInicio siempre es hoy — no puede estar vacío
+
+    if (indefinido) {
+      onAdd({ equipo: seleccionado, fechaInicio });
+      setSeleccionado(null);
+      setError(null);
+      return;
+    }
+
     const dur = parseInt(duracion);
     if (!dur || dur < 1) { setError('La duración debe ser al menos 1.'); return; }
 
-    // Verificar que existen las tarifas requeridas por el desglose adaptativo
     const decomp = descomponerDuracion(fechaInicio, dur, unidad);
     const faltantes: string[] = [];
     if (decomp.meses   > 0 && seleccionado.rentaMes    === null) faltantes.push('mes');
@@ -167,22 +174,26 @@ export default function MaquinariaPickerForm({ equiposDisponibles, isLoading, on
             <span className="ml-auto text-[10px] text-slate-400 font-medium">Hoy</span>
           </div>
         </div>
-        <div className="w-24">
-          <label className={labelCls}>Duración <span className="text-red-400">*</span></label>
-          <input type="number" value={duracion} min="1" step="1"
-            onChange={e => { setDuracion(e.target.value); setError(null); }}
-            placeholder="0"
-            className={`${inputCls} font-mono`} />
-        </div>
-        <div className="w-28">
-          <label className={labelCls}>Unidad</label>
-          <select value={unidad} onChange={e => setUnidad(e.target.value as UnidadDuracion)}
-            className={selectCls}>
-            <option value="dias">días</option>
-            <option value="semanas">semanas</option>
-            <option value="meses">meses</option>
-          </select>
-        </div>
+        {!indefinido && (
+          <>
+            <div className="w-24">
+              <label className={labelCls}>Duración <span className="text-red-400">*</span></label>
+              <input type="number" value={duracion} min="1" step="1"
+                onChange={e => { setDuracion(e.target.value); setError(null); }}
+                placeholder="0"
+                className={`${inputCls} font-mono`} />
+            </div>
+            <div className="w-28">
+              <label className={labelCls}>Unidad</label>
+              <select value={unidad} onChange={e => setUnidad(e.target.value as UnidadDuracion)}
+                className={selectCls}>
+                <option value="dias">días</option>
+                <option value="semanas">semanas</option>
+                <option value="meses">meses</option>
+              </select>
+            </div>
+          </>
+        )}
         <button onClick={handleAdd}
           className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors flex-shrink-0">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -192,7 +203,14 @@ export default function MaquinariaPickerForm({ equiposDisponibles, isLoading, on
         </button>
       </div>
 
-      {desglosePreview && (
+      {indefinido && (
+        <div className="mt-2.5 flex items-center gap-2 px-3 py-1.5 bg-violet-50 border border-violet-200 rounded-lg">
+          <span className="text-base font-bold text-violet-500 leading-none">∞</span>
+          <span className="text-xs text-violet-700">Renta indefinida — el costo se calcula al momento de la devolución</span>
+        </div>
+      )}
+
+      {!indefinido && desglosePreview && (
         <div className="mt-2.5 flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-lg">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
             className="text-amber-500 flex-shrink-0">

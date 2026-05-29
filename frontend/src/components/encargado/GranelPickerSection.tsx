@@ -4,10 +4,11 @@ import type { UnidadDuracion, ItemGranel } from '../../types/solicitud.types';
 import { getRentaRate, formatQ, rateSuffix, descomponerDuracion, formatDesglose, esAdaptado } from '../../types/solicitud.types';
 
 interface Props {
-  granelData: Partial<Record<TipoGranel, GranelResponse>>;
-  isLoading:  boolean;
-  inCart:     (tipo: TipoGranel) => boolean;
-  onAdd:      (item: Omit<ItemGranel, 'kind'>) => void;
+  granelData:  Partial<Record<TipoGranel, GranelResponse>>;
+  isLoading:   boolean;
+  inCart:      (tipo: TipoGranel) => boolean;
+  onAdd:       (item: Omit<ItemGranel, 'kind'>) => void;
+  indefinido?: boolean;
 }
 
 interface GranelForm {
@@ -31,7 +32,7 @@ const inputCls  = 'w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm
 const labelCls  = 'block text-xs font-semibold text-slate-600 mb-1.5';
 const selectCls = 'w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50';
 
-export default function GranelPickerSection({ granelData, isLoading, inCart, onAdd }: Props) {
+export default function GranelPickerSection({ granelData, isLoading, inCart, onAdd, indefinido = false }: Props) {
   const [forms,  setForms]  = useState<Record<TipoGranel, GranelForm>>({
     PUNTAL:         emptyForm(),
     ANDAMIO_SIMPLE: emptyForm(),
@@ -55,30 +56,34 @@ export default function GranelPickerSection({ granelData, isLoading, inCart, onA
     const stock  = data?.stockTotal ?? 0;
 
     const cant = parseInt(form.cantidad);
-    const dur  = parseInt(form.duracion);
-
     if (!cant || cant < 1) { setError(tipo, 'La cantidad debe ser al menos 1.'); return; }
     if (cant > stock)       { setError(tipo, `Stock insuficiente (disponible: ${stock}).`); return; }
-    // fechaInicio siempre es hoy — no puede estar vacío
-    if (!dur || dur < 1)    { setError(tipo, 'La duración debe ser al menos 1.'); return; }
 
-    // Verificar tarifas requeridas por el desglose adaptativo
-    if (config) {
-      const conMadera = tipo === 'ANDAMIO_SIMPLE' ? form.conMadera : false;
-      const decomp = descomponerDuracion(form.fechaInicio, dur, form.unidad);
-      const faltantes: string[] = [];
-      if (decomp.meses   > 0 && (conMadera ? config.rentaMesConMadera    : config.rentaMes)    === null) faltantes.push('mes');
-      if (decomp.semanas > 0 && (conMadera ? config.rentaSemanaConMadera  : config.rentaSemana) === null) faltantes.push('semana');
-      if (decomp.dias    > 0 && (conMadera ? config.rentaDiaConMadera     : config.rentaDia)    === null) faltantes.push('día');
-      if (faltantes.length > 0) {
-        setError(tipo, `No hay precio configurado para renta por ${faltantes.join(', ')}.`);
-        return;
+    const conMadera  = tipo === 'ANDAMIO_SIMPLE' ? form.conMadera : undefined;
+    const labelFinal = conMadera ? `${tipoLabel} (con madera)` : tipoLabel;
+
+    if (indefinido) {
+      onAdd({ tipo, tipoLabel: labelFinal, cantidad: cant, fechaInicio: form.fechaInicio, config: data?.config ?? null, conMadera });
+    } else {
+      const dur = parseInt(form.duracion);
+      if (!dur || dur < 1) { setError(tipo, 'La duración debe ser al menos 1.'); return; }
+
+      if (config) {
+        const usarMadera = tipo === 'ANDAMIO_SIMPLE' ? form.conMadera : false;
+        const decomp = descomponerDuracion(form.fechaInicio, dur, form.unidad);
+        const faltantes: string[] = [];
+        if (decomp.meses   > 0 && (usarMadera ? config.rentaMesConMadera    : config.rentaMes)    === null) faltantes.push('mes');
+        if (decomp.semanas > 0 && (usarMadera ? config.rentaSemanaConMadera  : config.rentaSemana) === null) faltantes.push('semana');
+        if (decomp.dias    > 0 && (usarMadera ? config.rentaDiaConMadera     : config.rentaDia)    === null) faltantes.push('día');
+        if (faltantes.length > 0) {
+          setError(tipo, `No hay precio configurado para renta por ${faltantes.join(', ')}.`);
+          return;
+        }
       }
+
+      onAdd({ tipo, tipoLabel: labelFinal, cantidad: cant, fechaInicio: form.fechaInicio, duracion: dur, unidad: form.unidad, config: data?.config ?? null, conMadera });
     }
 
-    const conMadera = tipo === 'ANDAMIO_SIMPLE' ? form.conMadera : undefined;
-    const labelFinal = conMadera ? `${tipoLabel} (con madera)` : tipoLabel;
-    onAdd({ tipo, tipoLabel: labelFinal, cantidad: cant, fechaInicio: form.fechaInicio, duracion: dur, unidad: form.unidad, config: data?.config ?? null, conMadera });
     setForms(prev => ({ ...prev, [tipo]: emptyForm() }));
     setErrors(prev => ({ ...prev, [tipo]: undefined }));
   };
@@ -192,33 +197,37 @@ export default function GranelPickerSection({ granelData, isLoading, inCart, onA
                 )}
 
                 <div className="flex gap-2 items-end">
-                  <div className="w-24 flex-shrink-0">
-                    <label className={labelCls}>
-                      Duración {canAdd && <span className="text-red-400">*</span>}
-                    </label>
-                    <input type="number" value={form.duracion} disabled={!canAdd}
-                      min="1" step="1" placeholder="0"
-                      onChange={e => updateForm(tipo, 'duracion', e.target.value)}
-                      className={`${inputCls} font-mono`} />
-                  </div>
-                  <div className="w-28 flex-shrink-0">
-                    <label className={labelCls}>Unidad</label>
-                    <select value={form.unidad} disabled={!canAdd}
-                      onChange={e => updateForm(tipo, 'unidad', e.target.value)}
-                      className={selectCls}>
-                      <option value="dias">días</option>
-                      <option value="semanas">semanas</option>
-                      <option value="meses">meses</option>
-                    </select>
-                  </div>
-                  {ratePreview !== null && canAdd && (
-                    <div className="flex-1 px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-right min-w-0">
-                      <div className="text-[10px] text-slate-400 leading-none mb-0.5">tarifa / ud</div>
-                      <div className="text-xs font-mono font-bold text-slate-700">
-                        {formatQ(ratePreview)}
-                        <span className="text-slate-400 font-normal">{rateSuffix(form.unidad)}</span>
+                  {!indefinido && (
+                    <>
+                      <div className="w-24 flex-shrink-0">
+                        <label className={labelCls}>
+                          Duración {canAdd && <span className="text-red-400">*</span>}
+                        </label>
+                        <input type="number" value={form.duracion} disabled={!canAdd}
+                          min="1" step="1" placeholder="0"
+                          onChange={e => updateForm(tipo, 'duracion', e.target.value)}
+                          className={`${inputCls} font-mono`} />
                       </div>
-                    </div>
+                      <div className="w-28 flex-shrink-0">
+                        <label className={labelCls}>Unidad</label>
+                        <select value={form.unidad} disabled={!canAdd}
+                          onChange={e => updateForm(tipo, 'unidad', e.target.value)}
+                          className={selectCls}>
+                          <option value="dias">días</option>
+                          <option value="semanas">semanas</option>
+                          <option value="meses">meses</option>
+                        </select>
+                      </div>
+                      {ratePreview !== null && canAdd && (
+                        <div className="flex-1 px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-right min-w-0">
+                          <div className="text-[10px] text-slate-400 leading-none mb-0.5">tarifa / ud</div>
+                          <div className="text-xs font-mono font-bold text-slate-700">
+                            {formatQ(ratePreview)}
+                            <span className="text-slate-400 font-normal">{rateSuffix(form.unidad)}</span>
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
                   <button
                     onClick={() => handleAdd(tipo, tipoLabel)}
@@ -231,7 +240,14 @@ export default function GranelPickerSection({ granelData, isLoading, inCart, onA
                   </button>
                 </div>
 
-                {desglosePreview && (
+                {indefinido && canAdd && (
+                  <div className="mt-2.5 flex items-center gap-2 px-3 py-1.5 bg-violet-50 border border-violet-200 rounded-lg">
+                    <span className="text-base font-bold text-violet-500 leading-none">∞</span>
+                    <span className="text-xs text-violet-700">Renta indefinida — el costo se calcula al momento de la devolución</span>
+                  </div>
+                )}
+
+                {!indefinido && desglosePreview && (
                   <div className="mt-2.5 flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-lg">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
                       className="text-amber-500 flex-shrink-0">

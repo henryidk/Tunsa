@@ -352,8 +352,7 @@ export async function generarLiquidacion(
   doc.setFontSize(11);
   doc.setTextColor(...COLORES.primario);
   doc.text(
-    solicitud.esPesada     ? 'DETALLE DE HORAS TRABAJADAS' :
-    solicitud.esIndefinida ? 'DETALLE DE COBRO'            : 'DETALLE DE ÍTEMS DEVUELTOS',
+    solicitud.esPesada ? 'DETALLE DE HORAS TRABAJADAS' : 'DETALLE DE COBRO',
     14, y,
   );
   y += 6;
@@ -361,69 +360,25 @@ export async function generarLiquidacion(
   if (solicitud.esPesada && lecturas && lecturas.length > 0) {
     // Tabla de horómetro por equipo
     y = buildSeccionHorometro(doc, solicitud, devolucion, lecturas, y, W, contentBottom);
-  } else {
-    if (!solicitud.esIndefinida) {
-      // Tabla genérica para liviana / pesada sin lecturas (no aplica a indefinidas)
-      y -= 3;
-      const filaItems: string[][] = devolucion.items.map(entry => [
-        resolverLabelItem(solicitud, entry),
-        `${entry.diasCobrados} día${entry.diasCobrados === 1 ? '' : 's'}`,
-        formatQ(entry.costoReal),
-        entry.recargoTiempo > 0 ? formatQ(entry.recargoTiempo) : '—',
-        formatQ(entry.costoReal + entry.recargoTiempo),
-      ]);
+  } else if (!solicitud.esPesada) {
+    // ── DETALLE DE COBRO — rentas livianas (definidas e indefinidas) ─────────────
+    y -= 3;
+    const filasDetalle: string[][] = [];
 
-      autoTable(doc, {
-        startY: y,
-        head: [['Equipo / Material', 'Días cobrados', 'Costo base', 'Recargo tiempo', 'Subtotal']],
-        body: filaItems,
-        margin: { left: 14, right: 14, bottom: FOOTER_RESERVE + 2 },
-        styles: {
-          fontSize: 11,
-          cellPadding: 3,
-          textColor: COLORES.texto,
-          lineColor: COLORES.borde,
-          lineWidth: 0.2,
-        },
-        headStyles: {
-          fillColor: COLORES.primario,
-          textColor: COLORES.blanco,
-          fontStyle: 'bold',
-          fontSize: 11,
-        },
-        alternateRowStyles: {
-          fillColor: [250, 252, 255] as [number, number, number],
-        },
-        columnStyles: {
-          1: { halign: 'center', cellWidth: 28 },
-          2: { halign: 'right',  cellWidth: 26 },
-          3: { halign: 'right',  cellWidth: 28 },
-          4: { halign: 'right',  cellWidth: 26, fontStyle: 'bold' },
-        },
-      });
+    for (const entry of devolucion.items) {
+      const label = resolverLabelItem(solicitud, entry);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      y = (doc as any).lastAutoTable.finalY + 6;
-    }
+      const snapshotItem = (solicitud.items as ItemSnapshot[]).find(i =>
+        (i.kind === 'granel' && i.tipo === entry.itemRef) ||
+        ((i.kind === 'maquinaria' || i.kind === 'pesada') && i.equipoId === entry.itemRef),
+      );
+      const cantidad: number = snapshotItem?.kind === 'granel' ? snapshotItem.cantidad : 1;
+      const porUnidad = cantidad > 1 ? ` × ${cantidad} uds.` : '';
 
-    // ── DETALLE DE COBRO (solo rentas indefinidas con desglose disponible) ──────
-    const itemsConDetalle = devolucion.items.filter(e => e.desglose && e.tarifas);
-    if (itemsConDetalle.length > 0) {
-      if (y + 20 > contentBottom) { doc.addPage(); y = 18; }
-
-      const filasDetalle: string[][] = [];
-
-      for (const entry of itemsConDetalle) {
-        const d  = entry.desglose!;
-        const tf = entry.tarifas!;
-        const label = resolverLabelItem(solicitud, entry);
-
-        const snapshotItem = (solicitud.items as ItemSnapshot[]).find(i =>
-          (i.kind === 'granel' && i.tipo === entry.itemRef) ||
-          ((i.kind === 'maquinaria' || i.kind === 'pesada') && i.equipoId === entry.itemRef),
-        );
-        const cantidad: number = snapshotItem?.kind === 'granel' ? snapshotItem.cantidad : 1;
-        const porUnidad = cantidad > 1 ? ` × ${cantidad} uds.` : '';
+      if (entry.desglose && entry.tarifas) {
+        // Renta indefinida: desglose adaptativo mes/semana/día
+        const d  = entry.desglose;
+        const tf = entry.tarifas;
 
         if (d.meses > 0 && tf.mes != null) {
           const sub = d.meses * tf.mes * cantidad;
@@ -438,40 +393,52 @@ export async function generarLiquidacion(
           const mostrarLabel = d.meses === 0 && d.semanas === 0 ? label : '';
           filasDetalle.push([mostrarLabel, `${d.dias} día${d.dias > 1 ? 's' : ''}`, `${formatQ(tf.dia)}/día${porUnidad}`, formatQ(sub)]);
         }
+      } else {
+        // Renta definida: tarifa fija diaria × días cobrados
+        const tarifa: number | null = snapshotItem && 'tarifa' in snapshotItem
+          ? (snapshotItem as { tarifa: number | null }).tarifa
+          : null;
+        const dias = entry.diasCobrados;
+        filasDetalle.push([
+          label,
+          `${dias} día${dias === 1 ? '' : 's'}`,
+          tarifa != null ? `${formatQ(tarifa)}/día${porUnidad}` : '—',
+          formatQ(entry.costoReal),
+        ]);
       }
-
-      autoTable(doc, {
-        startY: y,
-        head: [['Ítem', 'Tramo', 'Tarifa aplicada', 'Subtotal tramo']],
-        body: filasDetalle,
-        margin: { left: 14, right: 14, bottom: FOOTER_RESERVE + 2 },
-        styles: {
-          fontSize: 10,
-          cellPadding: 2.5,
-          textColor: COLORES.texto,
-          lineColor: COLORES.borde,
-          lineWidth: 0.2,
-        },
-        headStyles: {
-          fillColor: [79, 70, 229] as [number, number, number],
-          textColor: COLORES.blanco,
-          fontStyle: 'bold',
-          fontSize: 10,
-        },
-        alternateRowStyles: {
-          fillColor: [245, 245, 255] as [number, number, number],
-        },
-        columnStyles: {
-          0: { cellWidth: 55, fontStyle: 'bold' },
-          1: { cellWidth: 28, halign: 'center' },
-          2: { halign: 'right' },
-          3: { cellWidth: 32, halign: 'right', fontStyle: 'bold' },
-        },
-      });
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      y = (doc as any).lastAutoTable.finalY + 6;
     }
+
+    autoTable(doc, {
+      startY: y,
+      head: [['Ítem', 'Tramo', 'Tarifa aplicada', 'Subtotal tramo']],
+      body: filasDetalle,
+      margin: { left: 14, right: 14, bottom: FOOTER_RESERVE + 2 },
+      styles: {
+        fontSize: 10,
+        cellPadding: 2.5,
+        textColor: COLORES.texto,
+        lineColor: COLORES.borde,
+        lineWidth: 0.2,
+      },
+      headStyles: {
+        fillColor: [79, 70, 229] as [number, number, number],
+        textColor: COLORES.blanco,
+        fontStyle: 'bold',
+        fontSize: 10,
+      },
+      alternateRowStyles: {
+        fillColor: [245, 245, 255] as [number, number, number],
+      },
+      columnStyles: {
+        0: { cellWidth: 55, fontStyle: 'bold' },
+        1: { cellWidth: 28, halign: 'center' },
+        2: { halign: 'right' },
+        3: { cellWidth: 32, halign: 'right', fontStyle: 'bold' },
+      },
+    });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    y = (doc as any).lastAutoTable.finalY + 6;
   }
 
   // ── CARGOS ADICIONALES ───────────────────────────────────────────────────────

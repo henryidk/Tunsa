@@ -21,15 +21,6 @@ function formatFechaCorta(d: Date): string {
   });
 }
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-interface ItemGracia {
-  checked: boolean;
-  horas:   number | '';
-}
-
-// ── Componente principal ──────────────────────────────────────────────────────
-
 export default function TiempoGraciaModal({
   solicitud,
   onClose,
@@ -57,41 +48,30 @@ export default function TiempoGraciaModal({
     return { vencidos, activos };
   }, [solicitud.items, inicio, extensiones, ahora]);
 
-  const esUnico = vencidos.length === 1;
-
-  const [estado, setEstado] = useState<Record<string, ItemGracia>>(
-    () => Object.fromEntries(
-      vencidos.map(item => [itemRef(item), { checked: esUnico, horas: '' }]),
-    ),
-  );
+  const [horas,       setHoras]       = useState<number | ''>('');
   const [confirmando, setConfirmando] = useState(false);
   const [guardando,   setGuardando]   = useState(false);
   const [error,       setError]       = useState<string | null>(null);
 
-  const algunoSeleccionado = Object.values(estado).some(e => e.checked);
-  const todosConHoras      = Object.values(estado).every(e => !e.checked || (e.horas !== '' && e.horas >= 1));
+  const horasValidas = horas !== '' && horas >= 1;
 
-  const handleToggle = (ref: string) =>
-    setEstado(prev => ({ ...prev, [ref]: { ...prev[ref], checked: !prev[ref].checked } }));
-
-  const handleHoras = (ref: string, raw: string) => {
-    if (raw === '') { setEstado(prev => ({ ...prev, [ref]: { ...prev[ref], horas: '' } })); return; }
+  const handleHoras = (raw: string) => {
+    if (raw === '') { setHoras(''); return; }
     const n = parseInt(raw, 10);
-    if (!isNaN(n) && n >= 1) setEstado(prev => ({ ...prev, [ref]: { ...prev[ref], horas: n } }));
+    if (!isNaN(n) && n >= 1) setHoras(n);
   };
 
   const handleConfirmar = async () => {
+    if (!horasValidas) return;
     setError(null);
     setGuardando(true);
     try {
-      const items: ExtensionItemPayload[] = vencidos
-        .filter(item => estado[itemRef(item)]?.checked)
-        .map(item => ({
-          itemRef:  itemRef(item),
-          kind:     item.kind,
-          duracion: estado[itemRef(item)].horas as number,
-          unidad:   'horas' as const,
-        }));
+      const items: ExtensionItemPayload[] = vencidos.map(item => ({
+        itemRef:  itemRef(item),
+        kind:     item.kind,
+        duracion: horas as number,
+        unidad:   'horas' as const,
+      }));
       const actualizada = await solicitudesService.ampliar(solicitud.id, items, true);
       onGracia(actualizada);
     } catch {
@@ -100,18 +80,6 @@ export default function TiempoGraciaModal({
       setGuardando(false);
     }
   };
-
-  function HorasInput({ horas, onHoras, indent = false }: { horas: number | ''; onHoras: (val: string) => void; indent?: boolean }) {
-    return (
-      <div className={indent ? 'mt-3 ml-7' : ''}>
-        <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-1">Horas adicionales</label>
-        <input
-          type="number" min={1} value={horas} onChange={e => onHoras(e.target.value)} placeholder="Ej. 4"
-          className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-300"
-        />
-      </div>
-    );
-  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -142,10 +110,10 @@ export default function TiempoGraciaModal({
               <div>
                 <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-2">Tiempo a aplicar</p>
                 <ul className="space-y-2">
-                  {vencidos.filter(item => estado[itemRef(item)]?.checked).map(item => (
+                  {vencidos.map(item => (
                     <li key={itemRef(item)} className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
                       <span className="text-sm text-slate-800 truncate mr-3">{itemLabel(item)}</span>
-                      <span className="text-sm font-semibold text-amber-700 shrink-0">+{estado[itemRef(item)].horas}h de gracia</span>
+                      <span className="text-sm font-semibold text-amber-700 shrink-0">+{horas}h de gracia</span>
                     </li>
                   ))}
                 </ul>
@@ -154,45 +122,37 @@ export default function TiempoGraciaModal({
           ) : (
             <div className="space-y-4">
               <p className="text-xs text-slate-500 leading-relaxed">
-                Extiende el tiempo sin cargo adicional para los equipos que aún no han sido devueltos.
+                Extiende el tiempo sin cargo adicional para los equipos vencidos.
               </p>
-              {esUnico ? (
-                (() => {
-                  const item = vencidos[0];
-                  const ref  = itemRef(item);
-                  const fin  = calcularFinConExtensiones(inicio, item, extensiones);
+
+              {/* Equipos vencidos */}
+              <div className="space-y-2">
+                <p className="text-[10px] font-semibold text-red-500 uppercase tracking-wide">
+                  Vencidos ({vencidos.length})
+                </p>
+                {vencidos.map(item => {
+                  const fin = calcularFinConExtensiones(inicio, item, extensiones);
                   return (
-                    <div className="space-y-3">
-                      <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3">
-                        <p className="text-sm font-semibold text-slate-800 leading-tight">{itemLabel(item)}</p>
-                        <p className="text-[11px] text-red-500 mt-0.5">Venció {formatFechaCorta(fin)}</p>
-                      </div>
-                      <HorasInput horas={estado[ref].horas} onHoras={val => handleHoras(ref, val)} />
+                    <div key={itemRef(item)} className="border border-red-200 bg-red-50/40 rounded-xl px-4 py-3">
+                      <p className="text-sm font-medium text-slate-800 leading-tight">{itemLabel(item)}</p>
+                      <p className="text-[11px] text-red-500 mt-0.5">Venció {formatFechaCorta(fin)}</p>
                     </div>
                   );
-                })()
-              ) : (
-                <div className="space-y-2">
-                  <p className="text-[10px] font-semibold text-red-500 uppercase tracking-wide">Vencidos ({vencidos.length})</p>
-                  {vencidos.map(item => {
-                    const ref = itemRef(item);
-                    const ext = estado[ref];
-                    const fin = calcularFinConExtensiones(inicio, item, extensiones);
-                    return (
-                      <div key={ref} className={`border rounded-xl p-4 transition-colors ${ext.checked ? 'border-amber-300 bg-amber-50/50' : 'border-slate-200 bg-white'}`}>
-                        <label className="flex items-start gap-3 cursor-pointer">
-                          <input type="checkbox" checked={ext.checked} onChange={() => handleToggle(ref)} className="mt-0.5 accent-amber-600 w-4 h-4 cursor-pointer" />
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium text-slate-800 leading-tight">{itemLabel(item)}</p>
-                            <p className="text-[11px] text-red-500 mt-0.5">Venció {formatFechaCorta(fin)}</p>
-                          </div>
-                        </label>
-                        {ext.checked && <HorasInput horas={ext.horas} onHoras={val => handleHoras(ref, val)} indent />}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                })}
+              </div>
+
+              {/* Input único de horas */}
+              <div>
+                <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-1">
+                  Horas adicionales{vencidos.length > 1 ? ' (para todos)' : ''}
+                </label>
+                <input
+                  type="number" min={1} value={horas} onChange={e => handleHoras(e.target.value)} placeholder="Ej. 2"
+                  className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-300"
+                />
+              </div>
+
+              {/* Equipos activos (contexto) */}
               {activos.length > 0 && (
                 <div className="space-y-2">
                   <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Aún activos ({activos.length})</p>
@@ -225,7 +185,7 @@ export default function TiempoGraciaModal({
             ) : (
               <>
                 <button onClick={onClose} className="px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-sm font-medium text-slate-600 transition-colors">Cancelar</button>
-                <button onClick={() => setConfirmando(true)} disabled={!algunoSeleccionado || !todosConHoras} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-sm font-semibold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                <button onClick={() => setConfirmando(true)} disabled={!horasValidas} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-sm font-semibold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                   Aplicar tiempo de gracia
                 </button>

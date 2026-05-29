@@ -206,7 +206,10 @@ export default function MaquinariaPickerForm({ equiposDisponibles, isLoading, on
       {indefinido && (
         <div className="mt-2.5 flex items-center gap-2 px-3 py-1.5 bg-violet-50 border border-violet-200 rounded-lg">
           <span className="text-base font-bold text-violet-500 leading-none">∞</span>
-          <span className="text-xs text-violet-700">Renta indefinida — el costo se calcula al momento de la devolución</span>
+          <span className="text-xs">
+            <span className="font-semibold text-violet-700">Renta indefinida</span>
+            <span className="text-slate-600"> — el costo se calcula al momento de la devolución</span>
+          </span>
         </div>
       )}
 

@@ -169,8 +169,8 @@ export default function NuevaSolicitudSection({ onShowToast = () => {} }: Props)
           {/* 1. Cliente */}
           <SectionCard
             icon={<UserIcon />}
-            iconBg="bg-indigo-50"
-            iconColor="text-indigo-600"
+            iconBg="bg-slate-100"
+            iconColor="text-slate-500"
             title="Cliente de la Solicitud"
             subtitle={clienteSeleccionado
               ? 'Cliente seleccionado — haz clic en × para cambiar'
@@ -182,8 +182,8 @@ export default function NuevaSolicitudSection({ onShowToast = () => {} }: Props)
                 <div className="flex items-center gap-2">
                   <span className="text-base font-bold text-violet-500 leading-none">∞</span>
                   <div>
-                    <p className="text-xs font-semibold text-violet-800">Renta indefinida</p>
-                    <p className="text-[11px] text-violet-600 leading-snug">El costo se calcula en días al momento de devolver</p>
+                    <p className="text-xs font-semibold text-violet-700">Renta indefinida</p>
+                    <p className="text-[11px] text-slate-600 leading-snug">El costo se calcula en días al momento de devolver</p>
                   </div>
                 </div>
                 <button
@@ -201,8 +201,8 @@ export default function NuevaSolicitudSection({ onShowToast = () => {} }: Props)
           {/* 2. Equipos */}
           <SectionCard
             icon={<EquipoIcon />}
-            iconBg="bg-amber-50"
-            iconColor="text-amber-600"
+            iconBg="bg-slate-100"
+            iconColor="text-slate-500"
             title="Equipos / Maquinaria"
             subtitle="Cada ítem tiene su propia fecha de inicio y duración"
             locked={!clienteSeleccionado}
@@ -253,8 +253,8 @@ export default function NuevaSolicitudSection({ onShowToast = () => {} }: Props)
           {/* 3. Condiciones de pago */}
           <SectionCard
             icon={<PagoIcon />}
-            iconBg="bg-violet-50"
-            iconColor="text-violet-600"
+            iconBg="bg-slate-100"
+            iconColor="text-slate-500"
             title="Condiciones de Pago"
             subtitle="Define cómo y cuándo el cliente realizará el pago"
             locked={!clienteSeleccionado}
@@ -566,7 +566,7 @@ function SolicitudResumen({ cliente, items, summary, modalidadPago, esIndefinida
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
 
         <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600 flex-shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 flex-shrink-0">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
               <polyline points="14 2 14 8 20 8"/>

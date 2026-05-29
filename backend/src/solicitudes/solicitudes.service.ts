@@ -25,6 +25,7 @@ import {
   calcularRecargoItem,
   calcularCostoAdaptativo,
   calcularDevolucionItem,
+  calcularCostosItemIndefinido,
 } from './recargo.util';
 
 const PDF_MAGIC_BYTES = Buffer.from([0x25, 0x50, 0x44, 0x46]); // %PDF
@@ -120,6 +121,10 @@ export class SolicitudesService {
       );
     }
 
+    if (dto.esIndefinida && esPesada) {
+      throw new BadRequestException('Las rentas de maquinaria pesada no pueden ser indefinidas.');
+    }
+
     const equipoIds = dto.items
       .filter((i): i is typeof i & { equipoId: string } =>
         (i.kind === 'maquinaria' || i.kind === 'pesada') && !!i.equipoId,
@@ -164,6 +169,7 @@ export class SolicitudesService {
         notas:         dto.notas,
         totalEstimado: esPesada ? 0 : (dto.totalEstimado ?? 0),
         esPesada,
+        esIndefinida:  dto.esIndefinida ?? false,
         creadaPor:     username,
       },
       include: { cliente: true },
@@ -279,8 +285,10 @@ export class SolicitudesService {
     const fechaInicio    = solicitud.fechaInicioRenta ?? fechaEntrega;
     const items          = solicitud.items as unknown as ItemParaCalculo[];
 
-    let fechaFinEstimada: Date;
-    if (solicitud.esPesada) {
+    let fechaFinEstimada: Date | null;
+    if (solicitud.esIndefinida) {
+      fechaFinEstimada = null;
+    } else if (solicitud.esPesada) {
       const pesadaItems = items as unknown as Array<{ diasSolicitados?: number }>;
       const maxDias = Math.max(...pesadaItems.map(i => i.diasSolicitados ?? 1), 1);
       fechaFinEstimada = new Date(fechaInicio.getTime() + maxDias * 86_400_000);
@@ -464,7 +472,7 @@ export class SolicitudesService {
     id:            string,
     itemRefsInput: string[] | undefined,
   ): Promise<{ itemRef: string; costoReal: number; diasCobrados: number; recargoTiempo: number }[]> {
-    const solicitud = await this.prisma.solicitud.findUnique({ where: { id } });
+    const solicitud = await this.prisma.solicitud.findUnique({ where: { id }, include: { cliente: true } });
     if (!solicitud || !solicitud.fechaInicioRenta) return [];
 
     const fechaDevolucion    = new Date();
@@ -490,8 +498,16 @@ export class SolicitudesService {
     const result: { itemRef: string; costoReal: number; diasCobrados: number; recargoTiempo: number }[] = [];
 
     for (const item of itemsADevolver) {
-      const ref    = item.equipoId ?? item.tipo ?? '';
-      const costos = await this.calcularCostosDevolucionItem(item, fechaInicio, fechaDevolucion, extensiones);
+      const ref = item.equipoId ?? item.tipo ?? '';
+      let costos: { costoReal: number; diasCobrados: number; recargoTiempo: number };
+      if (solicitud.esIndefinida) {
+        costos = calcularCostosItemIndefinido(fechaInicio, fechaDevolucion, item.tarifa ?? 0, item.cantidad ?? 1);
+      } else {
+        costos = await this.calcularCostosDevolucionItem(item, fechaInicio, fechaDevolucion, extensiones);
+        if (solicitud.cliente.esEspecial) {
+          costos = { ...costos, recargoTiempo: 0 };
+        }
+      }
       result.push({ itemRef: ref, ...costos });
     }
 
@@ -509,7 +525,7 @@ export class SolicitudesService {
    *  - Si todos los ítems fueron devueltos, la solicitud pasa a DEVUELTA y se fija totalFinal.
    */
   async registrarDevolucion(id: string, dto: RegistrarDevolucionDto, user: AuthenticatedUser) {
-    const solicitud = await this.prisma.solicitud.findUnique({ where: { id } });
+    const solicitud = await this.prisma.solicitud.findUnique({ where: { id }, include: { cliente: true } });
 
     if (!solicitud)
       throw new NotFoundException('Solicitud no encontrada.');
@@ -552,7 +568,15 @@ export class SolicitudesService {
 
     for (const item of itemsADevolver) {
       const itemRef = item.equipoId ?? item.tipo ?? '';
-      const costos  = await this.calcularCostosDevolucionItem(item, fechaInicio, fechaDevolucion, extensiones);
+      let costos: { costoReal: number; diasCobrados: number; recargoTiempo: number };
+      if (solicitud.esIndefinida) {
+        costos = calcularCostosItemIndefinido(fechaInicio, fechaDevolucion, item.tarifa ?? 0, item.cantidad ?? 1);
+      } else {
+        costos = await this.calcularCostosDevolucionItem(item, fechaInicio, fechaDevolucion, extensiones);
+        if (solicitud.cliente.esEspecial) {
+          costos = { ...costos, recargoTiempo: 0 };
+        }
+      }
       devolucionItems.push({ itemRef, kind: item.kind as 'maquinaria' | 'granel', ...costos });
     }
 

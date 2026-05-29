@@ -42,6 +42,10 @@ export class CreateSolicitudDto {
   @IsString()
   clienteId: string;
 
+  @IsOptional()
+  @IsBoolean()
+  esIndefinida?: boolean;
+
   @IsEnum(ModalidadPago)
   modalidad: ModalidadPago;
 

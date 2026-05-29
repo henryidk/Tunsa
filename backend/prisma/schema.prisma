@@ -235,6 +235,10 @@ model Solicitud {
   // Flag: true cuando todos los ítems son PESADA (cobro por horómetro, sin totalEstimado real).
   esPesada              Boolean   @default(false)
 
+  // Flag: true cuando el cliente es especial y la renta no tiene duración definida.
+  // fechaFinEstimada queda en null; el costo se calcula con días calendario al devolver.
+  esIndefinida          Boolean   @default(false)
+
   // Monto real cobrado al cerrar la renta (suma de todos los totalLote de devolucionesParciales).
   // Puede diferir de totalEstimado en devoluciones anticipadas o por recargos adicionales.
   totalFinal            Decimal?  @db.Decimal(12, 2)

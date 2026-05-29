@@ -1,3 +1,5 @@
+import { fechaGT } from '../common/utils/date.util';
+
 /**
  * Cálculo de recargo por atraso en devolución.
  *
@@ -274,4 +276,32 @@ export function calcularDevolucionItem(
   ) * cantidad;
 
   return { diasCobrados, costoReal };
+}
+
+/**
+ * Días calendario entre dos fechas en zona horaria de Guatemala.
+ * Mínimo 1 día (siempre se cobra el día de inicio).
+ */
+export function calcularDiasCalendario(fechaInicio: Date, fechaDevolucion: Date): number {
+  const [yA, mA, dA] = fechaGT(fechaInicio).split('-').map(Number)  as [number, number, number];
+  const [yB, mB, dB] = fechaGT(fechaDevolucion).split('-').map(Number) as [number, number, number];
+  const msInicio = Date.UTC(yA, mA - 1, dA);
+  const msFin    = Date.UTC(yB, mB - 1, dB);
+  return Math.max(Math.round((msFin - msInicio) / 86_400_000), 1);
+}
+
+/**
+ * Costos de devolución para rentas indefinidas (clientes especiales sin duración pactada).
+ *  - costoReal    = días calendario × tarifa × cantidad
+ *  - recargoTiempo siempre 0 (clientes especiales no tienen recargo por atraso)
+ */
+export function calcularCostosItemIndefinido(
+  fechaInicio:     Date,
+  fechaDevolucion: Date,
+  tarifa:          number,
+  cantidad =       1,
+): { diasCobrados: number; costoReal: number; recargoTiempo: 0 } {
+  const diasCobrados = calcularDiasCalendario(fechaInicio, fechaDevolucion);
+  const costoReal    = diasCobrados * tarifa * cantidad;
+  return { diasCobrados, costoReal, recargoTiempo: 0 };
 }

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaModule } from '../prisma/prisma.module';
+import { GranelModule } from '../granel/granel.module';
 import { SolicitudesService } from './solicitudes.service';
 import { SolicitudesQueryService } from './solicitudes-query.service';
 import { SolicitudesGateway } from './solicitudes.gateway';
@@ -13,6 +14,7 @@ import { HorometroCalcService } from './horometro-calc.service';
 @Module({
   imports: [
     PrismaModule,
+    GranelModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({

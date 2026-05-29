@@ -2,6 +2,7 @@ import { Injectable, ConflictException, NotFoundException, ForbiddenException, B
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { R2Service } from '../r2/r2.service';
+import { GranelService } from '../granel/granel.service';
 import { CreateSolicitudDto } from './dto/create-solicitud.dto';
 import { AmpliacionRentaDto } from './dto/ampliar-renta.dto';
 import { RegistrarDevolucionDto } from './dto/registrar-devolucion.dto';
@@ -33,8 +34,9 @@ const PDF_MAGIC_BYTES = Buffer.from([0x25, 0x50, 0x44, 0x46]); // %PDF
 @Injectable()
 export class SolicitudesService {
   constructor(
-    private readonly prisma: PrismaService,
-    private readonly r2:     R2Service,
+    private readonly prisma:        PrismaService,
+    private readonly r2:            R2Service,
+    private readonly granelService: GranelService,
   ) {}
 
   private buildComprobanteKey(clienteId: string, folio: string): string {
@@ -304,6 +306,16 @@ export class SolicitudesService {
       });
 
       await this.crearRegistrosSeguimiento(tx, solicitud, fechaEntrega);
+
+      for (const item of items) {
+        if (item.kind === 'granel') {
+          await this.granelService.moverStock(
+            (item as any).tipo,
+            (item as any).cantidad,
+            tx,
+          );
+        }
+      }
 
       return s;
     });
@@ -664,6 +676,14 @@ export class SolicitudesService {
             costoFinal:   devItem.costoReal + devItem.recargoTiempo,
           },
         });
+
+        if (devItem.kind === 'granel') {
+          const snapshot = snapshotItems.find(i => (i as any).tipo === devItem.itemRef);
+          const cantidad = (snapshot as any)?.cantidad ?? 0;
+          if (cantidad > 0) {
+            await this.granelService.moverStock(devItem.itemRef as any, -cantidad, tx);
+          }
+        }
       }
 
       if (devolucionCompleta) {

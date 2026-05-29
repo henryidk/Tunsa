@@ -4,8 +4,9 @@ import { GranelService } from './granel.service';
 import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
-  imports: [PrismaModule],
+  imports:     [PrismaModule],
   controllers: [GranelController],
-  providers: [GranelService],
+  providers:   [GranelService],
+  exports:     [GranelService],
 })
 export class GranelModule {}

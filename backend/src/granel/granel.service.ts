@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { TipoGranel } from '@prisma/client';
+import { TipoGranel, Prisma } from '@prisma/client';
 import { CreateLoteDto } from './dto/create-lote.dto';
 import { UpdateLoteDto } from './dto/update-lote.dto';
 import { UpdateConfigGranelDto } from './dto/update-config.dto';
@@ -42,10 +42,15 @@ export class GranelService {
       this.prisma.configGranel.findUnique({ where: { tipo } }),
     ]);
 
+    const stockTotal     = aggregate._sum.cantidad ?? 0;
+    const enRenta        = config?.enRenta ?? 0;
+    const stockDisponible = Math.max(0, stockTotal - enRenta);
+
     return {
-      lotes:      lotes.map(l => this.serializeLote(l)),
-      stockTotal: aggregate._sum.cantidad ?? 0,
-      config:     config ? this.serializeConfig(config) : null,
+      lotes:           lotes.map(l => this.serializeLote(l)),
+      stockTotal,
+      stockDisponible,
+      config:          config ? this.serializeConfig(config) : null,
     };
   }
 
@@ -147,6 +152,29 @@ export class GranelService {
     });
 
     return this.serializeLote(actualizado);
+  }
+
+  /**
+   * Mueve unidades de stock granel: delta > 0 = salieron a renta, delta < 0 = regresaron.
+   * Debe llamarse siempre dentro de una transacción del caller para garantizar atomicidad.
+   */
+  async moverStock(
+    tipo:  TipoGranel,
+    delta: number,
+    tx:    Prisma.TransactionClient,
+  ): Promise<void> {
+    const config = await tx.configGranel.findUnique({ where: { tipo } });
+
+    if (!config) throw new BadRequestException(`No existe configuración de granel para ${tipo}.`);
+
+    const nuevoEnRenta = config.enRenta + delta;
+    if (nuevoEnRenta < 0)
+      throw new BadRequestException(`Stock inconsistente para ${tipo}: enRenta no puede ser negativo.`);
+
+    await tx.configGranel.update({
+      where: { tipo },
+      data:  { enRenta: nuevoEnRenta },
+    });
   }
 
   async updateConfig(dto: UpdateConfigGranelDto, requestingUsername: string) {

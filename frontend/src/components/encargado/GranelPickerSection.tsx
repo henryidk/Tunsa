@@ -92,7 +92,7 @@ export default function GranelPickerSection({ granelData, isLoading, inCart, onA
     <div className="space-y-3">
       {GRANEL_TIPOS.map(({ tipo, tipoLabel }) => {
         const data       = granelData[tipo];
-        const stock      = data?.stockTotal ?? 0;
+        const stock      = data?.stockDisponible ?? 0;
         const config     = data?.config ?? null;
         const canAdd     = !isLoading && data !== undefined && stock > 0;
         const alreadyIn  = inCart(tipo);
@@ -243,7 +243,10 @@ export default function GranelPickerSection({ granelData, isLoading, inCart, onA
                 {indefinido && canAdd && (
                   <div className="mt-2.5 flex items-center gap-2 px-3 py-1.5 bg-violet-50 border border-violet-200 rounded-lg">
                     <span className="text-base font-bold text-violet-500 leading-none">∞</span>
-                    <span className="text-xs text-violet-700">Renta indefinida — el costo se calcula al momento de la devolución</span>
+                    <span className="text-xs">
+                      <span className="font-semibold text-violet-700">Renta indefinida</span>
+                      <span className="text-slate-600"> — el costo se calcula al momento de la devolución</span>
+                    </span>
                   </div>
                 )}
 

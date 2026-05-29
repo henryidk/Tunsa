@@ -28,9 +28,10 @@ export interface ConfigGranel {
 }
 
 export interface GranelResponse {
-  lotes:      LoteGranel[];
-  stockTotal: number;
-  config:     ConfigGranel | null;
+  lotes:           LoteGranel[];
+  stockTotal:      number;
+  stockDisponible: number;
+  config:          ConfigGranel | null;
 }
 
 interface CreateLoteData {

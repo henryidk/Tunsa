@@ -14,10 +14,11 @@ interface Props {
 }
 
 export default function LoteGranelTab({ tipo, tipoLabel, onShowToast = () => {}, canEdit = true }: Props) {
-  const [lotes,      setLotes]      = useState<LoteGranel[]>([]);
-  const [config,     setConfig]     = useState<ConfigGranel | null>(null);
-  const [stockTotal, setStockTotal] = useState(0);
-  const [isLoading,  setIsLoading]  = useState(true);
+  const [lotes,           setLotes]           = useState<LoteGranel[]>([]);
+  const [config,          setConfig]          = useState<ConfigGranel | null>(null);
+  const [stockTotal,      setStockTotal]      = useState(0);
+  const [stockDisponible, setStockDisponible] = useState(0);
+  const [isLoading,       setIsLoading]       = useState(true);
   const [error,      setError]      = useState<string | null>(null);
   const [modalOpen,        setModalOpen]        = useState(false);
   const [preciosModalOpen, setPreciosModalOpen] = useState(false);
@@ -29,6 +30,7 @@ export default function LoteGranelTab({ tipo, tipoLabel, onShowToast = () => {},
       .then(data => {
         setLotes(data.lotes);
         setStockTotal(data.stockTotal);
+        setStockDisponible(data.stockDisponible);
         setConfig(data.config);
       })
       .catch(() => setError(`No se pudo cargar el inventario de ${tipoLabel.toLowerCase()}.`))
@@ -89,6 +91,14 @@ export default function LoteGranelTab({ tipo, tipoLabel, onShowToast = () => {},
               {isLoading ? '—' : stockTotal.toLocaleString('es-GT')}
             </div>
             <div className="text-xs text-slate-500 mt-0.5">Unidades en inventario</div>
+            {!isLoading && (
+              <div className="text-xs mt-1">
+                <span className="text-emerald-700 font-semibold">{stockDisponible.toLocaleString('es-GT')}</span>
+                <span className="text-slate-400"> disponibles · </span>
+                <span className="text-amber-600 font-semibold">{(stockTotal - stockDisponible).toLocaleString('es-GT')}</span>
+                <span className="text-slate-400"> en renta</span>
+              </div>
+            )}
           </div>
         </div>
 

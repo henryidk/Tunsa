@@ -197,6 +197,12 @@ export function unidadLabel(n: number, u: UnidadDuracion): string {
   return n === 1 ? '1 mes' : `${n} meses`;
 }
 
+/** Devuelve 'Indefinido' cuando no hay duración (renta indefinida); de lo contrario formatea normalmente. */
+export function duracionDisplay(duracion?: number, unidad?: UnidadDuracion): string {
+  if (!duracion) return 'Indefinido';
+  return unidadLabel(duracion, unidad ?? 'dias');
+}
+
 export function rateSuffix(u: UnidadDuracion): string {
   return u === 'dias' ? '/día' : u === 'semanas' ? '/sem' : '/mes';
 }

@@ -5,7 +5,7 @@ import SubirComprobanteModal from '../SubirComprobanteModal';
 import { generarComprobante } from '../../../utils/generarComprobante';
 import { solicitudesService } from '../../../services/solicitudes.service';
 import type { SolicitudRenta, ItemSnapshot } from '../../../types/solicitud-renta.types';
-import { unidadLabel } from '../../../types/solicitud.types';
+import { duracionDisplay } from '../../../types/solicitud.types';
 import type { ToastType } from '../../../types/ui.types';
 
 interface Props {
@@ -197,7 +197,7 @@ function SolicitudAprobadaCard({
                   {item.descripcion}
                 </p>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  {unidadLabel(item.duracion ?? 0, item.unidad ?? 'dias')}
+                  {duracionDisplay(item.duracion, item.unidad)}
                 </p>
               </div>
             ))}
@@ -209,7 +209,7 @@ function SolicitudAprobadaCard({
                   {item.conMadera && <span className="text-amber-600 ml-1">(c/madera)</span>}
                 </p>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  {unidadLabel(item.duracion ?? 0, item.unidad ?? 'dias')}
+                  {duracionDisplay(item.duracion, item.unidad)}
                 </p>
               </div>
             ))}
@@ -235,6 +235,8 @@ function SolicitudAprobadaCard({
             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Total estimado</p>
             {solicitud.esPesada ? (
               <p className="text-base font-bold text-amber-700">Por horómetro</p>
+            ) : solicitud.esIndefinida ? (
+              <p className="text-sm font-semibold text-violet-600">∞ A calcular al devolver</p>
             ) : (
               <p className="text-xl font-bold text-slate-800 font-mono">
                 Q {solicitud.totalEstimado.toLocaleString('es-GT', { minimumFractionDigits: 2 })}

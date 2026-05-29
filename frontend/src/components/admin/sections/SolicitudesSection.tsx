@@ -7,7 +7,7 @@ import RechazadasTab from './RechazadasTab';
 import RechazarModal from '../RechazarModal';
 import AprobarModal from '../AprobarModal';
 import type { SolicitudRenta, ItemSnapshot } from '../../../types/solicitud-renta.types';
-import { formatFechaCorta, unidadLabel } from '../../../types/solicitud.types';
+import { formatFechaCorta, unidadLabel, duracionDisplay } from '../../../types/solicitud.types';
 
 type Tab = 'pendientes' | 'rechazadas';
 
@@ -239,6 +239,8 @@ function SolicitudCard({
           </span>
           {solicitud.esPesada ? (
             <p className="text-base font-bold text-amber-700">Por horómetro</p>
+          ) : solicitud.esIndefinida ? (
+            <p className="text-sm font-semibold text-violet-600">∞ A calcular</p>
           ) : (
             <p className="text-xl font-bold text-slate-800 font-mono">
               Q {solicitud.totalEstimado.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -332,7 +334,7 @@ function ItemRow({ item }: { item: ItemSnapshot }) {
   const tiempo = (
     <span className="flex items-center gap-1 mt-0.5 text-[11px] text-slate-400">
       <span className="inline-flex items-center gap-1 font-medium text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-md">
-        {unidadLabel(item.duracion ?? 0, item.unidad ?? 'dias')}
+        {duracionDisplay(item.duracion, item.unidad)}
       </span>
       <span>desde {formatFechaCorta(item.fechaInicio)}</span>
     </span>

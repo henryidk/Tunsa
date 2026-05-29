@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import type { DragEvent, ChangeEvent, MouseEvent } from 'react';
 import { solicitudesService } from '../../services/solicitudes.service';
 import type { SolicitudRenta, ItemSnapshot } from '../../types/solicitud-renta.types';
-import { unidadLabel } from '../../types/solicitud.types';
+import { duracionDisplay } from '../../types/solicitud.types';
 
 const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 
@@ -142,9 +142,13 @@ export default function SubirComprobanteModal({ solicitud, open, onClose, onConf
                   <p className="text-xs font-mono text-slate-400">{solicitud.folio}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-base font-bold text-slate-800 font-mono">
-                    Q {solicitud.totalEstimado.toLocaleString('es-GT', { minimumFractionDigits: 2 })}
-                  </p>
+                  {solicitud.esIndefinida ? (
+                    <p className="text-sm font-semibold text-violet-600">∞ A calcular al devolver</p>
+                  ) : (
+                    <p className="text-base font-bold text-slate-800 font-mono">
+                      Q {solicitud.totalEstimado.toLocaleString('es-GT', { minimumFractionDigits: 2 })}
+                    </p>
+                  )}
                   <p className="text-[11px] text-slate-400">
                     {solicitud.modalidad === 'CONTADO' ? 'Contado' : 'Crédito'}
                   </p>
@@ -159,11 +163,11 @@ export default function SubirComprobanteModal({ solicitud, open, onClose, onConf
                         {item.descripcion}
                       </p>
                       <p className="text-[11px] text-slate-400 mt-0.5">
-                        {unidadLabel(item.duracion ?? 0, item.unidad ?? 'dias')}
+                        {duracionDisplay(item.duracion, item.unidad)}
                       </p>
                     </div>
                     <span className="text-xs font-mono font-semibold text-slate-600 ml-4">
-                      Q {(item.subtotal ?? 0).toLocaleString('es-GT', { minimumFractionDigits: 2 })}
+                      {item.duracion ? `Q ${(item.subtotal ?? 0).toLocaleString('es-GT', { minimumFractionDigits: 2 })}` : '—'}
                     </span>
                   </div>
                 ))}
@@ -176,11 +180,11 @@ export default function SubirComprobanteModal({ solicitud, open, onClose, onConf
                         {item.conMadera && <span className="text-amber-600 ml-1">(c/madera)</span>}
                       </p>
                       <p className="text-[11px] text-slate-400 mt-0.5">
-                        {unidadLabel(item.duracion ?? 0, item.unidad ?? 'dias')}
+                        {duracionDisplay(item.duracion, item.unidad)}
                       </p>
                     </div>
                     <span className="text-xs font-mono font-semibold text-slate-600 ml-4">
-                      Q {(item.subtotal ?? 0).toLocaleString('es-GT', { minimumFractionDigits: 2 })}
+                      {item.duracion ? `Q ${(item.subtotal ?? 0).toLocaleString('es-GT', { minimumFractionDigits: 2 })}` : '—'}
                     </span>
                   </div>
                 ))}

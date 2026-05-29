@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { MouseEvent } from 'react';
 import { solicitudesService } from '../../services/solicitudes.service';
 import type { SolicitudRenta, ItemSnapshot } from '../../types/solicitud-renta.types';
-import { formatFechaCorta, unidadLabel } from '../../types/solicitud.types';
+import { formatFechaCorta, duracionDisplay } from '../../types/solicitud.types';
 import EspecialBadge from '../shared/EspecialBadge';
 
 interface AprobarModalProps {
@@ -77,9 +77,13 @@ export default function AprobarModal({ solicitud, open, onClose, onConfirm }: Ap
           </div>
           <div className="text-right flex-shrink-0">
             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Total</p>
-            <p className="text-sm font-bold text-slate-700 font-mono">
-              Q {solicitud.totalEstimado.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </p>
+            {solicitud.esIndefinida ? (
+              <p className="text-sm font-semibold text-violet-600">∞ A calcular</p>
+            ) : (
+              <p className="text-sm font-bold text-slate-700 font-mono">
+                Q {solicitud.totalEstimado.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+            )}
             <p className="text-[11px] text-slate-400 mt-0.5">Solicitado por {solicitud.creadaPor}</p>
           </div>
         </div>
@@ -96,11 +100,11 @@ export default function AprobarModal({ solicitud, open, onClose, onConfirm }: Ap
                     {item.descripcion}
                   </p>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    {unidadLabel(item.duracion ?? 0, item.unidad ?? 'dias')} desde {formatFechaCorta(item.fechaInicio)}
+                    {duracionDisplay(item.duracion, item.unidad)} desde {formatFechaCorta(item.fechaInicio)}
                   </p>
                 </div>
                 <span className="text-xs font-mono font-semibold text-slate-600 ml-4">
-                  Q {(item.subtotal ?? 0).toLocaleString('es-GT', { minimumFractionDigits: 2 })}
+                  {item.duracion ? `Q ${(item.subtotal ?? 0).toLocaleString('es-GT', { minimumFractionDigits: 2 })}` : '—'}
                 </span>
               </div>
             ))}
@@ -113,11 +117,11 @@ export default function AprobarModal({ solicitud, open, onClose, onConfirm }: Ap
                     {item.conMadera && <span className="text-amber-600 ml-1">(c/madera)</span>}
                   </p>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    {unidadLabel(item.duracion ?? 0, item.unidad ?? 'dias')} desde {formatFechaCorta(item.fechaInicio)}
+                    {duracionDisplay(item.duracion, item.unidad)} desde {formatFechaCorta(item.fechaInicio)}
                   </p>
                 </div>
                 <span className="text-xs font-mono font-semibold text-slate-600 ml-4">
-                  Q {(item.subtotal ?? 0).toLocaleString('es-GT', { minimumFractionDigits: 2 })}
+                  {item.duracion ? `Q ${(item.subtotal ?? 0).toLocaleString('es-GT', { minimumFractionDigits: 2 })}` : '—'}
                 </span>
               </div>
             ))}

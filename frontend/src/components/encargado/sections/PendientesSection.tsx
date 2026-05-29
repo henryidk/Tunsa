@@ -1,6 +1,6 @@
 import { useMisPendientes } from '../../../hooks/useMisPendientes';
 import type { SolicitudRenta, ItemSnapshot } from '../../../types/solicitud-renta.types';
-import { formatFechaCorta, unidadLabel } from '../../../types/solicitud.types';
+import { formatFechaCorta, duracionDisplay } from '../../../types/solicitud.types';
 
 interface Props {
   onNavTo?: (section: string) => void;
@@ -110,11 +110,15 @@ function SolicitudPendienteCard({ solicitud }: { solicitud: SolicitudRenta }) {
           }`}>
             {solicitud.modalidad === 'CONTADO' ? 'Contado' : 'Crédito'}
           </span>
-          <p className="text-xl font-bold text-slate-800 font-mono">
-            Q {solicitud.totalEstimado.toLocaleString('es-GT', {
-              minimumFractionDigits: 2, maximumFractionDigits: 2,
-            })}
-          </p>
+          {solicitud.esIndefinida ? (
+            <p className="text-sm font-semibold text-violet-600">∞ A calcular al devolver</p>
+          ) : (
+            <p className="text-xl font-bold text-slate-800 font-mono">
+              Q {solicitud.totalEstimado.toLocaleString('es-GT', {
+                minimumFractionDigits: 2, maximumFractionDigits: 2,
+              })}
+            </p>
+          )}
         </div>
       </div>
 
@@ -134,7 +138,7 @@ function SolicitudPendienteCard({ solicitud }: { solicitud: SolicitudRenta }) {
 // ── Item resumen ──────────────────────────────────────────────────────────────
 
 function ItemResumen({ item }: { item: ItemSnapshot }) {
-  const duracionLabel = unidadLabel(item.duracion ?? 0, item.unidad ?? 'dias');
+  const duracionLabel = duracionDisplay(item.duracion, item.unidad);
   const fechaLabel    = formatFechaCorta(item.fechaInicio);
 
   if (item.kind === 'maquinaria') {

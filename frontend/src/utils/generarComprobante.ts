@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { SolicitudRenta, ItemSnapshot, UnidadDuracion } from '../types/solicitud-renta.types';
-import { unidadLabel } from '../types/solicitud.types';
+import { unidadLabel, duracionDisplay } from '../types/solicitud.types';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -83,9 +83,14 @@ function buildFilasLiviana(items: ItemSnapshot[], fechaInicio: Date): string[][]
 
   for (const item of items) {
     if (item.kind === 'pesada') continue;
-    const fin      = calcularFin(fechaInicio, item.duracion ?? 0, item.unidad ?? 'dias');
-    const finStr   = formatFechaHoraCorta(fin.toISOString());
-    const duracion = unidadLabel(item.duracion ?? 0, item.unidad ?? 'dias');
+    const indefinido = !item.duracion;
+    const finStr     = indefinido
+      ? '—'
+      : formatFechaHoraCorta(calcularFin(fechaInicio, item.duracion!, item.unidad ?? 'dias').toISOString());
+    const duracion   = duracionDisplay(item.duracion, item.unidad);
+    const subtotalStr = indefinido
+      ? 'A calcular'
+      : `Q ${item.subtotal.toLocaleString('es-GT', { minimumFractionDigits: 2 })}`;
 
     if (item.kind === 'maquinaria') {
       filas.push([
@@ -96,7 +101,7 @@ function buildFilasLiviana(items: ItemSnapshot[], fechaInicio: Date): string[][]
         item.tarifa != null
           ? `Q ${item.tarifa.toLocaleString('es-GT', { minimumFractionDigits: 2 })}`
           : '—',
-        `Q ${item.subtotal.toLocaleString('es-GT', { minimumFractionDigits: 2 })}`,
+        subtotalStr,
       ]);
     } else {
       const desc = `${item.tipoLabel}${item.conMadera ? ' (con madera)' : ''}`;
@@ -108,7 +113,7 @@ function buildFilasLiviana(items: ItemSnapshot[], fechaInicio: Date): string[][]
         item.tarifa != null
           ? `Q ${item.tarifa.toLocaleString('es-GT', { minimumFractionDigits: 2 })}`
           : '—',
-        `Q ${item.subtotal.toLocaleString('es-GT', { minimumFractionDigits: 2 })}`,
+        subtotalStr,
       ]);
     }
   }
@@ -294,7 +299,9 @@ export async function generarComprobante(solicitud: SolicitudRenta): Promise<voi
       body: buildFilasLiviana(solicitud.items, fechaInicio),
       foot: [[
         '', '', '', '', 'TOTAL',
-        `Q ${solicitud.totalEstimado.toLocaleString('es-GT', { minimumFractionDigits: 2 })}`,
+        solicitud.esIndefinida
+          ? 'A calcular al devolver'
+          : `Q ${solicitud.totalEstimado.toLocaleString('es-GT', { minimumFractionDigits: 2 })}`,
       ]],
       ...commonTableStyles,
       columnStyles: {

@@ -189,7 +189,7 @@ export default function RentaActivaCard({
               )}
             </button>
           )}
-          {onAmpliar && (
+          {onAmpliar && !solicitud.esIndefinida && (
             <button
               onClick={onAmpliar}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-200 bg-white hover:bg-indigo-50 text-xs font-semibold text-indigo-600 transition-colors"

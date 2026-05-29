@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import type { SolicitudRenta, ItemSnapshot, DevolucionEntry } from '../../types/solicitud-renta.types';
 import { solicitudesService } from '../../services/solicitudes.service';
 import { generarLiquidacion } from '../../utils/generarLiquidacion';
-import { formatFechaHora, unidadLabel, formatQ } from '../../types/solicitud.types';
+import { formatFechaHora, duracionDisplay, formatQ } from '../../types/solicitud.types';
 import { useAuthStore, selectUserRole } from '../../store/auth.store';
 import {
   type DescuentoFormState,
@@ -368,7 +368,7 @@ export default function DevolucionModal({
                           <div className="min-w-0">
                             <p className="text-sm font-medium text-slate-800 leading-tight">{itemLabel(item)}</p>
                             <p className="text-[11px] text-slate-400 mt-0.5">
-                              {item.kind !== 'pesada' ? unidadLabel(item.duracion ?? 0, item.unidad ?? 'dias') : 'Por horómetro'}
+                              {item.kind !== 'pesada' ? duracionDisplay(item.duracion, item.unidad) : 'Por horómetro'}
                             </p>
                           </div>
                         </label>
@@ -500,7 +500,7 @@ export default function DevolucionModal({
                           <div className="min-w-0">
                             <p className="text-xs font-medium text-slate-800 truncate">{itemLabel(item)}</p>
                             <p className="text-[10px] text-slate-400 mt-0.5">
-                              {item.kind !== 'pesada' ? unidadLabel(item.duracion ?? 0, item.unidad ?? 'dias') : 'Por horómetro'}
+                              {item.kind !== 'pesada' ? duracionDisplay(item.duracion, item.unidad) : 'Por horómetro'}
                             </p>
                           </div>
                         </div>

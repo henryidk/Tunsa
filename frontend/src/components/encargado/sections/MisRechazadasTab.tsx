@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { solicitudesService } from '../../../services/solicitudes.service';
 import { useRechazadasStore } from '../../../store/rechazadas.store';
 import type { SolicitudRenta, ItemSnapshot } from '../../../types/solicitud-renta.types';
-import { formatFechaCorta, formatFechaHora, unidadLabel } from '../../../types/solicitud.types';
+import { formatFechaCorta, formatFechaHora, duracionDisplay } from '../../../types/solicitud.types';
 
 // ── Helpers de fecha ──────────────────────────────────────────────────────────
 
@@ -229,11 +229,15 @@ function SolicitudRechazadaCard({ solicitud }: { solicitud: SolicitudRenta }) {
           }`}>
             {solicitud.modalidad === 'CONTADO' ? 'Contado' : 'Crédito'}
           </span>
-          <p className="text-xl font-bold text-slate-400 font-mono line-through decoration-red-300">
-            Q {solicitud.totalEstimado.toLocaleString('es-GT', {
-              minimumFractionDigits: 2, maximumFractionDigits: 2,
-            })}
-          </p>
+          {solicitud.esIndefinida ? (
+            <p className="text-sm font-semibold text-violet-400 line-through decoration-red-300">∞ Indefinido</p>
+          ) : (
+            <p className="text-xl font-bold text-slate-400 font-mono line-through decoration-red-300">
+              Q {solicitud.totalEstimado.toLocaleString('es-GT', {
+                minimumFractionDigits: 2, maximumFractionDigits: 2,
+              })}
+            </p>
+          )}
         </div>
       </div>
 
@@ -259,7 +263,7 @@ function SolicitudRechazadaCard({ solicitud }: { solicitud: SolicitudRenta }) {
 // ── Item resumen ──────────────────────────────────────────────────────────────
 
 function ItemResumen({ item }: { item: ItemSnapshot }) {
-  const duracionLabel = unidadLabel(item.duracion ?? 0, item.unidad ?? 'dias');
+  const duracionLabel = duracionDisplay(item.duracion, item.unidad);
   const fechaLabel    = formatFechaCorta(item.fechaInicio);
 
   if (item.kind === 'maquinaria' || item.kind === 'pesada') {

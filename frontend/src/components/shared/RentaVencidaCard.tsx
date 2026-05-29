@@ -45,7 +45,9 @@ export default function RentaVencidaCard({
   const atrasoMs      = msAtraso(vencimiento, ahora);
   const ventanaGracia = calcularVentanaGracia(extensiones);
   const enGracia      = atrasoMs <= ventanaGracia;
-  const recargo       = calcularRecargoActual(solicitud.items, inicio, ahoraRecargo, extensiones);
+  const recargo       = solicitud.cliente.esEspecial
+    ? 0
+    : calcularRecargoActual(solicitud.items, inicio, ahoraRecargo, extensiones);
 
   // Tick de 1 segundo solo mientras está en gracia, para el conteo regresivo
   const [localNow, setLocalNow] = useState(() => Date.now());
@@ -126,12 +128,14 @@ export default function RentaVencidaCard({
               <span>Monto inicial</span>
               <span className="font-mono">Q {solicitud.totalEstimado.toLocaleString('es-GT', { minimumFractionDigits: 2 })}</span>
             </div>
-            <div className="flex justify-between text-xs">
-              <span className={recargo > 0 ? 'text-red-600 font-medium' : 'text-slate-400'}>Recargo por atraso</span>
-              <span className={`font-mono ${recargo > 0 ? 'text-red-600 font-semibold' : 'text-slate-400'}`}>
-                {recargo > 0 ? `+ Q ${recargo.toLocaleString('es-GT', { minimumFractionDigits: 2 })}` : '— (dentro de gracia)'}
-              </span>
-            </div>
+            {!solicitud.cliente.esEspecial && (
+              <div className="flex justify-between text-xs">
+                <span className={recargo > 0 ? 'text-red-600 font-medium' : 'text-slate-400'}>Recargo por atraso</span>
+                <span className={`font-mono ${recargo > 0 ? 'text-red-600 font-semibold' : 'text-slate-400'}`}>
+                  {recargo > 0 ? `+ Q ${recargo.toLocaleString('es-GT', { minimumFractionDigits: 2 })}` : '— (dentro de gracia)'}
+                </span>
+              </div>
+            )}
             <div className="border-t border-slate-200 pt-1.5 flex justify-between">
               <span className="text-sm font-bold text-slate-800">Total</span>
               <span className="text-sm font-bold font-mono text-slate-900">Q {total.toLocaleString('es-GT', { minimumFractionDigits: 2 })}</span>
@@ -158,10 +162,10 @@ export default function RentaVencidaCard({
           </div>
           <div className="space-y-2">
             {maquinaria.map((item, i) => (
-              <MaquinariaRow key={i} item={item} inicio={inicio} extensiones={extensiones} ahoraRecargo={ahoraRecargo} ahora={ahora} />
+              <MaquinariaRow key={i} item={item} inicio={inicio} extensiones={extensiones} ahoraRecargo={ahoraRecargo} ahora={ahora} esEspecial={solicitud.cliente.esEspecial} />
             ))}
             {granel.map((item, i) => (
-              <GranelRow key={i} item={item} inicio={inicio} extensiones={extensiones} ahoraRecargo={ahoraRecargo} ahora={ahora} />
+              <GranelRow key={i} item={item} inicio={inicio} extensiones={extensiones} ahoraRecargo={ahoraRecargo} ahora={ahora} esEspecial={solicitud.cliente.esEspecial} />
             ))}
           </div>
         </div>
@@ -210,16 +214,17 @@ export default function RentaVencidaCard({
 
 // ── Sub-filas de equipos ──────────────────────────────────────────────────────
 
-function MaquinariaRow({ item, inicio, extensiones, ahoraRecargo, ahora }: {
+function MaquinariaRow({ item, inicio, extensiones, ahoraRecargo, ahora, esEspecial }: {
   item:         Extract<ItemSnapshot, { kind: 'maquinaria' }>;
   inicio:       Date;
   extensiones:  ExtensionEntry[];
   ahoraRecargo: number;
   ahora:        number;
+  esEspecial:   boolean;
 }) {
   const fin      = calcularFinConExtensiones(inicio, item, extensiones);
   const tarifa   = (item as { tarifa?: number | null }).tarifa ?? 0;
-  const itemRec  = calcularRecargoItem(tarifa, fin, ahoraRecargo);
+  const itemRec  = esEspecial ? 0 : calcularRecargoItem(tarifa, fin, ahoraRecargo);
   const yaVencio = fin.getTime() < ahora;
   return (
     <div className="flex items-start justify-between gap-2 py-1.5 border-b border-slate-100 last:border-0">
@@ -244,16 +249,17 @@ function MaquinariaRow({ item, inicio, extensiones, ahoraRecargo, ahora }: {
   );
 }
 
-function GranelRow({ item, inicio, extensiones, ahoraRecargo, ahora }: {
+function GranelRow({ item, inicio, extensiones, ahoraRecargo, ahora, esEspecial }: {
   item:         Extract<ItemSnapshot, { kind: 'granel' }>;
   inicio:       Date;
   extensiones:  ExtensionEntry[];
   ahoraRecargo: number;
   ahora:        number;
+  esEspecial:   boolean;
 }) {
   const fin      = calcularFinConExtensiones(inicio, item, extensiones);
   const tarifa   = (item as { tarifa?: number | null }).tarifa ?? 0;
-  const itemRec  = calcularRecargoItem(tarifa, fin, ahoraRecargo) * item.cantidad;
+  const itemRec  = esEspecial ? 0 : calcularRecargoItem(tarifa, fin, ahoraRecargo) * item.cantidad;
   const yaVencio = fin.getTime() < ahora;
   return (
     <div className="flex items-start justify-between gap-2 py-1.5 border-b border-slate-100 last:border-0">

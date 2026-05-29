@@ -89,11 +89,15 @@ export default function AmpliacionRentaModal({
   onClose:   () => void;
   onAmpliar: (actualizada: SolicitudRenta) => void;
 }) {
-  const esUnico = solicitud.items.length === 1;
+  const yaDevueltos     = new Set(
+    (solicitud.devolucionesParciales ?? []).flatMap(d => d.items.map(i => i.itemRef)),
+  );
+  const itemsPendientes = solicitud.items.filter(item => !yaDevueltos.has(itemRef(item)));
+  const esUnico         = itemsPendientes.length === 1;
 
   const [estado, setEstado] = useState<Record<string, ItemExtension>>(
     () => Object.fromEntries(
-      solicitud.items.map(item => [
+      itemsPendientes.map(item => [
         itemRef(item),
         { checked: esUnico, duracion: '', unidad: 'dias' },
       ]),
@@ -122,7 +126,7 @@ export default function AmpliacionRentaModal({
     setError(null);
     setGuardando(true);
     try {
-      const items: ExtensionItemPayload[] = solicitud.items
+      const items: ExtensionItemPayload[] = itemsPendientes
         .filter(item => estado[itemRef(item)]?.checked)
         .map(item => ({
           itemRef:  itemRef(item),
@@ -178,7 +182,7 @@ export default function AmpliacionRentaModal({
               <div>
                 <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-2">Resumen de la extensión</p>
                 <ul className="space-y-2">
-                  {solicitud.items
+                  {itemsPendientes
                     .filter(item => estado[itemRef(item)]?.checked)
                     .map(item => {
                       const ext        = estado[itemRef(item)];
@@ -197,7 +201,7 @@ export default function AmpliacionRentaModal({
             </div>
           ) : esUnico ? (
             (() => {
-              const item = solicitud.items[0];
+              const item = itemsPendientes[0];
               const ref  = itemRef(item);
               const ext  = estado[ref];
               return (
@@ -219,7 +223,7 @@ export default function AmpliacionRentaModal({
                 Selecciona los equipos a extender e indica la duración adicional.
                 {!solicitud.esPesada && ' El costo se calculará con los precios actuales al confirmar.'}
               </p>
-              {solicitud.items.map(item => {
+              {itemsPendientes.map(item => {
                 const ref = itemRef(item);
                 const ext = estado[ref];
                 return (

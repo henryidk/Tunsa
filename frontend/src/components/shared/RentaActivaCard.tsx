@@ -57,7 +57,7 @@ export default function RentaActivaCard({
   const pesada      = itemsPendientes.filter((i): i is Extract<typeof i, { kind: 'pesada' }>     => i.kind === 'pesada');
   const extensiones = solicitud.extensiones ?? [];
   const inicio      = solicitud.fechaInicioRenta ? new Date(solicitud.fechaInicioRenta) : new Date();
-  const msMin       = msMinimos(itemsPendientes, inicio, extensiones, ahora);
+  const msMin       = solicitud.esIndefinida ? Infinity : msMinimos(itemsPendientes, inicio, extensiones, ahora);
   const nivel       = nivelUrgencia(msMin);
 
   return (
@@ -71,7 +71,11 @@ export default function RentaActivaCard({
               PESADA
             </span>
           )}
-          {nivel !== 'ok' && (
+          {solicitud.esIndefinida ? (
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 border border-violet-200">
+              ∞ Tiempo indefinido
+            </span>
+          ) : nivel !== 'ok' && (
             <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${URGENCIA_BADGE[nivel]}`}>
               {nivel === 'vencido' ? 'Vencida' : `Vence en ${formatTiempoRestante(msMin, inicio, ahora)}`}
             </span>
@@ -109,6 +113,11 @@ export default function RentaActivaCard({
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Total</p>
               {solicitud.esPesada ? (
                 <p className="text-base font-bold text-slate-700 leading-none">Por horómetro</p>
+              ) : solicitud.esIndefinida ? (
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-2xl font-bold text-violet-600 leading-none">∞</span>
+                  <span className="text-xs text-violet-500 font-medium leading-tight">a calcular<br/>al devolver</span>
+                </div>
               ) : (
                 <p className="text-lg font-bold text-slate-800 font-mono leading-none">
                   Q {solicitud.totalEstimado.toLocaleString('es-GT', { minimumFractionDigits: 2 })}
@@ -128,10 +137,10 @@ export default function RentaActivaCard({
           <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Equipos rentados</p>
           <div className="space-y-2.5">
             {maquinaria.map((item, i) => (
-              <EquipoRow key={i} item={item} inicio={inicio} extensiones={extensiones} ahora={ahora} />
+              <EquipoRow key={i} item={item} inicio={inicio} extensiones={extensiones} ahora={ahora} esIndefinida={solicitud.esIndefinida} />
             ))}
             {granel.map((item, i) => (
-              <GranelRow key={i} item={item} inicio={inicio} extensiones={extensiones} ahora={ahora} />
+              <GranelRow key={i} item={item} inicio={inicio} extensiones={extensiones} ahora={ahora} esIndefinida={solicitud.esIndefinida} />
             ))}
             {pesada.map((item, i) => (
               <PesadaRow key={i} item={item} inicio={inicio} extensiones={extensiones} ahora={ahora} />
@@ -211,12 +220,24 @@ export default function RentaActivaCard({
 
 // ── Sub-filas de equipos ──────────────────────────────────────────────────────
 
-function EquipoRow({ item, inicio, extensiones, ahora }: {
-  item:        Extract<ItemSnapshot, { kind: 'maquinaria' }>;
-  inicio:      Date;
-  extensiones: ExtensionEntry[];
-  ahora:       number;
+function EquipoRow({ item, inicio, extensiones, ahora, esIndefinida }: {
+  item:          Extract<ItemSnapshot, { kind: 'maquinaria' }>;
+  inicio:        Date;
+  extensiones:   ExtensionEntry[];
+  ahora:         number;
+  esIndefinida?: boolean;
 }) {
+  if (esIndefinida) {
+    return (
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-xs font-medium text-slate-700 leading-tight">
+          <span className="font-mono text-slate-400 mr-1">#{item.numeracion}</span>
+          {item.descripcion}
+        </p>
+        <span className="text-[10px] font-semibold text-violet-600 flex-shrink-0">∞ Indefinido</span>
+      </div>
+    );
+  }
   const fin = calcularFinConExtensiones(inicio, item, extensiones);
   const ms  = msRestantes(inicio, item, extensiones, ahora);
   return (
@@ -235,12 +256,25 @@ function EquipoRow({ item, inicio, extensiones, ahora }: {
   );
 }
 
-function GranelRow({ item, inicio, extensiones, ahora }: {
-  item:        Extract<ItemSnapshot, { kind: 'granel' }>;
-  inicio:      Date;
-  extensiones: ExtensionEntry[];
-  ahora:       number;
+function GranelRow({ item, inicio, extensiones, ahora, esIndefinida }: {
+  item:          Extract<ItemSnapshot, { kind: 'granel' }>;
+  inicio:        Date;
+  extensiones:   ExtensionEntry[];
+  ahora:         number;
+  esIndefinida?: boolean;
 }) {
+  if (esIndefinida) {
+    return (
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-xs font-medium text-slate-700 leading-tight">
+          <span className="font-mono text-indigo-500 mr-1">{item.cantidad.toLocaleString('es-GT')}</span>
+          {item.tipoLabel}
+          {item.conMadera && <span className="text-amber-600 ml-1">(c/madera)</span>}
+        </p>
+        <span className="text-[10px] font-semibold text-violet-600 flex-shrink-0">∞ Indefinido</span>
+      </div>
+    );
+  }
   const fin = calcularFinConExtensiones(inicio, item, extensiones);
   const ms  = msRestantes(inicio, item, extensiones, ahora);
   return (

@@ -9,6 +9,7 @@ import { SolicitudesQueryService } from './solicitudes-query.service';
 import { SolicitudesGateway } from './solicitudes.gateway';
 import { HorometroService } from './horometro.service';
 import { CreateSolicitudDto } from './dto/create-solicitud.dto';
+import { CreateSolicitudDirectaDto } from './dto/create-solicitud-directa.dto';
 import { AmpliacionRentaDto } from './dto/ampliar-renta.dto';
 import { RegistrarDevolucionDto } from './dto/registrar-devolucion.dto';
 import { RegistrarLecturaDto } from './dto/lectura-horometro.dto';
@@ -50,6 +51,17 @@ export class SolicitudesController {
     return solicitud;
   }
 
+  @Post('directa')
+  @Roles('admin', 'secretaria')
+  async crearDirecta(
+    @Body() dto: CreateSolicitudDirectaDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const solicitud = await this.solicitudesService.crearDirecta(user.username, dto);
+    this.solicitudesGateway.emitNuevaRentaDirecta(solicitud);
+    return solicitud;
+  }
+
   @Patch(':id/aprobar')
   @Roles('admin', 'secretaria')
   async aprobar(
@@ -76,10 +88,9 @@ export class SolicitudesController {
   @Roles('encargado_maquinas')
   iniciarEntrega(
     @Param('id') id: string,
-    @CurrentUser() user: AuthenticatedUser,
     @Body() dto: IniciarEntregaDto,
   ) {
-    return this.solicitudesService.iniciarEntrega(id, user.username, dto);
+    return this.solicitudesService.iniciarEntrega(id, dto);
   }
 
   @Patch(':id/confirmar-entrega')
@@ -99,7 +110,7 @@ export class SolicitudesController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     const solicitud = await this.solicitudesService.confirmarEntrega(
-      id, file.buffer, file.mimetype, user.username,
+      id, file.buffer, file.mimetype,
     );
     this.solicitudesGateway.emitRentaActiva(solicitud, user.username);
     return solicitud;

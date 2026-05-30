@@ -39,7 +39,8 @@ export class SolicitudesGateway implements OnGatewayConnection, OnGatewayDisconn
         this.logger.log(`[WS] ${client.id} unido a sala rol:${role}`);
       } else if (role === 'encargado_maquinas') {
         client.join(`user:${username}`);
-        this.logger.log(`[WS] ${client.id} unido a sala user:${username}`);
+        client.join('rol:encargado_maquinas');
+        this.logger.log(`[WS] ${client.id} unido a sala user:${username} y rol:encargado_maquinas`);
       } else {
         this.logger.warn(`[WS] Rol no permitido (${role}) — desconectando ${client.id}`);
         client.disconnect();
@@ -52,6 +53,16 @@ export class SolicitudesGateway implements OnGatewayConnection, OnGatewayDisconn
 
   handleDisconnect(client: Socket) {
     this.logger.log(`[WS] Desconectado: ${client.id}`);
+  }
+
+  /** Notifica a todos los encargados conectados que hay una renta directa lista para entregar. */
+  emitNuevaRentaDirecta(solicitud: object) {
+    try {
+      this.logger.log('[WS] Emitiendo solicitud:aprobada a rol:encargado_maquinas');
+      this.server.to('rol:encargado_maquinas').emit('solicitud:aprobada', solicitud);
+    } catch (err) {
+      this.logger.error(`[WS] Error emitiendo solicitud:aprobada (directa): ${(err as Error).message}`);
+    }
   }
 
   emitNuevaSolicitud(solicitud: object) {

@@ -681,7 +681,7 @@ export class SolicitudesService {
       updateData.fechaDevolucion = fechaDevolucion;
       updateData.recargoTotal    = recargoTotal;
       updateData.totalFinal      = totalFinalLiviana;
-    } else {
+    } else if (!solicitud.esIndefinida) {
       const refsDevueltosAhora = new Set([...yaDevueltosRefs, ...devolucionItems.map(i => i.itemRef)]);
       const itemsRestantes     = snapshotItems.filter(i => !refsDevueltosAhora.has(i.equipoId ?? i.tipo ?? ''));
       const nuevaFechaFin      = calcularFechaFinEstimadaConExtensiones(fechaInicio, itemsRestantes, extensiones);

@@ -37,6 +37,15 @@ interface CreateSolicitudPayload {
   esIndefinida?:  boolean;
 }
 
+interface CreateSolicitudDirectaPayload {
+  clienteId:      string;
+  modalidad:      ModalidadPago;
+  notas?:         string;
+  totalEstimado?: number;
+  items:          ItemSnapshot[];
+  esIndefinida?:  boolean;
+}
+
 export interface LecturaHorometro {
   id:                    string;
   solicitudId:           string;
@@ -75,6 +84,11 @@ export const solicitudesService = {
 
   async create(payload: CreateSolicitudPayload): Promise<SolicitudRenta> {
     const res = await api.post<SolicitudRenta>('/solicitudes', payload);
+    return res.data;
+  },
+
+  async crearRentaDirecta(payload: CreateSolicitudDirectaPayload): Promise<SolicitudRenta> {
+    const res = await api.post<SolicitudRenta>('/solicitudes/directa', payload);
     return res.data;
   },
 

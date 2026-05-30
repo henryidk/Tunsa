@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { R2Service } from '../r2/r2.service';
 import { GranelService } from '../granel/granel.service';
 import { CreateSolicitudDto } from './dto/create-solicitud.dto';
+import { CreateSolicitudDirectaDto } from './dto/create-solicitud-directa.dto';
 import { AmpliacionRentaDto } from './dto/ampliar-renta.dto';
 import { RegistrarDevolucionDto } from './dto/registrar-devolucion.dto';
 import { IniciarEntregaDto } from './dto/iniciar-entrega.dto';
@@ -181,6 +182,94 @@ export class SolicitudesService {
     return serializeSolicitud(solicitud);
   }
 
+  /**
+   * Crea una renta y la aprueba en una sola transacción.
+   * Exclusivo para admin y secretaria: omite el paso de aprobación manual.
+   */
+  async crearDirecta(username: string, dto: CreateSolicitudDirectaDto) {
+    const esPesada = dto.items.every(i => i.kind === 'pesada');
+    const esMixta  = !esPesada && dto.items.some(i => i.kind === 'pesada');
+
+    if (esMixta) {
+      throw new BadRequestException(
+        'Una solicitud no puede mezclar ítems de maquinaria pesada con maquinaria liviana o granel.',
+      );
+    }
+
+    if (dto.esIndefinida && esPesada) {
+      throw new BadRequestException('Las rentas de maquinaria pesada no pueden ser indefinidas.');
+    }
+
+    const equipoIds = dto.items
+      .filter((i): i is typeof i & { equipoId: string } =>
+        (i.kind === 'maquinaria' || i.kind === 'pesada') && !!i.equipoId,
+      )
+      .map(i => i.equipoId);
+
+    if (equipoIds.length > 0) {
+      const reservados = new Set(await this.getEquiposReservadosInterno());
+      const conflictos = equipoIds.filter(id => reservados.has(id));
+
+      if (conflictos.length > 0) {
+        throw new ConflictException(
+          'Uno o más equipos seleccionados ya están en una solicitud activa y no están disponibles.',
+        );
+      }
+    }
+
+    let itemsToStore: object[] = dto.items as object[];
+    if (esPesada && equipoIds.length > 0) {
+      const equipos = await this.prisma.equipo.findMany({
+        where:  { id: { in: equipoIds } },
+        select: { id: true, rentaHora: true },
+      });
+      const equipoMap = new Map(equipos.map(e => [e.id, e]));
+
+      itemsToStore = dto.items.map(item => {
+        if (item.kind !== 'pesada' || !item.equipoId) return item as object;
+        const eq           = equipoMap.get(item.equipoId);
+        const rentaBase    = eq?.rentaHora != null ? parseFloat(eq.rentaHora.toString()) : 0;
+        const extras       = (item.extras ?? []) as { tipoExtraId: string; nombre: string; rentaHora: number }[];
+        const tarifaExtras = extras.reduce((s, e) => s + e.rentaHora, 0);
+        const { tarifaEfectiva: _dropped, ...rest } = item as any;
+        return { ...rest, extras, tarifaEfectiva: rentaBase + tarifaExtras };
+      });
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const now     = new Date();
+      const mesAnio = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+      const secuencia = await tx.folioSecuencia.upsert({
+        where:  { mesAnio },
+        create: { mesAnio, ultimo: 1 },
+        update: { ultimo: { increment: 1 } },
+      });
+
+      const folio = `${mesAnio}-${String(secuencia.ultimo).padStart(4, '0')}`;
+
+      const solicitud = await tx.solicitud.create({
+        data: {
+          clienteId:     dto.clienteId,
+          items:         itemsToStore,
+          modalidad:     dto.modalidad,
+          notas:         dto.notas ?? '',
+          totalEstimado: esPesada ? 0 : (dto.totalEstimado ?? 0),
+          esPesada,
+          esIndefinida:  dto.esIndefinida ?? false,
+          creadaPor:     username,
+          estado:        'APROBADA',
+          aprobadaPor:   username,
+          folio,
+          fechaDecision: now,
+        },
+        include: { cliente: true },
+      });
+
+      return serializeSolicitud(solicitud);
+    });
+  }
+
   async aprobar(id: string, aprobadaPor: string) {
     return this.prisma.$transaction(async (tx) => {
       const now     = new Date();
@@ -218,12 +307,10 @@ export class SolicitudesService {
    * vez que el encargado genera el comprobante. Si ya está fijada, devuelve la solicitud
    * sin modificarla — la fecha de inicio es inmutable una vez establecida.
    */
-  async iniciarEntrega(id: string, username: string, dto?: IniciarEntregaDto) {
+  async iniciarEntrega(id: string, dto?: IniciarEntregaDto) {
     const solicitud = await this.prisma.solicitud.findUnique({ where: { id } });
 
     if (!solicitud) throw new NotFoundException('Solicitud no encontrada.');
-    if (solicitud.creadaPor !== username)
-      throw new ForbiddenException('Solo el encargado que creó la solicitud puede iniciar la entrega.');
     if (solicitud.estado !== 'APROBADA')
       throw new ConflictException('Solo se puede iniciar la entrega de solicitudes aprobadas.');
 
@@ -261,20 +348,16 @@ export class SolicitudesService {
   /**
    * Confirma la entrega física: APROBADA → ACTIVA.
    * Sube el comprobante PDF firmado a R2 y guarda la key en la solicitud.
-   * Solo el encargado que creó la solicitud puede confirmarla.
    */
   async confirmarEntrega(
     id:       string,
     buffer:   Buffer,
     mimetype: string,
-    username: string,
   ) {
     const solicitud = await this.prisma.solicitud.findUnique({ where: { id } });
 
     if (!solicitud)
       throw new NotFoundException('Solicitud no encontrada.');
-    if (solicitud.creadaPor !== username)
-      throw new ForbiddenException('Solo el encargado que creó la solicitud puede confirmar la entrega.');
     if (solicitud.estado !== 'APROBADA')
       throw new ConflictException('Solo se puede confirmar la entrega de solicitudes aprobadas.');
     if (!solicitud.folio)

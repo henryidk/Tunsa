@@ -78,42 +78,82 @@ function calcularFin(inicio: Date, duracion: number, unidad: UnidadDuracion): Da
 
 // ── Item rows builders ────────────────────────────────────────────────────────
 
+function fmtQ(n: number): string {
+  return `Q ${n.toLocaleString('es-GT', { minimumFractionDigits: 2 })}`;
+}
+
 function buildFilasLiviana(items: ItemSnapshot[], fechaInicio: Date): string[][] {
   const filas: string[][] = [];
 
   for (const item of items) {
     if (item.kind === 'pesada') continue;
+
     const indefinido = !item.duracion;
     const finStr     = indefinido
       ? '—'
       : formatFechaHoraCorta(calcularFin(fechaInicio, item.duracion!, item.unidad ?? 'dias').toISOString());
-    const duracion   = duracionDisplay(item.duracion, item.unidad);
-    const subtotalStr = indefinido
-      ? 'A calcular'
-      : `Q ${item.subtotal.toLocaleString('es-GT', { minimumFractionDigits: 2 })}`;
 
-    if (item.kind === 'maquinaria') {
+    const itemLabel = item.kind === 'maquinaria'
+      ? `#${item.numeracion}  ${item.descripcion}`
+      : `${item.tipoLabel}${item.conMadera ? ' (c/madera)' : ''}  x${item.cantidad.toLocaleString('es-GT')} u`;
+
+    // ── Caso 1: indefinida o snapshot antiguo (sin desglose) ──
+    if (indefinido || !item.desglose || !item.tarifas) {
+      const tramo      = indefinido ? 'Indefinido' : duracionDisplay(item.duracion, item.unidad);
+      const sufijo     = item.unidad === 'semanas' ? '/sem' : item.unidad === 'meses' ? '/mes' : '/día';
+      const tarifaStr  = item.tarifa != null ? `${fmtQ(item.tarifa)}${sufijo}` : '—';
+      const subtotalStr = indefinido ? 'A calcular' : fmtQ(item.subtotal);
+      filas.push([itemLabel, tramo, finStr, tarifaStr, subtotalStr]);
+      continue;
+    }
+
+    const { desglose, tarifas } = item;
+    const esAdaptativo = desglose.meses > 0 || desglose.semanas > 0;
+    const cant         = item.kind === 'granel' ? item.cantidad : 1;
+    const porUnidad    = cant > 1 ? ` x${cant} u` : '';
+
+    // ── Caso 2: sin adaptación — fila simple ──
+    if (!esAdaptativo) {
+      const tramo     = unidadLabel(item.duracion!, item.unidad!);
+      const sufijo    = item.unidad === 'semanas' ? '/sem' : item.unidad === 'meses' ? '/mes' : '/día';
+      const tarifaStr = item.tarifa != null ? `${fmtQ(item.tarifa)}${sufijo}${porUnidad}` : '—';
+      filas.push([itemLabel, tramo, finStr, tarifaStr, fmtQ(item.subtotal)]);
+      continue;
+    }
+
+    // ── Caso 3: adaptativo — una fila por tramo, Ítem y Vence solo en la primera ──
+    let primera = true;
+
+    if (desglose.meses > 0 && tarifas.mes != null) {
+      const sub = tarifas.mes * desglose.meses * cant;
       filas.push([
-        `#${item.numeracion}`,
-        item.descripcion,
-        duracion,
-        finStr,
-        item.tarifa != null
-          ? `Q ${item.tarifa.toLocaleString('es-GT', { minimumFractionDigits: 2 })}`
-          : '—',
-        subtotalStr,
+        primera ? itemLabel : '',
+        unidadLabel(desglose.meses, 'meses'),
+        primera ? finStr : '',
+        `${fmtQ(tarifas.mes)}/mes${porUnidad}`,
+        fmtQ(sub),
       ]);
-    } else {
-      const desc = `${item.tipoLabel}${item.conMadera ? ' (con madera)' : ''}`;
+      primera = false;
+    }
+    if (desglose.semanas > 0 && tarifas.semana != null) {
+      const sub = tarifas.semana * desglose.semanas * cant;
       filas.push([
-        item.cantidad.toLocaleString('es-GT'),
-        desc,
-        duracion,
-        finStr,
-        item.tarifa != null
-          ? `Q ${item.tarifa.toLocaleString('es-GT', { minimumFractionDigits: 2 })}`
-          : '—',
-        subtotalStr,
+        primera ? itemLabel : '',
+        unidadLabel(desglose.semanas, 'semanas'),
+        primera ? finStr : '',
+        `${fmtQ(tarifas.semana)}/sem${porUnidad}`,
+        fmtQ(sub),
+      ]);
+      primera = false;
+    }
+    if (desglose.dias > 0 && tarifas.dia != null) {
+      const sub = tarifas.dia * desglose.dias * cant;
+      filas.push([
+        primera ? itemLabel : '',
+        unidadLabel(desglose.dias, 'dias'),
+        primera ? finStr : '',
+        `${fmtQ(tarifas.dia)}/día${porUnidad}`,
+        fmtQ(sub),
       ]);
     }
   }
@@ -295,21 +335,21 @@ export async function generarComprobante(solicitud: SolicitudRenta): Promise<voi
   } else {
     autoTable(doc, {
       startY: y,
-      head: [['Cód./Cant.', 'Descripción', 'Duración', 'Vence', 'Tarifa', 'Subtotal']],
+      head: [['Ítem', 'Tramo', 'Vence', 'Tarifa aplicada', 'Subtotal']],
       body: buildFilasLiviana(solicitud.items, fechaInicio),
       foot: [[
-        '', '', '', '', 'TOTAL',
+        '', '', '', 'TOTAL',
         solicitud.esIndefinida
           ? 'A calcular al devolver'
           : `Q ${solicitud.totalEstimado.toLocaleString('es-GT', { minimumFractionDigits: 2 })}`,
       ]],
       ...commonTableStyles,
       columnStyles: {
-        0: { cellWidth: 20, halign: 'center' },
+        0: { cellWidth: 65, fontStyle: 'bold' },
+        1: { cellWidth: 25, halign: 'center' },
         2: { cellWidth: 28, halign: 'center' },
-        3: { cellWidth: 22, halign: 'center' },
-        4: { cellWidth: 25, halign: 'right' },
-        5: { cellWidth: 28, halign: 'right', fontStyle: 'bold' },
+        3: { halign: 'right' },
+        4: { cellWidth: 32, halign: 'right', fontStyle: 'bold' },
       },
     });
   }

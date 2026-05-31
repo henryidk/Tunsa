@@ -97,6 +97,10 @@ export default function NuevaRentaLivianaSection({ onNavTo, onShowToast = () => 
     try {
       const items: ItemSnapshot[] = cart.items.flatMap((item): ItemSnapshot[] => {
         if (item.kind === 'maquinaria') {
+          const overrideTarifa = precioOverride.get(item.equipo.id);
+          const desglose = item.duracion && item.unidad
+            ? descomponerDuracion(item.fechaInicio, item.duracion, item.unidad)
+            : undefined;
           return [{
             kind:        'maquinaria',
             equipoId:    item.equipo.id,
@@ -105,15 +109,24 @@ export default function NuevaRentaLivianaSection({ onNavTo, onShowToast = () => 
             fechaInicio: item.fechaInicio,
             duracion:    item.duracion,
             unidad:      item.unidad,
-            tarifa:      precioOverride.get(item.equipo.id) ?? item.equipo.rentaDia ?? null,
-            subtotal:    (() => { const t = precioOverride.get(item.equipo.id); return t !== undefined ? calcSubtotalConTarifaOverride(item, t) : calcSubtotal(item); })(),
+            tarifa:      overrideTarifa ?? item.equipo.rentaDia ?? null,
+            subtotal:    overrideTarifa !== undefined ? calcSubtotalConTarifaOverride(item, overrideTarifa) : calcSubtotal(item),
+            desglose,
+            tarifas: { dia: item.equipo.rentaDia ?? null, semana: item.equipo.rentaSemana ?? null, mes: item.equipo.rentaMes ?? null },
           }];
         }
         if (item.kind === 'granel') {
           const key            = `granel-${item.tipo}`;
+          const overrideTarifa = precioOverride.get(key);
           const tarifaCatalogo = item.conMadera
             ? (item.config?.rentaDiaConMadera ?? null)
             : (item.config?.rentaDia ?? null);
+          const desglose = item.duracion && item.unidad
+            ? descomponerDuracion(item.fechaInicio, item.duracion, item.unidad)
+            : undefined;
+          const tarifas = item.conMadera
+            ? { dia: item.config?.rentaDiaConMadera ?? null, semana: item.config?.rentaSemanaConMadera ?? null, mes: item.config?.rentaMesConMadera ?? null }
+            : { dia: item.config?.rentaDia ?? null,          semana: item.config?.rentaSemana ?? null,          mes: item.config?.rentaMes ?? null          };
           return [{
             kind:        'granel',
             tipo:        item.tipo,
@@ -123,8 +136,10 @@ export default function NuevaRentaLivianaSection({ onNavTo, onShowToast = () => 
             fechaInicio: item.fechaInicio,
             duracion:    item.duracion,
             unidad:      item.unidad,
-            tarifa:      precioOverride.get(key) ?? tarifaCatalogo,
-            subtotal:    (() => { const t = precioOverride.get(key); return t !== undefined ? calcSubtotalConTarifaOverride(item, t) : calcSubtotal(item); })(),
+            tarifa:      overrideTarifa ?? tarifaCatalogo,
+            subtotal:    overrideTarifa !== undefined ? calcSubtotalConTarifaOverride(item, overrideTarifa) : calcSubtotal(item),
+            desglose,
+            tarifas,
           }];
         }
         return [];

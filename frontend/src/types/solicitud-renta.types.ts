@@ -56,6 +56,8 @@ interface ItemSnapshotBase {
   unidad?:     UnidadDuracion;
   tarifa:      number | null;
   subtotal:    number;
+  desglose?:   { meses: number; semanas: number; dias: number };
+  tarifas?:    { dia: number | null; semana: number | null; mes: number | null };
 }
 
 export type ItemSnapshot =

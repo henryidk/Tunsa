@@ -110,8 +110,9 @@ export interface SolicitudRenta {
   esPesada:        boolean;
   esIndefinida?:   boolean;
   estado:          EstadoSolicitud;
-  creadaPor:      string;
-  nombreCreador:  string | null;
+  creadaPor:       string;
+  nombreCreador:   string | null;
+  nombreAprobador: string | null;
   folio:          string | null;
   aprobadaPor:    string | null;
   fechaDecision:    string | null;

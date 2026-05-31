@@ -186,7 +186,7 @@ const LINE_H  = 6.5; // mm por línea de texto
 const GAP_H   = 3;   // mm extra entre cláusulas
 const SIG_H   = 36;  // mm para línea de firma + nombre + DPI
 
-export async function generarComprobante(solicitud: SolicitudRenta): Promise<void> {
+export async function generarComprobante(solicitud: SolicitudRenta, entregadoPor: string): Promise<void> {
   const fechaInicio = solicitud.fechaInicioRenta
     ? new Date(solicitud.fechaInicioRenta)
     : new Date();
@@ -376,7 +376,8 @@ export async function generarComprobante(solicitud: SolicitudRenta): Promise<voi
     termsContentH += wrapped.length * LINE_H + GAP_H;
   }
   const termsBoxH  = termsContentH + 8;  // padding inferior de la caja
-  const signBlockH = termsBoxH + SIG_H;
+  const PART_H     = 36;
+  const signBlockH = termsBoxH + PART_H + SIG_H;
 
   // Si el bloque completo no cabe, pasar a página nueva
   if (y + signBlockH > contentBottom) {
@@ -410,7 +411,64 @@ export async function generarComprobante(solicitud: SolicitudRenta): Promise<voi
 
   y += 10; // espacio entre caja y línea de firma
 
-  // ── ÁREA DE FIRMA ────────────────────────────────────────────────────────────
+  // ── PARTICIPANTES — banda informativa sobre la firma ─────────────────────────
+
+  const nombreCreadorDisplay   = solicitud.nombreCreador   ?? solicitud.creadaPor;
+  const nombreAprobadorDisplay = solicitud.nombreAprobador ?? solicitud.aprobadaPor;
+  const esRentaDirecta         = solicitud.aprobadaPor === solicitud.creadaPor;
+  const mismaPersonaSolicitud  = entregadoPor === nombreCreadorDisplay;
+
+  type ColParticipante = { label: string; nombre: string };
+  const columnas: ColParticipante[] = [];
+
+  if (mismaPersonaSolicitud) {
+    columnas.push({ label: 'Solicitado y entregado por', nombre: nombreCreadorDisplay });
+    if (!esRentaDirecta && nombreAprobadorDisplay) {
+      columnas.push({ label: 'Aprobado por', nombre: nombreAprobadorDisplay });
+    }
+  } else {
+    columnas.push({
+      label:  esRentaDirecta ? 'Solicitud enviada por' : 'Solicitado por',
+      nombre: nombreCreadorDisplay,
+    });
+    if (!esRentaDirecta && nombreAprobadorDisplay) {
+      columnas.push({ label: 'Aprobado por', nombre: nombreAprobadorDisplay });
+    }
+    columnas.push({ label: 'Entregado por', nombre: entregadoPor });
+  }
+
+  y += 10;
+
+  // Banda de fondo sutil (sin borde)
+  const bandH = 18;
+  doc.setFillColor(...COLORES.fondo);
+  doc.rect(14, y, W - 28, bandH, 'F');
+
+  const partColW = (W - 28) / columnas.length;
+  columnas.forEach((col, i) => {
+    const colX    = 14 + i * partColW;
+    const centerX = colX + partColW / 2;
+
+    if (i > 0) {
+      doc.setDrawColor(...COLORES.borde);
+      doc.setLineWidth(0.3);
+      doc.line(colX, y + 3, colX, y + bandH - 3);
+    }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...COLORES.primario);
+    doc.text(col.label.toUpperCase(), centerX, y + 6.5, { align: 'center' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(...COLORES.texto);
+    doc.text(col.nombre, centerX, y + 13.5, { align: 'center' });
+  });
+
+  y += bandH + 18;
+
+  // ── FIRMA DEL CLIENTE ────────────────────────────────────────────────────────
 
   const sigW = 70;
   const sigX = (W - sigW) / 2;

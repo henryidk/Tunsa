@@ -7,6 +7,7 @@ import { solicitudesService } from '../../../services/solicitudes.service';
 import type { SolicitudRenta, ItemSnapshot } from '../../../types/solicitud-renta.types';
 import { duracionDisplay } from '../../../types/solicitud.types';
 import type { ToastType } from '../../../types/ui.types';
+import { useAuthStore } from '../../../store/auth.store';
 
 interface Props {
   onShowToast?: (type: ToastType, title: string, msg: string) => void;
@@ -16,6 +17,7 @@ export default function PorEntregarSection({ onShowToast = () => {} }: Props) {
   const solicitudes     = useAprobadasStore(s => s.solicitudes);
   const removeSolicitud = useAprobadasStore(s => s.removeSolicitud);
   const updateSolicitud = useAprobadasStore(s => s.updateSolicitud);
+  const user            = useAuthStore(s => s.user);
 
   const [entregando,   setEntregando]   = useState<SolicitudRenta | null>(null);
   const [generandoPdf, setGenerandoPdf] = useState<string | null>(null);
@@ -42,7 +44,7 @@ export default function PorEntregarSection({ onShowToast = () => {} }: Props) {
       return;
     }
     try {
-      await generarComprobante(conFecha);
+      await generarComprobante(conFecha, user?.nombre ?? user?.username ?? '—');
     } catch {
       onShowToast('error', 'Error al generar PDF', 'La entrega fue registrada pero no se pudo generar el comprobante.');
     } finally {

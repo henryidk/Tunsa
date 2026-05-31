@@ -12,7 +12,12 @@ export interface RechazadasPage {
   nextCursor: string | null;
 }
 
-export function serializeSolicitud(s: SolicitudConCliente, nombreCreador?: string) {
+export interface NombresActores {
+  creador?:   string;
+  aprobador?: string;
+}
+
+export function serializeSolicitud(s: SolicitudConCliente, nombres?: NombresActores) {
   const ultimaLectura = s.lecturas?.[0] ?? null;
   return {
     ...s,
@@ -27,6 +32,7 @@ export function serializeSolicitud(s: SolicitudConCliente, nombreCreador?: strin
     ultimaLectura:         ultimaLectura
       ? { fecha: ultimaLectura.fecha.toISOString().substring(0, 10), completa: ultimaLectura.horometroFin5pm !== null }
       : null,
-    nombreCreador:         nombreCreador ?? null,
+    nombreCreador:   nombres?.creador   ?? null,
+    nombreAprobador: nombres?.aprobador ?? null,
   };
 }

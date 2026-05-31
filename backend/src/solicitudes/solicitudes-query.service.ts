@@ -60,7 +60,7 @@ export class SolicitudesQueryService {
       orderBy: { createdAt: 'desc' },
     });
     const nombres = await this.buildNombresMap(solicitudes.map(s => s.creadaPor));
-    return solicitudes.map(s => serializeSolicitud(s, nombres.get(s.creadaPor)));
+    return solicitudes.map(s => serializeSolicitud(s, { creador: nombres.get(s.creadaPor) }));
   }
 
   async findMias(username: string) {
@@ -85,7 +85,7 @@ export class SolicitudesQueryService {
       orderBy: { fechaFinEstimada: 'asc' },
     });
     const nombres = await this.buildNombresMap(solicitudes.map(s => s.creadaPor));
-    return solicitudes.map(s => serializeSolicitud(s as SolicitudConCliente, nombres.get(s.creadaPor)));
+    return solicitudes.map(s => serializeSolicitud(s as SolicitudConCliente, { creador: nombres.get(s.creadaPor) }));
   }
 
   async findActivas() {
@@ -99,7 +99,7 @@ export class SolicitudesQueryService {
       orderBy: { fechaEntrega: 'desc' },
     });
     const nombres = await this.buildNombresMap(solicitudes.map(s => s.creadaPor));
-    return solicitudes.map(s => serializeSolicitud(s as SolicitudConCliente, nombres.get(s.creadaPor)));
+    return solicitudes.map(s => serializeSolicitud(s as SolicitudConCliente, { creador: nombres.get(s.creadaPor) }));
   }
 
   async getDashboardStatsEncargado(username: string) {
@@ -388,7 +388,7 @@ export class SolicitudesQueryService {
       : null;
 
     const nombres = await this.buildNombresMap(pageData.map(s => s.creadaPor));
-    return { data: pageData.map(s => serializeSolicitud(s, nombres.get(s.creadaPor))), nextCursor };
+    return { data: pageData.map(s => serializeSolicitud(s, { creador: nombres.get(s.creadaPor) })), nextCursor };
   }
 
   // ── Cursor helpers ────────────────────────────────────────────────────────────

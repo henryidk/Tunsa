@@ -330,19 +330,25 @@ export class SolicitudesService {
       ) as unknown as Prisma.InputJsonValue;
     }
 
-    if (!data.fechaInicioRenta && !data.items) {
-      const actual = await this.prisma.solicitud.findUnique({
-        where: { id }, include: { cliente: true },
-      });
-      return serializeSolicitud(actual!);
-    }
+    const base = !data.fechaInicioRenta && !data.items
+      ? await this.prisma.solicitud.findUnique({ where: { id }, include: { cliente: true } })
+      : await this.prisma.solicitud.update({ where: { id }, data, include: { cliente: true } });
 
-    const actualizada = await this.prisma.solicitud.update({
-      where:   { id },
-      data,
-      include: { cliente: true },
+    const nombres = await this.resolverNombresActores(base!.creadaPor, base!.aprobadaPor);
+    return serializeSolicitud(base!, nombres);
+  }
+
+  private async resolverNombresActores(creadaPor: string, aprobadaPor: string | null) {
+    const usernames = [creadaPor, ...(aprobadaPor ? [aprobadaPor] : [])];
+    const usuarios  = await this.prisma.usuario.findMany({
+      where:  { username: { in: usernames } },
+      select: { username: true, nombre: true },
     });
-    return serializeSolicitud(actualizada);
+    const map = new Map(usuarios.map(u => [u.username, u.nombre]));
+    return {
+      creador:   map.get(creadaPor)              ?? creadaPor,
+      aprobador: aprobadaPor ? (map.get(aprobadaPor) ?? aprobadaPor) : undefined,
+    };
   }
 
   /**

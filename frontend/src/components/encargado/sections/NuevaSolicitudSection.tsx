@@ -7,7 +7,8 @@ import GranelPickerSection from '../GranelPickerSection';
 import PaymentModeSelector from '../PaymentModeSelector';
 import type { Cliente } from '../../../services/clientes.service';
 import type { ItemSolicitud, ModalidadPago } from '../../../types/solicitud.types';
-import { calcSubtotal, formatQ, formatFechaCorta, unidadLabel, rateSuffix, getRentaRate, descomponerDuracion, formatDesglose, esAdaptado } from '../../../types/solicitud.types';
+import { calcSubtotal, formatQ, unidadLabel, descomponerDuracion, formatDesglose, esAdaptado } from '../../../types/solicitud.types';
+import { SolicitudCartTable } from '../../shared/SolicitudCartTable';
 import { useSolicitudData } from '../../../hooks/useSolicitudData';
 import { useSolicitudCart } from '../../../hooks/useSolicitudCart';
 import { solicitudesService } from '../../../services/solicitudes.service';
@@ -247,7 +248,14 @@ export default function NuevaSolicitudSection({ onShowToast = () => {} }: Props)
               </div>
             )}
 
-            <CartTable items={cart.items} onRemove={cart.removeAt} summary={cart.summary} />
+            <SolicitudCartTable
+              items={cart.items}
+              onRemove={cart.removeAt}
+              effectiveTotal={cart.summary.total}
+              countMaquinaria={cart.summary.countMaquinaria}
+              countGranel={cart.summary.countGranel}
+              emptyMessage="Aún no has agregado equipos"
+            />
           </SectionCard>
 
           {/* 3. Condiciones de pago */}
@@ -396,151 +404,6 @@ function SectionCard({ icon, iconBg, iconColor, title, subtitle, children, locke
         )}
       </div>
     </div>
-  );
-}
-
-interface CartTableProps {
-  items:    ItemSolicitud[];
-  onRemove: (idx: number) => void;
-  summary:  { total: number; countMaquinaria: number; countGranel: number };
-}
-
-function CartTable({ items, onRemove, summary }: CartTableProps) {
-  return (
-    <>
-      <div className="flex items-center gap-3 mb-3">
-        <div className="flex-1 border-t border-slate-200" />
-        <span className="text-xs text-slate-400 font-medium">Ítems en la solicitud ({items.length})</span>
-        <div className="flex-1 border-t border-slate-200" />
-      </div>
-
-      <div className="rounded-xl border border-slate-200 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 border-b border-slate-200">
-            <tr>
-              {['Equipo / Instrumento', 'Cant.', 'Inicio', 'Duración', 'Facturación', 'Subtotal', ''].map(h => (
-                <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 whitespace-nowrap">
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {items.length === 0 ? (
-              <tr>
-                <td colSpan={7}>
-                  <div className="flex flex-col items-center justify-center py-10 gap-2 text-slate-400">
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2">
-                      <path d="M22 12H18L15 21L9 3L6 12H2"/>
-                    </svg>
-                    <p className="text-sm">Aún no has agregado equipos</p>
-                  </div>
-                </td>
-              </tr>
-            ) : (
-              items.map((item, idx) => (
-                <CartRow key={item.kind === 'maquinaria' ? item.equipo.id : item.kind === 'granel' ? `granel-${item.tipo}` : item.equipo.id}
-                  item={item} onRemove={() => onRemove(idx)} />
-              ))
-            )}
-          </tbody>
-        </table>
-        {items.length > 0 && (
-          <div className="px-4 py-2.5 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
-            <span className="text-xs text-slate-400">
-              {[
-                summary.countMaquinaria > 0 ? `${summary.countMaquinaria} equipo${summary.countMaquinaria > 1 ? 's' : ''}` : null,
-                summary.countGranel > 0 ? `${summary.countGranel} granel` : null,
-              ].filter(Boolean).join(' · ')}
-            </span>
-            <span className="text-xs font-bold text-slate-700 font-mono">Total: {formatQ(summary.total)}</span>
-          </div>
-        )}
-      </div>
-    </>
-  );
-}
-
-interface CartRowProps {
-  item:     ItemSolicitud;
-  onRemove: () => void;
-}
-
-function CartRow({ item, onRemove }: CartRowProps) {
-  const subtotal    = calcSubtotal(item);
-  const hasSchedule = item.kind !== 'pesada' && item.duracion != null;
-  const decomp      = hasSchedule
-    ? descomponerDuracion(item.fechaInicio, item.duracion!, item.unidad!)
-    : null;
-  const adapted     = hasSchedule && !!decomp && esAdaptado(item.unidad!, decomp);
-
-  // Tarifa base para mostrar cuando no hay adaptación
-  const tarifaBase = item.kind === 'maquinaria'
-    ? getRentaRate(item.unidad ?? 'dias', item.equipo.rentaDia, item.equipo.rentaSemana, item.equipo.rentaMes)
-    : item.kind === 'granel' && item.config
-      ? (item.conMadera
-          ? getRentaRate(item.unidad ?? 'dias', item.config.rentaDiaConMadera, item.config.rentaSemanaConMadera, item.config.rentaMesConMadera)
-          : getRentaRate(item.unidad ?? 'dias', item.config.rentaDia, item.config.rentaSemana, item.config.rentaMes))
-      : null;
-
-  return (
-    <tr className="border-b border-slate-100 last:border-0 hover:bg-slate-50 transition-colors">
-      <td className="px-3 py-3">
-        {item.kind === 'maquinaria' ? (
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-mono font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded flex-shrink-0">
-              #{item.equipo.numeracion}
-            </span>
-            <span className="text-xs font-medium text-slate-800 truncate max-w-[150px]">
-              {item.equipo.descripcion}
-            </span>
-          </div>
-        ) : item.kind === 'granel' ? (
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded flex-shrink-0">
-              Granel
-            </span>
-            <span className="text-xs font-medium text-slate-800">{item.tipoLabel}</span>
-          </div>
-        ) : null}
-      </td>
-      <td className="px-3 py-3 text-xs font-mono text-slate-600">
-        {item.kind === 'granel' ? item.cantidad.toLocaleString('es-GT') : '—'}
-      </td>
-      <td className="px-3 py-3 text-xs text-slate-500 whitespace-nowrap">
-        {formatFechaCorta(item.fechaInicio)}
-      </td>
-      <td className="px-3 py-3 text-xs text-slate-700 whitespace-nowrap">
-        {hasSchedule
-          ? unidadLabel(item.duracion ?? 0, item.unidad ?? 'dias')
-          : <span className="font-semibold text-violet-600">Indefinido</span>
-        }
-      </td>
-      <td className="px-3 py-3 text-xs whitespace-nowrap">
-        {!hasSchedule ? (
-          <span className="text-slate-300">—</span>
-        ) : adapted ? (
-          <span className="font-medium text-amber-600">{formatDesglose(decomp!)}</span>
-        ) : tarifaBase !== null ? (
-          <span className="font-mono text-slate-600">
-            {formatQ(tarifaBase)}<span className="text-slate-400">{rateSuffix(item.unidad ?? 'dias')}{item.kind === 'granel' ? '/u' : ''}</span>
-          </span>
-        ) : (
-          <span className="text-slate-300">—</span>
-        )}
-      </td>
-      <td className="px-3 py-3 text-xs font-mono font-bold text-slate-800 whitespace-nowrap">
-        {hasSchedule ? formatQ(subtotal) : <span className="text-slate-400">—</span>}
-      </td>
-      <td className="px-3 py-3">
-        <button onClick={onRemove}
-          className="p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
-      </td>
-    </tr>
   );
 }
 

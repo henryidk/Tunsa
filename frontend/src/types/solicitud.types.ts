@@ -164,6 +164,56 @@ export function calcSubtotal(item: ItemSolicitud): number {
   return subtotalDescompuesto(decomp, tarifas) * item.cantidad;
 }
 
+/**
+ * Calcula el subtotal cuando el admin sobreescribe la tarifa.
+ * La tarifa override es por unidad del ítem (día/semana/mes según item.unidad).
+ * Fórmula simple: tarifa × duración × cantidad — sin precio adaptativo.
+ */
+export function calcSubtotalConTarifaOverride(item: ItemSolicitud, tarifa: number): number {
+  if (item.kind === 'pesada') return 0;
+  if (!item.duracion) return 0;
+  const cantidad = item.kind === 'granel' ? item.cantidad : 1;
+  return tarifa * item.duracion * cantidad;
+}
+
+/** Clave única por ítem en el carrito — usada como key de React y como clave del mapa de overrides. */
+export function itemCartKey(item: ItemSolicitud): string {
+  if (item.kind === 'maquinaria') return item.equipo.id;
+  if (item.kind === 'granel')     return `granel-${item.tipo}`;
+  return item.equipo.id;
+}
+
+export interface TarifaDisplay {
+  tarifa:     number | null;
+  isAdaptive: boolean;
+}
+
+/**
+ * Devuelve la tarifa a mostrar para un ítem y si aplica precio adaptativo.
+ * La tarifa es siempre la tasa base por la unidad declarada del ítem
+ * (Q/día, Q/semana o Q/mes). `isAdaptive` indica que el precio real
+ * se calcula descomponiendo la duración en unidades mayores.
+ */
+export function getItemTarifaDisplay(item: ItemSolicitud): TarifaDisplay {
+  if (item.kind === 'pesada' || !item.duracion || !item.unidad) {
+    return { tarifa: null, isAdaptive: false };
+  }
+
+  const decomp     = descomponerDuracion(item.fechaInicio, item.duracion, item.unidad);
+  const isAdaptive = esAdaptado(item.unidad, decomp);
+
+  let tarifa: number | null = null;
+  if (item.kind === 'maquinaria') {
+    tarifa = getRentaRate(item.unidad, item.equipo.rentaDia, item.equipo.rentaSemana, item.equipo.rentaMes);
+  } else if (item.kind === 'granel' && item.config) {
+    tarifa = item.conMadera
+      ? getRentaRate(item.unidad, item.config.rentaDiaConMadera, item.config.rentaSemanaConMadera, item.config.rentaMesConMadera)
+      : getRentaRate(item.unidad, item.config.rentaDia, item.config.rentaSemana, item.config.rentaMes);
+  }
+
+  return { tarifa, isAdaptive };
+}
+
 export function formatQ(n: number): string {
   return `Q${n.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }

@@ -31,7 +31,7 @@ function endOfDay(dateStr: string): string {
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
 interface Encargado    { username: string; nombre: string; }
-interface FiltroActivo { desde: string; hasta: string; creadaPor: string; }
+interface FiltroActivo { desde: string; hasta: string; creadaPor: string; busqueda: string; }
 
 export interface HistorialSectionProps {
   fetchHistorial:       (params: QueryHistorial) => Promise<RechazadasPage>;
@@ -50,7 +50,8 @@ export default function HistorialSection({
   const [fechaHasta,    setFechaHasta]    = useState(hoy());
   const [encargado,     setEncargado]     = useState('');
   const [encargados,    setEncargados]    = useState<Encargado[]>([]);
-  const [filtroActivo,  setFiltroActivo]  = useState<FiltroActivo>({ desde: inicioMes(), hasta: hoy(), creadaPor: '' });
+  const [busqueda,      setBusqueda]      = useState('');
+  const [filtroActivo,  setFiltroActivo]  = useState<FiltroActivo>({ desde: inicioMes(), hasta: hoy(), creadaPor: '', busqueda: '' });
   const [solicitudes,   setSolicitudes]   = useState<SolicitudRenta[]>([]);
   const [nextCursor,    setNextCursor]    = useState<string | null>(null);
   const [isLoading,     setIsLoading]     = useState(false);
@@ -69,7 +70,7 @@ export default function HistorialSection({
     setError(null);
     setSolicitudes([]);
     setNextCursor(null);
-    setFiltroActivo({ desde, hasta, creadaPor });
+    setFiltroActivo({ desde, hasta, creadaPor, busqueda: '' });
     try {
       const res = await fetchHistorial({
         fechaDesde: startOfDay(desde),
@@ -137,11 +138,13 @@ export default function HistorialSection({
         fechaHasta={fechaHasta}
         encargado={encargado}
         encargados={encargados}
+        busqueda={busqueda}
         showEncargadoFilter={showEncargadoFilter}
         isLoading={isLoading}
         onChangeDe={setFechaDesde}
         onChangeHasta={setFechaHasta}
         onChangeEncargado={setEncargado}
+        onChangeBusqueda={setBusqueda}
         onBuscar={() => buscar(fechaDesde, fechaHasta, encargado)}
       />
 
@@ -151,20 +154,28 @@ export default function HistorialSection({
         </div>
       )}
 
-      {isLoading ? (
-        <Skeletons />
-      ) : solicitudes.length === 0 ? (
-        <SinResultados />
-      ) : (
-        <div className="space-y-4">
-          {solicitudes.map(s => (
-            <RentaHistorialCard key={s.id} solicitud={s} showEncargado={showEncargado} />
-          ))}
-          <div ref={sentinelRef} className="flex justify-center py-4">
-            {isLoadingMore && <Spinner />}
+      {(() => {
+        const q = busqueda.toLowerCase().trim();
+        const visibles = q
+          ? solicitudes.filter(s =>
+              (s.folio ?? '').toLowerCase().includes(q) ||
+              s.cliente.nombre.toLowerCase().includes(q),
+            )
+          : solicitudes;
+
+        if (isLoading) return <Skeletons />;
+        if (visibles.length === 0) return <SinResultados hayFiltro={q.length > 0} />;
+        return (
+          <div className="space-y-4">
+            {visibles.map(s => (
+              <RentaHistorialCard key={s.id} solicitud={s} showEncargado={showEncargado} />
+            ))}
+            <div ref={sentinelRef} className="flex justify-center py-4">
+              {isLoadingMore && <Spinner />}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
@@ -172,22 +183,37 @@ export default function HistorialSection({
 // ── Sub-componentes de UI ─────────────────────────────────────────────────────
 
 function FiltroFechas({
-  fechaDesde, fechaHasta, encargado, encargados, showEncargadoFilter, isLoading,
-  onChangeDe, onChangeHasta, onChangeEncargado, onBuscar,
+  fechaDesde, fechaHasta, encargado, encargados, busqueda, showEncargadoFilter, isLoading,
+  onChangeDe, onChangeHasta, onChangeEncargado, onChangeBusqueda, onBuscar,
 }: {
   fechaDesde:          string;
   fechaHasta:          string;
   encargado:           string;
   encargados:          Encargado[];
+  busqueda:            string;
   showEncargadoFilter: boolean;
   isLoading:           boolean;
   onChangeDe:          (v: string) => void;
   onChangeHasta:       (v: string) => void;
   onChangeEncargado:   (v: string) => void;
+  onChangeBusqueda:    (v: string) => void;
   onBuscar:            () => void;
 }) {
   return (
     <div className="bg-white border border-slate-200 rounded-xl px-5 py-4 mb-6 flex flex-wrap items-end gap-4 shadow-sm">
+      <div>
+        <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-1">Buscar</label>
+        <input
+          type="search"
+          value={busqueda}
+          onChange={e => onChangeBusqueda(e.target.value)}
+          placeholder="Folio o cliente..."
+          className="w-full sm:w-56 border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+        />
+      </div>
+
+      <div className="w-px self-stretch bg-slate-200 mx-1" />
+
       <div>
         <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-1">Desde</label>
         <input
@@ -233,7 +259,7 @@ function FiltroFechas({
             <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
           </svg>
         )}
-        Buscar
+        Aplicar fechas
       </button>
     </div>
   );
@@ -257,16 +283,20 @@ function Spinner({ size = 20 }: { size?: number }) {
   );
 }
 
-function SinResultados() {
+function SinResultados({ hayFiltro }: { hayFiltro: boolean }) {
   return (
     <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-400">
       <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2">
         <path d="M12 20h9"/>
         <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
       </svg>
-      <p className="text-sm font-medium">Sin registros en este período</p>
+      <p className="text-sm font-medium">
+        {hayFiltro ? 'Sin resultados para esa búsqueda' : 'Sin registros en este período'}
+      </p>
       <p className="text-xs text-center max-w-xs leading-relaxed">
-        No hay devoluciones en las fechas seleccionadas.
+        {hayFiltro
+          ? 'Intenta con otro folio o nombre de cliente.'
+          : 'No hay devoluciones en las fechas seleccionadas.'}
       </p>
     </div>
   );

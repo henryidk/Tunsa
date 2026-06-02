@@ -74,7 +74,7 @@ export default function PasoDescuento({ montoBase, loadingMonto, estado, onChang
                     {tipo === 'porcentaje' ? 'Porcentaje' : 'Monto fijo'}
                   </p>
                   <p className="text-[10px] text-slate-400">
-                    {tipo === 'porcentaje' ? 'Ej: 20%' : 'Ej: Q 18,000'}
+                    {tipo === 'porcentaje' ? 'Ej: 20%' : 'Ej: Q 1,500'}
                   </p>
                 </div>
               </label>
@@ -84,14 +84,14 @@ export default function PasoDescuento({ montoBase, loadingMonto, estado, onChang
           {/* Input */}
           <div>
             <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-1">
-              {estado.tipo === 'porcentaje' ? 'Porcentaje de descuento (%)' : 'Monto final a cobrar (Q)'}
+              {estado.tipo === 'porcentaje' ? 'Porcentaje de descuento (%)' : 'Monto a descontar (Q)'}
             </label>
             <input
               type="text"
               inputMode="decimal"
               value={estado.valor}
               onChange={e => onChange({ ...estado, valor: e.target.value })}
-              placeholder={estado.tipo === 'porcentaje' ? 'Ej: 20' : 'Ej: 18000'}
+              placeholder={estado.tipo === 'porcentaje' ? 'Ej: 20' : 'Ej: 1500'}
               className={`w-48 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 ${
                 inputError
                   ? 'border-red-300 focus:ring-red-100 focus:border-red-400'
@@ -101,7 +101,7 @@ export default function PasoDescuento({ montoBase, loadingMonto, estado, onChang
             {inputError && (
               <p className="text-[11px] text-red-600 mt-1">
                 {estado.tipo === 'monto_fijo'
-                  ? `El monto debe ser menor al total (${formatQ(montoBase)}).`
+                  ? `El descuento debe ser menor al total (${formatQ(montoBase)}).`
                   : 'El porcentaje debe ser entre 0 y 100.'}
               </p>
             )}

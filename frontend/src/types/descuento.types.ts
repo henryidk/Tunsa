@@ -33,7 +33,7 @@ export function calcularDescuento(
 
   if (estado.tipo === 'monto_fijo') {
     if (val >= montoBase) return null;
-    return { tipo: 'monto_fijo', valor: val, montoOriginal: montoBase, montoFinal: val };
+    return { tipo: 'monto_fijo', valor: val, montoOriginal: montoBase, montoFinal: montoBase - val };
   }
 
   if (val >= 100) return null;

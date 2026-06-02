@@ -125,6 +125,10 @@ export default function GranelPickerSection({ granelData, isLoading, inCart, onA
                 <span className="text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
                   Stock: {stock.toLocaleString('es-GT')} uds.
                 </span>
+              ) : data !== undefined ? (
+                <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full">
+                  Todo en renta
+                </span>
               ) : (
                 <span className="text-xs text-slate-400 bg-white border border-slate-200 px-2.5 py-0.5 rounded-full">
                   Sin inventario registrado

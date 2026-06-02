@@ -3,7 +3,7 @@ import type { SolicitudRenta, ItemSnapshot, DevolucionEntry } from '../../types/
 import { solicitudesService } from '../../services/solicitudes.service';
 import { generarLiquidacion } from '../../utils/generarLiquidacion';
 import { formatFechaHora, duracionDisplay, formatQ } from '../../types/solicitud.types';
-import { useAuthStore, selectUserRole } from '../../store/auth.store';
+import { useAuthStore, selectUser, selectUserRole } from '../../store/auth.store';
 import {
   type DescuentoFormState,
   type DescuentoAplicado,
@@ -90,7 +90,8 @@ export default function DevolucionModal({
   onClose:      () => void;
   onDevolucion: (actualizada: SolicitudRenta) => void;
 }) {
-  const rolNombre = useAuthStore(selectUserRole);
+  const rolNombre   = useAuthStore(selectUserRole);
+  const currentUser = useAuthStore(selectUser);
 
   const itemsPendientes = useMemo(() => {
     const yaDevueltos = new Set<string>(
@@ -183,7 +184,7 @@ export default function DevolucionModal({
 
     const devolucionPrevia: DevolucionEntry = {
       fechaDevolucion:     new Date().toISOString(),
-      registradoPor:       '—',
+      registradoPor:       currentUser?.nombre ?? '—',
       esParcial:           !esDevolcionCompleta,
       tipoDevolucion:      'A_TIEMPO',
       items:               itemsADevolver.map(item => {
@@ -229,7 +230,7 @@ export default function DevolucionModal({
             setPdfError(false);
             const devolucionPrevia: DevolucionEntry = {
               fechaDevolucion:     new Date().toISOString(),
-              registradoPor:       '—',
+              registradoPor:       currentUser?.nombre ?? '—',
               esParcial:           !esDevolcionCompleta,
               tipoDevolucion:      'A_TIEMPO',
               items:               itemsADevolver.map(item => {

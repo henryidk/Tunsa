@@ -754,7 +754,7 @@ export class SolicitudesService {
 
     const nuevaEntrada: DevolucionEntry = {
       fechaDevolucion:     fechaDevolucion.toISOString(),
-      registradoPor:       user.username,
+      registradoPor:       user.nombre,
       esParcial,
       tipoDevolucion,
       items:               devolucionItems,

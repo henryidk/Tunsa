@@ -340,7 +340,7 @@ export async function generarLiquidacion(
   campo('Modalidad de pago',
     solicitud.modalidad === 'CONTADO' ? 'Contado' : 'Crédito',
     14, y);
-  campo('Registrado por', devolucion.registradoPor, W / 2, y);
+  campo('Devolución registrada por', devolucion.registradoPor, W / 2, y);
   campo('Tipo de devolución',
     devolucion.esParcial ? 'Parcial' : 'Completa',
     W - 60, y);

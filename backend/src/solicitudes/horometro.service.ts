@@ -380,7 +380,7 @@ export class HorometroService {
 
       const nuevaEntrada: DevolucionEntry = {
         fechaDevolucion:     fechaDevolucion.toISOString(),
-        registradoPor:       user.username,
+        registradoPor:       user.nombre,
         esParcial,
         tipoDevolucion:      'A_TIEMPO',
         items:               devolucionItems,

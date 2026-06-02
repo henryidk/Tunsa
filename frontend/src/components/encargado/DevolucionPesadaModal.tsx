@@ -3,7 +3,7 @@ import { solicitudesService, type LecturaHorometro } from '../../services/solici
 import { generarLiquidacion } from '../../utils/generarLiquidacion';
 import { ultimoDiaHorometro, localDateOf } from '../../utils/horometro.utils';
 import type { SolicitudRenta, DevolucionEntry } from '../../types/solicitud-renta.types';
-import { useAuthStore, selectUserRole } from '../../store/auth.store';
+import { useAuthStore, selectUser, selectUserRole } from '../../store/auth.store';
 import {
   type DescuentoFormState,
   type DescuentoAplicado,
@@ -38,7 +38,8 @@ export default function DevolucionPesadaModal({
   onClose:      () => void;
   onDevolucion: (actualizada: SolicitudRenta) => void;
 }) {
-  const rolNombre  = useAuthStore(selectUserRole);
+  const rolNombre   = useAuthStore(selectUserRole);
+  const currentUser = useAuthStore(selectUser);
   const pendientes = useMemo(() => getPendientes(solicitud), [solicitud]);
   const esItemUnico = pendientes.length === 1;
 
@@ -179,7 +180,7 @@ export default function DevolucionPesadaModal({
 
     const devolucionPrevia: DevolucionEntry = {
       fechaDevolucion:     new Date().toISOString(),
-      registradoPor:       '—',
+      registradoPor:       currentUser?.nombre ?? '—',
       esParcial:           seleccionados.length < pendientes.length,
       tipoDevolucion:      'A_TIEMPO',
       items:               seleccionados.map(it => ({

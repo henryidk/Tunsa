@@ -9,6 +9,7 @@ export interface JwtPayload {
 export interface AuthenticatedUser {
   id: string;
   username: string;
+  nombre: string;
   role: string;
   mustChangePassword: boolean;
 }

@@ -38,6 +38,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     const authenticatedUser: AuthenticatedUser = {
       id:                 user.id,
       username:           user.username,
+      nombre:             user.nombre,
       role:               user.role.nombre,
       mustChangePassword: user.mustChangePassword,
     };

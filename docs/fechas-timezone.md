@@ -93,6 +93,19 @@ export function formatFecha(iso: string | null | undefined): string {
 
 No duplicar esta función en componentes individuales. Siempre importar desde `utils/format.ts`.
 
+**Inputs `datetime-local` del frontend:**
+
+Cuando el usuario selecciona fecha y hora en un `<input type="datetime-local">`, el valor producido es una cadena sin zona horaria: `"2026-05-22T23:00"`. JavaScript la interpreta como hora local del navegador (no UTC), por lo que `.toISOString()` la convierte correctamente a UTC para enviar al backend.
+
+```ts
+// ✅ Correcto — el navegador está en Guatemala (UTC-6)
+const fechaISO = new Date(fechaInicioRenta).toISOString();
+// "2026-05-22T23:00" → "2026-05-23T05:00:00.000Z"
+
+// ⚠️ No confundir con cadenas de solo-fecha — esas SÍ se tratan como UTC:
+// new Date("2026-05-22") → medianoche UTC = 6 PM del 21 en Guatemala → usar + 'T12:00:00'
+```
+
 **Para extraer la fecha local de un timestamp completo** (como `fechaInicioRenta`):
 
 ```ts

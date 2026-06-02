@@ -46,6 +46,16 @@ interface CreateSolicitudDirectaPayload {
   esIndefinida?:  boolean;
 }
 
+interface CreateRentaRetroactivaPayload {
+  clienteId:        string;
+  fechaInicioRenta: string;
+  modalidad:        ModalidadPago;
+  notas?:           string;
+  totalEstimado?:   number;
+  items:            ItemSnapshot[];
+  esIndefinida?:    boolean;
+}
+
 export interface LecturaHorometro {
   id:                    string;
   solicitudId:           string;
@@ -89,6 +99,11 @@ export const solicitudesService = {
 
   async crearRentaDirecta(payload: CreateSolicitudDirectaPayload): Promise<SolicitudRenta> {
     const res = await api.post<SolicitudRenta>('/solicitudes/directa', payload);
+    return res.data;
+  },
+
+  async crearRentaRetroactiva(payload: CreateRentaRetroactivaPayload): Promise<SolicitudRenta> {
+    const res = await api.post<SolicitudRenta>('/solicitudes/retroactiva', payload);
     return res.data;
   },
 

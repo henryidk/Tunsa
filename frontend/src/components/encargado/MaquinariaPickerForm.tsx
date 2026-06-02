@@ -8,17 +8,19 @@ interface Props {
   isLoading:          boolean;
   onAdd:              (item: Omit<ItemMaquinaria, 'kind'>) => void;
   indefinido?:        boolean;
+  fechaInicioFija?:   string;
 }
 
 const inputCls  = 'w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50';
 const labelCls  = 'block text-xs font-semibold text-slate-600 mb-1.5';
 const selectCls = 'w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all';
 
-export default function MaquinariaPickerForm({ equiposDisponibles, isLoading, onAdd, indefinido = false }: Props) {
+export default function MaquinariaPickerForm({ equiposDisponibles, isLoading, onAdd, indefinido = false, fechaInicioFija }: Props) {
   const [busqueda,     setBusqueda]     = useState('');
   const [seleccionado, setSeleccionado] = useState<Equipo | null>(null);
   const d = new Date();
-  const fechaInicio = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const fechaHoy    = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const fechaInicio = fechaInicioFija ?? fechaHoy;
   const [duracion,     setDuracion]     = useState('');
   const [unidad,       setUnidad]       = useState<UnidadDuracion>('dias');
   const [dropdown,     setDropdown]     = useState(false);
@@ -171,7 +173,9 @@ export default function MaquinariaPickerForm({ equiposDisponibles, isLoading, on
               <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
             </svg>
             <span className="font-mono">{fechaInicio}</span>
-            <span className="ml-auto text-[10px] text-slate-400 font-medium">Hoy</span>
+            <span className="ml-auto text-[10px] text-slate-400 font-medium">
+              {fechaInicioFija ? 'Fija' : 'Hoy'}
+            </span>
           </div>
         </div>
         {!indefinido && (

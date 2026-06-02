@@ -5,6 +5,7 @@ import { R2Service } from '../r2/r2.service';
 import { GranelService } from '../granel/granel.service';
 import { CreateSolicitudDto } from './dto/create-solicitud.dto';
 import { CreateSolicitudDirectaDto } from './dto/create-solicitud-directa.dto';
+import { CreateRentaRetroactivaDto } from './dto/create-renta-retroactiva.dto';
 import { AmpliacionRentaDto } from './dto/ampliar-renta.dto';
 import { RegistrarDevolucionDto } from './dto/registrar-devolucion.dto';
 import { IniciarEntregaDto } from './dto/iniciar-entrega.dto';
@@ -269,6 +270,91 @@ export class SolicitudesService {
       });
 
       return serializeSolicitud(solicitud);
+    });
+  }
+
+  async crearRetroactiva(username: string, dto: CreateRentaRetroactivaDto) {
+    const esPesada = dto.items.every(i => i.kind === 'pesada');
+    const esMixta  = !esPesada && dto.items.some(i => i.kind === 'pesada');
+
+    if (esMixta)
+      throw new BadRequestException(
+        'Una solicitud no puede mezclar ítems de maquinaria pesada con maquinaria liviana o granel.',
+      );
+
+    if (dto.esIndefinida && esPesada)
+      throw new BadRequestException('Las rentas de maquinaria pesada no pueden ser indefinidas.');
+
+    const fechaInicio = new Date(dto.fechaInicioRenta);
+    if (isNaN(fechaInicio.getTime()) || fechaInicio > new Date())
+      throw new BadRequestException('La fecha de inicio debe ser una fecha pasada válida.');
+
+    const equipoIds = dto.items
+      .filter((i): i is typeof i & { equipoId: string } =>
+        (i.kind === 'maquinaria' || i.kind === 'pesada') && !!i.equipoId,
+      )
+      .map(i => i.equipoId);
+
+    if (equipoIds.length > 0) {
+      const reservados = new Set(await this.getEquiposReservadosInterno());
+      const conflictos = equipoIds.filter(id => reservados.has(id));
+      if (conflictos.length > 0)
+        throw new ConflictException(
+          'Uno o más equipos seleccionados ya están en una solicitud activa y no están disponibles.',
+        );
+    }
+
+    const itemsToStore: object[] = dto.items as object[];
+
+    return this.prisma.$transaction(async (tx) => {
+      const now     = new Date();
+      const mesAnio = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+      const secuencia = await tx.folioSecuencia.upsert({
+        where:  { mesAnio },
+        create: { mesAnio, ultimo: 1 },
+        update: { ultimo: { increment: 1 } },
+      });
+
+      const folio = `${mesAnio}-${String(secuencia.ultimo).padStart(4, '0')}`;
+
+      const items          = dto.items as unknown as ItemParaCalculo[];
+      let fechaFinEstimada: Date | null;
+      if (dto.esIndefinida) {
+        fechaFinEstimada = null;
+      } else if (esPesada) {
+        const pesadaItems = items as unknown as Array<{ diasSolicitados?: number }>;
+        const maxDias     = Math.max(...pesadaItems.map(i => i.diasSolicitados ?? 1), 1);
+        fechaFinEstimada  = new Date(fechaInicio.getTime() + maxDias * 86_400_000);
+      } else {
+        fechaFinEstimada = calcularFechaFinEstimada(fechaInicio, items);
+      }
+
+      const solicitud = await tx.solicitud.create({
+        data: {
+          clienteId:       dto.clienteId,
+          items:           itemsToStore,
+          modalidad:       dto.modalidad,
+          notas:           dto.notas ?? '',
+          totalEstimado:   esPesada ? 0 : (dto.totalEstimado ?? 0),
+          esPesada,
+          esIndefinida:    dto.esIndefinida ?? false,
+          creadaPor:       username,
+          estado:          'ACTIVA',
+          aprobadaPor:     username,
+          folio,
+          fechaDecision:   fechaInicio,
+          fechaInicioRenta: fechaInicio,
+          fechaEntrega:    fechaInicio,
+          fechaFinEstimada,
+        },
+        include: { cliente: true },
+      });
+
+      await this.crearRegistrosSeguimiento(tx, solicitud, fechaInicio);
+
+      const nombres = await this.resolverNombresActores(solicitud.creadaPor, solicitud.aprobadaPor);
+      return serializeSolicitud(solicitud, nombres);
     });
   }
 

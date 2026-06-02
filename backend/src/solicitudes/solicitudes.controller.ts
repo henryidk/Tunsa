@@ -10,6 +10,7 @@ import { SolicitudesGateway } from './solicitudes.gateway';
 import { HorometroService } from './horometro.service';
 import { CreateSolicitudDto } from './dto/create-solicitud.dto';
 import { CreateSolicitudDirectaDto } from './dto/create-solicitud-directa.dto';
+import { CreateRentaRetroactivaDto } from './dto/create-renta-retroactiva.dto';
 import { AmpliacionRentaDto } from './dto/ampliar-renta.dto';
 import { RegistrarDevolucionDto } from './dto/registrar-devolucion.dto';
 import { RegistrarLecturaDto } from './dto/lectura-horometro.dto';
@@ -49,6 +50,15 @@ export class SolicitudesController {
     const solicitud = await this.solicitudesService.create(dto, user.username);
     this.solicitudesGateway.emitNuevaSolicitud(solicitud);
     return solicitud;
+  }
+
+  @Post('retroactiva')
+  @Roles('admin')
+  async crearRetroactiva(
+    @Body() dto: CreateRentaRetroactivaDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.solicitudesService.crearRetroactiva(user.username, dto);
   }
 
   @Post('directa')

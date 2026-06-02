@@ -1,14 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { TipoGranel, GranelResponse } from '../../services/granel.service';
 import type { UnidadDuracion, ItemGranel } from '../../types/solicitud.types';
 import { getRentaRate, formatQ, rateSuffix, descomponerDuracion, formatDesglose, esAdaptado } from '../../types/solicitud.types';
 
 interface Props {
-  granelData:  Partial<Record<TipoGranel, GranelResponse>>;
-  isLoading:   boolean;
-  inCart:      (tipo: TipoGranel) => boolean;
-  onAdd:       (item: Omit<ItemGranel, 'kind'>) => void;
-  indefinido?: boolean;
+  granelData:      Partial<Record<TipoGranel, GranelResponse>>;
+  isLoading:       boolean;
+  inCart:          (tipo: TipoGranel) => boolean;
+  onAdd:           (item: Omit<ItemGranel, 'kind'>) => void;
+  indefinido?:     boolean;
+  fechaInicioFija?: string;
 }
 
 interface GranelForm {
@@ -26,19 +27,28 @@ const GRANEL_TIPOS: { tipo: TipoGranel; tipoLabel: string }[] = [
 ];
 
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
-const emptyForm = (): GranelForm => ({ cantidad: '', fechaInicio: today(), duracion: '', unidad: 'dias', conMadera: false });
+const emptyForm = (fechaFija?: string): GranelForm => ({ cantidad: '', fechaInicio: fechaFija ?? today(), duracion: '', unidad: 'dias', conMadera: false });
 
 const inputCls  = 'w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50';
 const labelCls  = 'block text-xs font-semibold text-slate-600 mb-1.5';
 const selectCls = 'w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50';
 
-export default function GranelPickerSection({ granelData, isLoading, inCart, onAdd, indefinido = false }: Props) {
+export default function GranelPickerSection({ granelData, isLoading, inCart, onAdd, indefinido = false, fechaInicioFija }: Props) {
   const [forms,  setForms]  = useState<Record<TipoGranel, GranelForm>>({
-    PUNTAL:         emptyForm(),
-    ANDAMIO_SIMPLE: emptyForm(),
-    ANDAMIO_RUEDAS: emptyForm(),
+    PUNTAL:         emptyForm(fechaInicioFija),
+    ANDAMIO_SIMPLE: emptyForm(fechaInicioFija),
+    ANDAMIO_RUEDAS: emptyForm(fechaInicioFija),
   });
   const [errors, setErrors] = useState<Partial<Record<TipoGranel, string>>>({});
+
+  useEffect(() => {
+    setForms({
+      PUNTAL:         emptyForm(fechaInicioFija),
+      ANDAMIO_SIMPLE: emptyForm(fechaInicioFija),
+      ANDAMIO_RUEDAS: emptyForm(fechaInicioFija),
+    });
+    setErrors({});
+  }, [fechaInicioFija]);
 
   const updateForm = (tipo: TipoGranel, field: keyof GranelForm, value: string) => {
     const parsed = field === 'conMadera' ? value === 'true' : value;
@@ -165,7 +175,9 @@ export default function GranelPickerSection({ granelData, isLoading, inCart, onA
                         <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
                       </svg>
                       <span className="font-mono text-slate-500">{form.fechaInicio}</span>
-                      <span className="ml-auto text-[10px] text-slate-400 font-medium">Hoy</span>
+                      <span className="ml-auto text-[10px] text-slate-400 font-medium">
+                        {fechaInicioFija ? 'Fija' : 'Hoy'}
+                      </span>
                     </div>
                   </div>
                 </div>

@@ -316,7 +316,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
         {activeItem && (
           <div className="flex flex-wrap items-center gap-6 mb-6 px-5 py-3 bg-white border border-slate-200 rounded-xl text-sm">
             <div>
-              <p className="text-[10px] text-slate-400 uppercase tracking-wide">Equipo</p>
+              <p className="text-xs text-slate-400 uppercase tracking-wide">Equipo</p>
               <p className="font-semibold text-slate-800">
                 <span className="font-mono text-slate-400 mr-1">#{activeItem.numeracion}</span>
                 {activeItem.descripcion}
@@ -324,25 +324,25 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
             </div>
             {activeItem.horometroInicial != null && (
               <div className="border-l border-slate-200 pl-6">
-                <p className="text-[10px] text-slate-400">Entrega al cliente</p>
+                <p className="text-xs text-slate-400">Entrega al cliente</p>
                 <p className="font-bold font-mono text-amber-700">
                   {activeItem.horometroInicial.toLocaleString('es-GT', { minimumFractionDigits: 1 })} hrs
                 </p>
               </div>
             )}
             <div className="border-l border-slate-200 pl-6">
-              <p className="text-[10px] text-slate-400">Tarifa</p>
+              <p className="text-xs text-slate-400">Tarifa</p>
               <p className="font-bold text-slate-700">{formatQ(activeItem.tarifaEfectiva)}/hr</p>
             </div>
             <div className="border-l border-slate-200 pl-6 ml-auto">
-              <p className="text-[10px] text-slate-400">Inicio de renta</p>
+              <p className="text-xs text-slate-400">Inicio de renta</p>
               <p className="font-medium text-slate-600 font-mono">
                 {fechaInicioStr.split('-').reverse().join('/')}
               </p>
             </div>
             {selectedSol.fechaFinEstimada && (
               <div className="border-l border-slate-200 pl-6">
-                <p className="text-[10px] text-slate-400">Fin estimado</p>
+                <p className="text-xs text-slate-400">Fin estimado</p>
                 <p className={`font-medium font-mono ${new Date(selectedSol.fechaFinEstimada) < new Date() ? 'text-red-600' : 'text-slate-600'}`}>
                   {selectedSol.fechaFinEstimada.substring(0, 10).split('-').reverse().join('/')}
                 </p>
@@ -404,15 +404,15 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
               <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-3 gap-2 text-center">
                 <div>
                   <p className="text-xl font-bold text-emerald-700">{diasCompletos}</p>
-                  <p className="text-[10px] text-slate-400">Completos</p>
+                  <p className="text-xs text-slate-400">Completos</p>
                 </div>
                 <div>
                   <p className="text-xl font-bold text-amber-600">{diasParciales}</p>
-                  <p className="text-[10px] text-slate-400">Solo inicio</p>
+                  <p className="text-xs text-slate-400">Solo inicio</p>
                 </div>
                 <div>
                   <p className="text-xl font-bold text-red-600">{diasSinRegistro}</p>
-                  <p className="text-[10px] text-slate-400">Sin registro</p>
+                  <p className="text-xs text-slate-400">Sin registro</p>
                 </div>
               </div>
             )}
@@ -426,7 +426,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
               <div className="flex items-center justify-between mb-4">
                 <p className="text-sm font-bold text-slate-700">Registrar lectura</p>
                 <div className="flex items-center gap-2">
-                  <label className="text-[11px] font-medium text-slate-500">Fecha</label>
+                  <label className="text-xs font-medium text-slate-500">Fecha</label>
                   <input
                     type="date"
                     value={fechaActiva}
@@ -438,7 +438,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                 </div>
               </div>
 
-              <p className="text-[11px] text-slate-400 mb-3">
+              <p className="text-xs text-slate-400 mb-3">
                 {formatFechaCorta(fechaActiva)}
                 {fechaActiva === hoy && ' · hoy'}
               </p>
@@ -454,7 +454,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                   <button
                     type="button"
                     onClick={() => setValor('corregir')}
-                    className="ml-auto text-[11px] text-slate-500 underline hover:text-slate-700"
+                    className="ml-auto text-xs text-slate-500 underline hover:text-slate-700"
                   >
                     Corregir
                   </button>
@@ -500,7 +500,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                       }}
                     />
                   </div>
-                  <button type="button" onClick={() => setValor('')} className="text-[11px] text-slate-400 underline">
+                  <button type="button" onClick={() => setValor('')} className="text-xs text-slate-400 underline">
                     Cancelar
                   </button>
                 </div>
@@ -515,7 +515,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                     </div>
                   )}
                   <div>
-                    <label className="text-[11px] font-medium text-slate-500 block mb-1">
+                    <label className="text-xs font-medium text-slate-500 block mb-1">
                       {tipoPendiente === 'inicio' ? 'Horómetro de inicio' : 'Horómetro de cierre (5PM)'}
                     </label>
                     <input
@@ -590,12 +590,12 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                           <tr className="border-b border-amber-100 bg-amber-50/50">
                             <td className="px-3 py-2 whitespace-nowrap">
                               <span className="text-slate-500">{formatFechaCorta(fechaInicioStr)}</span>
-                              <span className="ml-1.5 text-[10px] font-semibold text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full">entrega</span>
+                              <span className="ml-1.5 text-xs font-semibold text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full">entrega</span>
                             </td>
                             <td className="px-3 py-2 font-mono font-bold text-amber-700">
                               {activeItem.horometroInicial.toLocaleString('es-GT', { minimumFractionDigits: 1 })}
                             </td>
-                            <td colSpan={5} className="px-3 py-2 text-[11px] text-slate-400 italic">
+                            <td colSpan={5} className="px-3 py-2 text-xs text-slate-400 italic">
                               Horómetro al momento de entrega al cliente
                             </td>
                           </tr>
@@ -676,7 +676,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                   <span className="text-xs text-slate-500">Fecha</span>
                   <span className="text-xs font-mono font-semibold text-slate-700">
                     {formatFechaCorta(pendingConfirm.fecha)}
-                    {pendingConfirm.fecha === hoy && <span className="ml-1.5 text-[10px] font-semibold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-full">hoy</span>}
+                    {pendingConfirm.fecha === hoy && <span className="ml-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-full">hoy</span>}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
@@ -902,7 +902,7 @@ function PesadaStatCard({
             {formatQ(value)}
           </p>
         )}
-        <p className="text-[11px] text-slate-400 mt-0.5">{sublabel}</p>
+        <p className="text-xs text-slate-400 mt-0.5">{sublabel}</p>
       </div>
     </div>
   );
@@ -921,7 +921,7 @@ function CorregirInput({
   const [val, setVal] = useState(defaultValue?.toString() ?? '');
   return (
     <div>
-      <label className="text-[11px] font-medium text-slate-500 block mb-1">{label}</label>
+      <label className="text-xs font-medium text-slate-500 block mb-1">{label}</label>
       <div className="flex gap-1.5">
         <input
           type="text"

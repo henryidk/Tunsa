@@ -232,7 +232,7 @@ export default function EquiposSection({ onShowToast = () => {}, canEdit = true 
                 tab === t.id ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-slate-600 hover:bg-slate-50'
               }`}>
               {t.label}
-              <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full ${tab === t.id ? t.cls : 'bg-slate-100 text-slate-500'}`}>
+              <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${tab === t.id ? t.cls : 'bg-slate-100 text-slate-500'}`}>
                 {t.count}
               </span>
             </button>
@@ -340,7 +340,7 @@ export default function EquiposSection({ onShowToast = () => {}, canEdit = true 
                     <div className="font-medium text-slate-800 leading-snug line-clamp-2 text-xs">{e.descripcion}</div>
                     <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                       {e.categoria && (
-                        <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                        <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
                           {e.categoria.nombre}
                         </span>
                       )}
@@ -350,14 +350,14 @@ export default function EquiposSection({ onShowToast = () => {}, canEdit = true 
                   {/* Serie */}
                   <td className="px-4 py-3 max-w-[180px]">
                     {e.serie
-                      ? <div className="text-[11px] font-mono text-slate-600 truncate" title={e.serie}>{e.serie}</div>
+                      ? <div className="text-xs font-mono text-slate-600 truncate" title={e.serie}>{e.serie}</div>
                       : <span className="text-xs text-slate-300">—</span>
                     }
                   </td>
 
                   {/* Tipo */}
                   <td className="px-4 py-3">
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold ${TIPO_BADGE[e.tipo.nombre] ?? 'bg-slate-100 text-slate-600'}`}>
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${TIPO_BADGE[e.tipo.nombre] ?? 'bg-slate-100 text-slate-600'}`}>
                       {e.tipo.nombre.replace(/_/g, ' ')}
                     </span>
                   </td>
@@ -409,7 +409,7 @@ export default function EquiposSection({ onShowToast = () => {}, canEdit = true 
                           </>
                         ) : (
                           <>
-                            <div className="text-[11px] text-slate-400 max-w-[120px] truncate" title={e.motivoBaja ?? ''}>
+                            <div className="text-xs text-slate-400 max-w-[120px] truncate" title={e.motivoBaja ?? ''}>
                               {e.motivoBaja ?? 'Sin motivo'}
                             </div>
                             <button

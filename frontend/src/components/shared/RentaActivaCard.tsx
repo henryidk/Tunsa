@@ -67,16 +67,16 @@ export default function RentaActivaCard({
       <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-slate-50">
         <div className="flex items-center gap-2.5">
           {solicitud.esPesada && (
-            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
               PESADA
             </span>
           )}
           {solicitud.esIndefinida ? (
-            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 border border-violet-200">
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 border border-violet-200">
               ∞ Tiempo indefinido
             </span>
           ) : nivel !== 'ok' && (
-            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${URGENCIA_BADGE[nivel]}`}>
+            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${URGENCIA_BADGE[nivel]}`}>
               {nivel === 'vencido' ? 'Vencida' : `Vence en ${formatTiempoRestante(msMin, inicio, ahora)}`}
             </span>
           )}
@@ -93,7 +93,7 @@ export default function RentaActivaCard({
         {/* Columna izquierda */}
         <div className="flex flex-col gap-3">
           <div>
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Cliente</p>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Cliente</p>
             <ClienteNombre nombre={solicitud.cliente.nombre} esEspecial={solicitud.cliente.esEspecial} textCls="text-sm font-semibold text-slate-800 leading-tight" />
             <p className="text-xs font-mono text-slate-400 mt-0.5">{solicitud.cliente.id}</p>
             {solicitud.cliente.telefono && (
@@ -103,14 +103,14 @@ export default function RentaActivaCard({
 
           {showEncargado && (
             <div>
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Encargado</p>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Encargado</p>
               <p className="text-xs font-mono text-slate-600">{solicitud.nombreCreador ?? solicitud.creadaPor}</p>
             </div>
           )}
 
           <div className="flex items-end gap-4">
             <div>
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Total</p>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Total</p>
               {solicitud.esPesada ? (
                 <p className="text-base font-bold text-slate-700 leading-none">Por horómetro</p>
               ) : solicitud.esIndefinida ? (
@@ -124,7 +124,7 @@ export default function RentaActivaCard({
                 </p>
               )}
             </div>
-            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
               solicitud.modalidad === 'CONTADO' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
             }`}>
               {solicitud.modalidad === 'CONTADO' ? 'Contado' : 'Crédito'}
@@ -134,7 +134,7 @@ export default function RentaActivaCard({
 
         {/* Columna derecha: equipos */}
         <div>
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Equipos rentados</p>
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Equipos rentados</p>
           <div className="space-y-2.5">
             {maquinaria.map((item, i) => (
               <EquipoRow key={i} item={item} inicio={inicio} extensiones={extensiones} ahora={ahora} esIndefinida={solicitud.esIndefinida} />
@@ -234,7 +234,7 @@ function EquipoRow({ item, inicio, extensiones, ahora, esIndefinida }: {
           <span className="font-mono text-slate-400 mr-1">#{item.numeracion}</span>
           {item.descripcion}
         </p>
-        <span className="text-[10px] font-semibold text-violet-600 flex-shrink-0">∞ Indefinido</span>
+        <span className="text-xs font-semibold text-violet-600 flex-shrink-0">∞ Indefinido</span>
       </div>
     );
   }
@@ -247,7 +247,7 @@ function EquipoRow({ item, inicio, extensiones, ahora, esIndefinida }: {
         {item.descripcion}
       </p>
       <div className="flex-shrink-0 flex flex-col items-end gap-0.5">
-        <span className="text-[10px] text-slate-400 whitespace-nowrap">
+        <span className="text-xs text-slate-400 whitespace-nowrap">
           Vence {formatFechaHora(fin.toISOString())}
         </span>
         <VenceLabel ms={ms} fechaInicio={inicio} ahora={ahora} />
@@ -271,7 +271,7 @@ function GranelRow({ item, inicio, extensiones, ahora, esIndefinida }: {
           {item.tipoLabel}
           {item.conMadera && <span className="text-amber-600 ml-1">(c/madera)</span>}
         </p>
-        <span className="text-[10px] font-semibold text-violet-600 flex-shrink-0">∞ Indefinido</span>
+        <span className="text-xs font-semibold text-violet-600 flex-shrink-0">∞ Indefinido</span>
       </div>
     );
   }
@@ -285,7 +285,7 @@ function GranelRow({ item, inicio, extensiones, ahora, esIndefinida }: {
         {item.conMadera && <span className="text-amber-600 ml-1">(c/madera)</span>}
       </p>
       <div className="flex-shrink-0 flex flex-col items-end gap-0.5">
-        <span className="text-[10px] text-slate-400 whitespace-nowrap">
+        <span className="text-xs text-slate-400 whitespace-nowrap">
           Vence {formatFechaHora(fin.toISOString())}
         </span>
         <VenceLabel ms={ms} fechaInicio={inicio} ahora={ahora} />
@@ -310,7 +310,7 @@ function PesadaRow({ item, inicio, extensiones, ahora }: {
         {item.extras.length > 0 && <span className="text-orange-600 ml-1">({item.extras.map(e => `+${e.nombre}`).join(', ')})</span>}
       </p>
       <div className="flex-shrink-0 flex flex-col items-end gap-0.5">
-        <span className="text-[10px] text-slate-400 whitespace-nowrap">
+        <span className="text-xs text-slate-400 whitespace-nowrap">
           Vence {formatFechaHora(fin.toISOString())}
         </span>
         <VenceLabel ms={ms} fechaInicio={inicio} ahora={ahora} />

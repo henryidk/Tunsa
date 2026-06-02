@@ -49,7 +49,7 @@ function DuracionInputs({
   return (
     <div className={`flex items-center gap-3 ${indent ? 'mt-3 ml-7' : ''}`}>
       <div className="flex-1">
-        <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-1">
+        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1">
           Duración adicional
         </label>
         <input
@@ -61,7 +61,7 @@ function DuracionInputs({
         />
       </div>
       <div className="flex-1">
-        <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-1">
+        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1">
           Unidad
         </label>
         <select
@@ -180,7 +180,7 @@ export default function AmpliacionRentaModal({
                 </p>
               </div>
               <div>
-                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-2">Resumen de la extensión</p>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Resumen de la extensión</p>
                 <ul className="space-y-2">
                   {itemsPendientes
                     .filter(item => estado[itemRef(item)]?.checked)
@@ -208,11 +208,11 @@ export default function AmpliacionRentaModal({
                 <div className="space-y-4">
                   <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
                     <p className="text-sm font-semibold text-slate-800 leading-tight">{itemLabel(item)}</p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">{itemKindLabel(item)} • Inicio: {item.fechaInicio}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">{itemKindLabel(item)} • Inicio: {item.fechaInicio}</p>
                   </div>
                   <DuracionInputs ext={ext} onDuracion={val => handleDuracion(ref, val)} onUnidad={val => handleUnidad(ref, val)} />
                   {item.kind !== 'pesada' && (
-                    <p className="text-[11px] text-slate-400">El costo se calculará con los precios actuales al confirmar.</p>
+                    <p className="text-xs text-slate-400">El costo se calculará con los precios actuales al confirmar.</p>
                   )}
                 </div>
               );
@@ -232,7 +232,7 @@ export default function AmpliacionRentaModal({
                       <input type="checkbox" checked={ext.checked} onChange={() => handleToggle(ref)} className="mt-0.5 accent-indigo-600 w-4 h-4 cursor-pointer" />
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-slate-800 leading-tight">{itemLabel(item)}</p>
-                        <p className="text-[11px] text-slate-400 mt-0.5">{itemKindLabel(item)} • Inicio: {item.fechaInicio}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">{itemKindLabel(item)} • Inicio: {item.fechaInicio}</p>
                       </div>
                     </label>
                     {ext.checked && (

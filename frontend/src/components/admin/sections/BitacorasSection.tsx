@@ -223,7 +223,7 @@ export default function BitacorasSection() {
               }`}>
               {t.label}
               {t.count !== null && (
-                <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full ${
+                <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
                   filtroModulo === t.id ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-500'
                 }`}>{t.count}</span>
               )}
@@ -289,10 +289,10 @@ export default function BitacorasSection() {
                   <tr key={e.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
                     <td className="px-4 py-3 whitespace-nowrap">
                       <div className="text-xs font-medium text-slate-700">{fecha}</div>
-                      <div className="text-[11px] text-slate-400 font-mono">{hora}</div>
+                      <div className="text-xs text-slate-400 font-mono">{hora}</div>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold ${moduloCfg.badge}`}>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${moduloCfg.badge}`}>
                         {moduloCfg.label}
                       </span>
                     </td>
@@ -300,7 +300,7 @@ export default function BitacorasSection() {
                       <span className="text-xs text-slate-700 line-clamp-2">{e.entidadNombre}</span>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${campoBadge}`}>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${campoBadge}`}>
                         {CAMPO_LABEL[e.campo] ?? e.campo}
                       </span>
                     </td>

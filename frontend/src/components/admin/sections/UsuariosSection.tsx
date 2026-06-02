@@ -104,7 +104,7 @@ export default function UsuariosSection({ onShowToast, user }: UsuariosSectionPr
                           <div className="font-semibold text-slate-800 flex items-center gap-1.5">
                             {u.nombre}
                             {isCurrentUser && u.isActive && (
-                              <span className="text-[11px] font-semibold bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded">Tú</span>
+                              <span className="text-xs font-semibold bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded">Tú</span>
                             )}
                           </div>
                           <div className="text-xs text-slate-400 font-mono mt-0.5">@{u.username}</div>
@@ -119,7 +119,7 @@ export default function UsuariosSection({ onShowToast, user }: UsuariosSectionPr
                     </td>
                     <td className="px-4 py-3 text-xs font-mono text-slate-500">{u.telefono ?? '—'}</td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${u.isActive ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}`}>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${u.isActive ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}`}>
                         {u.isActive ? 'Activo' : 'Inactivo'}
                       </span>
                     </td>

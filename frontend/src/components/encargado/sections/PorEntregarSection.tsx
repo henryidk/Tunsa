@@ -147,12 +147,12 @@ function SolicitudAprobadaCard({
       {/* Top bar */}
       <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-amber-50/60">
         <div className="flex items-center gap-3">
-          <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
+          <span className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
             Pendiente de entrega
           </span>
           {solicitud.esPesada && (
-            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 border border-orange-200">
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 border border-orange-200">
               PESADA
             </span>
           )}
@@ -166,7 +166,7 @@ function SolicitudAprobadaCard({
 
         {/* Cliente */}
         <div className="space-y-2">
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Cliente</p>
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Cliente</p>
           <div>
             <div className="flex items-center gap-1.5 flex-wrap">
               <p className="text-sm font-semibold text-slate-800">{solicitud.cliente.nombre}</p>
@@ -190,7 +190,7 @@ function SolicitudAprobadaCard({
 
         {/* Ítems */}
         <div>
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Equipos a entregar</p>
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Equipos a entregar</p>
           <div className="space-y-2">
             {maquinaria.map((item, i) => (
               <div key={i}>
@@ -198,7 +198,7 @@ function SolicitudAprobadaCard({
                   <span className="font-mono text-slate-400 mr-1">#{item.numeracion}</span>
                   {item.descripcion}
                 </p>
-                <p className="text-[11px] text-slate-400 mt-0.5">
+                <p className="text-xs text-slate-400 mt-0.5">
                   {duracionDisplay(item.duracion, item.unidad)}
                 </p>
               </div>
@@ -210,7 +210,7 @@ function SolicitudAprobadaCard({
                   {item.tipoLabel}
                   {item.conMadera && <span className="text-amber-600 ml-1">(c/madera)</span>}
                 </p>
-                <p className="text-[11px] text-slate-400 mt-0.5">
+                <p className="text-xs text-slate-400 mt-0.5">
                   {duracionDisplay(item.duracion, item.unidad)}
                 </p>
               </div>
@@ -222,7 +222,7 @@ function SolicitudAprobadaCard({
                   {item.descripcion}
                   {item.extras.length > 0 && <span className="text-orange-600 ml-1">({item.extras.map(e => `+${e.nombre}`).join(", ")})</span>}
                 </p>
-                <span className="inline-flex items-center gap-1.5 mt-0.5 text-[11px]">
+                <span className="inline-flex items-center gap-1.5 mt-0.5 text-xs">
                   <span className="font-medium text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-md">Por horómetro</span>
                   <span className="text-slate-400">{item.diasSolicitados} días sol.</span>
                 </span>
@@ -234,7 +234,7 @@ function SolicitudAprobadaCard({
         {/* Total y acciones */}
         <div className="flex flex-col gap-3">
           <div>
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Total estimado</p>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Total estimado</p>
             {solicitud.esPesada ? (
               <p className="text-base font-bold text-amber-700">Por horómetro</p>
             ) : solicitud.esIndefinida ? (
@@ -244,7 +244,7 @@ function SolicitudAprobadaCard({
                 Q {solicitud.totalEstimado.toLocaleString('es-GT', { minimumFractionDigits: 2 })}
               </p>
             )}
-            <span className={`text-[11px] font-semibold mt-1 inline-block px-2 py-0.5 rounded-full ${
+            <span className={`text-xs font-semibold mt-1 inline-block px-2 py-0.5 rounded-full ${
               solicitud.modalidad === 'CONTADO'
                 ? 'bg-emerald-50 text-emerald-700'
                 : 'bg-amber-50 text-amber-700'
@@ -299,7 +299,7 @@ function SolicitudAprobadaCard({
                 Registrar Entrega
               </button>
               {!solicitud.fechaInicioRenta && (
-                <p className="text-[11px] text-slate-400 text-center">
+                <p className="text-xs text-slate-400 text-center">
                   {solicitud.esPesada && !todosHorometrosValidos
                     ? 'Ingresa los horómetros para continuar'
                     : 'Primero genera el comprobante'}
@@ -313,14 +313,14 @@ function SolicitudAprobadaCard({
       {/* Horómetros iniciales — solo para pesada */}
       {solicitud.esPesada && pesada.length > 0 && (
         <div className="px-5 pb-4 border-t border-slate-100 pt-4">
-          <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-3">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
             Horómetro inicial al momento de entrega
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {pesada.map(item => (
               <div key={item.equipoId} className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5">
                 <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-semibold text-slate-600 truncate">
+                  <p className="text-xs font-semibold text-slate-600 truncate">
                     <span className="font-mono text-slate-400 mr-1">#{item.numeracion}</span>
                     {item.descripcion}
                   </p>
@@ -334,13 +334,13 @@ function SolicitudAprobadaCard({
                     placeholder="0.0"
                     className="w-24 px-2.5 py-1.5 border border-slate-300 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200 bg-white text-right"
                   />
-                  <span className="text-[11px] text-slate-400 font-medium">hr</span>
+                  <span className="text-xs text-slate-400 font-medium">hr</span>
                 </div>
               </div>
             ))}
           </div>
           {!todosHorometrosValidos && (
-            <p className="text-[11px] text-amber-600 mt-2 flex items-center gap-1.5">
+            <p className="text-xs text-amber-600 mt-2 flex items-center gap-1.5">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
                 <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
@@ -353,11 +353,11 @@ function SolicitudAprobadaCard({
 
       {/* Footer */}
       <div className="px-5 py-2.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
-        <p className="text-[11px] text-slate-500 truncate max-w-xs">
+        <p className="text-xs text-slate-500 truncate max-w-xs">
           <span className="font-medium text-slate-400">Obs:</span> {solicitud.notas || '—'}
         </p>
         {solicitud.aprobadaPor && (
-          <p className="text-[11px] text-slate-400 flex-shrink-0 ml-4">
+          <p className="text-xs text-slate-400 flex-shrink-0 ml-4">
             Aprobada por <span className="font-semibold">{solicitud.aprobadaPor}</span>
           </p>
         )}

@@ -75,7 +75,7 @@ export default function RentaVencidaCard({
       <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-slate-50">
         <div className="flex items-center gap-2.5 flex-wrap">
           {enGracia ? (
-            <span className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${graciaUrgente ? 'bg-orange-100 text-orange-700 border-orange-300' : 'bg-amber-100 text-amber-700 border-amber-200'}`}>
+            <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-0.5 rounded-full border ${graciaUrgente ? 'bg-orange-100 text-orange-700 border-orange-300' : 'bg-amber-100 text-amber-700 border-amber-200'}`}>
               <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${graciaUrgente ? 'bg-orange-500' : 'bg-amber-500'}`} />
               En gracia
               <span className="font-mono tabular-nums tracking-tight">
@@ -83,20 +83,20 @@ export default function RentaVencidaCard({
               </span>
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">
+            <span className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">
               <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
               Vencida
             </span>
           )}
           {!enGracia && (
-            <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+            <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
               Atraso: {formatAtraso(atrasoMs, ventanaGracia)}
             </span>
           )}
           <span className="text-xs font-mono font-semibold text-slate-600">{solicitud.folio}</span>
         </div>
         <div className="text-right">
-          <p className="text-[10px] text-slate-400">Debía terminar</p>
+          <p className="text-xs text-slate-400">Debía terminar</p>
           <p className="text-xs font-semibold text-slate-600">{formatFechaHora(vencimiento.toISOString())}</p>
         </div>
       </div>
@@ -107,7 +107,7 @@ export default function RentaVencidaCard({
         {/* Columna izquierda */}
         <div className="flex flex-col gap-4">
           <div>
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Cliente</p>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Cliente</p>
             <ClienteNombre nombre={solicitud.cliente.nombre} esEspecial={solicitud.cliente.esEspecial} textCls="text-sm font-semibold text-slate-800 leading-tight" />
             <p className="text-xs font-mono text-slate-400 mt-0.5">{solicitud.cliente.id}</p>
             {solicitud.cliente.telefono && (
@@ -117,7 +117,7 @@ export default function RentaVencidaCard({
 
           {showEncargado && (
             <div>
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Encargado</p>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Encargado</p>
               <p className="text-xs font-mono text-slate-600">{solicitud.nombreCreador ?? solicitud.creadaPor}</p>
             </div>
           )}
@@ -143,7 +143,7 @@ export default function RentaVencidaCard({
           </div>
 
           <div>
-            <p className="text-[10px] text-slate-400">Inicio de renta</p>
+            <p className="text-xs text-slate-400">Inicio de renta</p>
             <p className="text-xs font-semibold text-slate-600">
               {solicitud.fechaInicioRenta ? formatFechaHora(solicitud.fechaInicioRenta) : '—'}
             </p>
@@ -153,9 +153,9 @@ export default function RentaVencidaCard({
         {/* Columna derecha: equipos */}
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Equipos a devolver</p>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Equipos a devolver</p>
             {hayMixto && (
-              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-red-50 text-red-500 border border-red-100">
+              <span className="text-xs font-semibold px-1.5 py-0.5 rounded-md bg-red-50 text-red-500 border border-red-100">
                 {vencidasCount} de {todosItems.length} vencido{vencidasCount !== 1 ? 's' : ''}
               </span>
             )}
@@ -236,11 +236,11 @@ function MaquinariaRow({ item, inicio, extensiones, ahoraRecargo, ahora, esEspec
         </p>
       </div>
       <div className="flex-shrink-0 flex flex-col items-end gap-0.5">
-        <span className="text-[10px] font-medium whitespace-nowrap text-slate-800">
+        <span className="text-xs font-medium whitespace-nowrap text-slate-800">
           {yaVencio ? 'Venció' : 'Vence'} {formatFechaHora(fin.toISOString())}
         </span>
         {itemRec > 0 && (
-          <span className="text-[10px] font-semibold text-red-600 font-mono">
+          <span className="text-xs font-semibold text-red-600 font-mono">
             +Q {itemRec.toLocaleString('es-GT', { minimumFractionDigits: 2 })}
           </span>
         )}
@@ -272,11 +272,11 @@ function GranelRow({ item, inicio, extensiones, ahoraRecargo, ahora, esEspecial 
         </p>
       </div>
       <div className="flex-shrink-0 flex flex-col items-end gap-0.5">
-        <span className="text-[10px] font-medium whitespace-nowrap text-slate-800">
+        <span className="text-xs font-medium whitespace-nowrap text-slate-800">
           {yaVencio ? 'Venció' : 'Vence'} {formatFechaHora(fin.toISOString())}
         </span>
         {itemRec > 0 && (
-          <span className="text-[10px] font-semibold text-red-600 font-mono">
+          <span className="text-xs font-semibold text-red-600 font-mono">
             +Q {itemRec.toLocaleString('es-GT', { minimumFractionDigits: 2 })}
           </span>
         )}

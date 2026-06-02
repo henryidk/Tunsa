@@ -113,7 +113,7 @@ function TabButton({
     >
       {children}
       {badge && (
-        <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full ${badgeCls}`}>
+        <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${badgeCls}`}>
           {badge}
         </span>
       )}
@@ -177,14 +177,14 @@ function SolicitudPendienteCard({ solicitud }: { solicitud: SolicitudRenta }) {
 
         {/* Cliente */}
         <div>
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Cliente</p>
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Cliente</p>
           <ClienteNombre nombre={solicitud.cliente.nombre} esEspecial={solicitud.cliente.esEspecial} />
           <p className="text-xs font-mono text-slate-400 mt-0.5">{solicitud.cliente.id}</p>
         </div>
 
         {/* Ítems */}
         <div>
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Ítems solicitados</p>
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Ítems solicitados</p>
           <div className="space-y-1.5">
             {solicitud.items.map((item, i) => <ItemResumen key={i} item={item} />)}
           </div>
@@ -213,7 +213,7 @@ function SolicitudPendienteCard({ solicitud }: { solicitud: SolicitudRenta }) {
 
       {solicitud.notas && (
         <div className="px-5 py-2.5 border-t border-slate-100 bg-slate-50">
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">
             Observaciones
           </p>
           <p className="text-xs text-slate-600">{solicitud.notas}</p>
@@ -234,7 +234,7 @@ function ItemResumen({ item }: { item: ItemSnapshot }) {
           {item.descripcion}
           {item.extras.length > 0 && <span className="text-orange-600 ml-1">({item.extras.map(e => `+${e.nombre}`).join(", ")})</span>}
         </p>
-        <span className="inline-flex items-center gap-1.5 mt-0.5 text-[11px]">
+        <span className="inline-flex items-center gap-1.5 mt-0.5 text-xs">
           <span className="font-medium text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-md">Por horómetro</span>
           <span className="text-slate-400">{item.diasSolicitados} días sol.</span>
         </span>
@@ -273,7 +273,7 @@ function ItemResumen({ item }: { item: ItemSnapshot }) {
 
 function TiempoPill({ duracion, fecha }: { duracion: string; fecha: string }) {
   return (
-    <span className="inline-flex items-center gap-1 mt-0.5 text-[11px] text-slate-400">
+    <span className="inline-flex items-center gap-1 mt-0.5 text-xs text-slate-400">
       <span className="font-medium text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-md">
         {duracion}
       </span>

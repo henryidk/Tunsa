@@ -105,7 +105,7 @@ function FinancialCard({
         {icon}
       </div>
       <div className="min-w-0">
-        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">{label}</div>
+        <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide">{label}</div>
         {isLoading ? (
           <div className="h-5 w-24 bg-slate-100 rounded animate-pulse mt-1" />
         ) : (
@@ -140,7 +140,7 @@ function Panel({
 function CountBadge({ count, color }: { count: number; color: string }) {
   if (count === 0) return null;
   return (
-    <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full ${color}`}>
+    <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${color}`}>
       {count}
     </span>
   );
@@ -185,7 +185,7 @@ function ActividadItem({ s }: { s: SolicitudRenta }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 flex-wrap">
           <span className="text-sm font-semibold text-slate-800 truncate">{s.cliente.nombre}</span>
-          {s.folio && <span className="text-[11px] font-mono text-slate-400">{s.folio}</span>}
+          {s.folio && <span className="text-xs font-mono text-slate-400">{s.folio}</span>}
         </div>
         <div className="text-xs text-slate-500 mt-0.5">
           {s.items.length} ítem{s.items.length !== 1 ? 's' : ''}
@@ -194,10 +194,10 @@ function ActividadItem({ s }: { s: SolicitudRenta }) {
         </div>
       </div>
       <div className="flex flex-col items-end gap-1 flex-shrink-0">
-        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${ESTADO_BADGE[s.estado]}`}>
+        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${ESTADO_BADGE[s.estado]}`}>
           {ESTADO_LABEL[s.estado]}
         </span>
-        <span className="text-[11px] text-slate-400">{tiempoAtras(s.createdAt)}</span>
+        <span className="text-xs text-slate-400">{tiempoAtras(s.createdAt)}</span>
       </div>
     </div>
   );
@@ -222,7 +222,7 @@ function VencimientoItem({ s }: { s: SolicitudRenta }) {
         esUrgente ? 'bg-red-100 border-red-200' : 'bg-white border-slate-200'
       }`}>
         <div className="text-sm font-bold text-slate-800 leading-tight">{fecha.dia}</div>
-        <div className="text-[9px] font-bold text-slate-500 tracking-wide">{fecha.mes}</div>
+        <div className="text-[10px] font-bold text-slate-500 tracking-wide">{fecha.mes}</div>
       </div>
       <div className="flex-1 min-w-0">
         <div className="text-sm font-semibold text-slate-800 truncate">{s.cliente.nombre}</div>
@@ -231,7 +231,7 @@ function VencimientoItem({ s }: { s: SolicitudRenta }) {
           <span className="text-slate-400 ml-1">· {s.creadaPor}</span>
         </div>
       </div>
-      <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${badgeCls}`}>
+      <span className={`text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${badgeCls}`}>
         {badgeLabel}
       </span>
     </div>
@@ -258,7 +258,7 @@ function VencidaItem({ s }: { s: SolicitudRenta }) {
           <span className="text-slate-400 ml-1">· {s.creadaPor}</span>
         </div>
       </div>
-      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 flex-shrink-0 whitespace-nowrap">
+      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 flex-shrink-0 whitespace-nowrap">
         {dias === 0 ? 'Hoy' : `${dias} día${dias !== 1 ? 's' : ''}`}
       </span>
     </div>

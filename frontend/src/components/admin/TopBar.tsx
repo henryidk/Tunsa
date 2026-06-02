@@ -54,7 +54,7 @@ export default function TopBar({ activeSection, onNavTo, unreadCount, todayCount
       {/* Quick KPIs */}
       <div className="hidden md:flex items-center bg-slate-50 border border-slate-200 rounded-xl overflow-hidden">
         <div className="flex flex-col items-start px-4 py-1.5">
-          <span className="text-[10px] text-slate-400 font-medium whitespace-nowrap">Solicitudes hoy</span>
+          <span className="text-xs text-slate-400 font-medium whitespace-nowrap">Solicitudes hoy</span>
           <span className="text-sm font-bold text-slate-800 font-mono">{todayCount}</span>
         </div>
       </div>
@@ -76,7 +76,7 @@ export default function TopBar({ activeSection, onNavTo, unreadCount, todayCount
           </svg>
 
           {unreadCount > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5 flex items-center justify-center rounded-full bg-indigo-600 text-[10px] font-bold text-white leading-none">
+            <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5 flex items-center justify-center rounded-full bg-indigo-600 text-xs font-bold text-white leading-none">
               {badgeLabel}
             </span>
           )}

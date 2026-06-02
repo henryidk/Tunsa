@@ -220,14 +220,14 @@ function SolicitudRechazadaCard({ solicitud }: { solicitud: SolicitudRenta }) {
 
         {/* Cliente */}
         <div>
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Cliente</p>
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Cliente</p>
           <p className="text-sm font-semibold text-slate-800">{solicitud.cliente.nombre}</p>
           <p className="text-xs font-mono text-slate-400 mt-0.5">{solicitud.cliente.id}</p>
         </div>
 
         {/* Ítems */}
         <div>
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Ítems solicitados</p>
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Ítems solicitados</p>
           <div className="space-y-1.5">
             {solicitud.items.map((item, i) => <ItemResumen key={i} item={item} />)}
           </div>
@@ -257,7 +257,7 @@ function SolicitudRechazadaCard({ solicitud }: { solicitud: SolicitudRenta }) {
       {/* Footer — motivo de rechazo + observaciones */}
       {solicitud.motivoRechazo && (
         <div className="px-5 py-2.5 border-t border-red-100 bg-red-50">
-          <p className="text-[10px] font-semibold text-red-400 uppercase tracking-wide mb-0.5">
+          <p className="text-xs font-semibold text-red-400 uppercase tracking-wide mb-0.5">
             Motivo de rechazo
           </p>
           <p className="text-xs text-red-700">{solicitud.motivoRechazo}</p>
@@ -265,7 +265,7 @@ function SolicitudRechazadaCard({ solicitud }: { solicitud: SolicitudRenta }) {
       )}
       {solicitud.notas && (
         <div className="px-5 py-2.5 border-t border-slate-100 bg-slate-50">
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">
             Observaciones
           </p>
           <p className="text-xs text-slate-600">{solicitud.notas}</p>
@@ -288,7 +288,7 @@ function ItemResumen({ item }: { item: ItemSnapshot }) {
           <span className="font-mono text-slate-400 mr-1">#{item.numeracion}</span>
           {item.descripcion}
           {item.kind === 'pesada' && item.extras.length > 0 && (
-            <span className="ml-1.5 text-[10px] font-semibold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded-full">{item.extras.map(e => `+${e.nombre}`).join(', ')}</span>
+            <span className="ml-1.5 text-xs font-semibold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded-full">{item.extras.map(e => `+${e.nombre}`).join(', ')}</span>
           )}
         </p>
         <TiempoPill duracion={duracionLabel} fecha={fechaLabel} />
@@ -312,7 +312,7 @@ function ItemResumen({ item }: { item: ItemSnapshot }) {
 
 function TiempoPill({ duracion, fecha }: { duracion: string; fecha: string }) {
   return (
-    <span className="inline-flex items-center gap-1 mt-0.5 text-[11px] text-slate-400">
+    <span className="inline-flex items-center gap-1 mt-0.5 text-xs text-slate-400">
       <span className="font-medium text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-md">
         {duracion}
       </span>

@@ -139,7 +139,7 @@ function TabButton({
     >
       {label}
       {count !== null && count > 0 && (
-        <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full leading-none ${
+        <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full leading-none ${
           active ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-500'
         }`}>
           {count}
@@ -180,7 +180,7 @@ function SolicitudCard({
         <div className="flex items-center gap-3">
           <EstadoBadge estado={solicitud.estado} />
           {solicitud.esPesada && (
-            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
               PESADA
             </span>
           )}
@@ -196,7 +196,7 @@ function SolicitudCard({
 
         {/* Cliente */}
         <div className="space-y-2">
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Cliente</p>
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Cliente</p>
           <div>
             <ClienteNombre nombre={solicitud.cliente.nombre} esEspecial={solicitud.cliente.esEspecial} textCls="text-sm font-semibold text-slate-800 leading-snug" />
             <p className="text-xs font-mono text-slate-400 mt-0.5">{solicitud.cliente.id}</p>
@@ -219,7 +219,7 @@ function SolicitudCard({
 
         {/* Ítems */}
         <div>
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Ítems solicitados</p>
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Ítems solicitados</p>
           <div className="space-y-2">
             {maquinaria.map((item, i) => <ItemRow key={i} item={item} />)}
             {granel.map((item, i)     => <ItemRow key={i} item={item} />)}
@@ -229,7 +229,7 @@ function SolicitudCard({
 
         {/* Pago y total */}
         <div className="flex flex-col gap-1.5">
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Pago y total</p>
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Pago y total</p>
           <span className={`w-fit text-xs font-semibold px-2 py-0.5 rounded-full ${
             solicitud.modalidad === 'CONTADO'
               ? 'bg-emerald-50 text-emerald-700'
@@ -275,12 +275,12 @@ function AccionesFooter({
     <div className="border-t border-slate-100">
       <div className="flex items-center justify-between px-5 py-3 bg-slate-50 gap-4">
         <div className="flex-1 min-w-0">
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Observaciones</p>
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Observaciones</p>
           <p className="text-xs text-slate-600 truncate">{solicitud.notas}</p>
         </div>
         <div className="flex items-center gap-4 flex-shrink-0">
           <div className="text-right">
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Solicitado por</p>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Solicitado por</p>
             <p className="text-xs font-semibold text-slate-600">{solicitud.creadaPor}</p>
           </div>
           {solicitud.estado === 'PENDIENTE' && (
@@ -301,7 +301,7 @@ function AccionesFooter({
           )}
           {solicitud.estado === 'APROBADA' && (
             <div className="pl-4 border-l border-slate-200">
-              <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
+              <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
                 Aprobada — pendiente de entrega
               </span>
             </div>
@@ -323,7 +323,7 @@ function ItemRow({ item }: { item: ItemSnapshot }) {
           {item.descripcion}
           {item.extras.length > 0 && <span className="text-orange-600 ml-1">({item.extras.map(e => `+${e.nombre}`).join(", ")})</span>}
         </p>
-        <span className="inline-flex items-center gap-1.5 mt-0.5 text-[11px]">
+        <span className="inline-flex items-center gap-1.5 mt-0.5 text-xs">
           <span className="font-medium text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-md">Por horómetro</span>
           <span className="text-slate-400">{item.diasSolicitados} días sol.</span>
         </span>
@@ -332,7 +332,7 @@ function ItemRow({ item }: { item: ItemSnapshot }) {
   }
 
   const tiempo = (
-    <span className="flex items-center gap-1 mt-0.5 text-[11px] text-slate-400">
+    <span className="flex items-center gap-1 mt-0.5 text-xs text-slate-400">
       <span className="inline-flex items-center gap-1 font-medium text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-md">
         {duracionDisplay(item.duracion, item.unidad)}
       </span>
@@ -370,7 +370,7 @@ function DocumentoButton({ clienteId, tieneDocumento }: { clienteId: string; tie
 
   if (!tieneDocumento) {
     return (
-      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+      <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
           <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
         </svg>
@@ -397,7 +397,7 @@ function DocumentoButton({ clienteId, tieneDocumento }: { clienteId: string; tie
     <button
       onClick={handleVerDocumento}
       disabled={loading}
-      className="inline-flex items-center gap-1.5 text-[11px] font-medium text-indigo-600 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md hover:bg-indigo-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+      className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md hover:bg-indigo-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
     >
       {loading ? (
         <svg className="animate-spin" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -430,7 +430,7 @@ function EstadoBadge({ estado }: { estado: SolicitudRenta['estado'] }) {
   };
   const { cls, label } = map[estado];
   return (
-    <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${cls}`}>
+    <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${cls}`}>
       {label}
     </span>
   );

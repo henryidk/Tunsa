@@ -197,7 +197,7 @@ export default function NuevaSolicitudSection({ onShowToast = () => {} }: Props)
                   <span className="text-base font-bold text-violet-500 leading-none">∞</span>
                   <div>
                     <p className="text-xs font-semibold text-violet-700">Renta indefinida</p>
-                    <p className="text-[11px] text-slate-600 leading-snug">El costo se calcula en días al momento de devolver</p>
+                    <p className="text-xs text-slate-600 leading-snug">El costo se calcula en días al momento de devolver</p>
                   </div>
                 </div>
                 <button
@@ -456,7 +456,7 @@ function SolicitudResumen({ cliente, items, summary, modalidadPago, esIndefinida
 
         {/* Cliente */}
         <div className="px-5 py-3 border-b border-slate-100">
-          <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Cliente</div>
+          <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Cliente</div>
           {cliente ? (
             <>
               <div className="flex items-center gap-1.5 flex-wrap">
@@ -472,7 +472,7 @@ function SolicitudResumen({ cliente, items, summary, modalidadPago, esIndefinida
 
         {/* Items list */}
         <div className="px-5 py-3 border-b border-slate-100 max-h-60 overflow-y-auto">
-          <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">
+          <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">
             Ítems ({items.length})
           </div>
           {items.length === 0 ? (
@@ -490,7 +490,7 @@ function SolicitudResumen({ cliente, items, summary, modalidadPago, esIndefinida
                   <div className="flex-1 min-w-0">
                     {item.kind === 'maquinaria' ? (
                       <p className="text-xs font-medium text-slate-700 truncate">
-                        <span className="font-mono text-[10px] text-slate-400">#{item.equipo.numeracion} </span>
+                        <span className="font-mono text-xs text-slate-400">#{item.equipo.numeracion} </span>
                         {item.equipo.descripcion}
                       </p>
                     ) : item.kind === 'granel' ? (
@@ -499,14 +499,14 @@ function SolicitudResumen({ cliente, items, summary, modalidadPago, esIndefinida
                       </p>
                     ) : null}
                     {(item.kind === 'maquinaria' || item.kind === 'granel') && !item.duracion ? (
-                      <p className="text-[10px] text-violet-500 font-medium">Tiempo indefinido</p>
+                      <p className="text-xs text-violet-500 font-medium">Tiempo indefinido</p>
                     ) : (item.kind === 'maquinaria' || item.kind === 'granel') ? (
-                      <p className="text-[10px] text-slate-400">{unidadLabel(item.duracion ?? 0, item.unidad ?? 'dias')}</p>
+                      <p className="text-xs text-slate-400">{unidadLabel(item.duracion ?? 0, item.unidad ?? 'dias')}</p>
                     ) : null}
                     {(item.kind === 'maquinaria' || item.kind === 'granel') && !!item.duracion && (() => {
                       const d = descomponerDuracion(item.fechaInicio, item.duracion!, item.unidad!);
                       return esAdaptado(item.unidad!, d)
-                        ? <p className="text-[10px] text-amber-500 font-medium">→ {formatDesglose(d)}</p>
+                        ? <p className="text-xs text-amber-500 font-medium">→ {formatDesglose(d)}</p>
                         : null;
                     })()}
                   </div>
@@ -521,7 +521,7 @@ function SolicitudResumen({ cliente, items, summary, modalidadPago, esIndefinida
 
         {/* Modalidad de pago */}
         <div className="px-5 py-3 border-b border-slate-100">
-          <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Pago</div>
+          <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Pago</div>
           {!modalidadPago ? (
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-slate-300 flex-shrink-0" />
@@ -604,7 +604,7 @@ function SolicitudResumen({ cliente, items, summary, modalidadPago, esIndefinida
           ) : (
             <div className="flex flex-col gap-1.5 px-3 py-2.5 bg-red-50 border border-red-200 rounded-lg">
               <p className="text-xs font-semibold text-red-700 text-center">¿Cancelar toda la solicitud?</p>
-              <p className="text-[11px] text-red-500 text-center leading-snug">Se borrará el cliente y todos los ítems.</p>
+              <p className="text-xs text-red-500 text-center leading-snug">Se borrará el cliente y todos los ítems.</p>
               <div className="flex gap-2 mt-0.5">
                 <button
                   onClick={() => setConfirmandoCancelar(false)}

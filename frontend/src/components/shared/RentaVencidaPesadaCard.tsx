@@ -70,7 +70,7 @@ export default function RentaVencidaPesadaCard({
       <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-slate-50">
         <div className="flex items-center gap-2.5 flex-wrap">
           {enGracia ? (
-            <span className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${graciaUrgente ? 'bg-orange-100 text-orange-700 border-orange-300' : 'bg-amber-100 text-amber-700 border-amber-200'}`}>
+            <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-0.5 rounded-full border ${graciaUrgente ? 'bg-orange-100 text-orange-700 border-orange-300' : 'bg-amber-100 text-amber-700 border-amber-200'}`}>
               <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${graciaUrgente ? 'bg-orange-500' : 'bg-amber-500'}`} />
               En gracia
               <span className="font-mono tabular-nums tracking-tight">
@@ -78,20 +78,20 @@ export default function RentaVencidaPesadaCard({
               </span>
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">
+            <span className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">
               <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
               Vencida
             </span>
           )}
           {!enGracia && (
-            <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+            <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
               Atraso: {formatAtraso(atrasoMs, ventanaGracia)}
             </span>
           )}
           <span className="text-xs font-mono font-semibold text-slate-600">{solicitud.folio}</span>
         </div>
         <div className="text-right">
-          <p className="text-[10px] text-slate-400">Debía terminar</p>
+          <p className="text-xs text-slate-400">Debía terminar</p>
           <p className="text-xs font-semibold text-slate-600">{formatFechaHora(vencimiento.toISOString())}</p>
         </div>
       </div>
@@ -102,7 +102,7 @@ export default function RentaVencidaPesadaCard({
         {/* Columna izquierda */}
         <div className="flex flex-col gap-4">
           <div>
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Cliente</p>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Cliente</p>
             <ClienteNombre nombre={solicitud.cliente.nombre} esEspecial={solicitud.cliente.esEspecial} textCls="text-sm font-semibold text-slate-800 leading-tight" />
             <p className="text-xs font-mono text-slate-400 mt-0.5">{solicitud.cliente.id}</p>
             {solicitud.cliente.telefono && (
@@ -112,7 +112,7 @@ export default function RentaVencidaPesadaCard({
 
           {showEncargado && (
             <div>
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Encargado</p>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Encargado</p>
               <p className="text-xs font-mono text-slate-600">{solicitud.nombreCreador ?? solicitud.creadaPor}</p>
             </div>
           )}
@@ -140,7 +140,7 @@ export default function RentaVencidaPesadaCard({
           </div>
 
           <div>
-            <p className="text-[10px] text-slate-400">Inicio de renta</p>
+            <p className="text-xs text-slate-400">Inicio de renta</p>
             <p className="text-xs font-semibold text-slate-600">
               {solicitud.fechaInicioRenta ? formatFechaHora(solicitud.fechaInicioRenta) : '—'}
             </p>
@@ -149,14 +149,14 @@ export default function RentaVencidaPesadaCard({
 
         {/* Columna derecha: equipos */}
         <div>
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Equipos a devolver</p>
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Equipos a devolver</p>
 
           {lecturaPendienteHoy && (
             <div className="mb-2.5 flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-lg">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-500 flex-shrink-0">
                 <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
               </svg>
-              <span className="text-[10px] text-amber-700 font-semibold">Lectura de horómetro pendiente hoy</span>
+              <span className="text-xs text-amber-700 font-semibold">Lectura de horómetro pendiente hoy</span>
             </div>
           )}
 
@@ -243,17 +243,17 @@ function PesadaRow({ item, penalizacion }: {
         <span className="font-mono text-slate-400 mr-1">#{item.numeracion}</span>
         {item.descripcion}
         {item.extras.length > 0 && (
-          <span className="ml-1.5 text-[10px] font-semibold text-amber-600">
+          <span className="ml-1.5 text-xs font-semibold text-amber-600">
             {item.extras.map(e => `+${e.nombre}`).join(', ')}
           </span>
         )}
       </p>
       <div className="flex-shrink-0 flex flex-col items-end gap-0.5">
-        <span className="text-[10px] font-mono text-amber-700 font-semibold">
+        <span className="text-xs font-mono text-amber-700 font-semibold">
           Q{item.tarifaEfectiva.toLocaleString('es-GT', { minimumFractionDigits: 2 })}/hr
         </span>
         {penalizacion > 0 && (
-          <span className="text-[10px] font-semibold text-red-600 font-mono">
+          <span className="text-xs font-semibold text-red-600 font-mono">
             +Q {penalizacion.toLocaleString('es-GT', { minimumFractionDigits: 2 })}
           </span>
         )}

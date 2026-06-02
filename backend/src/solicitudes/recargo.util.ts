@@ -106,6 +106,25 @@ export function calcularFechaFinEstimada(
 }
 
 /**
+ * Recargo por atraso para clientes especiales con renta de plazo definido.
+ * No se cobra si devuelven el mismo día calendario del vencimiento (sin importar la hora).
+ * Si superan ese día, se cobra tarifa × días excedidos.
+ */
+export function calcularRecargoEspecial(
+  tarifa:           number,
+  fechaVencimiento: Date,
+  fechaDevolucion:  Date,
+): number {
+  const [vY, vM, vD] = fechaGT(fechaVencimiento).split('-').map(Number);
+  const [dY, dM, dD] = fechaGT(fechaDevolucion).split('-').map(Number);
+  const diasExcedidos = Math.round(
+    (Date.UTC(dY, dM - 1, dD) - Date.UTC(vY, vM - 1, vD)) / 86_400_000,
+  );
+  if (diasExcedidos <= 0) return 0;
+  return diasExcedidos * tarifa;
+}
+
+/**
  * Calcula el recargo de un ítem individual dado el momento real de devolución.
  * Devuelve 0 si la devolución ocurre dentro de la hora de gracia.
  */
@@ -317,7 +336,7 @@ export function calcularDevolucionItem(
   fechaDevolucion: Date,
   precios: { dia: number | null; semana: number | null; mes: number | null },
   cantidad = 1,
-): { diasCobrados: number; costoReal: number } {
+): { diasCobrados: number; costoReal: number; desglose: { meses: number; semanas: number; dias: number } } {
   const rentedMs      = fechaDevolucion.getTime() - fechaInicio.getTime();
   const diasCompletos = Math.floor(rentedMs / 86_400_000);
   const excesoMs      = rentedMs - diasCompletos * 86_400_000;
@@ -325,14 +344,15 @@ export function calcularDevolucionItem(
   const diasBase     = excesoMs <= GRACE_MS ? diasCompletos : diasCompletos + 1;
   const diasCobrados = Math.max(diasBase, 1); // siempre se cobra al menos 1 día
 
-  const { meses, semanas, dias } = descomponerDias(fechaInicio, diasCobrados);
+  const desglose  = descomponerDias(fechaInicio, diasCobrados);
+  const { meses, semanas, dias } = desglose;
   const costoReal = (
     (precios.mes    ?? 0) * meses   +
     (precios.semana ?? 0) * semanas +
     (precios.dia    ?? 0) * dias
   ) * cantidad;
 
-  return { diasCobrados, costoReal };
+  return { diasCobrados, costoReal, desglose };
 }
 
 /**

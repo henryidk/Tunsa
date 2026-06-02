@@ -24,6 +24,7 @@ import {
   calcularFechaFinEstimadaConExtensiones,
   calcularRecargoTotalConExtensiones,
   calcularFinItemConExtensiones,
+  calcularRecargoEspecial,
   calcularRecargoItem,
   calcularCostoAdaptativo,
   calcularDevolucionItem,
@@ -91,7 +92,7 @@ export class SolicitudesService {
     fechaInicio:     Date,
     fechaDevolucion: Date,
     extensiones:     ExtensionEntry[],
-  ): Promise<{ costoReal: number; diasCobrados: number; recargoTiempo: number }> {
+  ): Promise<{ costoReal: number; diasCobrados: number; recargoTiempo: number; desglose?: { meses: number; semanas: number; dias: number }; tarifas?: { dia: number | null; semana: number | null; mes: number | null } }> {
     const ref         = item.equipoId ?? item.tipo ?? '';
     const extsItem    = extensiones.filter(e => e.itemRef === ref);
     const finEfectivo = calcularFinItemConExtensiones(fechaInicio, item, extsItem);
@@ -106,14 +107,15 @@ export class SolicitudesService {
 
     let costoReal    = 0;
     let diasCobrados = 1;
+    let desglose: { meses: number; semanas: number; dias: number } | undefined;
     if (precios) {
       const fechaParaCosto = fechaDevolucion <= finEfectivo ? fechaDevolucion : finEfectivo;
-      ({ costoReal, diasCobrados } = calcularDevolucionItem(
+      ({ costoReal, diasCobrados, desglose } = calcularDevolucionItem(
         fechaInicio, fechaParaCosto, precios, item.cantidad ?? 1,
       ));
     }
 
-    return { costoReal, diasCobrados, recargoTiempo };
+    return { costoReal, diasCobrados, recargoTiempo, desglose, tarifas: precios ?? undefined };
   }
 
   async create(dto: CreateSolicitudDto, username: string) {
@@ -621,7 +623,12 @@ export class SolicitudesService {
       } else {
         costos = await this.calcularCostosDevolucionItem(item, fechaInicio, fechaDevolucion, extensiones);
         if (solicitud.cliente.esEspecial) {
-          costos = { ...costos, recargoTiempo: 0 };
+          const extsItem    = extensiones.filter(e => e.itemRef === ref);
+          const finEfectivo = calcularFinItemConExtensiones(fechaInicio, item, extsItem);
+          const recargoTiempo = item.tarifa != null
+            ? calcularRecargoEspecial(item.tarifa, finEfectivo, fechaDevolucion) * (item.cantidad ?? 1)
+            : 0;
+          costos = { ...costos, recargoTiempo };
         }
       }
       result.push({ itemRef: ref, ...costos });
@@ -703,7 +710,12 @@ export class SolicitudesService {
       } else {
         costos = await this.calcularCostosDevolucionItem(item, fechaInicio, fechaDevolucion, extensiones);
         if (solicitud.cliente.esEspecial) {
-          costos = { ...costos, recargoTiempo: 0 };
+          const extsItem    = extensiones.filter(e => e.itemRef === itemRef);
+          const finEfectivo = calcularFinItemConExtensiones(fechaInicio, item, extsItem);
+          const recargoTiempo = item.tarifa != null
+            ? calcularRecargoEspecial(item.tarifa, finEfectivo, fechaDevolucion) * (item.cantidad ?? 1)
+            : 0;
+          costos = { ...costos, recargoTiempo };
         }
       }
       devolucionItems.push({ itemRef, kind: item.kind as 'maquinaria' | 'granel', ...costos });
@@ -725,7 +737,7 @@ export class SolicitudesService {
       if (tipo === 'monto_fijo') {
         if (valor >= subtotalLote)
           throw new BadRequestException('El monto fijo de descuento debe ser menor al total calculado.');
-        descuentoAplicado = { tipo, valor, montoOriginal: subtotalLote, montoFinal: valor };
+        descuentoAplicado = { tipo, valor, montoOriginal: subtotalLote, montoFinal: subtotalLote - valor };
       } else {
         if (valor <= 0 || valor >= 100)
           throw new BadRequestException('El porcentaje de descuento debe ser entre 0 y 100.');

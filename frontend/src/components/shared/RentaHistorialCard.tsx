@@ -21,9 +21,22 @@ export interface RentaHistorialCardProps {
 }
 
 export default function RentaHistorialCard({ solicitud, showEncargado = false }: RentaHistorialCardProps) {
-  const devuelto    = solicitud.estado === 'DEVUELTA';
-  const pendientes  = devuelto ? 0 : contarItemsPendientes(solicitud);
+  const devuelto     = solicitud.estado === 'DEVUELTA';
+  const pendientes   = devuelto ? 0 : contarItemsPendientes(solicitud);
   const devoluciones = solicitud.devolucionesParciales ?? [];
+  const [abriendoComprobante, setAbriendoComprobante] = useState(false);
+
+  const handleVerComprobante = async () => {
+    setAbriendoComprobante(true);
+    try {
+      const { url } = await solicitudesService.getComprobanteUrl(solicitud.id);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch {
+      // silencioso
+    } finally {
+      setAbriendoComprobante(false);
+    }
+  };
 
   return (
     <div className={`bg-white border rounded-xl shadow-sm overflow-hidden border-l-4 ${
@@ -33,27 +46,47 @@ export default function RentaHistorialCard({ solicitud, showEncargado = false }:
       <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-slate-50">
         <div className="flex items-center gap-2.5 flex-wrap">
           {devuelto ? (
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">
+            <span className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                 <polyline points="20 6 9 17 4 12"/>
               </svg>
               Devuelta
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
+            <span className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
               Renta abierta · {pendientes} {pendientes === 1 ? 'equipo pendiente' : 'equipos pendientes'}
             </span>
           )}
           <span className="text-xs font-mono font-semibold text-slate-600">{solicitud.folio}</span>
+          {solicitud.comprobanteKey && (
+            <button
+              onClick={handleVerComprobante}
+              disabled={abriendoComprobante}
+              className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-indigo-600 transition-colors disabled:opacity-60"
+            >
+              {abriendoComprobante ? (
+                <svg className="animate-spin" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                </svg>
+              ) : (
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                  <line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/>
+                </svg>
+              )}
+              Comprobante
+            </button>
+          )}
         </div>
         <div className="text-right">
           <ClienteNombre nombre={solicitud.cliente.nombre} esEspecial={solicitud.cliente.esEspecial} textCls="text-xs font-semibold text-slate-700" className="flex items-center gap-1.5 justify-end flex-wrap" />
           {showEncargado && (
-            <p className="text-[10px] text-slate-400 font-mono">{solicitud.nombreCreador ?? solicitud.creadaPor}</p>
+            <p className="text-xs text-slate-400 font-mono">{solicitud.nombreCreador ?? solicitud.creadaPor}</p>
           )}
           {devuelto && solicitud.totalFinal != null && (
-            <p className="text-[11px] text-slate-500 font-mono">
+            <p className="text-xs text-slate-500 font-mono">
               Total final: <span className="font-bold text-slate-800">{formatQ(solicitud.totalFinal)}</span>
             </p>
           )}
@@ -109,21 +142,21 @@ function LoteRow({
 
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+          <span className="text-xs font-bold uppercase tracking-wide text-slate-400">
             Lote {numLote} {loteTotal > 1 ? `de ${loteTotal}` : ''}
           </span>
           {lote.esParcial && (
-            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-600 border border-amber-100">
+            <span className="text-xs font-semibold px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-600 border border-amber-100">
               Parcial
             </span>
           )}
           {esTardia && (
-            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-red-50 text-red-600 border border-red-100">
+            <span className="text-xs font-semibold px-1.5 py-0.5 rounded-md bg-red-50 text-red-600 border border-red-100">
               Tardía
             </span>
           )}
         </div>
-        <span className="text-[11px] text-slate-400">
+        <span className="text-xs text-slate-400">
           {formatFechaHora(lote.fechaDevolucion)}
         </span>
       </div>

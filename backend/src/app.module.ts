@@ -15,6 +15,7 @@ import { GranelModule } from './granel/granel.module';
 import { SolicitudesModule } from './solicitudes/solicitudes.module';
 import { CleanupModule } from './cleanup/cleanup.module';
 import { R2Module } from './r2/r2.module';
+import { BackupModule } from './backup/backup.module';
 
 @Module({
   imports: [
@@ -77,6 +78,7 @@ import { R2Module } from './r2/r2.module';
     SolicitudesModule,
     CleanupModule,
     R2Module,
+    BackupModule,
   ],
 })
 export class AppModule {}

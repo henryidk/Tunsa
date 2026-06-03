@@ -6,6 +6,7 @@ import {
   GetObjectCommand,
   DeleteObjectCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
@@ -59,6 +60,21 @@ export class R2Service implements OnModuleInit {
       await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
     } catch {
       throw new InternalServerErrorException('Error al eliminar el archivo de R2.');
+    }
+  }
+
+  // ── Listar archivos por prefijo ────────────────────────────────────────────
+  async listFiles(prefix: string): Promise<{ key: string; lastModified: Date }[]> {
+    try {
+      const response = await this.client.send(new ListObjectsV2Command({
+        Bucket: this.bucket,
+        Prefix: prefix,
+      }));
+      return (response.Contents ?? [])
+        .filter(obj => obj.Key && obj.LastModified)
+        .map(obj => ({ key: obj.Key!, lastModified: obj.LastModified! }));
+    } catch {
+      throw new InternalServerErrorException('Error al listar archivos de R2.');
     }
   }
 

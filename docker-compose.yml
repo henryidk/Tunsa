@@ -15,6 +15,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.8'
 
   redis:
     image: redis:7-alpine
@@ -26,6 +31,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.2'
 
   backend:
     build:
@@ -57,24 +67,28 @@ services:
     dns:
       - 8.8.8.8
       - 8.8.4.4
-    volumes:
-      - ./backend:/app
-      - /app/node_modules
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+          cpus: '0.8'
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL}
     container_name: tunsa_frontend
-    environment:
-      VITE_API_URL: ${VITE_API_URL}
     ports:
-      - "5173:5173"
+      - "80:80"
     depends_on:
       - backend
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: '0.2'
 
 volumes:
   postgres_data:

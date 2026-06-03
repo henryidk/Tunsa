@@ -1,14 +1,26 @@
-FROM node:20-alpine
+# ── Stage 1: compilar TypeScript ─────────────────────────────────────────────
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm install
+RUN npm ci
+
+COPY . .
+RUN npm run build
+
+# ── Stage 2: imagen de producción ─────────────────────────────────────────────
+FROM node:20-alpine
+
+WORKDIR /app
 
 RUN apk add --no-cache postgresql-client
 
-COPY . .
+COPY package*.json ./
+RUN npm ci --omit=dev
 
+COPY --from=builder /app/dist ./dist
+COPY prisma ./prisma
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 

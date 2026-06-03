@@ -10,4 +10,4 @@ until npx prisma migrate deploy 2>/dev/null; do
 done
 
 echo "Migraciones aplicadas. Iniciando backend..."
-npm run start:dev
+node dist/main

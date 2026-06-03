@@ -1,4 +1,4 @@
-# Proyecto Tunsa — Guía para Claude
+# Proyecto Tunsa — 
 
 Este archivo define las convenciones técnicas del proyecto y la arquitectura planificada.
 Claude debe respetarlas en toda modificación o nueva funcionalidad.
@@ -304,7 +304,7 @@ Si no se hace en ambos lados, el contenedor arrancará con errores `Cannot find 
 
 ## Referencia de arquitectura
 
-El documento original de arquitectura está en: `docs/Stack .pdf`
+El documento original de arquitectura está en: `docs/Stack .md`
 
 Documentación adicional en `docs/`:
 - `fechas-timezone.md` — manejo de fechas y zona horaria Guatemala (UTC-6)

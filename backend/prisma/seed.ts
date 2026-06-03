@@ -18,7 +18,7 @@ async function main() {
     },
   });
 
-  const secretariaRole = await prisma.role.upsert({
+  await prisma.role.upsert({
     where: { nombre: 'secretaria' },
     update: {},
     create: {
@@ -27,7 +27,7 @@ async function main() {
     },
   });
 
-  const encargadoRole = await prisma.role.upsert({
+  await prisma.role.upsert({
     where: { nombre: 'encargado_maquinas' },
     update: {},
     create: {
@@ -56,37 +56,7 @@ async function main() {
   });
   console.log('  - Admin creado');
 
-  // Usuario Secretaria
-  const secretariaPassword = await bcrypt.hash('Secre123!', 12);
-  await prisma.usuario.upsert({
-    where: { username: 'secretaria' },
-    update: {},
-    create: {
-      username: 'secretaria',
-      password: secretariaPassword,
-      nombre: 'Maria Lopez',
-      telefono: '55555678',
-      roleId: secretariaRole.id,
-    },
-  });
-  console.log('  - Secretaria creada');
-
-  // Usuario Encargado Maquinas
-  const encargadoPassword = await bcrypt.hash('Encar123!', 12);
-  await prisma.usuario.upsert({
-    where: { username: 'encargado' },
-    update: {},
-    create: {
-      username: 'encargado',
-      password: encargadoPassword,
-      nombre: 'Pedro Garcia',
-      telefono: '55553456',
-      roleId: encargadoRole.id,
-    },
-  });
-  console.log('  - Encargado creado');
-
-  console.log('\nUsuarios creados\n');
+  console.log('\nUsuario creado\n');
 
   // 3. Mostrar credenciales
   console.log('===========================================');
@@ -96,15 +66,7 @@ async function main() {
   console.log('ADMINISTRADOR:');
   console.log('   Usuario:    admin');
   console.log('   Contrasena: Admin123!\n');
-  
-  console.log('SECRETARIA:');
-  console.log('   Usuario:    secretaria');
-  console.log('   Contrasena: Secre123!\n');
-  
-  console.log('ENCARGADO MAQUINAS:');
-  console.log('   Usuario:    encargado');
-  console.log('   Contrasena: Encar123!\n');
-  
+
   console.log('===========================================');
 
   // 4. Tipos de equipo, categorías y equipos

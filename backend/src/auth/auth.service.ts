@@ -1,8 +1,9 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, HttpException, HttpStatus } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
+import { RedisService } from '../redis/redis.service';
 import * as bcrypt from 'bcrypt';
 import { LoginDto } from './dto/login.dto';
 import type { UserWithRole } from './interfaces/jwt-payload.interface';
@@ -14,11 +15,16 @@ export class AuthService {
   private readonly jwtExpiration: string;
   private readonly jwtRefreshExpiration: string;
 
+  private readonly MAX_ATTEMPTS = 5;
+  private readonly LOCKOUT_TTL = 60; // segundos
+  private readonly FAILURES_TTL = 120; // segundos sin actividad para limpiar contador
+
   constructor(
     private prisma: PrismaService,
     private usersService: UsersService,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private redis: RedisService,
   ) {
     this.jwtSecret = this.configService.get<string>('JWT_SECRET')!;
     this.jwtRefreshSecret = this.configService.get<string>('JWT_REFRESH_SECRET')!;
@@ -30,11 +36,45 @@ export class AuthService {
     }
   }
 
+  private async checkLockout(username: string): Promise<void> {
+    const expiresAt = await this.redis.get(`login_lockout:${username}`);
+    if (!expiresAt) return;
+    const remaining = Math.ceil((parseInt(expiresAt) - Date.now()) / 1000);
+    if (remaining > 0) {
+      throw new HttpException(
+        `Demasiados intentos fallidos. Intenta nuevamente en ${remaining} segundos.`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+    await this.redis.del(`login_lockout:${username}`);
+  }
+
+  private async recordFailedAttempt(username: string): Promise<void> {
+    const current = await this.redis.get(`login_failures:${username}`);
+    const count = current ? parseInt(current) + 1 : 1;
+    if (count >= this.MAX_ATTEMPTS) {
+      const expiresAt = Date.now() + this.LOCKOUT_TTL * 1000;
+      await this.redis.set(`login_lockout:${username}`, String(expiresAt), this.LOCKOUT_TTL);
+      await this.redis.del(`login_failures:${username}`);
+    } else {
+      await this.redis.set(`login_failures:${username}`, String(count), this.FAILURES_TTL);
+    }
+  }
+
+  private async clearLoginAttempts(username: string): Promise<void> {
+    await this.redis.del(`login_failures:${username}`);
+    await this.redis.del(`login_lockout:${username}`);
+  }
+
   async login(loginDto: LoginDto, ipAddress?: string, userAgent?: string) {
-    // 1. Buscar usuario
+    // 1. Verificar lockout
+    await this.checkLockout(loginDto.username);
+
+    // 2. Buscar usuario
     const user = await this.usersService.findByUsername(loginDto.username);
 
     if (!user) {
+      await this.recordFailedAttempt(loginDto.username);
       await this.logAudit({
         username: loginDto.username,
         action: 'LOGIN_FAILED',
@@ -45,7 +85,7 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales incorrectas');
     }
 
-    // 2. Verificar si está activo
+    // 3. Verificar si está activo
     if (!user.isActive) {
       await this.logAudit({
         userId: user.id,
@@ -58,10 +98,11 @@ export class AuthService {
       throw new UnauthorizedException('Usuario inactivo');
     }
 
-    // 3. Verificar contraseña
+    // 4. Verificar contraseña
     const isPasswordValid = await bcrypt.compare(loginDto.password, user.password);
 
     if (!isPasswordValid) {
+      await this.recordFailedAttempt(loginDto.username);
       await this.logAudit({
         userId: user.id,
         username: user.username,
@@ -73,10 +114,13 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales incorrectas');
     }
 
-    // 4. Generar tokens
+    // 5. Login exitoso — limpiar intentos fallidos
+    await this.clearLoginAttempts(loginDto.username);
+
+    // 6. Generar tokens
     const tokens = await this.generateTokens(user, ipAddress, userAgent);
 
-    // 5. Registrar login exitoso
+    // 7. Registrar login exitoso
     await this.logAudit({
       userId: user.id,
       username: user.username,

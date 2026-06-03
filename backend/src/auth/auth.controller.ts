@@ -1,8 +1,7 @@
-import { Controller, Post, Body, Ip, Headers, UseGuards, Req, Res } from '@nestjs/common';
+import { Controller, Post, Body, Ip, Headers, Req, Res } from '@nestjs/common';
 import * as express from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
-import { LoginThrottlerGuard } from './guards/login-throttler.guard';
 
 const REFRESH_TOKEN_COOKIE = 'refreshToken';
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
@@ -11,7 +10,6 @@ const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 export class AuthController {
   constructor(private authService: AuthService) {}
 
-  @UseGuards(LoginThrottlerGuard)
   @Post('login')
   async login(
     @Body() loginDto: LoginDto,
@@ -21,9 +19,10 @@ export class AuthController {
   ) {
     const { refreshToken, ...result } = await this.authService.login(loginDto, ipAddress, userAgent);
 
+    const isProd = process.env.NODE_ENV === 'production';
     res.cookie(REFRESH_TOKEN_COOKIE, refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isProd,
       sameSite: 'strict',
       maxAge: SEVEN_DAYS_MS,
       path: '/api/auth',
@@ -54,7 +53,12 @@ export class AuthController {
       await this.authService.logout(refreshToken);
     }
 
-    res.clearCookie(REFRESH_TOKEN_COOKIE, { path: '/api/auth' });
+    const isProd = process.env.NODE_ENV === 'production';
+    res.clearCookie(REFRESH_TOKEN_COOKIE, {
+      path: '/api/auth',
+      secure: isProd,
+      sameSite: 'strict',
+    });
 
     return { message: 'Logout exitoso' };
   }

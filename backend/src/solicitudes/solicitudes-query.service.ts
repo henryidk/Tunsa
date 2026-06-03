@@ -13,6 +13,10 @@ const PAGE_SIZE = 20;
 export class SolicitudesQueryService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private encargadoFilter(username: string) {
+    return { OR: [{ creadaPor: username }, { gestionadaPor: username }] };
+  }
+
   private async buildNombresMap(usernames: string[]): Promise<Map<string, string>> {
     if (usernames.length === 0) return new Map();
     const usuarios = await this.prisma.usuario.findMany({
@@ -66,10 +70,8 @@ export class SolicitudesQueryService {
   async findMias(username: string) {
     const solicitudes = await this.prisma.solicitud.findMany({
       where: {
-        OR: [
-          { creadaPor: username, estado: 'PENDIENTE' },
-          { estado: 'APROBADA' },
-        ],
+        creadaPor: username,
+        estado:    { in: ['PENDIENTE', 'APROBADA'] },
       },
       include: { cliente: true },
       orderBy: { createdAt: 'desc' },
@@ -112,13 +114,14 @@ export class SolicitudesQueryService {
       }),
       this.prisma.solicitud.count({
         where: {
-          creadaPor: username,
-          estado:    'ACTIVA',
-          OR: [{ fechaFinEstimada: null }, { fechaFinEstimada: { gte: now } }],
+          AND: [
+            this.encargadoFilter(username),
+            { estado: 'ACTIVA', OR: [{ fechaFinEstimada: null }, { fechaFinEstimada: { gte: now } }] },
+          ],
         },
       }),
       this.prisma.solicitud.count({
-        where: { creadaPor: username, estado: 'ACTIVA', fechaFinEstimada: { lt: now } },
+        where: { ...this.encargadoFilter(username), estado: 'ACTIVA', fechaFinEstimada: { lt: now } },
       }),
       this.prisma.solicitud.count({
         where: { creadaPor: username, createdAt: { gte: inicioMes } },
@@ -207,11 +210,9 @@ export class SolicitudesQueryService {
     const now = new Date();
     const solicitudes = await this.prisma.solicitud.findMany({
       where: {
-        creadaPor: username,
-        estado:    'ACTIVA',
-        OR: [
-          { fechaFinEstimada: null },
-          { fechaFinEstimada: { gte: now } },
+        AND: [
+          this.encargadoFilter(username),
+          { estado: 'ACTIVA', OR: [{ fechaFinEstimada: null }, { fechaFinEstimada: { gte: now } }] },
         ],
       },
       include: {
@@ -227,7 +228,7 @@ export class SolicitudesQueryService {
     const now = new Date();
     const solicitudes = await this.prisma.solicitud.findMany({
       where: {
-        creadaPor:        username,
+        ...this.encargadoFilter(username),
         estado:           'ACTIVA',
         fechaFinEstimada: { lt: now },
       },
@@ -322,15 +323,19 @@ export class SolicitudesQueryService {
 
     const solicitudes = await this.prisma.solicitud.findMany({
       where: {
-        creadaPor:             username,
-        estado:                { in: ['ACTIVA', 'DEVUELTA'] },
-        fechaUltimaDevolucion: { not: null, gte: fechaDesde, lte: fechaHasta },
-        ...(keysetClause && {
-          OR: [
-            { fechaUltimaDevolucion: { lt: keysetClause.fechaUltimaDevolucion } },
-            { fechaUltimaDevolucion: keysetClause.fechaUltimaDevolucion, id: { lt: keysetClause.id } },
-          ],
-        }),
+        AND: [
+          this.encargadoFilter(username),
+          {
+            estado:                { in: ['ACTIVA', 'DEVUELTA'] },
+            fechaUltimaDevolucion: { not: null, gte: fechaDesde, lte: fechaHasta },
+            ...(keysetClause && {
+              OR: [
+                { fechaUltimaDevolucion: { lt: keysetClause.fechaUltimaDevolucion } },
+                { fechaUltimaDevolucion: keysetClause.fechaUltimaDevolucion, id: { lt: keysetClause.id } },
+              ],
+            }),
+          },
+        ],
       },
       include: { cliente: true },
       orderBy: [{ fechaUltimaDevolucion: 'desc' }, { id: 'desc' }],

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import ClienteSearchWidget from '../../ClienteSearchWidget';
 import MaquinariaPickerForm from '../../encargado/MaquinariaPickerForm';
 import GranelPickerSection from '../../encargado/GranelPickerSection';
@@ -16,6 +16,7 @@ import { useSolicitudData } from '../../../hooks/useSolicitudData';
 import { useSolicitudCart } from '../../../hooks/useSolicitudCart';
 import { usePrecioOverride } from '../../../hooks/usePrecioOverride';
 import { solicitudesService } from '../../../services/solicitudes.service';
+import { usuariosService } from '../../../services/usuarios.service';
 import type { ItemSnapshot } from '../../../types/solicitud-renta.types';
 import type { ToastType } from '../../../types/ui.types';
 
@@ -45,6 +46,13 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
   const [isSubmitting,        setIsSubmitting]        = useState(false);
   const [indefinido,          setIndefinido]          = useState(false);
   const [fechaInicioRenta,    setFechaInicioRenta]    = useState('');
+  const [gestionadaPor,          setGestionadaPor]          = useState('');
+  const [encargados,             setEncargados]             = useState<{ username: string; nombre: string }[]>([]);
+  const [showNoEncargadoModal,   setShowNoEncargadoModal]   = useState(false);
+
+  useEffect(() => {
+    usuariosService.getEncargados().then(setEncargados).catch(() => {});
+  }, []);
 
   const { equiposLiviana, granelData, reservedIds, isLoading, error: dataError, refreshReservedIds } = useSolicitudData();
   const cart           = useSolicitudCart();
@@ -105,11 +113,13 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
     setNotas('');
     setIndefinido(false);
     setFechaInicioRenta('');
+    setGestionadaPor('');
   };
 
   const handleRegistrar = () => {
-    if (!fechaInicioRenta) { setShowNoFechaModal(true); return; }
-    if (!modalidadPago)    { setShowNoPagoModal(true);  return; }
+    if (!fechaInicioRenta) { setShowNoFechaModal(true);     return; }
+    if (!gestionadaPor)    { setShowNoEncargadoModal(true); return; }
+    if (!modalidadPago)    { setShowNoPagoModal(true);      return; }
     submitRenta();
   };
 
@@ -177,6 +187,7 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
         totalEstimado:    effectiveTotal,
         items,
         esIndefinida:     indefinido,
+        gestionadaPor,
       });
 
       onShowToast('success', 'Renta retroactiva registrada', 'La renta quedó activa con la fecha de inicio indicada.');
@@ -350,6 +361,30 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
             <PaymentModeSelector value={modalidadPago} onChange={setModalidadPago} />
           </SectionCard>
 
+          {/* 4b. Encargado asignado */}
+          <SectionCard
+            icon={<EncargadoIcon />}
+            title="Encargado Asignado"
+            subtitle="El encargado que gestionará esta renta (devoluciones, extensiones)"
+            locked={!clienteSeleccionado}
+          >
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+                Encargado <span className="text-red-400">*</span>
+              </label>
+              <select
+                value={gestionadaPor}
+                onChange={e => setGestionadaPor(e.target.value)}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all"
+              >
+                <option value="">— Selecciona un encargado —</option>
+                {encargados.map(e => (
+                  <option key={e.username} value={e.username}>{e.nombre}</option>
+                ))}
+              </select>
+            </div>
+          </SectionCard>
+
           {/* 5. Notas (opcional) */}
           <SectionCard
             icon={<NotasIcon />}
@@ -381,7 +416,7 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
           canLimpiarItems={cart.items.length > 0 || !!notas}
           onCancelar={handleCancelar}
           canCancelar={!!clienteSeleccionado}
-          canRegistrar={!!clienteSeleccionado && cart.items.length > 0 && !!fechaInicioRenta && !isSubmitting}
+          canRegistrar={!!clienteSeleccionado && cart.items.length > 0 && !!fechaInicioRenta && !!gestionadaPor && !isSubmitting}
           onRegistrar={handleRegistrar}
           isSubmitting={isSubmitting}
         />
@@ -405,6 +440,30 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
               <p className="text-sm text-slate-500 mt-1">Debes indicar cuándo inició la renta antes de registrarla.</p>
             </div>
             <button onClick={() => setShowNoFechaModal(false)}
+              className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors">
+              Entendido
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: sin encargado ───────────────────────────────────────────── */}
+      {showNoEncargadoModal && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+          onClick={() => setShowNoEncargadoModal(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 flex flex-col items-center gap-4"
+            onClick={e => e.stopPropagation()}>
+            <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-500">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
+            </div>
+            <div className="text-center">
+              <p className="font-bold text-slate-800 text-base">Selecciona un encargado</p>
+              <p className="text-sm text-slate-500 mt-1">Debes asignar un encargado que gestione esta renta antes de registrarla.</p>
+            </div>
+            <button onClick={() => setShowNoEncargadoModal(false)}
               className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors">
               Entendido
             </button>
@@ -747,6 +806,16 @@ function PagoIcon() {
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <rect x="2" y="5" width="20" height="14" rx="2"/>
       <line x1="2" y1="10" x2="22" y2="10"/>
+    </svg>
+  );
+}
+
+function EncargadoIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+      <circle cx="9" cy="7" r="4"/>
+      <polyline points="16 11 18 13 22 9"/>
     </svg>
   );
 }

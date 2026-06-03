@@ -10,7 +10,7 @@ import { AmpliacionRentaDto } from './dto/ampliar-renta.dto';
 import { RegistrarDevolucionDto } from './dto/registrar-devolucion.dto';
 import { IniciarEntregaDto } from './dto/iniciar-entrega.dto';
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
-import { tieneAccesoGlobal } from '../auth/utils/roles.util';
+import { tieneAccesoGlobal, puedeGestionarSolicitud } from '../auth/utils/roles.util';
 import { fechaGT } from '../common/utils/date.util';
 import { serializeSolicitud } from './solicitudes.serializer';
 import { tieneEquipoId, type ItemParaCalculo, type ItemConKind } from './solicitudes.types';
@@ -340,6 +340,7 @@ export class SolicitudesService {
           esPesada,
           esIndefinida:    dto.esIndefinida ?? false,
           creadaPor:       username,
+          gestionadaPor:   dto.gestionadaPor,
           estado:          'ACTIVA',
           aprobadaPor:     username,
           folio,
@@ -353,7 +354,7 @@ export class SolicitudesService {
 
       await this.crearRegistrosSeguimiento(tx, solicitud, fechaInicio);
 
-      const nombres = await this.resolverNombresActores(solicitud.creadaPor, solicitud.aprobadaPor);
+      const nombres = await this.resolverNombresActores(solicitud.creadaPor, solicitud.aprobadaPor, solicitud.gestionadaPor);
       return serializeSolicitud(solicitud, nombres);
     });
   }
@@ -422,20 +423,25 @@ export class SolicitudesService {
       ? await this.prisma.solicitud.findUnique({ where: { id }, include: { cliente: true } })
       : await this.prisma.solicitud.update({ where: { id }, data, include: { cliente: true } });
 
-    const nombres = await this.resolverNombresActores(base!.creadaPor, base!.aprobadaPor);
+    const nombres = await this.resolverNombresActores(base!.creadaPor, base!.aprobadaPor, base!.gestionadaPor);
     return serializeSolicitud(base!, nombres);
   }
 
-  private async resolverNombresActores(creadaPor: string, aprobadaPor: string | null) {
-    const usernames = [creadaPor, ...(aprobadaPor ? [aprobadaPor] : [])];
-    const usuarios  = await this.prisma.usuario.findMany({
+  private async resolverNombresActores(creadaPor: string, aprobadaPor: string | null, gestionadaPor?: string | null) {
+    const usernames = [
+      creadaPor,
+      ...(aprobadaPor  ? [aprobadaPor]  : []),
+      ...(gestionadaPor ? [gestionadaPor] : []),
+    ];
+    const usuarios = await this.prisma.usuario.findMany({
       where:  { username: { in: usernames } },
       select: { username: true, nombre: true },
     });
     const map = new Map(usuarios.map(u => [u.username, u.nombre]));
     return {
-      creador:   map.get(creadaPor)              ?? creadaPor,
-      aprobador: aprobadaPor ? (map.get(aprobadaPor) ?? aprobadaPor) : undefined,
+      creador:   map.get(creadaPor)               ?? creadaPor,
+      aprobador: aprobadaPor  ? (map.get(aprobadaPor)  ?? aprobadaPor)  : undefined,
+      gestor:    gestionadaPor ? (map.get(gestionadaPor) ?? gestionadaPor) : undefined,
     };
   }
 
@@ -571,8 +577,8 @@ export class SolicitudesService {
 
     if (!solicitud)
       throw new NotFoundException('Solicitud no encontrada.');
-    if (!tieneAccesoGlobal(user) && solicitud.creadaPor !== user.username)
-      throw new ForbiddenException('Solo el encargado que creó la solicitud puede ampliarla.');
+    if (!puedeGestionarSolicitud(user, solicitud))
+      throw new ForbiddenException('No tienes permiso para ampliar esta solicitud.');
     if (solicitud.estado !== 'ACTIVA')
       throw new ConflictException('Solo se pueden ampliar rentas activas.');
     if (!solicitud.fechaInicioRenta)
@@ -740,8 +746,8 @@ export class SolicitudesService {
       throw new NotFoundException('Solicitud no encontrada.');
     if (solicitud.esPesada)
       throw new BadRequestException('Las rentas de maquinaria pesada usan el endpoint PATCH :id/registrar-devolucion-pesada.');
-    if (!tieneAccesoGlobal(user) && solicitud.creadaPor !== user.username)
-      throw new ForbiddenException('Solo el encargado que creó la solicitud puede registrar la devolución.');
+    if (!puedeGestionarSolicitud(user, solicitud))
+      throw new ForbiddenException('No tienes permiso para registrar la devolución de esta solicitud.');
     if (solicitud.estado !== 'ACTIVA')
       throw new ConflictException('Solo se puede registrar la devolución de rentas activas.');
     if (!solicitud.fechaInicioRenta)
@@ -904,8 +910,8 @@ export class SolicitudesService {
       if (devolucionCompleta) {
         const [anio, mes] = fechaGT(fechaDevolucion).split('-').map(Number) as [number, number];
         await tx.recaudacionMensual.upsert({
-          where:  { encargado_anio_mes: { encargado: solicitud.creadaPor, anio, mes } },
-          create: { encargado: solicitud.creadaPor, anio, mes, liviana: totalFinalLiviana },
+          where:  { encargado_anio_mes: { encargado: solicitud.gestionadaPor ?? solicitud.creadaPor, anio, mes } },
+          create: { encargado: solicitud.gestionadaPor ?? solicitud.creadaPor, anio, mes, liviana: totalFinalLiviana },
           update: { liviana: { increment: totalFinalLiviana } },
         });
       }

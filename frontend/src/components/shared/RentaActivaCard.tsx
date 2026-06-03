@@ -104,7 +104,11 @@ export default function RentaActivaCard({
           {showEncargado && (
             <div>
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Encargado</p>
-              <p className="text-xs font-mono text-slate-600">{solicitud.nombreCreador ?? solicitud.creadaPor}</p>
+              <p className="text-xs font-mono text-slate-600">
+                {solicitud.gestionadaPor
+                  ? (solicitud.nombreGestor ?? solicitud.gestionadaPor)
+                  : (solicitud.nombreCreador ?? solicitud.creadaPor)}
+              </p>
             </div>
           )}
 

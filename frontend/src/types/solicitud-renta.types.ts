@@ -111,8 +111,10 @@ export interface SolicitudRenta {
   esIndefinida?:   boolean;
   estado:          EstadoSolicitud;
   creadaPor:       string;
+  gestionadaPor:   string | null;
   nombreCreador:   string | null;
   nombreAprobador: string | null;
+  nombreGestor:    string | null;
   folio:          string | null;
   aprobadaPor:    string | null;
   fechaDecision:    string | null;

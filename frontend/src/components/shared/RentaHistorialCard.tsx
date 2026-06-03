@@ -83,7 +83,11 @@ export default function RentaHistorialCard({ solicitud, showEncargado = false }:
         <div className="text-right">
           <ClienteNombre nombre={solicitud.cliente.nombre} esEspecial={solicitud.cliente.esEspecial} textCls="text-xs font-semibold text-slate-700" className="flex items-center gap-1.5 justify-end flex-wrap" />
           {showEncargado && (
-            <p className="text-xs text-slate-400 font-mono">{solicitud.nombreCreador ?? solicitud.creadaPor}</p>
+            <p className="text-xs text-slate-400 font-mono">
+              {solicitud.gestionadaPor
+                ? (solicitud.nombreGestor ?? solicitud.gestionadaPor)
+                : (solicitud.nombreCreador ?? solicitud.creadaPor)}
+            </p>
           )}
           {devuelto && solicitud.totalFinal != null && (
             <p className="text-xs text-slate-500 font-mono">

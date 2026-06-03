@@ -15,6 +15,7 @@ export interface RechazadasPage {
 export interface NombresActores {
   creador?:   string;
   aprobador?: string;
+  gestor?:    string;
 }
 
 export function serializeSolicitud(s: SolicitudConCliente, nombres?: NombresActores) {
@@ -34,5 +35,6 @@ export function serializeSolicitud(s: SolicitudConCliente, nombres?: NombresActo
       : null,
     nombreCreador:   nombres?.creador   ?? null,
     nombreAprobador: nombres?.aprobador ?? null,
+    nombreGestor:    nombres?.gestor    ?? null,
   };
 }

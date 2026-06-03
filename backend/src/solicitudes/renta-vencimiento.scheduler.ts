@@ -37,7 +37,7 @@ export class RentaVencimientoScheduler {
 
     for (const solicitud of recienVencidas) {
       const serializada = serializeSolicitud(solicitud);
-      this.gateway.emitRentaVencida(serializada, solicitud.creadaPor);
+      this.gateway.emitRentaVencida(serializada, solicitud.gestionadaPor ?? solicitud.creadaPor);
     }
   }
 }

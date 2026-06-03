@@ -55,16 +55,6 @@ export class SolicitudesGateway implements OnGatewayConnection, OnGatewayDisconn
     this.logger.log(`[WS] Desconectado: ${client.id}`);
   }
 
-  /** Notifica a todos los encargados conectados que hay una renta directa lista para entregar. */
-  emitNuevaRentaDirecta(solicitud: object) {
-    try {
-      this.logger.log('[WS] Emitiendo solicitud:aprobada a rol:encargado_maquinas');
-      this.server.to('rol:encargado_maquinas').emit('solicitud:aprobada', solicitud);
-    } catch (err) {
-      this.logger.error(`[WS] Error emitiendo solicitud:aprobada (directa): ${(err as Error).message}`);
-    }
-  }
-
   emitNuevaSolicitud(solicitud: object) {
     try {
       this.logger.log('[WS] Emitiendo solicitud:nueva a rol:admin, rol:secretaria');

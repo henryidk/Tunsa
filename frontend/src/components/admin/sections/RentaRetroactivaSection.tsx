@@ -52,7 +52,10 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
   const [showNoEncargadoModal,   setShowNoEncargadoModal]   = useState(false);
 
   useEffect(() => {
-    usuariosService.getEncargados().then(setEncargados).catch(() => {});
+    usuariosService.getEncargados().then(data => {
+      setEncargados(data);
+      if (data.length === 1) setGestionadaPor(data[0].username);
+    }).catch(() => {});
   }, []);
 
   const { equiposLiviana, granelData, reservedIds, isLoading, error: dataError, refreshReservedIds } = useSolicitudData();

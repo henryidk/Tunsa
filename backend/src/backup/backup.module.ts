@@ -10,8 +10,8 @@ import { BACKUP_STORAGE } from './interfaces/backup-storage.interface';
     DatabaseDumpService,
     BackupStorageService,
     BackupSchedulerService,
-    { provide: DUMP_PROVIDER,   useClass: DatabaseDumpService },
-    { provide: BACKUP_STORAGE,  useClass: BackupStorageService },
+    { provide: DUMP_PROVIDER,   useExisting: DatabaseDumpService },
+    { provide: BACKUP_STORAGE,  useExisting: BackupStorageService },
   ],
 })
 export class BackupModule {}

@@ -48,7 +48,7 @@ JwtStrategy
 **UserCacheService** (`src/redis/user-cache.service.ts`)
 - Clave: `auth:user:{userId}`
 - TTL: 5 minutos (menos que el access token de 15 min)
-- Solo cachea `AuthenticatedUser`: `{ id, username, role, mustChangePassword }`
+- Solo cachea `AuthenticatedUser`: `{ id, username, nombre, role, mustChangePassword }`
 - Nunca cachea el hash de contraseña ni datos sensibles
 - Todos los errores de Redis son capturados — nunca propaga excepciones
 

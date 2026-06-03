@@ -27,6 +27,10 @@ Claude debe respetarlas en toda modificación o nueva funcionalidad.
 - PostgreSQL 16 (datos principales)
 - Redis 7 (caché + sesiones + cola de notificaciones)
 
+### Almacenamiento de archivos
+- Cloudflare R2 — PDFs de comprobantes y liquidaciones
+- Claves de objetos: `clientes/CLI-XXXX/comprobantes/FOLIO.pdf`, `clientes/CLI-XXXX/liquidaciones/FOLIO-N.pdf`
+
 ---
 
 ## Arquitectura general
@@ -66,23 +70,50 @@ Al implementar cualquiera de estos, usar `ioredis` (ya instalado). No instalar o
 ### Implementados
 - `auth/` — JWT + Passport + refresh tokens + audit log
 - `users/` — gestión de usuarios
-- `equipos/` — inventario de maquinaria
+- `equipos/` — inventario de maquinaria (liviana, pesada, extras)
 - `categorias/` — tipos y categorías de equipo
 - `bitacoras/` — historial de cambios (cursor-based pagination)
-- `clientes/` — registro de clientes
+- `clientes/` — registro de clientes (con documento PDF en R2)
+- `solicitudes/` — todo el ciclo de rentas:
+  - `solicitudes.service.ts` — lógica principal (crear, aprobar, entregar, devolver, retroactiva)
+  - `solicitudes-query.service.ts` — consultas paginadas (activas, vencidas, historial)
+  - `horometro.service.ts` — registro diario de horómetros para maquinaria pesada
+  - `horometro-calc.service.ts` — cálculos de costos por horómetro
+  - `solicitudes.serializer.ts` — serialización de respuestas al frontend
+  - `renta-vencimiento.scheduler.ts` — cron que marca rentas como vencidas
+  - `solicitudes.gateway.ts` — WebSocket gateway (base implementada)
+  - `recargo.util.ts` — utilidades de fechas, duración y recargos
 
 ### Pendientes de implementar
-- `rentals/`, `credits/`, `cash-requests/`, `notifications/` — no trabajar en estos aún.
+- `credits/`, `cash-requests/`, `notifications/` — no trabajar en estos aún.
 
 ---
 
 ## Páginas del frontend por rol
 
-### Admin (implementado)
-- Dashboard, Equipos, Categorías, Clientes, Usuarios, Bitácoras
+### Admin (`frontend/src/pages/admin/AdminDashboard.tsx`)
+- Dashboard
+- Nueva Renta (liviana + granel, con edición de precios)
+- Renta Retroactiva (fecha manual, va directo a ACTIVA sin etapa de entrega)
+- Solicitudes (aprobación/rechazo de solicitudes del encargado)
+- Rentas Activas
+- Rentas Vencidas
+- Horómetros
+- Historial
+- Disponibilidad (flota)
+- Equipos, Categorías, Clientes, Usuarios, Bitácoras
 
-### Otros roles (pendiente — no trabajar en estos aún)
-- Secretaria, Colaborador, Encargado de máquinas
+### Encargado de máquinas (`frontend/src/pages/encargado/`)
+- Nueva Solicitud Liviana
+- Nueva Solicitud Pesada
+- Mis Solicitudes (pendientes de aprobación)
+- Por Entregar (aprobadas pendientes de entrega)
+- Rentas Activas (las suyas)
+- Horómetros
+- Historial
+
+### Pendiente
+- Panel de Secretaria — no trabajar en esto aún.
 
 ---
 
@@ -107,16 +138,39 @@ app.use(compression());
 - Access token: 15 minutos
 - Refresh token: 7 días, en httpOnly cookie
 - `JwtStrategy.validate()` usa cache Redis; solo consulta DB si hay cache miss.
+- `AuthenticatedUser` (interfaz en `auth/interfaces/jwt-payload.interface.ts`):
+  ```typescript
+  interface AuthenticatedUser {
+    id:                 string;
+    username:           string;
+    nombre:             string;  // nombre completo, no el username
+    role:               string;
+    mustChangePassword: boolean;
+  }
+  ```
+  Usar `user.nombre` para registrar quién realizó una acción (devoluciones, horómetros, etc.). Nunca `user.username` con ese propósito.
 
 ### Validación
 - `ValidationPipe` global con `whitelist: true` y `forbidNonWhitelisted: true`.
 - Todos los endpoints usan DTOs con `class-validator`.
 
 ### Base de datos
-- Paginación cursor-based para tablas grandes (bitácoras).
+- Paginación cursor-based para tablas grandes (bitácoras, historial de rentas).
 - OFFSET/LIMIT para tablas acotadas (equipos, clientes, pageSize máximo 500).
 - Bitácora: usar `createMany` cuando hay múltiples campos editados.
 - No usar SQL crudo — solo Prisma.
+
+### Módulo de solicitudes — patrones específicos
+
+**Campos JSONB:** `items`, `devolucionesParciales` y `extensiones` en el modelo `Solicitud` son JSONB. Nunca modificar estos campos con SQL directo — siempre leer, mutar en memoria y actualizar con Prisma.
+
+**Serializer:** todas las respuestas de solicitudes pasan por `SolicitudesSerializer.serialize()` antes de enviarse al frontend. No devolver el objeto de Prisma crudo.
+
+**`crearRegistrosSeguimiento()`:** debe llamarse al confirmar entrega Y al crear rentas retroactivas. Crea los registros en `resumen_items` necesarios para el cierre de renta. No omitir.
+
+**Rentas retroactivas:** endpoint `POST /solicitudes/retroactiva` (solo admin). Crea la solicitud directamente en estado `ACTIVA` con la fecha de inicio provista por el usuario, sin pasar por etapas de aprobación ni entrega.
+
+**Rentas indefinidas:** cuando `esIndefinida = true` (solo clientes especiales), `fechaFinEstimada` queda en `null`. El costo se calcula con `descomponerCalendario()` al momento de la devolución.
 
 ---
 
@@ -127,6 +181,14 @@ app.use(compression());
 - Colores primarios: `indigo-600` (acciones principales), `slate` (neutrales), `red` (destructivo).
 - Fuentes: Inter (sans), JetBrains Mono (mono) — cargadas via Google Fonts en `index.html`.
 
+### Tipografía — escala mínima
+- **Piso mínimo para texto funcional: `text-xs` (12px).** No usar `text-[10px]` ni `text-[11px]` en texto que el usuario deba leer.
+- `text-[10px]` solo permitido en elementos puramente decorativos (ej: abreviatura de mes en widget de calendario).
+- Escala de referencia:
+  - `text-2xl font-bold` — título de página (h1)
+  - `text-sm` — cuerpo de tabla, descripciones
+  - `text-xs` — celdas secundarias, labels de sección, badges funcionales
+
 ### Modales
 - Deben estar dentro del elemento raíz JSX del componente, no como hermanos del return.
 - Patrón de referencia para modales destructivos: `BajaEquipoModal.tsx` (botón rojo).
@@ -134,6 +196,18 @@ app.use(compression());
 ### Estado
 - Zustand para estado global de autenticación (`useAuthStore`).
 - Estado local con `useState` para UI de componentes.
+
+### Precios y overrides
+- **Admin** puede editar precios de ítems individuales en el carrito — usar el hook `usePrecioOverride`.
+- **Encargado** no puede editar precios — no pasar `onSetOverride` a `SolicitudCartTable`.
+
+### Fechas y zonas horarias
+Ver `docs/fechas-timezone.md` para el detalle completo. Reglas clave:
+- Guatemala = UTC-6 fijo (sin horario de verano).
+- Usar `fechaHoyGT()` para generar "hoy" en el backend. Nunca `new Date()` en campos `@db.Date`.
+- Usar `fechaGT(d)` para convertir un timestamp UTC a fecha guatemalteca.
+- `formatFecha` en `src/utils/format.ts` para mostrar fechas en el frontend.
+- Inputs `datetime-local` → `new Date(val).toISOString()` es seguro porque el browser interpreta la cadena como hora local.
 
 ---
 
@@ -150,6 +224,11 @@ app.use(compression());
 | `REDIS_HOST` / `REDIS_PORT` | Conexión a Redis |
 | `NODE_ENV` | `development` o `production` |
 | `PORT` | Puerto del backend (default: 4000) |
+| `R2_ACCOUNT_ID` | Cloudflare R2 — ID de cuenta |
+| `R2_ACCESS_KEY_ID` | Cloudflare R2 — Access key |
+| `R2_SECRET_ACCESS_KEY` | Cloudflare R2 — Secret key |
+| `R2_BUCKET` | Cloudflare R2 — nombre del bucket (default: `tunsa-archivos`) |
+| `VITE_API_URL` | URL del backend (solo frontend, prefijo VITE_) |
 
 ---
 
@@ -226,3 +305,6 @@ Si no se hace en ambos lados, el contenedor arrancará con errores `Cannot find 
 ## Referencia de arquitectura
 
 El documento original de arquitectura está en: `docs/Stack .pdf`
+
+Documentación adicional en `docs/`:
+- `fechas-timezone.md` — manejo de fechas y zona horaria Guatemala (UTC-6)

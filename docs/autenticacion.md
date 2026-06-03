@@ -174,14 +174,22 @@ Luego de un login exitoso, el frontend redirige según el rol del usuario:
 
 ### Pendiente de implementar
 
-Estas librerías están instaladas pero aún no están integradas en el código:
-
 | Librería | Uso previsto |
 |---|---|
 | `winston` + `nest-winston` | Logging estructurado del servidor (reemplazará los `console.log`) |
-| `ioredis` | Cliente de Redis (previsto para caché o manejo de sesiones) |
-| `socket.io` / `socket.io-client` | Comunicación en tiempo real (WebSockets) |
-| `@tanstack/react-query` | Manejo de estado del servidor y caché de requests en el frontend |
+
+### Implementado posteriormente
+
+| Librería | Estado |
+|---|---|
+| `ioredis` | Implementado — cache de usuario en `JwtStrategy` via `UserCacheService` |
+| `socket.io` / `socket.io-client` | Implementado — `SolicitudesGateway` en backend, `useAdminSocket` y `useEncargadoSocket` en frontend |
+
+### Descartado
+
+| Librería | Motivo |
+|---|---|
+| `@tanstack/react-query` | No se implementó. El manejo de estado del servidor se hace con `useState` + `axios` directo. |
 
 ---
 

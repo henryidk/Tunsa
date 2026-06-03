@@ -17,6 +17,7 @@ import { useSolicitudCart } from '../../../hooks/useSolicitudCart';
 import { usePrecioOverride } from '../../../hooks/usePrecioOverride';
 import { solicitudesService } from '../../../services/solicitudes.service';
 import { usuariosService } from '../../../services/usuarios.service';
+import EncargadoSelector from '../../shared/EncargadoSelector';
 import type { ItemSnapshot } from '../../../types/solicitud-renta.types';
 import type { ToastType } from '../../../types/ui.types';
 
@@ -368,21 +369,11 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
             subtitle="El encargado que gestionará esta renta (devoluciones, extensiones)"
             locked={!clienteSeleccionado}
           >
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
-                Encargado <span className="text-red-400">*</span>
-              </label>
-              <select
-                value={gestionadaPor}
-                onChange={e => setGestionadaPor(e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all"
-              >
-                <option value="">— Selecciona un encargado —</option>
-                {encargados.map(e => (
-                  <option key={e.username} value={e.username}>{e.nombre}</option>
-                ))}
-              </select>
-            </div>
+            <EncargadoSelector
+              value={gestionadaPor}
+              onChange={setGestionadaPor}
+              encargados={encargados}
+            />
           </SectionCard>
 
           {/* 5. Notas (opcional) */}

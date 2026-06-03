@@ -39,6 +39,7 @@ interface CreateSolicitudPayload {
 
 interface CreateSolicitudDirectaPayload {
   clienteId:      string;
+  gestionadaPor:  string;
   modalidad:      ModalidadPago;
   notas?:         string;
   totalEstimado?: number;

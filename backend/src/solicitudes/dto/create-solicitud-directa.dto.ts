@@ -1,5 +1,5 @@
 import {
-  IsArray, IsBoolean, IsEnum, IsOptional, IsString,
+  IsArray, IsBoolean, IsEnum, IsNotEmpty, IsOptional, IsString,
   IsNumber, Min, ValidateNested, ArrayMinSize,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -14,6 +14,10 @@ import { ItemSolicitudDto } from './create-solicitud.dto';
 export class CreateSolicitudDirectaDto {
   @IsString()
   clienteId: string;
+
+  @IsString()
+  @IsNotEmpty()
+  gestionadaPor: string;
 
   @IsOptional()
   @IsBoolean()

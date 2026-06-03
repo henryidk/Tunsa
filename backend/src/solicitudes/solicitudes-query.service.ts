@@ -70,8 +70,10 @@ export class SolicitudesQueryService {
   async findMias(username: string) {
     const solicitudes = await this.prisma.solicitud.findMany({
       where: {
-        creadaPor: username,
-        estado:    { in: ['PENDIENTE', 'APROBADA'] },
+        AND: [
+          this.encargadoFilter(username),
+          { estado: { in: ['PENDIENTE', 'APROBADA'] } },
+        ],
       },
       include: { cliente: true },
       orderBy: { createdAt: 'desc' },

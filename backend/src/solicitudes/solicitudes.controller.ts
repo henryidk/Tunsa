@@ -68,7 +68,7 @@ export class SolicitudesController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     const solicitud = await this.solicitudesService.crearDirecta(user.username, dto);
-    this.solicitudesGateway.emitNuevaRentaDirecta(solicitud);
+    this.solicitudesGateway.emitSolicitudAprobada(solicitud, dto.gestionadaPor);
     return solicitud;
   }
 

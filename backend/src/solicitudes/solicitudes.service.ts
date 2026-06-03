@@ -261,6 +261,7 @@ export class SolicitudesService {
           esPesada,
           esIndefinida:  dto.esIndefinida ?? false,
           creadaPor:     username,
+          gestionadaPor: dto.gestionadaPor,
           estado:        'APROBADA',
           aprobadaPor:   username,
           folio,
@@ -269,7 +270,8 @@ export class SolicitudesService {
         include: { cliente: true },
       });
 
-      return serializeSolicitud(solicitud);
+      const nombres = await this.resolverNombresActores(solicitud.creadaPor, solicitud.aprobadaPor, solicitud.gestionadaPor);
+      return serializeSolicitud(solicitud, nombres);
     });
   }
 

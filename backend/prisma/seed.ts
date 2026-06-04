@@ -4,7 +4,7 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
-  const yaEjecutado = await prisma.user.findFirst({ where: { username: 'admin' } });
+  const yaEjecutado = await prisma.usuario.findFirst({ where: { username: 'admin' } });
   if (yaEjecutado) {
     console.log('Seed ya ejecutado anteriormente, omitiendo...');
     return;

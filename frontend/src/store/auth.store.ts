@@ -66,8 +66,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       let errorMessage = 'Error al iniciar sesión';
 
       if (error && typeof error === 'object' && 'response' in error) {
-        const axiosError = error as { response?: { data?: { message?: string } } };
-        errorMessage = axiosError.response?.data?.message || errorMessage;
+        const axiosError = error as { response?: { data?: { message?: string | string[] } } };
+        const msg = axiosError.response?.data?.message;
+        errorMessage = Array.isArray(msg) ? msg[0] : (msg || errorMessage);
       }
 
       set({

@@ -5,15 +5,17 @@ import type { ChangeEvent, MouseEvent } from 'react';
 import type { Usuario } from '../../types/auth.types';
 import { usuariosService } from '../../services/usuarios.service';
 import { extractApiError } from '../../utils/usuario.utils';
+import { puedeGestionarUsuario } from '../../utils/user-authority';
 import PasswordGeneradaModal from './PasswordGeneradaModal';
 
 interface AgregarUsuarioModalProps {
   open: boolean;
   onClose: () => void;
   onCreated: (nuevo: Usuario) => void;
+  actorRole: string;
 }
 
-const roles = [
+const todosLosRoles = [
   { value: 'admin',              label: 'Administrador' },
   { value: 'secretaria',         label: 'Secretaria' },
   { value: 'encargado_maquinas', label: 'Enc. de Máquinas' },
@@ -33,7 +35,8 @@ const emptyForm: FormState = {
   rol: '',
 };
 
-export default function AgregarUsuarioModal({ open, onClose, onCreated }: AgregarUsuarioModalProps) {
+export default function AgregarUsuarioModal({ open, onClose, onCreated, actorRole }: AgregarUsuarioModalProps) {
+  const roles = todosLosRoles.filter(r => puedeGestionarUsuario(actorRole, r.value));
   const [form, setForm] = useState<FormState>(emptyForm);
   const [isSaving, setIsSaving] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);

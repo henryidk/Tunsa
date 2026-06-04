@@ -11,6 +11,7 @@ import ResetPasswordModal from '../ResetPasswordModal';
 
 import type { ToastType } from '../../../types/ui.types';
 import { rolLabel, rolBadge, rolGradient, getInitials } from '../../../utils/usuario.utils';
+import { puedeGestionarUsuario } from '../../../utils/user-authority';
 
 interface UsuariosSectionProps {
   onShowToast: (type: ToastType, title: string, msg: string) => void;
@@ -87,6 +88,7 @@ export default function UsuariosSection({ onShowToast, user }: UsuariosSectionPr
               {!isLoading && !error && usuarios.map(u => {
                 const isCurrentUser = user?.username === u.username;
                 const rolKey = u.role.nombre;
+                const puedeGestionar = puedeGestionarUsuario(user?.role.nombre ?? '', u.role.nombre);
                 return (
                   <tr
                     key={u.id}
@@ -125,7 +127,9 @@ export default function UsuariosSection({ onShowToast, user }: UsuariosSectionPr
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5">
-                        {u.isActive ? (
+                        {!puedeGestionar ? (
+                          <span className="text-xs text-slate-400 italic">Sin permisos</span>
+                        ) : u.isActive ? (
                           <>
                             <button
                               disabled={isCurrentUser}
@@ -201,6 +205,7 @@ export default function UsuariosSection({ onShowToast, user }: UsuariosSectionPr
 
       <AgregarUsuarioModal
         open={agregarOpen}
+        actorRole={user?.role.nombre ?? ''}
         onClose={() => setAgregarOpen(false)}
         onCreated={nuevo => {
           addUsuario(nuevo);

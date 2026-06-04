@@ -34,7 +34,7 @@ export class UsersController {
     @Body() createUserDto: CreateUserDto,
     @CurrentUser() currentUser: AuthenticatedUser,
   ) {
-    return this.usersService.create(createUserDto, currentUser.username);
+    return this.usersService.create(createUserDto, currentUser);
   }
 
   @Patch('password/change')
@@ -53,7 +53,7 @@ export class UsersController {
     @Body() updateUserDto: UpdateUserDto,
     @CurrentUser() currentUser: AuthenticatedUser,
   ) {
-    return this.usersService.update(id, updateUserDto, currentUser.username);
+    return this.usersService.update(id, updateUserDto, currentUser);
   }
 
   @Patch(':id/reset-password')
@@ -64,18 +64,18 @@ export class UsersController {
     @Ip() ipAddress: string,
     @Headers('user-agent') userAgent: string,
   ) {
-    return this.usersService.resetPassword(id, currentUser.id, currentUser.username, ipAddress, userAgent);
+    return this.usersService.resetPassword(id, currentUser, ipAddress, userAgent);
   }
 
   @Patch(':id/deactivate')
   @Roles('admin', 'secretaria')
   deactivate(@Param('id') id: string, @CurrentUser() currentUser: AuthenticatedUser) {
-    return this.usersService.setActive(id, false, currentUser.id, currentUser.username);
+    return this.usersService.setActive(id, false, currentUser);
   }
 
   @Patch(':id/activate')
   @Roles('admin', 'secretaria')
   activate(@Param('id') id: string, @CurrentUser() currentUser: AuthenticatedUser) {
-    return this.usersService.setActive(id, true, currentUser.id, currentUser.username);
+    return this.usersService.setActive(id, true, currentUser);
   }
 }

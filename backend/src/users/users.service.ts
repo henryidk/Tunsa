@@ -1,10 +1,12 @@
-import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { randomInt } from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserCacheService } from '../redis/user-cache.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
+import { puedeGestionarUsuario } from './helpers/user-authority.helper';
 
 function generateSecurePassword(): string {
   const upper   = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -81,13 +83,17 @@ export class UsersService {
     });
   }
 
-  async setActive(id: string, isActive: boolean, requestingUserId: string, requestingUsername: string) {
-    if (id === requestingUserId) {
+  async setActive(id: string, isActive: boolean, actor: AuthenticatedUser) {
+    if (id === actor.id) {
       throw new ConflictException('No puedes modificar el estado de tu propia cuenta');
     }
 
-    const usuario = await this.prisma.usuario.findUnique({ where: { id } });
+    const usuario = await this.prisma.usuario.findUnique({ where: { id }, include: { role: true } });
     if (!usuario) throw new NotFoundException('Usuario no encontrado');
+
+    if (!puedeGestionarUsuario(actor.role, usuario.role.nombre)) {
+      throw new ForbiddenException('No tienes permiso para gestionar usuarios administradores');
+    }
 
     if (!isActive) {
       await this.prisma.refreshToken.updateMany({
@@ -113,16 +119,20 @@ export class UsersService {
         campo:         isActive ? 'activar' : 'desactivar',
         valorAnterior: isActive ? 'Inactivo' : 'Activo',
         valorNuevo:    isActive ? 'Activo'   : 'Inactivo',
-        realizadoPor:  requestingUsername,
+        realizadoPor:  actor.username,
       },
     });
 
     return updated;
   }
 
-  async update(id: string, data: UpdateUserDto, requestingUsername: string) {
-    const usuario = await this.prisma.usuario.findUnique({ where: { id } });
+  async update(id: string, data: UpdateUserDto, actor: AuthenticatedUser) {
+    const usuario = await this.prisma.usuario.findUnique({ where: { id }, include: { role: true } });
     if (!usuario) throw new NotFoundException('Usuario no encontrado');
+
+    if (!puedeGestionarUsuario(actor.role, usuario.role.nombre)) {
+      throw new ForbiddenException('No tienes permiso para gestionar usuarios administradores');
+    }
 
     if (data.username && data.username !== usuario.username) {
       const taken = await this.prisma.usuario.findUnique({ where: { username: data.username } });
@@ -167,7 +177,7 @@ export class UsersService {
           campo:         c.campo,
           valorAnterior: c.valorAnterior,
           valorNuevo:    c.valorNuevo,
-          realizadoPor:  requestingUsername,
+          realizadoPor:  actor.username,
         })),
       });
     }
@@ -175,7 +185,11 @@ export class UsersService {
     return updated;
   }
 
-  async create(dto: CreateUserDto, requestingUsername: string) {
+  async create(dto: CreateUserDto, actor: AuthenticatedUser) {
+    if (!puedeGestionarUsuario(actor.role, dto.rol)) {
+      throw new ForbiddenException('No tienes permiso para crear usuarios administradores');
+    }
+
     const taken = await this.prisma.usuario.findUnique({ where: { username: dto.username } });
     if (taken) throw new ConflictException('El nombre de usuario ya está en uso');
 
@@ -205,20 +219,24 @@ export class UsersService {
         campo:         'crear',
         valorAnterior: null,
         valorNuevo:    role.nombre,
-        realizadoPor:  requestingUsername,
+        realizadoPor:  actor.username,
       },
     });
 
     return { ...usuario, temporaryPassword: plainPassword };
   }
 
-  async resetPassword(id: string, requestingUserId: string, requestingUsername: string, ipAddress?: string, userAgent?: string) {
-    if (id === requestingUserId) {
+  async resetPassword(id: string, actor: AuthenticatedUser, ipAddress?: string, userAgent?: string) {
+    if (id === actor.id) {
       throw new ConflictException('No puedes resetear tu propia contraseña');
     }
 
-    const usuario = await this.prisma.usuario.findUnique({ where: { id } });
+    const usuario = await this.prisma.usuario.findUnique({ where: { id }, include: { role: true } });
     if (!usuario) throw new NotFoundException('Usuario no encontrado');
+
+    if (!puedeGestionarUsuario(actor.role, usuario.role.nombre)) {
+      throw new ForbiddenException('No tienes permiso para gestionar usuarios administradores');
+    }
 
     const plainPassword  = generateSecurePassword();
     const hashedPassword = await bcrypt.hash(plainPassword, 12);
@@ -239,7 +257,7 @@ export class UsersService {
 
     await this.prisma.auditLog.create({
       data: {
-        userId:    requestingUserId,
+        userId:    actor.id,
         action:    'PASSWORD_RESET_BY_ADMIN',
         ipAddress: ipAddress ?? null,
         userAgent: userAgent  ?? null,
@@ -258,7 +276,7 @@ export class UsersService {
         campo:         'reset_password',
         valorAnterior: null,
         valorNuevo:    null,
-        realizadoPor:  requestingUsername,
+        realizadoPor:  actor.username,
       },
     });
 

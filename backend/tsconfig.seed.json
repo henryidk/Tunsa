@@ -1,8 +1,12 @@
 {
-  "extends": "./tsconfig.json",
   "compilerOptions": {
     "module": "commonjs",
     "moduleResolution": "node",
+    "target": "ES2023",
+    "esModuleInterop": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "skipLibCheck": true,
     "outDir": "./dist/prisma",
     "rootDir": "./prisma"
   },

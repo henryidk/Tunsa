@@ -9,5 +9,8 @@ until npx prisma migrate deploy 2>/dev/null; do
   sleep 3
 done
 
-echo "Migraciones aplicadas. Iniciando backend..."
+echo "Migraciones aplicadas. Ejecutando seed..."
+node dist/prisma/seed.js || echo "Seed omitido o ya ejecutado"
+
+echo "Iniciando backend..."
 node dist/src/main

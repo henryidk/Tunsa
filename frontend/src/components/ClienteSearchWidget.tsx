@@ -143,7 +143,7 @@ export default function ClienteSearchWidget({ onSelect }: Props) {
       .filter(c =>
         c.nombre.toLowerCase().includes(q) ||
         c.id.toLowerCase().includes(q) ||
-        c.dpi.includes(q)
+        (c.dpi ?? '').includes(q)
       )
       .slice(0, MAX_DROPDOWN_RESULTS);
   }, [clientes, query]);

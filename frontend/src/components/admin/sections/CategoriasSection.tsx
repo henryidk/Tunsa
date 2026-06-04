@@ -715,7 +715,7 @@ export default function CategoriasSection({ onShowToast }: CategoriasSectionProp
       <EditarEquipoModal
         equipo={editarEquipo}
         open={editarEquipo !== null}
-        tipos={tipos}
+        tipos={tipos as unknown as import('../../../types/equipo.types').TipoConCategorias[]}
         onClose={() => setEditarEquipo(null)}
         onSave={updated => {
           setEquipos(prev => prev.map(e => e.id === updated.id ? updated : e));

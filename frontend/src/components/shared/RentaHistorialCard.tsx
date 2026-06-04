@@ -10,7 +10,7 @@ function contarItemsPendientes(solicitud: SolicitudRenta): number {
     (solicitud.devolucionesParciales ?? []).flatMap(d => d.items.map(i => i.itemRef)),
   );
   return solicitud.items.filter(item => {
-    const ref = item.kind === 'maquinaria' ? item.equipoId : item.tipo;
+    const ref = item.kind === 'granel' ? item.tipo : item.equipoId;
     return !yaDevueltos.has(ref);
   }).length;
 }

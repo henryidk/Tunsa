@@ -1,6 +1,7 @@
 // Página de Login - Proyecto Tunsa
 
-import { useState, FormEvent, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import type { FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuthStore } from '../store/auth.store';

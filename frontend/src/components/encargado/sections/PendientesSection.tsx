@@ -141,7 +141,7 @@ function ItemResumen({ item }: { item: ItemSnapshot }) {
   const duracionLabel = duracionDisplay(item.duracion, item.unidad);
   const fechaLabel    = formatFechaCorta(item.fechaInicio);
 
-  if (item.kind === 'maquinaria') {
+  if (item.kind === 'maquinaria' || item.kind === 'pesada') {
     return (
       <div>
         <p className="text-xs text-slate-700">

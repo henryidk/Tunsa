@@ -859,7 +859,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                 lecturas={lecturasMap[s.id] ?? null}
                 onVerDetalle={() => setSelectedId(s.id)}
                 onRegistrar={() => setSelectedId(s.id)}
-                onVerRenta={onNavTo ? () => onNavTo(seccionDestino, { folio: s.folio }) : undefined}
+                onVerRenta={onNavTo ? () => onNavTo(seccionDestino, { folio: s.folio ?? undefined }) : undefined}
               />
             );
           })}

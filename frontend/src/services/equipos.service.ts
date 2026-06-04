@@ -32,7 +32,7 @@ interface CreateEquipoData {
 
 interface UpdateEquipoData extends Partial<Omit<CreateEquipoData, 'categoriaId'>> {
   categoriaId?: string | null;
-  extras?:      ExtraEquipoInput[] | null;
+  extras?:      ExtraEquipoInput[];
 }
 
 interface BajaEquipoData {

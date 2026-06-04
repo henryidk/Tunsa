@@ -130,7 +130,7 @@ export default function DevolucionModal({
   const [generandoPdf, setGenerandoPdf] = useState(false);
   const [pdfError,     setPdfError]     = useState(false);
 
-  const [previewItems,  setPreviewItems]  = useState<{ itemRef: string; costoReal: number; diasCobrados: number; recargoTiempo: number }[]>([]);
+  const [previewItems,  setPreviewItems]  = useState<{ itemRef: string; costoReal: number; diasCobrados: number; recargoTiempo: number; desglose?: { meses: number; semanas: number; dias: number }; tarifas?: { dia: number | null; semana: number | null; mes: number | null } }[]>([]);
   const [loadingPreview, setLoadingPreview] = useState(false);
 
   const [descuentoState, setDescuentoState] = useState<DescuentoFormState>(DESCUENTO_INICIAL);

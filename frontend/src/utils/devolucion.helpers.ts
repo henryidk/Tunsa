@@ -24,6 +24,7 @@ export function resolverLabelItem(
   if (item.kind === 'maquinaria') {
     return `#${item.numeracion} ${item.descripcion}`;
   }
+  if (item.kind !== 'granel') return entry.itemRef;
   const label = item.tipoLabel + (item.conMadera ? ' (con madera)' : '');
   return `${item.cantidad.toLocaleString('es-GT')} × ${label}`;
 }

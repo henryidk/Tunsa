@@ -9,6 +9,7 @@ RUN npm ci
 COPY . .
 RUN npx prisma generate
 RUN npm run build
+RUN npx tsc -p tsconfig.seed.json
 
 # ── Stage 2: imagen de producción ─────────────────────────────────────────────
 FROM node:20-alpine

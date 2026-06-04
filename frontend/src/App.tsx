@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
-import { useAuthStore, selectIsAuthenticated, selectUserRole, selectIsLoading } from './store/auth.store';
+import { useAuthStore, selectIsAuthenticated, selectUserRole, selectIsLoading, selectMustChangePassword } from './store/auth.store';
 import type { RoleName } from './types/auth.types';
 import Login from './pages/Login';
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -19,6 +19,7 @@ function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
   const userRole = useAuthStore(selectUserRole);
   const isLoading = useAuthStore(selectIsLoading);
+  const mustChangePassword = useAuthStore(selectMustChangePassword);
 
   if (isLoading) {
     return (
@@ -34,6 +35,10 @@ function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
 
   if (allowedRoles && userRole && !allowedRoles.includes(userRole)) {
     return <Navigate to={`/${userRole.replace('_', '-')}`} replace />;
+  }
+
+  if (mustChangePassword) {
+    return <CambiarPasswordModal />;
   }
 
   return <Outlet />;

@@ -4,6 +4,12 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
+  const yaEjecutado = await prisma.user.findFirst({ where: { username: 'admin' } });
+  if (yaEjecutado) {
+    console.log('Seed ya ejecutado anteriormente, omitiendo...');
+    return;
+  }
+
   console.log('Iniciando seed del sistema de autenticacion...\n');
 
   // 1. Crear Roles
@@ -42,7 +48,9 @@ async function main() {
   console.log('Creando usuarios...');
 
   // Usuario Admin
-  const adminPassword = await bcrypt.hash('Admin123!', 12);
+  const rawPassword = process.env.ADMIN_SEED_PASSWORD;
+  if (!rawPassword) throw new Error('ADMIN_SEED_PASSWORD no está definida en el entorno');
+  const adminPassword = await bcrypt.hash(rawPassword, 12);
   await prisma.usuario.upsert({
     where: { username: 'admin' },
     update: {},
@@ -65,7 +73,7 @@ async function main() {
   
   console.log('ADMINISTRADOR:');
   console.log('   Usuario:    admin');
-  console.log('   Contrasena: Admin123!\n');
+  console.log('   Contrasena: (ver ADMIN_SEED_PASSWORD en .env)\n');
 
   console.log('===========================================');
 

@@ -132,9 +132,8 @@ export default function UsuariosSection({ onShowToast, user }: UsuariosSectionPr
                         ) : u.isActive ? (
                           <>
                             <button
-                              disabled={isCurrentUser}
                               onClick={() => setEditUsuario(u)}
-                              className="px-2.5 py-1 rounded-lg text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                              className="px-2.5 py-1 rounded-lg text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors"
                             >
                               Editar
                             </button>

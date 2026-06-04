@@ -116,7 +116,7 @@ export default function ResetPasswordModal({ usuario, open, onClose }: ResetPass
               <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
             </svg>
             <span className="text-xs text-amber-700">
-              Si el usuario tiene sesión activa, será cerrada de inmediato.
+              Si el usuario tiene sesión activa, será cerrada y deberá iniciar sesión con la contraseña temporal para cambiarla.
             </span>
           </div>
 

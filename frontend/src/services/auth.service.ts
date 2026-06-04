@@ -54,6 +54,18 @@ api.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
+    const responseData = error.response?.data as { message?: string } | undefined;
+    if (
+      error.response?.status === 403 &&
+      responseData?.message === 'Debes cambiar tu contraseña temporal antes de continuar'
+    ) {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('user');
+      localStorage.removeItem('mustChangePassword');
+      window.location.href = '/login';
+      return Promise.reject(error);
+    }
+
     if (error.response?.status === 401 && !originalRequest._retry) {
       const url = originalRequest.url || '';
       if (url.includes('/auth/login') || url.includes('/auth/refresh')) {

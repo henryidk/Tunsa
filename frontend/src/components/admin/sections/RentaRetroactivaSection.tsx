@@ -28,6 +28,7 @@ import type { ToastType } from '../../../types/ui.types';
 interface Props {
   onNavTo?:     (section: string) => void;
   onShowToast?: (type: ToastType, title: string, msg: string) => void;
+  selfManaged?: boolean;
 }
 
 function nowDatetimeLocal(): string {
@@ -40,7 +41,7 @@ function toDateOnly(datetimeLocal: string): string {
   return datetimeLocal.slice(0, 10);
 }
 
-export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {} }: Props) {
+export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {}, selfManaged = false }: Props) {
   const [clienteSeleccionado, setClienteSeleccionado] = useState<Cliente | null>(null);
   const [modalidadPago,       setModalidadPago]       = useState<ModalidadPago | null>(null);
   const [notas,               setNotas]               = useState('');
@@ -60,11 +61,12 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
   const { reservedIds: reservadosPesada, setAll: setReservadosPesada } = useReservadosStore();
 
   useEffect(() => {
+    if (selfManaged) return;
     usuariosService.getEncargados().then(data => {
       setEncargados(data);
       if (data.length === 1) setGestionadaPor(data[0].username);
     }).catch(() => {});
-  }, []);
+  }, [selfManaged]);
 
   useEffect(() => {
     if (equipoTab !== 'pesada') return;
@@ -147,9 +149,9 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
   };
 
   const handleRegistrar = () => {
-    if (!fechaInicioRenta) { setShowNoFechaModal(true);     return; }
-    if (!gestionadaPor)    { setShowNoEncargadoModal(true); return; }
-    if (!modalidadPago)    { setShowNoPagoModal(true);      return; }
+    if (!fechaInicioRenta)            { setShowNoFechaModal(true);     return; }
+    if (!selfManaged && !gestionadaPor) { setShowNoEncargadoModal(true); return; }
+    if (!modalidadPago)               { setShowNoPagoModal(true);      return; }
     submitRenta();
   };
 
@@ -159,16 +161,17 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
     try {
       const fechaISO = new Date(fechaInicioRenta).toISOString();
 
+      let rentaCreada;
       if (equipoTab === 'pesada' && pesadaItem) {
         const { equipo, extrasSeleccionados, diasSolicitados, unidad, horometroInicial } = pesadaItem;
-        await solicitudesService.crearRentaRetroactiva({
+        rentaCreada = await solicitudesService.crearRentaRetroactiva({
           clienteId:        clienteSeleccionado.id,
           fechaInicioRenta: fechaISO,
           modalidad:        modalidadPago,
           notas:            notas.trim() || undefined,
           totalEstimado:    0,
           esIndefinida:     indefinido || undefined,
-          gestionadaPor,
+          ...(selfManaged ? {} : { gestionadaPor }),
           items: [{
             kind:             'pesada' as const,
             equipoId:         equipo.id,
@@ -233,7 +236,7 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
           return [];
         });
 
-        await solicitudesService.crearRentaRetroactiva({
+        rentaCreada = await solicitudesService.crearRentaRetroactiva({
           clienteId:        clienteSeleccionado.id,
           fechaInicioRenta: fechaISO,
           modalidad:        modalidadPago,
@@ -241,14 +244,20 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
           totalEstimado:    effectiveTotal,
           items,
           esIndefinida:     indefinido,
-          gestionadaPor,
+          ...(selfManaged ? {} : { gestionadaPor }),
         });
       }
 
-      onShowToast('success', 'Renta retroactiva registrada', 'La renta quedó activa con la fecha de inicio indicada.');
+      onShowToast('success', 'Renta retroactiva registrada', 'La renta quedó registrada con la fecha de inicio indicada.');
       handleCancelar();
       void refreshReservedIds();
-      onNavTo?.('rentas-activas');
+
+      if (selfManaged && rentaCreada) {
+        const estaVencida = !!rentaCreada.fechaFinEstimada && new Date(rentaCreada.fechaFinEstimada) < new Date();
+        onNavTo?.(estaVencida ? 'vencidas' : 'rentas-activas', { folio: rentaCreada.folio ?? undefined });
+      } else {
+        onNavTo?.('rentas-activas');
+      }
     } catch {
       onShowToast('error', 'Error al registrar', 'No se pudo registrar la renta. Inténtalo de nuevo.');
     } finally {
@@ -439,19 +448,21 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
             <PaymentModeSelector value={modalidadPago} onChange={setModalidadPago} />
           </SectionCard>
 
-          {/* 4b. Encargado asignado */}
-          <SectionCard
-            icon={<EncargadoIcon />}
-            title="Encargado Asignado"
-            subtitle="El encargado que gestionará esta renta (devoluciones, extensiones)"
-            locked={!clienteSeleccionado}
-          >
-            <EncargadoSelector
-              value={gestionadaPor}
-              onChange={setGestionadaPor}
-              encargados={encargados}
-            />
-          </SectionCard>
+          {/* 4b. Encargado asignado — solo visible para admin */}
+          {!selfManaged && (
+            <SectionCard
+              icon={<EncargadoIcon />}
+              title="Encargado Asignado"
+              subtitle="El encargado que gestionará esta renta (devoluciones, extensiones)"
+              locked={!clienteSeleccionado}
+            >
+              <EncargadoSelector
+                value={gestionadaPor}
+                onChange={setGestionadaPor}
+                encargados={encargados}
+              />
+            </SectionCard>
+          )}
 
           {/* 5. Notas (opcional) */}
           <SectionCard
@@ -487,7 +498,8 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
           onCancelar={handleCancelar}
           canCancelar={!!clienteSeleccionado}
           canRegistrar={
-            !!clienteSeleccionado && !!fechaInicioRenta && !!gestionadaPor && !isSubmitting &&
+            !!clienteSeleccionado && !!fechaInicioRenta && !isSubmitting &&
+            (selfManaged || !!gestionadaPor) &&
             (equipoTab === 'pesada' ? !!pesadaItem : cart.items.length > 0)
           }
           onRegistrar={handleRegistrar}

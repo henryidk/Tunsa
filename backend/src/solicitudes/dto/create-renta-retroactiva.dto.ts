@@ -30,8 +30,9 @@ export class CreateRentaRetroactivaDto {
   @Type(() => Number)
   totalEstimado?: number;
 
+  @IsOptional()
   @IsString()
-  gestionadaPor: string;
+  gestionadaPor?: string;
 
   @IsArray()
   @ArrayMinSize(1)

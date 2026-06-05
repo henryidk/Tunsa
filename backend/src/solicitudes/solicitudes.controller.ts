@@ -53,7 +53,7 @@ export class SolicitudesController {
   }
 
   @Post('retroactiva')
-  @Roles('admin')
+  @Roles('admin', 'encargado_maquinas')
   async crearRetroactiva(
     @Body() dto: CreateRentaRetroactivaDto,
     @CurrentUser() user: AuthenticatedUser,

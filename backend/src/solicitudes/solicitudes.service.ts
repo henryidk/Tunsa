@@ -269,6 +269,7 @@ export class SolicitudesService {
   }
 
   async crearRetroactiva(username: string, dto: CreateRentaRetroactivaDto) {
+    const gestionadaPor = dto.gestionadaPor ?? username;
     const esPesada = dto.items.every(i => i.kind === 'pesada');
     const esMixta  = !esPesada && dto.items.some(i => i.kind === 'pesada');
 
@@ -353,7 +354,7 @@ export class SolicitudesService {
           esPesada,
           esIndefinida:    dto.esIndefinida ?? false,
           creadaPor:       username,
-          gestionadaPor:   dto.gestionadaPor,
+          gestionadaPor:   gestionadaPor,
           estado:          'ACTIVA',
           aprobadaPor:     username,
           folio,

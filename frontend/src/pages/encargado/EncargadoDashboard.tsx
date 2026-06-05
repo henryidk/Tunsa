@@ -17,6 +17,7 @@ import NuevaSolicitudPesadaSection from '../../components/encargado/sections/Nue
 import PorEntregarSection from '../../components/encargado/sections/PorEntregarSection';
 import MisSolicitudesSection from '../../components/encargado/sections/MisSolicitudesSection';
 import RentasActivasSection from '../../components/encargado/sections/RentasActivasSection';
+import RentaRetroactivaSection from '../../components/admin/sections/RentaRetroactivaSection';
 import HorometrosSection from '../../components/encargado/sections/HorometrosSection';
 import VencidasSection from '../../components/encargado/sections/VencidasSection';
 import HistorialSection from '../../components/encargado/sections/HistorialSection';
@@ -31,6 +32,7 @@ type Section =
   | 'dashboard'
   | 'nueva-solicitud'
   | 'nueva-solicitud-pesada'
+  | 'renta-retroactiva'
   | 'por-entregar'
   | 'mis-solicitudes'
   | 'rentas-activas'
@@ -91,6 +93,7 @@ export default function EncargadoDashboard() {
       case 'dashboard':       return <DashboardSection onNavTo={navTo} />;
       case 'nueva-solicitud':        return <NuevaSolicitudSection onShowToast={showToast} />;
       case 'nueva-solicitud-pesada': return <NuevaSolicitudPesadaSection onShowToast={showToast} />;
+      case 'renta-retroactiva':      return <RentaRetroactivaSection onShowToast={showToast} onNavTo={navTo} selfManaged />;
       case 'por-entregar':    return <PorEntregarSection onShowToast={showToast} />;
       case 'mis-solicitudes': return <MisSolicitudesSection onNavTo={navTo} misPendientes={misPendientes} />;
       case 'rentas-activas':  return <RentasActivasSection onNavTo={navTo} initialFolio={navState.folio} />;

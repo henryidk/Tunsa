@@ -55,7 +55,7 @@ interface CreateRentaRetroactivaPayload {
   totalEstimado?:   number;
   items:            ItemSnapshot[];
   esIndefinida?:    boolean;
-  gestionadaPor:    string;
+  gestionadaPor?:   string;
 }
 
 export interface LecturaHorometro {

@@ -26,9 +26,10 @@ import type { ItemSnapshot } from '../../../types/solicitud-renta.types';
 import type { ToastType } from '../../../types/ui.types';
 
 interface Props {
-  onNavTo?:     (section: string) => void;
-  onShowToast?: (type: ToastType, title: string, msg: string) => void;
-  selfManaged?: boolean;
+  onNavTo?:        (section: string, state?: { folio?: string }) => void;
+  onShowToast?:    (type: ToastType, title: string, msg: string) => void;
+  selfManaged?:    boolean;
+  vencidasSection?: string;
 }
 
 function nowDatetimeLocal(): string {
@@ -41,7 +42,7 @@ function toDateOnly(datetimeLocal: string): string {
   return datetimeLocal.slice(0, 10);
 }
 
-export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {}, selfManaged = false }: Props) {
+export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {}, selfManaged = false, vencidasSection = 'vencidas' }: Props) {
   const [clienteSeleccionado, setClienteSeleccionado] = useState<Cliente | null>(null);
   const [modalidadPago,       setModalidadPago]       = useState<ModalidadPago | null>(null);
   const [notas,               setNotas]               = useState('');
@@ -252,9 +253,9 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
       handleCancelar();
       void refreshReservedIds();
 
-      if (selfManaged && rentaCreada) {
+      if (rentaCreada) {
         const estaVencida = !!rentaCreada.fechaFinEstimada && new Date(rentaCreada.fechaFinEstimada) < new Date();
-        onNavTo?.(estaVencida ? 'vencidas' : 'rentas-activas', { folio: rentaCreada.folio ?? undefined });
+        onNavTo?.(estaVencida ? vencidasSection : 'rentas-activas', { folio: rentaCreada.folio ?? undefined });
       } else {
         onNavTo?.('rentas-activas');
       }

@@ -452,7 +452,7 @@ function PesadaPickerForm({ disponibles, isLoading, indefinido, onAdd }: PesadaP
   const [seleccionado,        setSeleccionado]        = useState<Equipo | null>(null);
   const [extrasSeleccionados, setExtrasSeleccionados] = useState<ExtraSeleccionado[]>([]);
   const [dropdown,            setDropdown]            = useState(false);
-  const [fechaInicio,         setFechaInicio]         = useState(today());
+  const fechaInicio = today();
   const [duracion,            setDuracion]            = useState(1);
   const [unidad,              setUnidad]              = useState<UnidadDuracion>('dias');
   const [error,               setError]               = useState<string | null>(null);
@@ -606,8 +606,13 @@ function PesadaPickerForm({ disponibles, isLoading, indefinido, onAdd }: PesadaP
       <div className="flex flex-wrap gap-3 items-end">
         <div>
           <label className="block text-xs font-semibold text-slate-600 mb-1.5">Fecha inicio</label>
-          <input type="date" value={fechaInicio} onChange={e => setFechaInicio(e.target.value)}
-            className="px-2.5 py-2.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" />
+          <div className="border border-slate-200 rounded-lg px-2.5 py-2.5 text-xs bg-slate-50 flex items-center gap-2 select-none">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-slate-400 flex-shrink-0">
+              <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+            <span className="font-mono text-slate-500">{fechaInicio}</span>
+            <span className="text-[10px] text-slate-400 font-medium">Hoy</span>
+          </div>
         </div>
         {!indefinido && (
           <>

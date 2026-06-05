@@ -507,7 +507,6 @@ function PesadaPickerForm({ disponibles, isLoading, indefinido, onAdd }: PesadaP
     setBusqueda('');
     setDuracion(1);
     setUnidad('dias');
-    setFechaInicio(today());
     setError(null);
   };
 

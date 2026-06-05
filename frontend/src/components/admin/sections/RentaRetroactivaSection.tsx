@@ -5,6 +5,8 @@ import GranelPickerSection from '../../encargado/GranelPickerSection';
 import PaymentModeSelector from '../../encargado/PaymentModeSelector';
 import EspecialBadge from '../../shared/EspecialBadge';
 import { SolicitudCartTable } from '../../shared/SolicitudCartTable';
+import PesadaRetroactivaPickerSection from '../PesadaRetroactivaPickerSection';
+import type { PesadaItemRetro } from '../PesadaRetroactivaPickerSection';
 import type { Cliente } from '../../../services/clientes.service';
 import type { ItemSolicitud, ModalidadPago } from '../../../types/solicitud.types';
 import {
@@ -16,6 +18,8 @@ import { useSolicitudData } from '../../../hooks/useSolicitudData';
 import { useSolicitudCart } from '../../../hooks/useSolicitudCart';
 import { usePrecioOverride } from '../../../hooks/usePrecioOverride';
 import { solicitudesService } from '../../../services/solicitudes.service';
+import { equiposService } from '../../../services/equipos.service';
+import { useReservadosStore } from '../../../store/reservados.store';
 import { usuariosService } from '../../../services/usuarios.service';
 import EncargadoSelector from '../../shared/EncargadoSelector';
 import type { ItemSnapshot } from '../../../types/solicitud-renta.types';
@@ -40,7 +44,7 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
   const [clienteSeleccionado, setClienteSeleccionado] = useState<Cliente | null>(null);
   const [modalidadPago,       setModalidadPago]       = useState<ModalidadPago | null>(null);
   const [notas,               setNotas]               = useState('');
-  const [equipoTab,           setEquipoTab]           = useState<'maquinaria' | 'granel'>('maquinaria');
+  const [equipoTab,           setEquipoTab]           = useState<'maquinaria' | 'granel' | 'pesada'>('maquinaria');
   const [clienteKey,          setClienteKey]          = useState(0);
   const [showNoPagoModal,     setShowNoPagoModal]     = useState(false);
   const [showNoFechaModal,    setShowNoFechaModal]    = useState(false);
@@ -50,6 +54,10 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
   const [gestionadaPor,          setGestionadaPor]          = useState('');
   const [encargados,             setEncargados]             = useState<{ username: string; nombre: string }[]>([]);
   const [showNoEncargadoModal,   setShowNoEncargadoModal]   = useState(false);
+  const [pesadaItem,             setPesadaItem]             = useState<PesadaItemRetro | null>(null);
+  const [allEquipos,             setAllEquipos]             = useState<import('../../../types/equipo.types').Equipo[]>([]);
+  const [isLoadingPesada,        setIsLoadingPesada]        = useState(false);
+  const { reservedIds: reservadosPesada, setAll: setReservadosPesada } = useReservadosStore();
 
   useEffect(() => {
     usuariosService.getEncargados().then(data => {
@@ -57,6 +65,14 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
       if (data.length === 1) setGestionadaPor(data[0].username);
     }).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (equipoTab !== 'pesada') return;
+    setIsLoadingPesada(true);
+    Promise.all([equiposService.getAll(), solicitudesService.getEquiposReservados()])
+      .then(([equipos, reservados]) => { setAllEquipos(equipos); setReservadosPesada(reservados); })
+      .finally(() => setIsLoadingPesada(false));
+  }, [equipoTab]);
 
   const { equiposLiviana, granelData, reservedIds, isLoading, error: dataError, refreshReservedIds } = useSolicitudData();
   const cart           = useSolicitudCart();
@@ -77,11 +93,17 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
     [equiposLiviana, cart.items, reservedIds],
   );
 
+  const equiposPesadaDisponibles = useMemo(
+    () => allEquipos.filter(e => e.isActive && e.tipo.modalidad === 'PESADA' && !reservadosPesada.has(e.id)),
+    [allEquipos, reservadosPesada],
+  );
+
   const handleClienteSelect = (cliente: Cliente | null) => {
     if (cliente?.id !== clienteSeleccionado?.id) {
       setIndefinido(false);
       cart.clear();
       precioOverride.clear();
+      setPesadaItem(null);
     }
     setClienteSeleccionado(cliente);
   };
@@ -90,20 +112,23 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
     setIndefinido(val);
     cart.clear();
     precioOverride.clear();
+    setPesadaItem(null);
     setModalidadPago(null);
   };
 
   const handleFechaChange = (val: string) => {
     setFechaInicioRenta(val);
-    if (cart.items.length > 0) {
+    if (cart.items.length > 0 || pesadaItem) {
       cart.clear();
       precioOverride.clear();
+      setPesadaItem(null);
     }
   };
 
   const handleLimpiarItems = () => {
     cart.clear();
     precioOverride.clear();
+    setPesadaItem(null);
     setModalidadPago(null);
     setNotas('');
   };
@@ -118,6 +143,7 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
     setIndefinido(false);
     setFechaInicioRenta('');
     setGestionadaPor('');
+    setPesadaItem(null);
   };
 
   const handleRegistrar = () => {
@@ -133,66 +159,90 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
     try {
       const fechaISO = new Date(fechaInicioRenta).toISOString();
 
-      const items: ItemSnapshot[] = cart.items.flatMap((item): ItemSnapshot[] => {
-        if (item.kind === 'maquinaria') {
-          const overrideTarifa = precioOverride.get(item.equipo.id);
-          const desglose = item.duracion && item.unidad
-            ? descomponerDuracion(item.fechaInicio, item.duracion, item.unidad)
-            : undefined;
-          return [{
-            kind:        'maquinaria',
-            equipoId:    item.equipo.id,
-            numeracion:  item.equipo.numeracion,
-            descripcion: item.equipo.descripcion,
-            fechaInicio: fechaInicioFija ?? item.fechaInicio,
-            duracion:    item.duracion,
-            unidad:      item.unidad,
-            tarifa:      overrideTarifa ?? item.equipo.rentaDia ?? null,
-            subtotal:    overrideTarifa !== undefined ? calcSubtotalConTarifaOverride(item, overrideTarifa) : calcSubtotal(item),
-            desglose,
-            tarifas: { dia: item.equipo.rentaDia ?? null, semana: item.equipo.rentaSemana ?? null, mes: item.equipo.rentaMes ?? null },
-          }];
-        }
-        if (item.kind === 'granel') {
-          const key            = `granel-${item.tipo}`;
-          const overrideTarifa = precioOverride.get(key);
-          const tarifaCatalogo = item.conMadera
-            ? (item.config?.rentaDiaConMadera ?? null)
-            : (item.config?.rentaDia ?? null);
-          const desglose = item.duracion && item.unidad
-            ? descomponerDuracion(item.fechaInicio, item.duracion, item.unidad)
-            : undefined;
-          const tarifas = item.conMadera
-            ? { dia: item.config?.rentaDiaConMadera ?? null, semana: item.config?.rentaSemanaConMadera ?? null, mes: item.config?.rentaMesConMadera ?? null }
-            : { dia: item.config?.rentaDia ?? null,          semana: item.config?.rentaSemana ?? null,          mes: item.config?.rentaMes ?? null          };
-          return [{
-            kind:        'granel',
-            tipo:        item.tipo,
-            tipoLabel:   item.tipoLabel,
-            cantidad:    item.cantidad,
-            conMadera:   item.conMadera ?? false,
-            fechaInicio: fechaInicioFija ?? item.fechaInicio,
-            duracion:    item.duracion,
-            unidad:      item.unidad,
-            tarifa:      overrideTarifa ?? tarifaCatalogo,
-            subtotal:    overrideTarifa !== undefined ? calcSubtotalConTarifaOverride(item, overrideTarifa) : calcSubtotal(item),
-            desglose,
-            tarifas,
-          }];
-        }
-        return [];
-      });
+      if (equipoTab === 'pesada' && pesadaItem) {
+        const { equipo, extrasSeleccionados, diasSolicitados, horometroInicial } = pesadaItem;
+        await solicitudesService.crearRentaRetroactiva({
+          clienteId:        clienteSeleccionado.id,
+          fechaInicioRenta: fechaISO,
+          modalidad:        modalidadPago,
+          notas:            notas.trim() || undefined,
+          totalEstimado:    0,
+          esIndefinida:     indefinido || undefined,
+          gestionadaPor,
+          items: [{
+            kind:             'pesada' as const,
+            equipoId:         equipo.id,
+            numeracion:       equipo.numeracion,
+            descripcion:      equipo.descripcion,
+            fechaInicio:      fechaISO,
+            extras:           extrasSeleccionados,
+            diasSolicitados:  indefinido ? undefined : diasSolicitados,
+            horometroInicial: horometroInicial,
+            subtotal:         0,
+          } as any],
+        });
+      } else {
+        const items: ItemSnapshot[] = cart.items.flatMap((item): ItemSnapshot[] => {
+          if (item.kind === 'maquinaria') {
+            const overrideTarifa = precioOverride.get(item.equipo.id);
+            const desglose = item.duracion && item.unidad
+              ? descomponerDuracion(item.fechaInicio, item.duracion, item.unidad)
+              : undefined;
+            return [{
+              kind:        'maquinaria',
+              equipoId:    item.equipo.id,
+              numeracion:  item.equipo.numeracion,
+              descripcion: item.equipo.descripcion,
+              fechaInicio: fechaInicioFija ?? item.fechaInicio,
+              duracion:    item.duracion,
+              unidad:      item.unidad,
+              tarifa:      overrideTarifa ?? item.equipo.rentaDia ?? null,
+              subtotal:    overrideTarifa !== undefined ? calcSubtotalConTarifaOverride(item, overrideTarifa) : calcSubtotal(item),
+              desglose,
+              tarifas: { dia: item.equipo.rentaDia ?? null, semana: item.equipo.rentaSemana ?? null, mes: item.equipo.rentaMes ?? null },
+            }];
+          }
+          if (item.kind === 'granel') {
+            const key            = `granel-${item.tipo}`;
+            const overrideTarifa = precioOverride.get(key);
+            const tarifaCatalogo = item.conMadera
+              ? (item.config?.rentaDiaConMadera ?? null)
+              : (item.config?.rentaDia ?? null);
+            const desglose = item.duracion && item.unidad
+              ? descomponerDuracion(item.fechaInicio, item.duracion, item.unidad)
+              : undefined;
+            const tarifas = item.conMadera
+              ? { dia: item.config?.rentaDiaConMadera ?? null, semana: item.config?.rentaSemanaConMadera ?? null, mes: item.config?.rentaMesConMadera ?? null }
+              : { dia: item.config?.rentaDia ?? null,          semana: item.config?.rentaSemana ?? null,          mes: item.config?.rentaMes ?? null          };
+            return [{
+              kind:        'granel',
+              tipo:        item.tipo,
+              tipoLabel:   item.tipoLabel,
+              cantidad:    item.cantidad,
+              conMadera:   item.conMadera ?? false,
+              fechaInicio: fechaInicioFija ?? item.fechaInicio,
+              duracion:    item.duracion,
+              unidad:      item.unidad,
+              tarifa:      overrideTarifa ?? tarifaCatalogo,
+              subtotal:    overrideTarifa !== undefined ? calcSubtotalConTarifaOverride(item, overrideTarifa) : calcSubtotal(item),
+              desglose,
+              tarifas,
+            }];
+          }
+          return [];
+        });
 
-      await solicitudesService.crearRentaRetroactiva({
-        clienteId:        clienteSeleccionado.id,
-        fechaInicioRenta: fechaISO,
-        modalidad:        modalidadPago,
-        notas:            notas.trim() || undefined,
-        totalEstimado:    effectiveTotal,
-        items,
-        esIndefinida:     indefinido,
-        gestionadaPor,
-      });
+        await solicitudesService.crearRentaRetroactiva({
+          clienteId:        clienteSeleccionado.id,
+          fechaInicioRenta: fechaISO,
+          modalidad:        modalidadPago,
+          notas:            notas.trim() || undefined,
+          totalEstimado:    effectiveTotal,
+          items,
+          esIndefinida:     indefinido,
+          gestionadaPor,
+        });
+      }
 
       onShowToast('success', 'Renta retroactiva registrada', 'La renta quedó activa con la fecha de inicio indicada.');
       handleCancelar();
@@ -307,6 +357,7 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
               {([
                 { id: 'maquinaria' as const, label: 'Maquinaria liviana' },
                 { id: 'granel'     as const, label: 'A granel'           },
+                { id: 'pesada'     as const, label: 'Maquinaria pesada'  },
               ]).map(t => (
                 <button key={t.id} onClick={() => setEquipoTab(t.id)}
                   className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
@@ -344,15 +395,28 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
               </div>
             )}
 
-            <SolicitudCartTable
-              items={cart.items}
-              onRemove={cart.removeAt}
-              effectiveTotal={effectiveTotal}
-              countMaquinaria={cart.summary.countMaquinaria}
-              countGranel={cart.summary.countGranel}
-              overrides={precioOverride.overrides}
-              onSetOverride={(key, val) => (val === null ? precioOverride.remove(key) : precioOverride.set(key, val))}
-            />
+            {equipoTab === 'pesada' && (
+              <PesadaRetroactivaPickerSection
+                disponibles={equiposPesadaDisponibles}
+                isLoading={isLoadingPesada}
+                indefinido={indefinido}
+                item={pesadaItem}
+                onAdd={setPesadaItem}
+                onQuitar={() => setPesadaItem(null)}
+              />
+            )}
+
+            {equipoTab !== 'pesada' && (
+              <SolicitudCartTable
+                items={cart.items}
+                onRemove={cart.removeAt}
+                effectiveTotal={effectiveTotal}
+                countMaquinaria={cart.summary.countMaquinaria}
+                countGranel={cart.summary.countGranel}
+                overrides={precioOverride.overrides}
+                onSetOverride={(key, val) => (val === null ? precioOverride.remove(key) : precioOverride.set(key, val))}
+              />
+            )}
           </SectionCard>
 
           {/* 4. Condiciones de pago */}
@@ -406,11 +470,16 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
           modalidadPago={modalidadPago}
           esIndefinida={indefinido}
           fechaInicioRenta={fechaInicioRenta}
+          equipoTab={equipoTab}
+          pesadaItem={pesadaItem}
           onLimpiarItems={handleLimpiarItems}
-          canLimpiarItems={cart.items.length > 0 || !!notas}
+          canLimpiarItems={cart.items.length > 0 || !!pesadaItem || !!notas}
           onCancelar={handleCancelar}
           canCancelar={!!clienteSeleccionado}
-          canRegistrar={!!clienteSeleccionado && cart.items.length > 0 && !!fechaInicioRenta && !!gestionadaPor && !isSubmitting}
+          canRegistrar={
+            !!clienteSeleccionado && !!fechaInicioRenta && !!gestionadaPor && !isSubmitting &&
+            (equipoTab === 'pesada' ? !!pesadaItem : cart.items.length > 0)
+          }
           onRegistrar={handleRegistrar}
           isSubmitting={isSubmitting}
         />
@@ -542,6 +611,8 @@ interface RentaResumenProps {
   modalidadPago:    ModalidadPago | null;
   esIndefinida:     boolean;
   fechaInicioRenta: string;
+  equipoTab:        'maquinaria' | 'granel' | 'pesada';
+  pesadaItem:       PesadaItemRetro | null;
   onLimpiarItems:   () => void;
   canLimpiarItems:  boolean;
   onCancelar:       () => void;
@@ -553,9 +624,11 @@ interface RentaResumenProps {
 
 function RentaResumen({
   cliente, items, summary, overrides, modalidadPago, esIndefinida, fechaInicioRenta,
+  equipoTab, pesadaItem,
   onLimpiarItems, canLimpiarItems, onCancelar, canCancelar,
   canRegistrar, onRegistrar, isSubmitting,
 }: RentaResumenProps) {
+  const esPesada = equipoTab === 'pesada';
   const itemKey = (item: ItemSolicitud) =>
     item.kind === 'maquinaria' ? item.equipo.id : item.kind === 'granel' ? `granel-${item.tipo}` : item.equipo.id;
   const itemSubtotal = (item: ItemSolicitud) => {
@@ -603,9 +676,35 @@ function RentaResumen({
         {/* Items */}
         <div className="px-5 py-3 border-b border-slate-100 max-h-60 overflow-y-auto">
           <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">
-            Ítems ({items.length})
+            {esPesada ? 'Equipo asignado' : `Ítems (${items.length})`}
           </div>
-          {items.length === 0 ? (
+          {esPesada ? (
+            pesadaItem ? (
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-slate-700 truncate">
+                    <span className="font-mono text-[10px] text-slate-400">#{pesadaItem.equipo.numeracion} </span>
+                    {pesadaItem.equipo.descripcion}
+                  </p>
+                  {esIndefinida
+                    ? <p className="text-[10px] text-violet-500 font-medium">∞ Tiempo indefinido</p>
+                    : pesadaItem.diasSolicitados != null
+                      ? <p className="text-[10px] text-slate-400">{pesadaItem.diasSolicitados} días acordados</p>
+                      : null}
+                </div>
+                <span className="text-xs font-mono font-semibold text-slate-500 flex-shrink-0 whitespace-nowrap">
+                  {formatQ((pesadaItem.equipo.rentaHora ?? 0) + pesadaItem.extrasSeleccionados.reduce((s, e) => s + e.rentaHora, 0))}/hr
+                </span>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-6 gap-1.5 text-slate-300">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2">
+                  <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                </svg>
+                <p className="text-xs text-center">Sin equipo seleccionado</p>
+              </div>
+            )
+          ) : items.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-6 gap-1.5 text-slate-300">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2">
                 <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
@@ -668,7 +767,12 @@ function RentaResumen({
         {/* Total */}
         <div className="px-5 py-4 bg-slate-50">
           <span className="text-xs text-slate-500 font-medium">Total estimado</span>
-          {esIndefinida ? (
+          {esPesada ? (
+            <div className="mt-1 flex items-center gap-1.5">
+              <span className="text-2xl font-bold text-violet-600">∞</span>
+              <span className="text-xs text-violet-500 font-medium leading-tight">Se calcula por horómetro al devolver</span>
+            </div>
+          ) : esIndefinida ? (
             <div className="mt-1 flex items-center gap-1.5">
               <span className="text-2xl font-bold text-violet-600">∞</span>
               <span className="text-xs text-violet-500 font-medium leading-tight">Se calcula al devolver</span>
@@ -680,10 +784,13 @@ function RentaResumen({
             </div>
           )}
           <div className="text-xs text-slate-400 mt-0.5">
-            {items.length === 0 ? '0 ítems seleccionados' : [
-              summary.countMaquinaria > 0 ? `${summary.countMaquinaria} equipo${summary.countMaquinaria > 1 ? 's' : ''}` : null,
-              summary.countGranel > 0 ? `${summary.countGranel} granel` : null,
-            ].filter(Boolean).join(' · ')}
+            {esPesada
+              ? (pesadaItem ? '1 equipo pesado' : 'Sin equipo seleccionado')
+              : items.length === 0 ? '0 ítems seleccionados' : [
+                  summary.countMaquinaria > 0 ? `${summary.countMaquinaria} equipo${summary.countMaquinaria > 1 ? 's' : ''}` : null,
+                  summary.countGranel > 0 ? `${summary.countGranel} granel` : null,
+                ].filter(Boolean).join(' · ')
+            }
           </div>
         </div>
 

@@ -135,7 +135,7 @@ export default function AdminDashboard() {
             <NuevaRentaLivianaSection onNavTo={navTo} onShowToast={showToast} />
           )}
           {activeSection === 'renta-retroactiva' && (
-            <RentaRetroactivaSection onNavTo={navTo} onShowToast={showToast} />
+            <RentaRetroactivaSection onNavTo={navTo} onShowToast={showToast} vencidasSection="rentas-vencidas" />
           )}
           {activeSection === 'rentas-solicitudes' && (
             <SolicitudesSection />

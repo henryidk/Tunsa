@@ -155,8 +155,9 @@ function PesadaPickerForm({ disponibles, isLoading, indefinido, onAdd }: {
   const handleAdd = () => {
     if (!seleccionado) { setError('Selecciona un equipo.'); return; }
     if (!indefinido && diasSolicitados < 1) { setError('La duración debe ser al menos 1.'); return; }
-    const horNum = horometroInicial.trim() !== '' ? parseFloat(horometroInicial) : undefined;
-    if (horometroInicial.trim() !== '' && (isNaN(horNum!) || horNum! < 0)) {
+    if (horometroInicial.trim() === '') { setError('El horómetro inicial es obligatorio.'); return; }
+    const horNum = parseFloat(horometroInicial);
+    if (isNaN(horNum) || horNum < 0) {
       setError('El horómetro inicial debe ser un número válido.');
       return;
     }
@@ -285,8 +286,7 @@ function PesadaPickerForm({ disponibles, isLoading, indefinido, onAdd }: {
 
         <div className="w-36">
           <label className={labelCls}>
-            Horómetro inicial
-            <span className="ml-1 text-[10px] text-slate-400 font-normal">(opcional)</span>
+            Horómetro inicial <span className="text-red-400">*</span>
           </label>
           <input type="number" min="0" step="0.1" value={horometroInicial}
             onChange={e => { setHorometroInicial(e.target.value); setError(null); }}

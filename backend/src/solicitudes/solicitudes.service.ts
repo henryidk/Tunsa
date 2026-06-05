@@ -281,6 +281,9 @@ export class SolicitudesService {
     if (isNaN(fechaInicio.getTime()) || fechaInicio > new Date())
       throw new BadRequestException('La fecha de inicio debe ser una fecha pasada válida.');
 
+    if (esPesada && dto.items.some(i => i.kind === 'pesada' && i.horometroInicial == null))
+      throw new BadRequestException('El horómetro inicial es obligatorio para rentas retroactivas de maquinaria pesada.');
+
     const equipoIds = dto.items
       .filter((i): i is typeof i & { equipoId: string } =>
         (i.kind === 'maquinaria' || i.kind === 'pesada') && !!i.equipoId,

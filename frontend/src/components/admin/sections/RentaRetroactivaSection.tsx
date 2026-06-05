@@ -359,16 +359,25 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
                 { id: 'maquinaria' as const, label: 'Maquinaria liviana' },
                 { id: 'granel'     as const, label: 'A granel'           },
                 { id: 'pesada'     as const, label: 'Maquinaria pesada'  },
-              ]).map(t => (
-                <button key={t.id} onClick={() => setEquipoTab(t.id)}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    equipoTab === t.id
-                      ? 'bg-white text-indigo-700 shadow-sm'
-                      : 'text-slate-500 hover:text-slate-700'
-                  }`}>
-                  {t.label}
-                </button>
-              ))}
+              ]).map(t => {
+                const bloqueadoPorPesada  = !!pesadaItem && t.id !== 'pesada';
+                const bloqueadoPorLiviana = cart.items.length > 0 && t.id === 'pesada';
+                const bloqueado = bloqueadoPorPesada || bloqueadoPorLiviana;
+                return (
+                  <button key={t.id}
+                    onClick={() => { if (!bloqueado) setEquipoTab(t.id); }}
+                    title={bloqueadoPorPesada ? 'Quita el equipo pesado primero' : bloqueadoPorLiviana ? 'Quita los ítems livianos primero' : undefined}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      equipoTab === t.id
+                        ? 'bg-white text-indigo-700 shadow-sm'
+                        : bloqueado
+                          ? 'text-slate-300 cursor-not-allowed'
+                          : 'text-slate-500 hover:text-slate-700'
+                    }`}>
+                    {t.label}
+                  </button>
+                );
+              })}
             </div>
 
             {equipoTab === 'maquinaria' && (

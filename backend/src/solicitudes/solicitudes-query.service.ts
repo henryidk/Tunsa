@@ -209,12 +209,13 @@ export class SolicitudesQueryService {
   }
 
   async findActivasMias(username: string) {
-    const now = new Date();
+    const startOfToday = new Date();
+    startOfToday.setUTCHours(0, 0, 0, 0);
     const solicitudes = await this.prisma.solicitud.findMany({
       where: {
         AND: [
           this.encargadoFilter(username),
-          { estado: 'ACTIVA', OR: [{ fechaFinEstimada: null }, { fechaFinEstimada: { gte: now } }] },
+          { estado: 'ACTIVA', OR: [{ fechaFinEstimada: null }, { fechaFinEstimada: { gte: startOfToday } }] },
         ],
       },
       include: {
@@ -227,12 +228,13 @@ export class SolicitudesQueryService {
   }
 
   async findVencidasMias(username: string) {
-    const now = new Date();
+    const startOfToday = new Date();
+    startOfToday.setUTCHours(0, 0, 0, 0);
     const solicitudes = await this.prisma.solicitud.findMany({
       where: {
         ...this.encargadoFilter(username),
         estado:           'ACTIVA',
-        fechaFinEstimada: { lt: now },
+        fechaFinEstimada: { lt: startOfToday },
       },
       include: { cliente: true, lecturas: { orderBy: { fecha: 'desc' }, take: 1 } },
       orderBy: { fechaFinEstimada: 'asc' },

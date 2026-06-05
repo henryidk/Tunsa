@@ -18,6 +18,7 @@ export function useActivasVencidasSync(
   useEffect(() => {
     const recienVencidas = solicitudes.filter(s => {
       if (!s.fechaFinEstimada) return false;
+      if (s.esPesada) return false;
       const extensiones   = s.extensiones ?? [];
       const inicio        = s.fechaInicioRenta ? new Date(s.fechaInicioRenta) : new Date();
       const yaDevueltos   = new Set(

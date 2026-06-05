@@ -38,8 +38,9 @@ export default function HorometroRentaCard({ solicitud, lecturas, onVerDetalle, 
       )
     : 0;
 
-  // Para vencidas: el estado de referencia es el último día de trabajo, no hoy
-  const refDate = esVencida ? ultimoDia : hoy;
+  // El estado de referencia es siempre el último día de trabajo (ultimoDia ya está acotado a hoy).
+  // Esto cubre el caso en que la renta vence HOY: ultimoDia = ayer, así no busca lectura del día de devolución.
+  const refDate = ultimoDia;
 
   // Prioriza lecturas frescas del mapa; cae en ultimaLectura solo mientras cargan
   const estadoHoy = (() => {

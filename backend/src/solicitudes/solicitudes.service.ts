@@ -24,6 +24,7 @@ import {
   calcularFechaFinEstimada,
   calcularFechaFinEstimadaConExtensiones,
   calcularRecargoTotalConExtensiones,
+  calcularFinItem,
   calcularFinItemConExtensiones,
   calcularRecargoEspecial,
   calcularRecargoItem,
@@ -295,7 +296,21 @@ export class SolicitudesService {
         );
     }
 
-    const itemsToStore: object[] = dto.items as object[];
+    let itemsToStore: object[] = dto.items as object[];
+
+    if (esPesada && equipoIds.length > 0) {
+      const equipos   = await this.prisma.equipo.findMany({ where: { id: { in: equipoIds } } });
+      const equipoMap = new Map(equipos.map(e => [e.id, e]));
+      itemsToStore = dto.items.map(item => {
+        if (item.kind !== 'pesada' || !item.equipoId) return item as object;
+        const eq           = equipoMap.get(item.equipoId);
+        const rentaBase    = eq?.rentaHora != null ? parseFloat(eq.rentaHora.toString()) : 0;
+        const extras       = (item.extras ?? []) as { tipoExtraId: string; nombre: string; rentaHora: number }[];
+        const tarifaExtras = extras.reduce((s, e) => s + e.rentaHora, 0);
+        const { tarifaEfectiva: _dropped, ...rest } = item as any;
+        return { ...rest, extras, tarifaEfectiva: rentaBase + tarifaExtras };
+      });
+    }
 
     return this.prisma.$transaction(async (tx) => {
       const now     = new Date();
@@ -314,9 +329,13 @@ export class SolicitudesService {
       if (dto.esIndefinida) {
         fechaFinEstimada = null;
       } else if (esPesada) {
-        const pesadaItems = items as unknown as Array<{ diasSolicitados?: number }>;
-        const maxDias     = Math.max(...pesadaItems.map(i => i.diasSolicitados ?? 1), 1);
-        fechaFinEstimada  = new Date(fechaInicio.getTime() + maxDias * 86_400_000);
+        const pesadaItems = items as unknown as Array<{ diasSolicitados?: number; unidad?: string }>;
+        const fins = pesadaItems
+          .filter(i => i.diasSolicitados != null)
+          .map(i => calcularFinItem(fechaInicio, i.diasSolicitados!, i.unidad ?? 'dias').getTime());
+        fechaFinEstimada = fins.length > 0
+          ? new Date(Math.max(...fins))
+          : new Date(fechaInicio.getTime() + 86_400_000);
       } else {
         fechaFinEstimada = calcularFechaFinEstimada(fechaInicio, items);
       }

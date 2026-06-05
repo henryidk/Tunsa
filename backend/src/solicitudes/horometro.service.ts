@@ -34,7 +34,7 @@ export class HorometroService {
       throw new BadRequestException('Esta solicitud no es de maquinaria pesada.');
     if (solicitud.estado !== 'ACTIVA')
       throw new ConflictException('Solo se pueden registrar lecturas en rentas activas.');
-    if (!tieneAccesoGlobal(user) && solicitud.creadaPor !== user.username)
+    if (!tieneAccesoGlobal(user) && solicitud.creadaPor !== user.username && solicitud.gestionadaPor !== user.username)
       throw new ForbiddenException('No tienes permiso para registrar lecturas en esta solicitud.');
 
     const items = solicitud.items as unknown as ItemPesadaSnapshot[];
@@ -186,7 +186,7 @@ export class HorometroService {
       throw new NotFoundException('Solicitud no encontrada.');
     if (!solicitud.esPesada)
       throw new BadRequestException('Esta solicitud no es de maquinaria pesada.');
-    if (!tieneAccesoGlobal(user) && solicitud.creadaPor !== user.username)
+    if (!tieneAccesoGlobal(user) && solicitud.creadaPor !== user.username && solicitud.gestionadaPor !== user.username)
       throw new ForbiddenException('No tienes acceso a esta solicitud.');
 
     const lecturas = await this.prisma.lecturaHorometro.findMany({
@@ -210,8 +210,8 @@ export class HorometroService {
       throw new NotFoundException('Solicitud no encontrada.');
     if (!solicitud.esPesada)
       throw new BadRequestException('Esta solicitud no es de maquinaria pesada.');
-    if (!tieneAccesoGlobal(user) && solicitud.creadaPor !== user.username)
-      throw new ForbiddenException('Solo el encargado que creó la solicitud puede registrar la devolución.');
+    if (!tieneAccesoGlobal(user) && solicitud.creadaPor !== user.username && solicitud.gestionadaPor !== user.username)
+      throw new ForbiddenException('Solo el encargado asignado puede registrar la devolución.');
     if (solicitud.estado !== 'ACTIVA')
       throw new ConflictException('Solo se puede registrar la devolución de rentas activas.');
 
@@ -425,8 +425,8 @@ export class HorometroService {
         const anio = fechaDevolucion.getFullYear();
         const mes  = fechaDevolucion.getMonth() + 1;
         await tx.recaudacionMensual.upsert({
-          where:  { encargado_anio_mes: { encargado: solicitud.creadaPor, anio, mes } },
-          create: { encargado: solicitud.creadaPor, anio, mes, pesada: totalFinalPesada },
+          where:  { encargado_anio_mes: { encargado: solicitud.gestionadaPor ?? solicitud.creadaPor, anio, mes } },
+          create: { encargado: solicitud.gestionadaPor ?? solicitud.creadaPor, anio, mes, pesada: totalFinalPesada },
           update: { pesada: { increment: totalFinalPesada } },
         });
       }

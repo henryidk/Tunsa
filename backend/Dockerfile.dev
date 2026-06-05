@@ -1,0 +1,12 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+RUN apk add --no-cache postgresql-client
+
+COPY package*.json ./
+RUN npm ci
+
+EXPOSE 4000
+
+CMD ["sh", "-c", "npx prisma generate && until npx prisma migrate deploy 2>/dev/null; do echo 'Esperando DB...'; sleep 3; done && npm run start:dev"]

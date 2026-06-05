@@ -30,6 +30,9 @@ documentacionF/
 .DS_Store
 Thumbs.db
 
+# Overrides locales de Docker — no subir al VPS
+docker-compose.override.yml
+
 # IDE
 .vscode/
 .idea/

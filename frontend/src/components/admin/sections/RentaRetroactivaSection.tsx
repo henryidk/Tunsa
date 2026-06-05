@@ -160,7 +160,7 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
       const fechaISO = new Date(fechaInicioRenta).toISOString();
 
       if (equipoTab === 'pesada' && pesadaItem) {
-        const { equipo, extrasSeleccionados, diasSolicitados, horometroInicial } = pesadaItem;
+        const { equipo, extrasSeleccionados, diasSolicitados, unidad, horometroInicial } = pesadaItem;
         await solicitudesService.crearRentaRetroactiva({
           clienteId:        clienteSeleccionado.id,
           fechaInicioRenta: fechaISO,
@@ -177,6 +177,7 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
             fechaInicio:      fechaISO,
             extras:           extrasSeleccionados,
             diasSolicitados:  indefinido ? undefined : diasSolicitados,
+            unidad:           indefinido ? undefined : unidad,
             horometroInicial: horometroInicial,
             subtotal:         0,
           } as any],

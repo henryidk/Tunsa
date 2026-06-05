@@ -486,9 +486,13 @@ export class SolicitudesService {
     if (solicitud.esIndefinida) {
       fechaFinEstimada = null;
     } else if (solicitud.esPesada) {
-      const pesadaItems = items as unknown as Array<{ diasSolicitados?: number }>;
-      const maxDias = Math.max(...pesadaItems.map(i => i.diasSolicitados ?? 1), 1);
-      fechaFinEstimada = new Date(fechaInicio.getTime() + maxDias * 86_400_000);
+      const pesadaItems = items as unknown as Array<{ diasSolicitados?: number; unidad?: string }>;
+      const fins = pesadaItems
+        .filter(i => i.diasSolicitados != null)
+        .map(i => calcularFinItem(fechaInicio, i.diasSolicitados!, i.unidad ?? 'dias').getTime());
+      fechaFinEstimada = fins.length > 0
+        ? new Date(Math.max(...fins))
+        : new Date(fechaInicio.getTime() + 86_400_000);
     } else {
       fechaFinEstimada = calcularFechaFinEstimada(fechaInicio, items);
     }

@@ -848,7 +848,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
         <div className="space-y-4">
           {solicitudesFiltradas.map(s => {
             const seccionDestino = (() => {
-              const esVencida = !!s.fechaFinEstimada && s.fechaFinEstimada.substring(0, 10) < hoy;
+              const esVencida = !!s.fechaFinEstimada && new Date(s.fechaFinEstimada) < new Date();
               if (!esVencida) return 'rentas-activas';
               return modoEncargado ? 'vencidas' : 'rentas-vencidas';
             })();

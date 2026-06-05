@@ -129,10 +129,6 @@ export class SolicitudesService {
       );
     }
 
-    if (dto.esIndefinida && esPesada) {
-      throw new BadRequestException('Las rentas de maquinaria pesada no pueden ser indefinidas.');
-    }
-
     const equipoIds = dto.items
       .filter((i): i is typeof i & { equipoId: string } =>
         (i.kind === 'maquinaria' || i.kind === 'pesada') && !!i.equipoId,
@@ -197,10 +193,6 @@ export class SolicitudesService {
       throw new BadRequestException(
         'Una solicitud no puede mezclar ítems de maquinaria pesada con maquinaria liviana o granel.',
       );
-    }
-
-    if (dto.esIndefinida && esPesada) {
-      throw new BadRequestException('Las rentas de maquinaria pesada no pueden ser indefinidas.');
     }
 
     const equipoIds = dto.items
@@ -283,9 +275,6 @@ export class SolicitudesService {
       throw new BadRequestException(
         'Una solicitud no puede mezclar ítems de maquinaria pesada con maquinaria liviana o granel.',
       );
-
-    if (dto.esIndefinida && esPesada)
-      throw new BadRequestException('Las rentas de maquinaria pesada no pueden ser indefinidas.');
 
     const fechaInicio = new Date(dto.fechaInicioRenta);
     if (isNaN(fechaInicio.getTime()) || fechaInicio > new Date())
@@ -585,6 +574,9 @@ export class SolicitudesService {
       throw new ConflictException('Solo se pueden ampliar rentas activas.');
     if (!solicitud.fechaInicioRenta)
       throw new ConflictException('La solicitud no tiene fecha de inicio registrada.');
+
+    if (solicitud.esIndefinida && solicitud.esPesada)
+      throw new BadRequestException('Las rentas pesadas indefinidas no tienen fecha de vencimiento que ampliar.');
 
     const fechaInicio         = solicitud.fechaInicioRenta;
     const snapshotItems       = solicitud.items as unknown as ItemParaCalculo[];

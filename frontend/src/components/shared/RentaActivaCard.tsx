@@ -304,8 +304,9 @@ function PesadaRow({ item, inicio, extensiones, ahora }: {
   extensiones: ExtensionEntry[];
   ahora:       number;
 }) {
-  const fin = calcularFinConExtensiones(inicio, item, extensiones);
-  const ms  = msRestantes(inicio, item, extensiones, ahora);
+  const esIndefinida = item.diasSolicitados == null;
+  const fin = esIndefinida ? null : calcularFinConExtensiones(inicio, item, extensiones);
+  const ms  = esIndefinida ? null : msRestantes(inicio, item, extensiones, ahora);
   return (
     <div className="flex items-start justify-between gap-2">
       <p className="text-xs font-medium text-slate-700 leading-tight">
@@ -314,10 +315,16 @@ function PesadaRow({ item, inicio, extensiones, ahora }: {
         {item.extras.length > 0 && <span className="text-orange-600 ml-1">({item.extras.map(e => `+${e.nombre}`).join(', ')})</span>}
       </p>
       <div className="flex-shrink-0 flex flex-col items-end gap-0.5">
-        <span className="text-xs text-slate-400 whitespace-nowrap">
-          Vence {formatFechaHora(fin.toISOString())}
-        </span>
-        <VenceLabel ms={ms} fechaInicio={inicio} ahora={ahora} />
+        {esIndefinida ? (
+          <span className="text-xs font-bold text-violet-500">∞ Sin fecha límite</span>
+        ) : (
+          <>
+            <span className="text-xs text-slate-400 whitespace-nowrap">
+              Vence {formatFechaHora(fin!.toISOString())}
+            </span>
+            <VenceLabel ms={ms!} fechaInicio={inicio} ahora={ahora} />
+          </>
+        )}
       </div>
     </div>
   );

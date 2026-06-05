@@ -42,7 +42,7 @@ export interface ItemPesadaSnapshot {
   descripcion:     string;
   extras:          ExtraSeleccionadoSnapshot[];
   tarifaEfectiva:  number;  // rentaHora base + suma de extras seleccionados
-  diasSolicitados: number;
+  diasSolicitados?: number;
   duracion:        number;
   unidad:          string;
   subtotal:        number;

@@ -19,8 +19,8 @@ interface Props {
 interface PesadaItem {
   equipo:              Equipo;
   extrasSeleccionados: ExtraSeleccionado[];
-  duracion:            number;
-  unidad:              UnidadDuracion;
+  duracion?:           number;
+  unidad?:             UnidadDuracion;
   fechaInicio:         string;
 }
 
@@ -39,8 +39,8 @@ function today(): string {
 }
 
 function calcTarifa(equipo: Equipo, extras: ExtraSeleccionado[]): number {
-  const base       = equipo.rentaHora ?? 0;
-  const extrasSum  = extras.reduce((s, e) => s + e.rentaHora, 0);
+  const base      = equipo.rentaHora ?? 0;
+  const extrasSum = extras.reduce((s, e) => s + e.rentaHora, 0);
   return base + extrasSum;
 }
 
@@ -56,6 +56,7 @@ export default function NuevaSolicitudPesadaSection({ onShowToast = () => {} }: 
   const [clienteKey,   setClienteKey]   = useState(0);
   const [notas,        setNotas]        = useState('');
   const [items,        setItems]        = useState<PesadaItem[]>([]);
+  const [indefinido,   setIndefinido]   = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [showNoNotasModal, setShowNoNotasModal] = useState(false);
@@ -83,11 +84,21 @@ export default function NuevaSolicitudPesadaSection({ onShowToast = () => {} }: 
     [allEquipos, reservedIds, items],
   );
 
+  const handleClienteSelect = (c: Cliente | null) => {
+    if (c?.id !== cliente?.id) {
+      setIndefinido(false);
+      setItems([]);
+    }
+    setCliente(c);
+  };
+
+  const handleToggleIndefinido = (val: boolean) => {
+    setIndefinido(val);
+    setItems([]);
+  };
+
   const removeEquipo = (equipoId: string) =>
     setItems(prev => prev.filter(it => it.equipo.id !== equipoId));
-
-  const updateItem = (equipoId: string, changes: Partial<Omit<PesadaItem, 'equipo'>>) =>
-    setItems(prev => prev.map(it => it.equipo.id === equipoId ? { ...it, ...changes } : it));
 
   const handleEnviar = () => {
     if (!notas.trim()) { setShowNoNotasModal(true); return; }
@@ -100,7 +111,18 @@ export default function NuevaSolicitudPesadaSection({ onShowToast = () => {} }: 
     setIsSubmitting(true);
     try {
       const snapItems = items.map(it => {
-        const dias = diasDesdeDuracion(it.fechaInicio, it.duracion, it.unidad);
+        if (indefinido) {
+          return {
+            kind:        'pesada' as const,
+            equipoId:    it.equipo.id,
+            numeracion:  it.equipo.numeracion,
+            descripcion: it.equipo.descripcion,
+            extras:      it.extrasSeleccionados,
+            fechaInicio: it.fechaInicio,
+            subtotal:    0,
+          };
+        }
+        const dias = diasDesdeDuracion(it.fechaInicio, it.duracion!, it.unidad!);
         return {
           kind:            'pesada' as const,
           equipoId:        it.equipo.id,
@@ -110,16 +132,17 @@ export default function NuevaSolicitudPesadaSection({ onShowToast = () => {} }: 
           diasSolicitados: dias,
           fechaInicio:     it.fechaInicio,
           duracion:        dias,
-          unidad:          'dias',
+          unidad:          'dias' as const,
           subtotal:        0,
         };
       });
 
       const nueva = await solicitudesService.create({
-        clienteId: cliente.id,
-        modalidad: 'CONTADO',
-        notas:     notas.trim(),
-        items:     snapItems as any,
+        clienteId:   cliente.id,
+        modalidad:   'CONTADO',
+        notas:       notas.trim(),
+        esIndefinida: indefinido || undefined,
+        items:       snapItems as any,
       });
 
       addPendiente(nueva);
@@ -128,6 +151,7 @@ export default function NuevaSolicitudPesadaSection({ onShowToast = () => {} }: 
       setClienteKey(k => k + 1);
       setNotas('');
       setItems([]);
+      setIndefinido(false);
       const reservados = await solicitudesService.getEquiposReservados();
       setReservedIds(reservados);
     } catch (err: any) {
@@ -160,24 +184,45 @@ export default function NuevaSolicitudPesadaSection({ onShowToast = () => {} }: 
         <div className="flex-1 min-w-0 space-y-5">
 
           <SectionCard icon={<UserIcon />} title="Cliente de la Solicitud" subtitle={cliente ? 'Cliente seleccionado' : 'Busca un cliente registrado'}>
-            <ClienteSearchWidget key={clienteKey} onSelect={setCliente} />
+            <ClienteSearchWidget key={clienteKey} onSelect={handleClienteSelect} />
+            {cliente?.esEspecial && (
+              <div className="mt-3 flex items-center justify-between px-3 py-2.5 bg-violet-50 border border-violet-200 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <span className="text-base font-bold text-violet-500 leading-none">∞</span>
+                  <div>
+                    <p className="text-xs font-semibold text-violet-700">Renta indefinida</p>
+                    <p className="text-[11px] text-slate-600 leading-snug">Sin fecha de vencimiento — facturación por horómetro al devolver</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleToggleIndefinido(!indefinido)}
+                  className={`relative inline-flex w-10 h-5 rounded-full transition-colors flex-shrink-0 focus:outline-none ${indefinido ? 'bg-violet-600' : 'bg-slate-300'}`}
+                  aria-label="Activar renta indefinida"
+                >
+                  <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${indefinido ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
+            )}
           </SectionCard>
 
           <SectionCard
             icon={<CraneIcon />}
             title="Maquinaria Pesada"
-            subtitle="Un equipo por solicitud · Facturación por horómetro"
+            subtitle={indefinido ? 'Sin fecha de vencimiento · Facturación por horómetro' : 'Un equipo por solicitud · Facturación por horómetro'}
             locked={!cliente}
           >
             {items.length === 0 ? (
               <PesadaPickerForm
                 disponibles={pesadaDisponibles}
                 isLoading={isLoadingEqs}
+                indefinido={indefinido}
                 onAdd={item => setItems([item])}
               />
             ) : (
               <EquipoAgregado
                 item={items[0]}
+                indefinido={indefinido}
                 onQuitar={() => removeEquipo(items[0].equipo.id)}
               />
             )}
@@ -199,12 +244,13 @@ export default function NuevaSolicitudPesadaSection({ onShowToast = () => {} }: 
         <PesadaResumen
           cliente={cliente}
           items={items}
+          indefinido={indefinido}
           canEnviar={!!cliente && items.length > 0 && !isSubmitting}
           isSubmitting={isSubmitting}
           onEnviar={handleEnviar}
           onCancelar={() => {
             setCliente(null); setClienteKey(k => k + 1);
-            setNotas(''); setItems([]);
+            setNotas(''); setItems([]); setIndefinido(false);
           }}
           canCancelar={!!cliente}
         />
@@ -218,97 +264,9 @@ export default function NuevaSolicitudPesadaSection({ onShowToast = () => {} }: 
   );
 }
 
-// ── ItemRow ───────────────────────────────────────────────────────────────────
-
-interface ItemRowProps {
-  item:     PesadaItem;
-  onChange: (c: Partial<Omit<PesadaItem, 'equipo'>>) => void;
-  onRemove: () => void;
-}
-
-function ItemRow({ item, onChange, onRemove }: ItemRowProps) {
-  const tarifa = calcTarifa(item.equipo, item.extrasSeleccionados);
-
-  const toggleExtra = (extra: { tipoExtraId: string; nombre: string; rentaHora: number }) => {
-    const existe = item.extrasSeleccionados.some(e => e.tipoExtraId === extra.tipoExtraId);
-    const nuevos = existe
-      ? item.extrasSeleccionados.filter(e => e.tipoExtraId !== extra.tipoExtraId)
-      : [...item.extrasSeleccionados, extra];
-    onChange({ extrasSeleccionados: nuevos });
-  };
-
-  return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-mono font-bold text-slate-500 bg-white px-1.5 py-0.5 rounded border border-slate-200">
-            #{item.equipo.numeracion}
-          </span>
-          <span className="text-xs font-semibold text-slate-800">{item.equipo.descripcion}</span>
-        </div>
-        <button onClick={onRemove} className="p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
-      </div>
-
-      <div className="grid grid-cols-3 gap-3">
-        <div>
-          <label className="text-[11px] font-medium text-slate-500 block mb-1">Fecha inicio</label>
-          <input type="date" value={item.fechaInicio}
-            onChange={e => onChange({ fechaInicio: e.target.value })}
-            className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" />
-        </div>
-        <div>
-          <label className="text-[11px] font-medium text-slate-500 block mb-1">Duración</label>
-          <input type="number" min="1" value={item.duracion}
-            onChange={e => onChange({ duracion: Math.max(1, parseInt(e.target.value) || 1) })}
-            className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 font-mono" />
-        </div>
-        <div>
-          <label className="text-[11px] font-medium text-slate-500 block mb-1">Unidad</label>
-          <select value={item.unidad}
-            onChange={e => onChange({ unidad: e.target.value as UnidadDuracion })}
-            className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100">
-            <option value="dias">días</option>
-            <option value="semanas">semanas</option>
-            <option value="meses">meses</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Extras disponibles del equipo */}
-      {item.equipo.extras.length > 0 && (
-        <div className="mt-3 space-y-1.5">
-          <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Complementos</p>
-          {item.equipo.extras.map(ex => {
-            const activo = item.extrasSeleccionados.some(e => e.tipoExtraId === ex.tipoExtraId);
-            return (
-              <label key={ex.tipoExtraId} className="flex items-center gap-2 cursor-pointer select-none">
-                <input type="checkbox" checked={activo}
-                  onChange={() => toggleExtra({ tipoExtraId: ex.tipoExtraId, nombre: ex.nombre, rentaHora: ex.rentaHora })}
-                  className="w-3.5 h-3.5 accent-orange-500" />
-                <span className="text-xs font-medium text-slate-700">{ex.nombre}</span>
-                <span className="text-[10px] text-orange-600">+{formatQ(ex.rentaHora)}/hr</span>
-              </label>
-            );
-          })}
-        </div>
-      )}
-
-      <div className="mt-2 flex items-center justify-end">
-        <span className="text-[11px] text-slate-500">
-          Tarifa efectiva: <span className="font-bold text-amber-700">{formatQ(tarifa)}/hr</span>
-        </span>
-      </div>
-    </div>
-  );
-}
-
 // ── EquipoAgregado ────────────────────────────────────────────────────────────
 
-function EquipoAgregado({ item, onQuitar }: { item: PesadaItem; onQuitar: () => void }) {
+function EquipoAgregado({ item, indefinido, onQuitar }: { item: PesadaItem; indefinido: boolean; onQuitar: () => void }) {
   const tarifa = calcTarifa(item.equipo, item.extrasSeleccionados);
   return (
     <div className="border border-slate-200 rounded-xl overflow-hidden">
@@ -336,7 +294,11 @@ function EquipoAgregado({ item, onQuitar }: { item: PesadaItem; onQuitar: () => 
               )}
             </td>
             <td className="px-3 py-3 text-slate-600 whitespace-nowrap">{item.fechaInicio}</td>
-            <td className="px-3 py-3 text-slate-600 whitespace-nowrap">{unidadLabel(item.duracion, item.unidad)}</td>
+            <td className="px-3 py-3 whitespace-nowrap">
+              {indefinido
+                ? <span className="font-bold text-violet-600">∞</span>
+                : <span className="text-slate-600">{unidadLabel(item.duracion!, item.unidad!)}</span>}
+            </td>
             <td className="px-3 py-3 font-mono font-semibold text-slate-700 whitespace-nowrap">{formatQ(tarifa)}/hr</td>
             <td className="px-3 py-3 text-right">
               <button onClick={onQuitar} className="text-slate-300 hover:text-red-400 transition-colors">
@@ -361,6 +323,7 @@ function EquipoAgregado({ item, onQuitar }: { item: PesadaItem; onQuitar: () => 
 interface PesadaResumenProps {
   cliente:      Cliente | null;
   items:        PesadaItem[];
+  indefinido:   boolean;
   canEnviar:    boolean;
   isSubmitting: boolean;
   onEnviar:     () => void;
@@ -368,7 +331,7 @@ interface PesadaResumenProps {
   canCancelar:  boolean;
 }
 
-function PesadaResumen({ cliente, items, canEnviar, isSubmitting, onEnviar, onCancelar, canCancelar }: PesadaResumenProps) {
+function PesadaResumen({ cliente, items, indefinido, canEnviar, isSubmitting, onEnviar, onCancelar, canCancelar }: PesadaResumenProps) {
   const [confirmando, setConfirmando] = useState(false);
   return (
     <div className="w-72 flex-shrink-0 sticky top-20 self-start">
@@ -417,8 +380,9 @@ function PesadaResumen({ cliente, items, canEnviar, isSubmitting, onEnviar, onCa
                     {it.equipo.descripcion}
                   </p>
                   <p className="text-[10px] text-slate-400">
-                    {unidadLabel(it.duracion, it.unidad)}
-                    {it.extrasSeleccionados.map(e => ` · ${e.nombre}`)}
+                    {indefinido
+                      ? <span className="text-violet-500 font-medium">∞ Tiempo indefinido</span>
+                      : <>{unidadLabel(it.duracion!, it.unidad!)}{it.extrasSeleccionados.map(e => ` · ${e.nombre}`)}</>}
                   </p>
                 </div>
                 <span className="text-xs font-mono font-semibold text-amber-700 flex-shrink-0 whitespace-nowrap">
@@ -431,7 +395,14 @@ function PesadaResumen({ cliente, items, canEnviar, isSubmitting, onEnviar, onCa
 
         <div className="px-5 py-4 bg-slate-50">
           <span className="text-xs text-slate-500 font-medium">Total estimado</span>
-          <p className="text-xl font-bold text-slate-800 mt-0.5">Por horómetro</p>
+          {indefinido ? (
+            <div className="mt-1 flex items-center gap-1.5">
+              <span className="text-2xl font-bold text-violet-600">∞</span>
+              <span className="text-xs text-violet-500 font-medium leading-tight">Se calcula por horómetro al devolver</span>
+            </div>
+          ) : (
+            <p className="text-xl font-bold text-slate-800 mt-0.5">Por horómetro</p>
+          )}
           <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
             El costo real se calcula con las lecturas diarias del horómetro.
           </p>
@@ -472,18 +443,19 @@ function PesadaResumen({ cliente, items, canEnviar, isSubmitting, onEnviar, onCa
 interface PesadaPickerFormProps {
   disponibles: Equipo[];
   isLoading:   boolean;
+  indefinido:  boolean;
   onAdd:       (item: PesadaItem) => void;
 }
 
-function PesadaPickerForm({ disponibles, isLoading, onAdd }: PesadaPickerFormProps) {
-  const [busqueda,             setBusqueda]             = useState('');
-  const [seleccionado,         setSeleccionado]         = useState<Equipo | null>(null);
-  const [extrasSeleccionados,  setExtrasSeleccionados]  = useState<ExtraSeleccionado[]>([]);
-  const [dropdown,             setDropdown]             = useState(false);
-  const [fechaInicio,          setFechaInicio]          = useState(today());
-  const [duracion,             setDuracion]             = useState(1);
-  const [unidad,               setUnidad]               = useState<UnidadDuracion>('dias');
-  const [error,                setError]                = useState<string | null>(null);
+function PesadaPickerForm({ disponibles, isLoading, indefinido, onAdd }: PesadaPickerFormProps) {
+  const [busqueda,            setBusqueda]            = useState('');
+  const [seleccionado,        setSeleccionado]        = useState<Equipo | null>(null);
+  const [extrasSeleccionados, setExtrasSeleccionados] = useState<ExtraSeleccionado[]>([]);
+  const [dropdown,            setDropdown]            = useState(false);
+  const [fechaInicio,         setFechaInicio]         = useState(today());
+  const [duracion,            setDuracion]            = useState(1);
+  const [unidad,              setUnidad]              = useState<UnidadDuracion>('dias');
+  const [error,               setError]               = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -503,9 +475,7 @@ function PesadaPickerForm({ disponibles, isLoading, onAdd }: PesadaPickerFormPro
       .slice(0, 8);
   }, [disponibles, busqueda]);
 
-  const tarifaPreview = seleccionado
-    ? calcTarifa(seleccionado, extrasSeleccionados)
-    : 0;
+  const tarifaPreview = seleccionado ? calcTarifa(seleccionado, extrasSeleccionados) : 0;
 
   const handleSelect = (e: Equipo) => {
     setSeleccionado(e);
@@ -524,8 +494,14 @@ function PesadaPickerForm({ disponibles, isLoading, onAdd }: PesadaPickerFormPro
 
   const handleAdd = () => {
     if (!seleccionado) { setError('Selecciona un equipo.'); return; }
-    if (duracion < 1) { setError('La duración debe ser al menos 1.'); return; }
-    onAdd({ equipo: seleccionado, extrasSeleccionados, duracion, unidad, fechaInicio });
+    if (!indefinido && duracion < 1) { setError('La duración debe ser al menos 1.'); return; }
+    onAdd({
+      equipo:              seleccionado,
+      extrasSeleccionados,
+      duracion:            indefinido ? undefined : duracion,
+      unidad:              indefinido ? undefined : unidad,
+      fechaInicio,
+    });
     setSeleccionado(null);
     setExtrasSeleccionados([]);
     setBusqueda('');
@@ -626,30 +602,34 @@ function PesadaPickerForm({ disponibles, isLoading, onAdd }: PesadaPickerFormPro
         </div>
       )}
 
-      {/* Fecha, duración y unidad */}
+      {/* Fecha inicio + duración (duración oculta en modo indefinido) */}
       <div className="flex flex-wrap gap-3 items-end">
         <div>
           <label className="block text-xs font-semibold text-slate-600 mb-1.5">Fecha inicio</label>
           <input type="date" value={fechaInicio} onChange={e => setFechaInicio(e.target.value)}
             className="px-2.5 py-2.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" />
         </div>
-        <div className="w-20">
-          <label className="block text-xs font-semibold text-slate-600 mb-1.5">
-            Duración <span className="text-red-400">*</span>
-          </label>
-          <input type="number" min="1" value={duracion}
-            onChange={e => { setDuracion(Math.max(1, parseInt(e.target.value) || 1)); setError(null); }}
-            className="w-full px-2.5 py-2.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 font-mono" />
-        </div>
-        <div className="w-28">
-          <label className="block text-xs font-semibold text-slate-600 mb-1.5">Unidad</label>
-          <select value={unidad} onChange={e => { setUnidad(e.target.value as UnidadDuracion); setError(null); }}
-            className="w-full px-2.5 py-2.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100">
-            <option value="dias">días</option>
-            <option value="semanas">semanas</option>
-            <option value="meses">meses</option>
-          </select>
-        </div>
+        {!indefinido && (
+          <>
+            <div className="w-20">
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+                Duración <span className="text-red-400">*</span>
+              </label>
+              <input type="number" min="1" value={duracion}
+                onChange={e => { setDuracion(Math.max(1, parseInt(e.target.value) || 1)); setError(null); }}
+                className="w-full px-2.5 py-2.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 font-mono" />
+            </div>
+            <div className="w-28">
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Unidad</label>
+              <select value={unidad} onChange={e => { setUnidad(e.target.value as UnidadDuracion); setError(null); }}
+                className="w-full px-2.5 py-2.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100">
+                <option value="dias">días</option>
+                <option value="semanas">semanas</option>
+                <option value="meses">meses</option>
+              </select>
+            </div>
+          </>
+        )}
         <button onClick={handleAdd} disabled={!seleccionado}
           className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -662,6 +642,7 @@ function PesadaPickerForm({ disponibles, isLoading, onAdd }: PesadaPickerFormPro
       {seleccionado && (
         <p className="mt-2 text-[11px] text-slate-500">
           Tarifa efectiva: <span className="font-bold text-slate-700 font-mono">{formatQ(tarifaPreview)}/hr</span>
+          {indefinido && <span className="ml-2 text-violet-500 font-medium">· Sin fecha límite</span>}
         </p>
       )}
 

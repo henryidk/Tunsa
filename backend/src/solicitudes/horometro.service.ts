@@ -409,7 +409,7 @@ export class HorometroService {
         const refsDevueltosAhora = new Set([...yaDevueltosRefs, ...devolucionItems.map(i => i.itemRef)]);
         const itemsRestantes     = snapshotItems.filter(i => !refsDevueltosAhora.has(i.equipoId));
         if (itemsRestantes.length > 0 && solicitud.fechaInicioRenta) {
-          const maxDias       = Math.max(...itemsRestantes.map(i => i.diasSolicitados));
+          const maxDias       = Math.max(...itemsRestantes.map(i => i.diasSolicitados ?? 1), 1);
           const nuevaFechaFin = new Date(solicitud.fechaInicioRenta.getTime() + maxDias * 86_400_000);
           updateData.fechaFinEstimada = nuevaFechaFin;
         }

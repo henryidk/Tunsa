@@ -699,7 +699,11 @@ export class SolicitudesService {
 
     const fechaDevolucion    = new Date();
     const fechaInicio        = solicitud.fechaInicioRenta;
-    const snapshotItems      = solicitud.items as unknown as ItemParaCalculo[];
+    const snapshotItems      = (solicitud.items as unknown as any[]).map(i => ({
+      ...i,
+      duracion: i.duracion ?? i.diasSolicitados ?? 0,
+      unidad:   i.unidad ?? 'dias',
+    })) as ItemParaCalculo[];
     const extensiones        = (solicitud.extensiones ?? []) as unknown as ExtensionEntry[];
     const devolucionesViejas = (solicitud.devolucionesParciales ?? []) as unknown as DevolucionEntry[];
 
@@ -780,7 +784,11 @@ export class SolicitudesService {
 
     const fechaDevolucion    = new Date();
     const fechaInicio        = solicitud.fechaInicioRenta;
-    const snapshotItems      = solicitud.items as unknown as ItemParaCalculo[];
+    const snapshotItems      = (solicitud.items as unknown as any[]).map(i => ({
+      ...i,
+      duracion: i.duracion ?? i.diasSolicitados ?? 0,
+      unidad:   i.unidad ?? 'dias',
+    })) as ItemParaCalculo[];
     const extensiones        = (solicitud.extensiones        ?? []) as unknown as ExtensionEntry[];
     const devolucionesViejas = (solicitud.devolucionesParciales ?? []) as unknown as DevolucionEntry[];
 

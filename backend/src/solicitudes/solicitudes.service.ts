@@ -606,7 +606,11 @@ export class SolicitudesService {
       throw new BadRequestException('Las rentas pesadas indefinidas no tienen fecha de vencimiento que ampliar.');
 
     const fechaInicio         = solicitud.fechaInicioRenta;
-    const snapshotItems       = solicitud.items as unknown as ItemParaCalculo[];
+    const snapshotItems       = (solicitud.items as unknown as any[]).map(i => ({
+      ...i,
+      duracion: i.duracion ?? i.diasSolicitados ?? 0,
+      unidad:   i.unidad ?? 'dias',
+    })) as ItemParaCalculo[];
     const extensionesActuales = (solicitud.extensiones ?? []) as unknown as ExtensionEntry[];
     const tipoNuevaExt: 'gracia' | 'ampliacion' = dto.esGracia ? 'gracia' : 'ampliacion';
 

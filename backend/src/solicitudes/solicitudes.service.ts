@@ -111,7 +111,13 @@ export class SolicitudesService {
     let diasCobrados = 1;
     let desglose: { meses: number; semanas: number; dias: number } | undefined;
     if (precios) {
-      const fechaParaCosto = fechaDevolucion <= finEfectivo ? fechaDevolucion : finEfectivo;
+      // costoReal se capea siempre en finSinGracia (fin + extensiones pagadas, sin horas de gracia).
+      // Las horas de gracia extienden finEfectivo para diferir el recargo, pero no deben inflar
+      // diasCobrados: calcularDevolucionItem redondearía el exceso de horas al día siguiente.
+      // recargoTiempo ya usa finEfectivo como referencia, así que la gracia queda correctamente cubierta.
+      const extsItemPagadas = extsItem.filter(e => e.tipo === 'ampliacion');
+      const finSinGracia    = calcularFinItemConExtensiones(fechaInicio, item, extsItemPagadas);
+      const fechaParaCosto  = fechaDevolucion <= finSinGracia ? fechaDevolucion : finSinGracia;
       ({ costoReal, diasCobrados, desglose } = calcularDevolucionItem(
         fechaInicio, fechaParaCosto, precios, item.cantidad ?? 1,
       ));

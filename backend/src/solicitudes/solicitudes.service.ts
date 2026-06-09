@@ -374,6 +374,16 @@ export class SolicitudesService {
 
       await this.crearRegistrosSeguimiento(tx, solicitud, fechaInicio);
 
+      for (const item of items) {
+        if (item.kind === 'granel') {
+          await this.granelService.moverStock(
+            (item as any).tipo,
+            (item as any).cantidad,
+            tx,
+          );
+        }
+      }
+
       const nombres = await this.resolverNombresActores(solicitud.creadaPor, solicitud.aprobadaPor, solicitud.gestionadaPor);
       return serializeSolicitud(solicitud, nombres);
     });

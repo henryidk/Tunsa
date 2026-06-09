@@ -36,6 +36,7 @@ export class ItemSolicitudDto {
   @IsOptional() @IsNumber() @Min(1) duracion?: number;
   @IsOptional() @IsIn(['dias', 'semanas', 'meses']) unidad?: string;
   @IsOptional() @IsNumber() tarifa?: number | null;
+  @IsOptional() @IsNumber() tarifaFijada?: number | null;
   @IsNumber() @Min(0) subtotal: number;
 
   @IsOptional() desglose?: { meses: number; semanas: number; dias: number };

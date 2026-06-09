@@ -368,6 +368,37 @@ export function calcularDiasCalendario(fechaInicio: Date, fechaDevolucion: Date)
 }
 
 /**
+ * Convierte una tarifa fijada por admin (por unidad del ítem) al objeto de precios
+ * { dia, semana, mes } que consume calcularDevolucionItem.
+ * Escala linealmente: la tasa del período declarado define las demás proporcionalente.
+ */
+export function preciosDesdeOverride(
+  tarifaFijada: number,
+  unidad:       string,
+): { dia: number; semana: number; mes: number } {
+  switch (unidad) {
+    case 'semanas': return { dia: tarifaFijada / 7, semana: tarifaFijada, mes: tarifaFijada * 4 };
+    case 'meses':   return { dia: tarifaFijada / 30, semana: tarifaFijada / 4, mes: tarifaFijada };
+    default:        return { dia: tarifaFijada, semana: tarifaFijada * 7, mes: tarifaFijada * 30 };
+  }
+}
+
+/**
+ * Retorna la tasa diaria equivalente para una tarifa fijada por admin,
+ * usada en el cálculo de recargo por atraso (1 día de mora × tasa diaria).
+ */
+export function tarifaDiariaDesdeOverride(
+  tarifaFijada: number,
+  unidad:       string,
+): number {
+  switch (unidad) {
+    case 'semanas': return tarifaFijada / 7;
+    case 'meses':   return tarifaFijada / 30;
+    default:        return tarifaFijada;
+  }
+}
+
+/**
  * Costos de devolución para rentas indefinidas (clientes especiales sin duración pactada).
  *  - costoReal    = días calendario × tarifa × cantidad
  *  - recargoTiempo siempre 0 (clientes especiales no tienen recargo por atraso)

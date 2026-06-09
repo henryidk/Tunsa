@@ -194,15 +194,16 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
               ? descomponerDuracion(item.fechaInicio, item.duracion, item.unidad)
               : undefined;
             return [{
-              kind:        'maquinaria',
-              equipoId:    item.equipo.id,
-              numeracion:  item.equipo.numeracion,
-              descripcion: item.equipo.descripcion,
-              fechaInicio: fechaInicioFija ?? item.fechaInicio,
-              duracion:    item.duracion,
-              unidad:      item.unidad,
-              tarifa:      overrideTarifa ?? item.equipo.rentaDia ?? null,
-              subtotal:    overrideTarifa !== undefined ? calcSubtotalConTarifaOverride(item, overrideTarifa) : calcSubtotal(item),
+              kind:         'maquinaria',
+              equipoId:     item.equipo.id,
+              numeracion:   item.equipo.numeracion,
+              descripcion:  item.equipo.descripcion,
+              fechaInicio:  fechaInicioFija ?? item.fechaInicio,
+              duracion:     item.duracion,
+              unidad:       item.unidad,
+              tarifa:       overrideTarifa ?? item.equipo.rentaDia ?? null,
+              tarifaFijada: overrideTarifa ?? null,
+              subtotal:     overrideTarifa !== undefined ? calcSubtotalConTarifaOverride(item, overrideTarifa) : calcSubtotal(item),
               desglose,
               tarifas: { dia: item.equipo.rentaDia ?? null, semana: item.equipo.rentaSemana ?? null, mes: item.equipo.rentaMes ?? null },
             }];
@@ -220,16 +221,17 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
               ? { dia: item.config?.rentaDiaConMadera ?? null, semana: item.config?.rentaSemanaConMadera ?? null, mes: item.config?.rentaMesConMadera ?? null }
               : { dia: item.config?.rentaDia ?? null,          semana: item.config?.rentaSemana ?? null,          mes: item.config?.rentaMes ?? null          };
             return [{
-              kind:        'granel',
-              tipo:        item.tipo,
-              tipoLabel:   item.tipoLabel,
-              cantidad:    item.cantidad,
-              conMadera:   item.conMadera ?? false,
-              fechaInicio: fechaInicioFija ?? item.fechaInicio,
-              duracion:    item.duracion,
-              unidad:      item.unidad,
-              tarifa:      overrideTarifa ?? tarifaCatalogo,
-              subtotal:    overrideTarifa !== undefined ? calcSubtotalConTarifaOverride(item, overrideTarifa) : calcSubtotal(item),
+              kind:         'granel',
+              tipo:         item.tipo,
+              tipoLabel:    item.tipoLabel,
+              cantidad:     item.cantidad,
+              conMadera:    item.conMadera ?? false,
+              fechaInicio:  fechaInicioFija ?? item.fechaInicio,
+              duracion:     item.duracion,
+              unidad:       item.unidad,
+              tarifa:       overrideTarifa ?? tarifaCatalogo,
+              tarifaFijada: overrideTarifa ?? null,
+              subtotal:     overrideTarifa !== undefined ? calcSubtotalConTarifaOverride(item, overrideTarifa) : calcSubtotal(item),
               desglose,
               tarifas,
             }];

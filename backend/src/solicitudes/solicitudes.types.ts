@@ -17,14 +17,17 @@ export function tieneEquipoId(kind: string): boolean {
 
 /** Shape genérica para calcular costos, fechas y recarsos en rentas livianas y granel. */
 export interface ItemParaCalculo {
-  kind:       string;
-  duracion:   number;
-  unidad:     string;
-  tarifa:     number | null;
-  equipoId?:  string;
-  tipo?:      string;
-  conMadera?: boolean;
-  cantidad?:  number;
+  kind:          string;
+  duracion:      number;
+  unidad:        string;
+  tarifa:        number | null;
+  /** Tarifa explícita fijada por el admin (override). Por unidad del ítem (día/semana/mes).
+   *  Cuando está presente, se usa en lugar del catálogo para calcular costoReal y recargoTiempo. */
+  tarifaFijada?: number | null;
+  equipoId?:     string;
+  tipo?:         string;
+  conMadera?:    boolean;
+  cantidad?:     number;
 }
 
 /** Un extra seleccionado al crear la solicitud (snapshot inmutable). */

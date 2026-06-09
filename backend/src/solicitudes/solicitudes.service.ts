@@ -31,6 +31,8 @@ import {
   calcularCostoAdaptativo,
   calcularDevolucionItem,
   calcularCostosItemIndefinido,
+  preciosDesdeOverride,
+  tarifaDiariaDesdeOverride,
   descomponerDias,
   descomponerCalendario,
 } from './recargo.util';
@@ -99,13 +101,21 @@ export class SolicitudesService {
     const extsItem    = extensiones.filter(e => e.itemRef === ref);
     const finEfectivo = calcularFinItemConExtensiones(fechaInicio, item, extsItem);
 
-    const recargoTiempo = item.tarifa != null
-      ? calcularRecargoItem(item.tarifa, finEfectivo, fechaDevolucion) * (item.cantidad ?? 1)
+    // Cuando el admin fijó una tarifa override, usamos su equivalente diario para el recargo
+    // (evita cobrar Q2000/día cuando la tarifa fijada es Q2000/semana).
+    const tarifaDiaria = item.tarifaFijada != null
+      ? tarifaDiariaDesdeOverride(item.tarifaFijada, item.unidad)
+      : item.tarifa;
+
+    const recargoTiempo = tarifaDiaria != null
+      ? calcularRecargoItem(tarifaDiaria, finEfectivo, fechaDevolucion) * (item.cantidad ?? 1)
       : 0;
 
-    const precios = ref
-      ? await this.fetchPreciosItem(item.kind, ref, item.conMadera ?? false)
-      : null;
+    // Si el admin fijó una tarifa, derivamos los precios desde el override (sin consultar DB).
+    // De lo contrario, se usan los precios vigentes del catálogo.
+    const precios = item.tarifaFijada != null
+      ? preciosDesdeOverride(item.tarifaFijada, item.unidad)
+      : (ref ? await this.fetchPreciosItem(item.kind, ref, item.conMadera ?? false) : null);
 
     let costoReal    = 0;
     let diasCobrados = 1;
@@ -762,8 +772,11 @@ export class SolicitudesService {
         if (solicitud.cliente.esEspecial) {
           const extsItem    = extensiones.filter(e => e.itemRef === ref);
           const finEfectivo = calcularFinItemConExtensiones(fechaInicio, item, extsItem);
-          const recargoTiempo = item.tarifa != null
-            ? calcularRecargoEspecial(item.tarifa, finEfectivo, fechaDevolucion) * (item.cantidad ?? 1)
+          const tarifaDiaria = item.tarifaFijada != null
+            ? tarifaDiariaDesdeOverride(item.tarifaFijada, item.unidad)
+            : item.tarifa;
+          const recargoTiempo = tarifaDiaria != null
+            ? calcularRecargoEspecial(tarifaDiaria, finEfectivo, fechaDevolucion) * (item.cantidad ?? 1)
             : 0;
           costos = { ...costos, recargoTiempo };
         }
@@ -853,8 +866,11 @@ export class SolicitudesService {
         if (solicitud.cliente.esEspecial) {
           const extsItem    = extensiones.filter(e => e.itemRef === itemRef);
           const finEfectivo = calcularFinItemConExtensiones(fechaInicio, item, extsItem);
-          const recargoTiempo = item.tarifa != null
-            ? calcularRecargoEspecial(item.tarifa, finEfectivo, fechaDevolucion) * (item.cantidad ?? 1)
+          const tarifaDiaria = item.tarifaFijada != null
+            ? tarifaDiariaDesdeOverride(item.tarifaFijada, item.unidad)
+            : item.tarifa;
+          const recargoTiempo = tarifaDiaria != null
+            ? calcularRecargoEspecial(tarifaDiaria, finEfectivo, fechaDevolucion) * (item.cantidad ?? 1)
             : 0;
           costos = { ...costos, recargoTiempo };
         }

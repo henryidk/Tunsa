@@ -51,13 +51,14 @@ export interface ExtensionEntry {
 }
 
 interface ItemSnapshotBase {
-  fechaInicio: string;
-  duracion?:   number;
-  unidad?:     UnidadDuracion;
-  tarifa:      number | null;
-  subtotal:    number;
-  desglose?:   { meses: number; semanas: number; dias: number };
-  tarifas?:    { dia: number | null; semana: number | null; mes: number | null };
+  fechaInicio:  string;
+  duracion?:    number;
+  unidad?:      UnidadDuracion;
+  tarifa:       number | null;
+  tarifaFijada?: { dia: number | null; semana: number | null; mes: number | null } | null;
+  subtotal:     number;
+  desglose?:    { meses: number; semanas: number; dias: number };
+  tarifas?:     { dia: number | null; semana: number | null; mes: number | null };
 }
 
 export type ItemSnapshot =

@@ -171,7 +171,6 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
   };
 
   const handleSave = async () => {
-    if (!file && !form.esEspecial) { setApiError('La documentación es obligatoria para clientes normales.'); return; }
     if (!file) { setConfirmSinDoc(true); return; }
     await registrarCliente(true);
   };
@@ -283,7 +282,7 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
                         Cliente especial
                       </p>
                       <p className={`text-[10px] ${form.esEspecial ? 'text-amber-600' : 'text-slate-400'}`}>
-                        {form.esEspecial ? 'DPI opcional · sin paso de documentación' : 'DPI y documentación requeridos'}
+                        {form.esEspecial ? 'DPI opcional · sin paso de documentación' : 'DPI requerido · documentación opcional'}
                       </p>
                     </div>
                   </div>

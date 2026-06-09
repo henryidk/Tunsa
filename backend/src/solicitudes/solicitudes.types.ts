@@ -21,9 +21,9 @@ export interface ItemParaCalculo {
   duracion:      number;
   unidad:        string;
   tarifa:        number | null;
-  /** Tarifa explícita fijada por el admin (override). Por unidad del ítem (día/semana/mes).
+  /** Tarifas explícitas fijadas por el admin (override) por período.
    *  Cuando está presente, se usa en lugar del catálogo para calcular costoReal y recargoTiempo. */
-  tarifaFijada?: number | null;
+  tarifaFijada?: { dia: number | null; semana: number | null; mes: number | null } | null;
   equipoId?:     string;
   tipo?:         string;
   conMadera?:    boolean;

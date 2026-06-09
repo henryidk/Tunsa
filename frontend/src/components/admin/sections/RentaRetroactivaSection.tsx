@@ -8,9 +8,9 @@ import { SolicitudCartTable } from '../../shared/SolicitudCartTable';
 import PesadaRetroactivaPickerSection from '../PesadaRetroactivaPickerSection';
 import type { PesadaItemRetro } from '../PesadaRetroactivaPickerSection';
 import type { Cliente } from '../../../services/clientes.service';
-import type { ItemSolicitud, ModalidadPago } from '../../../types/solicitud.types';
+import type { ItemSolicitud, ModalidadPago, TarifasOverride } from '../../../types/solicitud.types';
 import {
-  calcSubtotal, calcSubtotalConTarifaOverride,
+  calcSubtotal, calcSubtotalConTarifasOverride,
   formatQ, itemCartKey, unidadLabel,
   descomponerDuracion,
 } from '../../../types/solicitud.types';
@@ -86,7 +86,7 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
   const effectiveTotal = useMemo(
     () => cart.items.reduce((s, item) => {
       const tarifa = precioOverride.get(itemCartKey(item));
-      return s + (tarifa !== undefined ? calcSubtotalConTarifaOverride(item, tarifa) : calcSubtotal(item));
+      return s + (tarifa !== undefined ? calcSubtotalConTarifasOverride(item, tarifa) : calcSubtotal(item));
     }, 0),
     [cart.items, precioOverride.overrides],
   );
@@ -189,7 +189,7 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
       } else {
         const items: ItemSnapshot[] = cart.items.flatMap((item): ItemSnapshot[] => {
           if (item.kind === 'maquinaria') {
-            const overrideTarifa = precioOverride.get(item.equipo.id);
+            const override = precioOverride.get(item.equipo.id);
             const desglose = item.duracion && item.unidad
               ? descomponerDuracion(item.fechaInicio, item.duracion, item.unidad)
               : undefined;
@@ -201,25 +201,22 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
               fechaInicio:  fechaInicioFija ?? item.fechaInicio,
               duracion:     item.duracion,
               unidad:       item.unidad,
-              tarifa:       overrideTarifa ?? item.equipo.rentaDia ?? null,
-              tarifaFijada: overrideTarifa ?? null,
-              subtotal:     overrideTarifa !== undefined ? calcSubtotalConTarifaOverride(item, overrideTarifa) : calcSubtotal(item),
+              tarifa:       item.equipo.rentaDia ?? null,
+              tarifaFijada: override ?? null,
+              subtotal:     override !== undefined ? calcSubtotalConTarifasOverride(item, override) : calcSubtotal(item),
               desglose,
               tarifas: { dia: item.equipo.rentaDia ?? null, semana: item.equipo.rentaSemana ?? null, mes: item.equipo.rentaMes ?? null },
             }];
           }
           if (item.kind === 'granel') {
-            const key            = `granel-${item.tipo}`;
-            const overrideTarifa = precioOverride.get(key);
-            const tarifaCatalogo = item.conMadera
-              ? (item.config?.rentaDiaConMadera ?? null)
-              : (item.config?.rentaDia ?? null);
+            const key      = `granel-${item.tipo}`;
+            const override = precioOverride.get(key);
+            const tarifas  = item.conMadera
+              ? { dia: item.config?.rentaDiaConMadera ?? null, semana: item.config?.rentaSemanaConMadera ?? null, mes: item.config?.rentaMesConMadera ?? null }
+              : { dia: item.config?.rentaDia ?? null,          semana: item.config?.rentaSemana ?? null,          mes: item.config?.rentaMes ?? null          };
             const desglose = item.duracion && item.unidad
               ? descomponerDuracion(item.fechaInicio, item.duracion, item.unidad)
               : undefined;
-            const tarifas = item.conMadera
-              ? { dia: item.config?.rentaDiaConMadera ?? null, semana: item.config?.rentaSemanaConMadera ?? null, mes: item.config?.rentaMesConMadera ?? null }
-              : { dia: item.config?.rentaDia ?? null,          semana: item.config?.rentaSemana ?? null,          mes: item.config?.rentaMes ?? null          };
             return [{
               kind:         'granel',
               tipo:         item.tipo,
@@ -229,9 +226,9 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
               fechaInicio:  fechaInicioFija ?? item.fechaInicio,
               duracion:     item.duracion,
               unidad:       item.unidad,
-              tarifa:       overrideTarifa ?? tarifaCatalogo,
-              tarifaFijada: overrideTarifa ?? null,
-              subtotal:     overrideTarifa !== undefined ? calcSubtotalConTarifaOverride(item, overrideTarifa) : calcSubtotal(item),
+              tarifa:       tarifas.dia,
+              tarifaFijada: override ?? null,
+              subtotal:     override !== undefined ? calcSubtotalConTarifasOverride(item, override) : calcSubtotal(item),
               desglose,
               tarifas,
             }];
@@ -632,7 +629,7 @@ interface RentaResumenProps {
   cliente:          Cliente | null;
   items:            ItemSolicitud[];
   summary:          { total: number; countMaquinaria: number; countGranel: number };
-  overrides?:       Map<string, number>;
+  overrides?:       Map<string, TarifasOverride>;
   modalidadPago:    ModalidadPago | null;
   esIndefinida:     boolean;
   fechaInicioRenta: string;
@@ -658,7 +655,7 @@ function RentaResumen({
     item.kind === 'maquinaria' ? item.equipo.id : item.kind === 'granel' ? `granel-${item.tipo}` : item.equipo.id;
   const itemSubtotal = (item: ItemSolicitud) => {
     const tarifa = overrides?.get(itemKey(item));
-    return tarifa !== undefined ? calcSubtotalConTarifaOverride(item, tarifa) : calcSubtotal(item);
+    return tarifa !== undefined ? calcSubtotalConTarifasOverride(item, tarifa) : calcSubtotal(item);
   };
   const [confirmandoCancelar, setConfirmandoCancelar] = useState(false);
 

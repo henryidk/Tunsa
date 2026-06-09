@@ -80,10 +80,17 @@ export function esAdaptado(unidad: UnidadDuracion, decomp: Desglose): boolean {
   /* dias */                return decomp.semanas > 0 || decomp.meses > 0;
 }
 
+/** Tarifas explícitas por período — usadas para overrides de admin y para el catálogo. */
+export interface TarifasOverride {
+  dia:    number | null;
+  semana: number | null;
+  mes:    number | null;
+}
+
 /** Calcula el subtotal de un desglose dadas las tres tarifas. */
 function subtotalDescompuesto(
   decomp:  Desglose,
-  tarifas: { dia: number | null; semana: number | null; mes: number | null },
+  tarifas: TarifasOverride,
 ): number {
   return (
     (tarifas.mes    ?? 0) * decomp.meses +
@@ -165,15 +172,15 @@ export function calcSubtotal(item: ItemSolicitud): number {
 }
 
 /**
- * Calcula el subtotal cuando el admin sobreescribe la tarifa.
- * La tarifa override es por unidad del ítem (día/semana/mes según item.unidad).
- * Fórmula simple: tarifa × duración × cantidad — sin precio adaptativo.
+ * Calcula el subtotal cuando el admin sobreescribe las tarifas (día/semana/mes).
+ * Usa la misma descomposición adaptativa que el precio de catálogo, con las tarifas
+ * personalizadas en lugar de las del catálogo.
  */
-export function calcSubtotalConTarifaOverride(item: ItemSolicitud, tarifa: number): number {
-  if (item.kind === 'pesada') return 0;
-  if (!item.duracion) return 0;
+export function calcSubtotalConTarifasOverride(item: ItemSolicitud, tarifas: TarifasOverride): number {
+  if (item.kind === 'pesada' || !item.duracion || !item.unidad) return 0;
   const cantidad = item.kind === 'granel' ? item.cantidad : 1;
-  return tarifa * item.duracion * cantidad;
+  const decomp   = descomponerDuracion(item.fechaInicio, item.duracion, item.unidad);
+  return subtotalDescompuesto(decomp, tarifas) * cantidad;
 }
 
 /** Clave única por ítem en el carrito — usada como key de React y como clave del mapa de overrides. */

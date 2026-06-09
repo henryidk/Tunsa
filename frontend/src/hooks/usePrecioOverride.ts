@@ -1,18 +1,19 @@
 import { useState, useCallback } from 'react';
+import type { TarifasOverride } from '../types/solicitud.types';
 
 export interface PrecioOverrideHook {
-  overrides:    Map<string, number>;
-  set:          (key: string, val: number) => void;
-  remove:       (key: string) => void;
-  clear:        () => void;
-  get:          (key: string) => number | undefined;
-  hasOverride:  (key: string) => boolean;
+  overrides:   Map<string, TarifasOverride>;
+  set:         (key: string, val: TarifasOverride) => void;
+  remove:      (key: string) => void;
+  clear:       () => void;
+  get:         (key: string) => TarifasOverride | undefined;
+  hasOverride: (key: string) => boolean;
 }
 
 export function usePrecioOverride(): PrecioOverrideHook {
-  const [overrides, setOverrides] = useState<Map<string, number>>(new Map());
+  const [overrides, setOverrides] = useState<Map<string, TarifasOverride>>(new Map());
 
-  const set = useCallback((key: string, val: number) => {
+  const set = useCallback((key: string, val: TarifasOverride) => {
     setOverrides(prev => new Map(prev).set(key, val));
   }, []);
 

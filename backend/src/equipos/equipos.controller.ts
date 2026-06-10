@@ -37,7 +37,7 @@ export class EquiposController {
   }
 
   @Post()
-  @Roles('admin', 'secretaria')
+  @Roles('admin', 'secretaria', 'encargado_maquinas')
   create(
     @Body() dto: CreateEquipoDto,
     @CurrentUser() user: AuthenticatedUser,
@@ -46,7 +46,7 @@ export class EquiposController {
   }
 
   @Patch(':id')
-  @Roles('admin', 'secretaria')
+  @Roles('admin', 'secretaria', 'encargado_maquinas')
   update(
     @Param('id') id: string,
     @Body() dto: UpdateEquipoDto,
@@ -56,13 +56,13 @@ export class EquiposController {
   }
 
   @Patch(':id/baja')
-  @Roles('admin', 'secretaria')
+  @Roles('admin', 'secretaria', 'encargado_maquinas')
   darDeBaja(@Param('id') id: string, @Body() dto: BajaEquipoDto) {
     return this.equiposService.darDeBaja(id, dto);
   }
 
   @Patch(':id/reactivar')
-  @Roles('admin', 'secretaria')
+  @Roles('admin', 'secretaria', 'encargado_maquinas')
   reactivar(@Param('id') id: string) {
     return this.equiposService.reactivar(id);
   }

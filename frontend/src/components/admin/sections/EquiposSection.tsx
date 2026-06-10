@@ -22,6 +22,8 @@ interface EquiposSectionProps {
   /** Si es false, oculta todas las acciones de escritura (agregar, editar, baja, reactivar).
    *  Por defecto true (comportamiento del admin). */
   canEdit?: boolean;
+  /** Si es false, oculta únicamente el botón "Dar de baja". Por defecto igual a canEdit. */
+  canBaja?: boolean;
 }
 
 type TabId = 'activos' | 'baja';
@@ -40,7 +42,8 @@ const GRANEL_SECTION_TABS: GranelSectionTab[] = [
   { id: 'andamio_ruedas', label: 'Andamios c/ ruedas',  tipo: 'ANDAMIO_RUEDAS', tipoLabel: 'Andamios con ruedas' },
 ];
 
-export default function EquiposSection({ onShowToast = () => {}, canEdit = true }: EquiposSectionProps) {
+export default function EquiposSection({ onShowToast = () => {}, canEdit = true, canBaja: canBajaProp }: EquiposSectionProps) {
+  const canBaja = canBajaProp ?? canEdit;
   const { equipos, isLoading, error, addEquipo, updateEquipo } = useEquipos();
   const { tipos } = useCategorias();
 
@@ -54,8 +57,9 @@ export default function EquiposSection({ onShowToast = () => {}, canEdit = true 
   const [editEquipo, setEditEquipo]       = useState<Equipo | null>(null);
   const [preciosEquipo, setPreciosEquipo] = useState<Equipo | null>(null);
   const [verEquipo, setVerEquipo]         = useState<Equipo | null>(null);
-  const [bajaEquipo, setBajaEquipo]       = useState<Equipo | null>(null);
-  const [reactivandoId, setReactivandoId] = useState<string | null>(null);
+  const [bajaEquipo, setBajaEquipo]         = useState<Equipo | null>(null);
+  const [reactivarEquipo, setReactivarEquipo] = useState<Equipo | null>(null);
+  const [reactivandoId, setReactivandoId]   = useState<string | null>(null);
   const [generando, setGenerando]         = useState(false);
 
   // ── Categorías disponibles según tipo seleccionado ────────────────────────
@@ -402,10 +406,12 @@ export default function EquiposSection({ onShowToast = () => {}, canEdit = true 
                               className="px-2.5 py-1 rounded-lg text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors">
                               Editar
                             </button>
-                            <button onClick={() => setBajaEquipo(e)}
-                              className="px-2.5 py-1 rounded-lg text-xs font-medium bg-red-600 hover:bg-red-700 text-white transition-colors">
-                              Dar de baja
-                            </button>
+                            {canBaja && (
+                              <button onClick={() => setBajaEquipo(e)}
+                                className="px-2.5 py-1 rounded-lg text-xs font-medium bg-red-600 hover:bg-red-700 text-white transition-colors">
+                                Dar de baja
+                              </button>
+                            )}
                           </>
                         ) : (
                           <>
@@ -414,7 +420,7 @@ export default function EquiposSection({ onShowToast = () => {}, canEdit = true 
                             </div>
                             <button
                               disabled={reactivandoId === e.id}
-                              onClick={() => handleReactivar(e)}
+                              onClick={() => setReactivarEquipo(e)}
                               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-green-600 hover:bg-green-700 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                             >
                               {reactivandoId === e.id ? (
@@ -507,6 +513,45 @@ export default function EquiposSection({ onShowToast = () => {}, canEdit = true 
         open={verEquipo !== null}
         onClose={() => setVerEquipo(null)}
       />
+
+      {/* Modal confirmación reactivar */}
+      {reactivarEquipo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-green-600">
+                  <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-semibold text-slate-800">Reactivar equipo</h3>
+                <p className="text-xs text-slate-500">#{reactivarEquipo.numeracion}</p>
+              </div>
+            </div>
+            <p className="text-sm text-slate-600 mb-6">
+              ¿Confirmas que deseas reactivar <span className="font-medium text-slate-800">{reactivarEquipo.descripcion}</span>? El equipo volverá a estar disponible en el inventario.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setReactivarEquipo(null)}
+                className="px-4 py-2 rounded-lg text-sm font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                disabled={reactivandoId === reactivarEquipo.id}
+                onClick={() => { handleReactivar(reactivarEquipo); setReactivarEquipo(null); }}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-green-600 hover:bg-green-700 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {reactivandoId === reactivarEquipo.id
+                  ? <><svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>Reactivando...</>
+                  : 'Sí, reactivar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

@@ -9,7 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateEquipoDto, ExtraEquipoDto } from './dto/create-equipo.dto';
 import { UpdateEquipoDto } from './dto/update-equipo.dto';
 import { BajaEquipoDto } from './dto/baja-equipo.dto';
-import { fechaHoyGT } from '../common/utils/date.util';
+import { fechaHoyGT, inicioHoyGT } from '../common/utils/date.util';
 
 const EQUIPO_INCLUDE = {
   tipo:      { select: { id: true, nombre: true, modalidad: true } },
@@ -342,7 +342,7 @@ export class EquiposService {
 
     const updated = await this.prisma.equipo.update({
       where: { id },
-      data: { isActive: false, motivoBaja: dto.motivo || null, fechaBaja: fechaHoyGT() },
+      data: { isActive: false, motivoBaja: dto.motivo || null, fechaBaja: inicioHoyGT() },
       include: EQUIPO_INCLUDE,
     });
     return this.serialize(updated);

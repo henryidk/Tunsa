@@ -46,7 +46,12 @@ export default function RentaVencidaPesadaCard({
   const graciaRestanteMs = enGracia ? Math.max(0, ventanaGracia - msAtraso(vencimiento, localNow)) : 0;
   const graciaUrgente    = enGracia && graciaRestanteMs <= 60_000;
 
-  const pesadaItems  = solicitud.items.filter((i): i is PesadaItem => i.kind === 'pesada');
+  const yaDevueltos  = new Set<string>(
+    (solicitud.devolucionesParciales ?? []).flatMap(d => d.items.map(i => i.itemRef)),
+  );
+  const pesadaItems  = solicitud.items.filter(
+    (i): i is PesadaItem => i.kind === 'pesada' && !yaDevueltos.has(i.equipoId),
+  );
   const penalizacion = calcularRecargoPesada(solicitud.items, vencimiento, ahora, ventanaGracia);
   const total        = solicitud.costoAcumuladoPesada + penalizacion;
 

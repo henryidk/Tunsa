@@ -82,13 +82,13 @@ export default function VencidasSection({
   const handleDevolucion = (actualizada: SolicitudRenta) => {
     setModalDevolucion(null);
     if (actualizada.estado === 'DEVUELTA') removeRenta(actualizada.id);
-    else transicionarTrasExtension(actualizada);
+    else updateRenta(actualizada);
   };
 
   const handleDevolucionPesada = (actualizada: SolicitudRenta) => {
     setModalDevPesada(null);
     if (actualizada.estado === 'DEVUELTA') removeRenta(actualizada.id);
-    else transicionarTrasExtension(actualizada);
+    else updateRenta(actualizada);
   };
 
   const handleVerComprobante = async (id: string) => {
@@ -113,7 +113,16 @@ export default function VencidasSection({
     return suma + calcularRecargoActual(s.items, inicio, ahoraRecargo, extensiones);
   }, 0);
 
-  const equiposPendientes = solicitudes.reduce((sum, s) => sum + s.items.length, 0);
+  const equiposPendientes = solicitudes.reduce((sum, s) => {
+    const devueltos = new Set<string>(
+      (s.devolucionesParciales ?? []).flatMap(d => d.items.map(i => i.itemRef)),
+    );
+    const pendientes = s.items.filter(item => {
+      const ref = item.kind === 'maquinaria' || item.kind === 'pesada' ? item.equipoId : item.tipo;
+      return !devueltos.has(ref ?? '');
+    });
+    return sum + pendientes.length;
+  }, 0);
 
   const solicitudesFiltradas = busqueda.trim()
     ? solicitudes.filter(s => {

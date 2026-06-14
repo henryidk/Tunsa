@@ -934,7 +934,8 @@ export class SolicitudesService {
     } else if (!solicitud.esIndefinida) {
       const refsDevueltosAhora = new Set([...yaDevueltosRefs, ...devolucionItems.map(i => i.itemRef)]);
       const itemsRestantes     = snapshotItems.filter(i => !refsDevueltosAhora.has(i.equipoId ?? i.tipo ?? ''));
-      const nuevaFechaFin      = calcularFechaFinEstimadaConExtensiones(fechaInicio, itemsRestantes, extensiones);
+      const extsParaFin        = extensiones.filter(e => e.tipo !== 'gracia');
+      const nuevaFechaFin      = calcularFechaFinEstimadaConExtensiones(fechaInicio, itemsRestantes, extsParaFin);
       updateData.fechaFinEstimada = nuevaFechaFin;
     }
 

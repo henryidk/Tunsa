@@ -61,8 +61,17 @@ export default function RentaVencidaCard({
   const graciaUrgente     = enGracia && graciaRestanteMs <= 60_000;
   const total    = solicitud.totalEstimado + recargo;
 
-  const maquinaria = solicitud.items.filter((i): i is Extract<ItemSnapshot, { kind: 'maquinaria' }> => i.kind === 'maquinaria');
-  const granel     = solicitud.items.filter((i): i is Extract<ItemSnapshot, { kind: 'granel' }>     => i.kind === 'granel');
+  const yaDevueltos = new Set<string>(
+    (solicitud.devolucionesParciales ?? []).flatMap(d => d.items.map(i => i.itemRef)),
+  );
+  const maquinaria = solicitud.items.filter(
+    (i): i is Extract<ItemSnapshot, { kind: 'maquinaria' }> =>
+      i.kind === 'maquinaria' && !yaDevueltos.has(i.equipoId),
+  );
+  const granel = solicitud.items.filter(
+    (i): i is Extract<ItemSnapshot, { kind: 'granel' }> =>
+      i.kind === 'granel' && !yaDevueltos.has(i.tipo ?? ''),
+  );
 
   const todosItems     = [...maquinaria, ...granel];
   const vencidasCount  = todosItems.filter(item => calcularFinConExtensiones(inicio, item, extensiones).getTime() < ahora).length;

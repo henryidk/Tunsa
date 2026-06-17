@@ -236,7 +236,8 @@ export class SolicitudesService {
       itemsToStore = dto.items.map(item => {
         if (item.kind !== 'pesada' || !item.equipoId) return item as object;
         const eq           = equipoMap.get(item.equipoId);
-        const rentaBase    = eq?.rentaHora != null ? parseFloat(eq.rentaHora.toString()) : 0;
+        const rentaCatalogo = eq?.rentaHora != null ? parseFloat(eq.rentaHora.toString()) : 0;
+        const rentaBase    = item.tarifaBaseFijada != null ? item.tarifaBaseFijada : rentaCatalogo;
         const extras       = (item.extras ?? []) as { tipoExtraId: string; nombre: string; rentaHora: number }[];
         const tarifaExtras = extras.reduce((s, e) => s + e.rentaHora, 0);
         const { tarifaEfectiva: _dropped, ...rest } = item as any;

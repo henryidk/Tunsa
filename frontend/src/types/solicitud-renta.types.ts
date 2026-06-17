@@ -83,6 +83,7 @@ export type ItemSnapshot =
       extras:            ExtraSeleccionado[];
       diasSolicitados:   number;
       tarifaEfectiva:    number;
+      tarifaBaseFijada?: number | null;
       fechaInicio:       string;
       duracion:          number;
       unidad:            UnidadDuracion;

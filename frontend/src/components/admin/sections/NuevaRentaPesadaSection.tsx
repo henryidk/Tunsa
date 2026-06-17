@@ -20,11 +20,12 @@ interface Props {
 }
 
 interface PesadaItem {
-  equipo:              Equipo;
-  extrasSeleccionados: ExtraSeleccionado[];
-  duracion?:           number;
-  unidad?:             UnidadDuracion;
-  fechaInicio:         string;
+  equipo:               Equipo;
+  extrasSeleccionados:  ExtraSeleccionado[];
+  tarifaBaseEfectiva:   number;
+  duracion?:            number;
+  unidad?:              UnidadDuracion;
+  fechaInicio:          string;
 }
 
 function diasDesdeDuracion(fechaInicio: string, duracion: number, unidad: UnidadDuracion): number {
@@ -41,10 +42,9 @@ function today(): string {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
-function calcTarifa(equipo: Equipo, extras: ExtraSeleccionado[]): number {
-  const base      = equipo.rentaHora ?? 0;
+function calcTarifa(tarifaBase: number, extras: ExtraSeleccionado[]): number {
   const extrasSum = extras.reduce((s, e) => s + e.rentaHora, 0);
-  return base + extrasSum;
+  return tarifaBase + extrasSum;
 }
 
 export default function NuevaRentaPesadaSection({ onNavTo, onShowToast = () => {} }: Props) {
@@ -113,6 +113,9 @@ export default function NuevaRentaPesadaSection({ onNavTo, onShowToast = () => {
   const removeEquipo = (equipoId: string) =>
     setItems(prev => prev.filter(it => it.equipo.id !== equipoId));
 
+  const updateEquipo = (updated: PesadaItem) =>
+    setItems(prev => prev.map(it => (it.equipo.id === updated.equipo.id ? updated : it)));
+
   const handleEnviar = () => {
     if (!gestionadaPor)  { setShowNoEncargadoModal(true); return; }
     if (!modalidadPago)  { setShowNoPagoModal(true);      return; }
@@ -136,27 +139,29 @@ export default function NuevaRentaPesadaSection({ onNavTo, onShowToast = () => {
       const snapItems = items.map(it => {
         if (indefinido) {
           return {
-            kind:        'pesada' as const,
-            equipoId:    it.equipo.id,
-            numeracion:  it.equipo.numeracion,
-            descripcion: it.equipo.descripcion,
-            extras:      it.extrasSeleccionados,
-            fechaInicio: it.fechaInicio,
-            subtotal:    0,
+            kind:             'pesada' as const,
+            equipoId:         it.equipo.id,
+            numeracion:       it.equipo.numeracion,
+            descripcion:      it.equipo.descripcion,
+            extras:           it.extrasSeleccionados,
+            tarifaBaseFijada: it.tarifaBaseEfectiva,
+            fechaInicio:      it.fechaInicio,
+            subtotal:         0,
           };
         }
         const dias = diasDesdeDuracion(it.fechaInicio, it.duracion!, it.unidad!);
         return {
-          kind:            'pesada' as const,
-          equipoId:        it.equipo.id,
-          numeracion:      it.equipo.numeracion,
-          descripcion:     it.equipo.descripcion,
-          extras:          it.extrasSeleccionados,
-          diasSolicitados: dias,
-          fechaInicio:     it.fechaInicio,
-          duracion:        dias,
-          unidad:          'dias' as const,
-          subtotal:        0,
+          kind:             'pesada' as const,
+          equipoId:         it.equipo.id,
+          numeracion:       it.equipo.numeracion,
+          descripcion:      it.equipo.descripcion,
+          extras:           it.extrasSeleccionados,
+          tarifaBaseFijada: it.tarifaBaseEfectiva,
+          diasSolicitados:  dias,
+          fechaInicio:      it.fechaInicio,
+          duracion:         dias,
+          unidad:           'dias' as const,
+          subtotal:         0,
         };
       });
 
@@ -245,6 +250,7 @@ export default function NuevaRentaPesadaSection({ onNavTo, onShowToast = () => {
                 item={items[0]}
                 indefinido={indefinido}
                 onQuitar={() => removeEquipo(items[0].equipo.id)}
+                onUpdateItem={updateEquipo}
               />
             )}
           </SectionCard>
@@ -325,8 +331,52 @@ export default function NuevaRentaPesadaSection({ onNavTo, onShowToast = () => {
 
 // ── EquipoAgregado ────────────────────────────────────────────────────────────
 
-function EquipoAgregado({ item, indefinido, onQuitar }: { item: PesadaItem; indefinido: boolean; onQuitar: () => void }) {
-  const tarifa = calcTarifa(item.equipo, item.extrasSeleccionados);
+function EquipoAgregado({ item, indefinido, onQuitar, onUpdateItem }: {
+  item:         PesadaItem;
+  indefinido:   boolean;
+  onQuitar:     () => void;
+  onUpdateItem: (item: PesadaItem) => void;
+}) {
+  const tarifa      = calcTarifa(item.tarifaBaseEfectiva, item.extrasSeleccionados);
+  const catalogBase = item.equipo.rentaHora ?? 0;
+  const catalogTarifa = catalogBase + item.extrasSeleccionados.reduce((s, e) => {
+    const catalogExtra = item.equipo.extras.find(ex => ex.tipoExtraId === e.tipoExtraId);
+    return s + (catalogExtra?.rentaHora ?? e.rentaHora);
+  }, 0);
+  const tieneOverride = tarifa !== catalogTarifa;
+
+  const [editing,     setEditing]     = useState(false);
+  const [baseInput,   setBaseInput]   = useState('');
+  const [extraInputs, setExtraInputs] = useState<Record<string, string>>({});
+
+  const startEdit = () => {
+    setBaseInput(String(item.tarifaBaseEfectiva));
+    const inputs: Record<string, string> = {};
+    item.extrasSeleccionados.forEach(e => { inputs[e.tipoExtraId] = String(e.rentaHora); });
+    setExtraInputs(inputs);
+    setEditing(true);
+  };
+
+  const commitEdit = () => {
+    const nuevaBase = parseFloat(baseInput);
+    if (isNaN(nuevaBase) || nuevaBase < 0) return;
+    const nuevosExtras = item.extrasSeleccionados.map(e => {
+      const val = parseFloat(extraInputs[e.tipoExtraId]);
+      return isNaN(val) || val < 0 ? e : { ...e, rentaHora: val };
+    });
+    onUpdateItem({ ...item, tarifaBaseEfectiva: nuevaBase, extrasSeleccionados: nuevosExtras });
+    setEditing(false);
+  };
+
+  const restablecer = () => {
+    const nuevosExtras = item.extrasSeleccionados.map(e => {
+      const catalogExtra = item.equipo.extras.find(ex => ex.tipoExtraId === e.tipoExtraId);
+      return catalogExtra ? { ...e, rentaHora: catalogExtra.rentaHora } : e;
+    });
+    onUpdateItem({ ...item, tarifaBaseEfectiva: catalogBase, extrasSeleccionados: nuevosExtras });
+    setEditing(false);
+  };
+
   return (
     <div className="border border-slate-200 rounded-xl overflow-hidden">
       <table className="w-full text-xs">
@@ -358,17 +408,73 @@ function EquipoAgregado({ item, indefinido, onQuitar }: { item: PesadaItem; inde
                 ? <span className="font-bold text-violet-600">∞</span>
                 : <span className="text-slate-600">{unidadLabel(item.duracion!, item.unidad!)}</span>}
             </td>
-            <td className="px-3 py-3 font-mono font-semibold text-slate-700 whitespace-nowrap">{formatQ(tarifa)}/hr</td>
+            <td className="px-3 py-3 whitespace-nowrap">
+              <div className="flex items-center gap-1.5">
+                {tieneOverride && (
+                  <span className="text-[10px] text-slate-400 line-through">{formatQ(catalogTarifa)}</span>
+                )}
+                <span className={`font-mono font-semibold ${tieneOverride ? 'text-indigo-600' : 'text-slate-700'}`}>
+                  {formatQ(tarifa)}/hr
+                </span>
+              </div>
+            </td>
             <td className="px-3 py-3 text-right">
-              <button onClick={onQuitar} className="text-slate-300 hover:text-red-400 transition-colors">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                </svg>
-              </button>
+              <div className="flex items-center justify-end gap-2.5">
+                <button onClick={startEdit} title="Editar tarifas" className="text-slate-300 hover:text-indigo-500 transition-colors">
+                  <PencilIcon />
+                </button>
+                <button onClick={onQuitar} className="text-slate-300 hover:text-red-400 transition-colors">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              </div>
             </td>
           </tr>
         </tbody>
       </table>
+
+      {editing && (
+        <div className="px-4 py-3 border-t border-slate-100 bg-indigo-50/40 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-indigo-700 uppercase tracking-wide">Editar tarifas (Q/hora)</span>
+            {tieneOverride && (
+              <button onClick={restablecer} className="text-[11px] text-slate-500 hover:text-red-500 font-medium transition-colors">
+                Restablecer a catálogo
+              </button>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <div className="w-28">
+              <label className="block text-[10px] font-semibold text-slate-500 mb-1">Equipo base</label>
+              <input
+                type="number" min="0" step="0.01" value={baseInput}
+                onChange={e => setBaseInput(e.target.value)}
+                className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs font-mono bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+              />
+            </div>
+            {item.extrasSeleccionados.map(e => (
+              <div key={e.tipoExtraId} className="w-28">
+                <label className="block text-[10px] font-semibold text-slate-500 mb-1 truncate" title={e.nombre}>{e.nombre}</label>
+                <input
+                  type="number" min="0" step="0.01" value={extraInputs[e.tipoExtraId] ?? ''}
+                  onChange={ev => setExtraInputs(prev => ({ ...prev, [e.tipoExtraId]: ev.target.value }))}
+                  className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs font-mono bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                />
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <button onClick={commitEdit} className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-colors">
+              Aplicar
+            </button>
+            <button onClick={() => setEditing(false)} className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-xs font-medium transition-colors">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="px-4 py-2.5 border-t border-slate-100 flex items-center justify-between">
         <span className="text-[11px] text-slate-400">1 equipo</span>
         <span className="text-[11px] text-slate-400">Facturación por horómetro real</span>
@@ -430,8 +536,13 @@ function PesadaResumen({ cliente, items, indefinido, modalidadPago, canEnviar, i
               <p className="text-xs text-center">Sin equipo seleccionado</p>
             </div>
           ) : (() => {
-            const it     = items[0];
-            const tarifa = calcTarifa(it.equipo, it.extrasSeleccionados);
+            const it          = items[0];
+            const tarifa       = calcTarifa(it.tarifaBaseEfectiva, it.extrasSeleccionados);
+            const catalogTarifa = (it.equipo.rentaHora ?? 0) + it.extrasSeleccionados.reduce((s, e) => {
+              const catalogExtra = it.equipo.extras.find(ex => ex.tipoExtraId === e.tipoExtraId);
+              return s + (catalogExtra?.rentaHora ?? e.rentaHora);
+            }, 0);
+            const tieneOverride = tarifa !== catalogTarifa;
             return (
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
@@ -444,8 +555,11 @@ function PesadaResumen({ cliente, items, indefinido, modalidadPago, canEnviar, i
                       ? <span className="text-violet-500 font-medium">∞ Tiempo indefinido</span>
                       : <>{unidadLabel(it.duracion!, it.unidad!)}{it.extrasSeleccionados.map(e => ` · ${e.nombre}`)}</>}
                   </p>
+                  {tieneOverride && (
+                    <p className="text-[10px] text-indigo-500 font-medium mt-0.5">Tarifa personalizada</p>
+                  )}
                 </div>
-                <span className="text-xs font-mono font-semibold text-amber-700 flex-shrink-0 whitespace-nowrap">
+                <span className={`text-xs font-mono font-semibold flex-shrink-0 whitespace-nowrap ${tieneOverride ? 'text-indigo-600' : 'text-amber-700'}`}>
                   {formatQ(tarifa)}/hr
                 </span>
               </div>
@@ -550,7 +664,7 @@ function PesadaPickerForm({ disponibles, isLoading, indefinido, onAdd }: PesadaP
       .slice(0, 8);
   }, [disponibles, busqueda]);
 
-  const tarifaPreview = seleccionado ? calcTarifa(seleccionado, extrasSeleccionados) : 0;
+  const tarifaPreview = seleccionado ? calcTarifa(seleccionado.rentaHora ?? 0, extrasSeleccionados) : 0;
 
   const handleSelect = (e: Equipo) => {
     setSeleccionado(e);
@@ -573,6 +687,7 @@ function PesadaPickerForm({ disponibles, isLoading, indefinido, onAdd }: PesadaP
     onAdd({
       equipo:              seleccionado,
       extrasSeleccionados,
+      tarifaBaseEfectiva:  seleccionado.rentaHora ?? 0,
       duracion:            indefinido ? undefined : duracion,
       unidad:              indefinido ? undefined : unidad,
       fechaInicio,
@@ -818,4 +933,8 @@ function PaymentIcon() {
 
 function EncargadoIcon() {
   return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>;
+}
+
+function PencilIcon() {
+  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>;
 }

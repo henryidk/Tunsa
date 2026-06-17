@@ -9,8 +9,9 @@ import { solicitudesService } from '../../../services/solicitudes.service';
 import { usePendientesStore } from '../../../store/pendientes.store';
 import { useReservadosStore } from '../../../store/reservados.store';
 import { formatQ, unidadLabel } from '../../../types/solicitud.types';
-import type { UnidadDuracion } from '../../../types/solicitud.types';
+import type { ModalidadPago, UnidadDuracion } from '../../../types/solicitud.types';
 import EspecialBadge from '../../shared/EspecialBadge';
+import PaymentModeSelector from '../PaymentModeSelector';
 
 interface Props {
   onShowToast?: (type: ToastType, title: string, msg: string) => void;
@@ -52,14 +53,16 @@ export default function NuevaSolicitudPesadaSection({ onShowToast = () => {} }: 
   const [isLoadingEqs, setIsLoadingEqs] = useState(true);
   const [equiposError, setEquiposError] = useState<string | null>(null);
 
-  const [cliente,      setCliente]      = useState<Cliente | null>(null);
-  const [clienteKey,   setClienteKey]   = useState(0);
-  const [notas,        setNotas]        = useState('');
-  const [items,        setItems]        = useState<PesadaItem[]>([]);
-  const [indefinido,   setIndefinido]   = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [cliente,       setCliente]       = useState<Cliente | null>(null);
+  const [clienteKey,    setClienteKey]    = useState(0);
+  const [notas,         setNotas]         = useState('');
+  const [items,         setItems]         = useState<PesadaItem[]>([]);
+  const [indefinido,    setIndefinido]    = useState(false);
+  const [modalidadPago, setModalidadPago] = useState<ModalidadPago | null>(null);
+  const [isSubmitting,  setIsSubmitting]  = useState(false);
 
   const [showNoNotasModal, setShowNoNotasModal] = useState(false);
+  const [showNoPagoModal,  setShowNoPagoModal]  = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -101,7 +104,8 @@ export default function NuevaSolicitudPesadaSection({ onShowToast = () => {} }: 
     setItems(prev => prev.filter(it => it.equipo.id !== equipoId));
 
   const handleEnviar = () => {
-    if (!notas.trim()) { setShowNoNotasModal(true); return; }
+    if (!notas.trim())   { setShowNoNotasModal(true); return; }
+    if (!modalidadPago)  { setShowNoPagoModal(true);  return; }
     void submitSolicitud();
   };
 
@@ -138,11 +142,11 @@ export default function NuevaSolicitudPesadaSection({ onShowToast = () => {} }: 
       });
 
       const nueva = await solicitudesService.create({
-        clienteId:   cliente.id,
-        modalidad:   'CONTADO',
-        notas:       notas.trim(),
+        clienteId:    cliente.id,
+        modalidad:    modalidadPago!,
+        notas:        notas.trim(),
         esIndefinida: indefinido || undefined,
-        items:       snapItems as any,
+        items:        snapItems as any,
       });
 
       addPendiente(nueva);
@@ -152,6 +156,7 @@ export default function NuevaSolicitudPesadaSection({ onShowToast = () => {} }: 
       setNotas('');
       setItems([]);
       setIndefinido(false);
+      setModalidadPago(null);
       const reservados = await solicitudesService.getEquiposReservados();
       setReservedIds(reservados);
     } catch (err: any) {
@@ -238,6 +243,10 @@ export default function NuevaSolicitudPesadaSection({ onShowToast = () => {} }: 
             />
           </SectionCard>
 
+          <SectionCard icon={<PaymentIcon />} title="Condiciones de Pago" subtitle="Define cómo y cuándo el cliente realizará el pago" locked={!cliente}>
+            <PaymentModeSelector value={modalidadPago} onChange={setModalidadPago} />
+          </SectionCard>
+
         </div>
 
         {/* RIGHT */}
@@ -245,12 +254,13 @@ export default function NuevaSolicitudPesadaSection({ onShowToast = () => {} }: 
           cliente={cliente}
           items={items}
           indefinido={indefinido}
+          modalidadPago={modalidadPago}
           canEnviar={!!cliente && items.length > 0 && !isSubmitting}
           isSubmitting={isSubmitting}
           onEnviar={handleEnviar}
           onCancelar={() => {
             setCliente(null); setClienteKey(k => k + 1);
-            setNotas(''); setItems([]); setIndefinido(false);
+            setNotas(''); setItems([]); setIndefinido(false); setModalidadPago(null);
           }}
           canCancelar={!!cliente}
         />
@@ -259,6 +269,9 @@ export default function NuevaSolicitudPesadaSection({ onShowToast = () => {} }: 
 
       {showNoNotasModal && (
         <SimpleModal onClose={() => setShowNoNotasModal(false)} title="Observaciones requeridas" msg="Agrega una nota antes de continuar." variant="red" />
+      )}
+      {showNoPagoModal && (
+        <SimpleModal onClose={() => setShowNoPagoModal(false)} title="Selecciona el tipo de pago" msg="Define las condiciones de pago antes de enviar la solicitud." variant="amber" />
       )}
     </div>
   );
@@ -321,17 +334,18 @@ function EquipoAgregado({ item, indefinido, onQuitar }: { item: PesadaItem; inde
 // ── PesadaResumen ─────────────────────────────────────────────────────────────
 
 interface PesadaResumenProps {
-  cliente:      Cliente | null;
-  items:        PesadaItem[];
-  indefinido:   boolean;
-  canEnviar:    boolean;
-  isSubmitting: boolean;
-  onEnviar:     () => void;
-  onCancelar:   () => void;
-  canCancelar:  boolean;
+  cliente:       Cliente | null;
+  items:         PesadaItem[];
+  indefinido:    boolean;
+  modalidadPago: ModalidadPago | null;
+  canEnviar:     boolean;
+  isSubmitting:  boolean;
+  onEnviar:      () => void;
+  onCancelar:    () => void;
+  canCancelar:   boolean;
 }
 
-function PesadaResumen({ cliente, items, indefinido, canEnviar, isSubmitting, onEnviar, onCancelar, canCancelar }: PesadaResumenProps) {
+function PesadaResumen({ cliente, items, indefinido, modalidadPago, canEnviar, isSubmitting, onEnviar, onCancelar, canCancelar }: PesadaResumenProps) {
   const [confirmando, setConfirmando] = useState(false);
   return (
     <div className="w-72 flex-shrink-0 sticky top-20 self-start">
@@ -391,6 +405,21 @@ function PesadaResumen({ cliente, items, indefinido, canEnviar, isSubmitting, on
               </div>
             );
           })()}
+        </div>
+
+        <div className="px-5 py-3 border-b border-slate-100">
+          <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Pago</div>
+          {!modalidadPago ? (
+            <p className="text-xs text-slate-400 italic">Sin modalidad seleccionada</p>
+          ) : modalidadPago === 'CONTADO' ? (
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />Contado
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />A crédito
+            </span>
+          )}
         </div>
 
         <div className="px-5 py-4 bg-slate-50">
@@ -735,4 +764,8 @@ function CraneIcon() {
 
 function NotasIcon() {
   return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>;
+}
+
+function PaymentIcon() {
+  return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>;
 }

@@ -26,12 +26,14 @@ import CategoriasSection from '../../components/admin/sections/CategoriasSection
 import HorometrosSection from '../../components/admin/sections/HorometrosSection'
 import DisponibilidadFlotaSection from '../../components/shared/DisponibilidadFlotaSection'
 import NuevaRentaLivianaSection from '../../components/admin/sections/NuevaRentaLivianaSection'
+import NuevaRentaPesadaSection from '../../components/admin/sections/NuevaRentaPesadaSection'
 import RentaRetroactivaSection from '../../components/admin/sections/RentaRetroactivaSection'
 import CambiarPasswordModal from '../../components/admin/CambiarPasswordModal'
 
 export type Section =
   | 'dashboard'
   | 'nueva-renta-liviana'
+  | 'nueva-renta-pesada'
   | 'renta-retroactiva'
   | 'rentas-solicitudes'
   | 'rentas-activas'
@@ -133,6 +135,9 @@ export default function AdminDashboard() {
           )}
           {activeSection === 'nueva-renta-liviana' && (
             <NuevaRentaLivianaSection onNavTo={navTo} onShowToast={showToast} />
+          )}
+          {activeSection === 'nueva-renta-pesada' && (
+            <NuevaRentaPesadaSection onNavTo={navTo} onShowToast={showToast} />
           )}
           {activeSection === 'renta-retroactiva' && (
             <RentaRetroactivaSection onNavTo={navTo} onShowToast={showToast} vencidasSection="rentas-vencidas" />

@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Fragment } from 'react';
 import { solicitudesService, type LecturaHorometro, type DashboardStats } from '../../../services/solicitudes.service';
-import type { SolicitudRenta, ItemSnapshot } from '../../../types/solicitud-renta.types';
+import type { SolicitudRenta, ItemSnapshot, ExtraSeleccionado } from '../../../types/solicitud-renta.types';
 import { formatQ } from '../../../types/solicitud.types';
 import {
-  today, getDiaStatus, generarDias,
+  today, getDiaStatus, generarDias, tieneComplementoMixto,
   formatFechaCorta, localDateOf, ultimoDiaHorometro, validarInicioHorometro, diasPendientesAnteriores, type DiaStatus,
 } from '../../../utils/horometro.utils';
 import HorometroRentaCard from '../HorometroRentaCard';
@@ -54,11 +54,28 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError,  setSubmitError] = useState<string | null>(null);
   const [pendingConfirm, setPendingConfirm] = useState<{
-    tipo:     'inicio' | 'fin5pm';
-    valorNum: number;
-    fecha:    string;
+    tipo:         'inicio' | 'fin5pm' | 'tramo';
+    valorNum:     number;
+    fecha:        string;
+    extraId?:     string | null;
+    extraNombre?: string | null;
   } | null>(null);
   const [errorModal, setErrorModal] = useState<{ titulo: string; mensaje: string } | null>(null);
+
+  // Tramo (cambio de complemento intradía) form state
+  const [tramoFormOpen, setTramoFormOpen] = useState(false);
+  const [tramoValor,    setTramoValor]    = useState('');
+  const [tramoExtraId,  setTramoExtraId]  = useState<string | null>(null);
+  const [tramoError,    setTramoError]    = useState<string | null>(null);
+  const [isUndoingTramo, setIsUndoingTramo] = useState(false);
+  const [expandedMixto, setExpandedMixto] = useState<string | null>(null);
+
+  // Complemento inicial del día (solo aplica al registrar el horómetro de inicio de un día nuevo)
+  const [inicioExtraId, setInicioExtraId] = useState<string | null>(null);
+
+  const resetTramoForm = () => {
+    setTramoFormOpen(false); setTramoValor(''); setTramoExtraId(null); setTramoError(null);
+  };
 
   const resolvedFetch  = fetchSolicitudes ?? fetchSolicitudesEncargado;
   const modoEncargado  = fetchSolicitudes == null;
@@ -110,6 +127,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
     setFechaActiva(hoy);
     setValor('');
     setSubmitError(null);
+    resetTramoForm();
   }, [selectedId, solicitudes]);
 
   const refreshLecturas = useCallback(async (solicitudId: string): Promise<LecturaHorometro[]> => {
@@ -190,7 +208,19 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
     return null;
   })();
 
-  const handleSelectDia = (d: string) => { setFechaActiva(d); setValor(''); setSubmitError(null); };
+  // Complemento con el que cerró el día anterior — default sugerido al registrar el inicio de un día nuevo
+  const diaAnteriorCerrado = lecturasEquipo
+    ?.filter(l => l.fecha < fechaActiva && l.horometroFin5pm != null)
+    .sort((a, b) => b.fecha.localeCompare(a.fecha))[0] ?? null;
+  const complementoHeredadoId     = diaAnteriorCerrado?.complementoActivoId ?? null;
+  const complementoHeredadoNombre = diaAnteriorCerrado?.complementoActivoNombre ?? null;
+
+  useEffect(() => {
+    if (tipoPendiente === 'inicio') setInicioExtraId(complementoHeredadoId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeEquipo, fechaActiva, tipoPendiente, complementoHeredadoId]);
+
+  const handleSelectDia = (d: string) => { setFechaActiva(d); setValor(''); setSubmitError(null); resetTramoForm(); };
 
   // Valida y abre el modal de confirmación
   const handleSubmit = (e: React.FormEvent) => {
@@ -220,7 +250,57 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
       if (error) { setErrorModal(error); return; }
     }
     setSubmitError(null);
+    if (tipoPendiente === 'inicio' && activeItem && activeItem.extras.length > 0) {
+      const extraNombre = inicioExtraId
+        ? activeItem.extras.find(ex => ex.tipoExtraId === inicioExtraId)?.nombre ?? null
+        : null;
+      setPendingConfirm({ tipo: tipoPendiente, valorNum, fecha: fechaActiva, extraId: inicioExtraId, extraNombre });
+      return;
+    }
     setPendingConfirm({ tipo: tipoPendiente, valorNum, fecha: fechaActiva });
+  };
+
+  // Valida y abre el modal de confirmación para un cambio de complemento intradía
+  const handleSubmitTramo = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedId || !lecturaFecha || lecturaFecha.horometroInicio == null) return;
+    const valorNum = parseFloat(tramoValor);
+    if (isNaN(valorNum) || valorNum < 0) {
+      setTramoError('El valor del horómetro debe ser un número válido mayor o igual a 0.');
+      return;
+    }
+    const ultimaReferencia = lecturaFecha.tramos.length > 0
+      ? lecturaFecha.tramos[lecturaFecha.tramos.length - 1].horometroHasta
+      : lecturaFecha.horometroInicio;
+    if (valorNum <= ultimaReferencia) {
+      setTramoError(`El horómetro debe ser mayor al último registrado en el día (${ultimaReferencia} hrs).`);
+      return;
+    }
+    const activoActual = lecturaFecha.complementoActivoId ?? null;
+    if (tramoExtraId === activoActual) {
+      setTramoError('Selecciona un complemento distinto al estado actual.');
+      return;
+    }
+    setTramoError(null);
+    const extraNombre = tramoExtraId
+      ? activeItem?.extras.find(ex => ex.tipoExtraId === tramoExtraId)?.nombre ?? null
+      : null;
+    setPendingConfirm({ tipo: 'tramo', valorNum, fecha: fechaActiva, extraId: tramoExtraId, extraNombre });
+  };
+
+  const handleDeshacerTramo = async () => {
+    if (!selectedId) return;
+    setIsUndoingTramo(true);
+    setTramoError(null);
+    try {
+      await solicitudesService.deshacerUltimoTramo(selectedId, { equipoId: activeEquipo, fecha: fechaActiva });
+      await refreshLecturas(selectedId);
+    } catch (err: unknown) {
+      const msg = (err as any)?.response?.data?.message;
+      setTramoError(Array.isArray(msg) ? msg.join(' · ') : (msg ?? 'No se pudo deshacer el cambio.'));
+    } finally {
+      setIsUndoingTramo(false);
+    }
   };
 
   // Ejecuta el envío real tras confirmar en el modal
@@ -228,15 +308,27 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
     if (!pendingConfirm || !selectedId) return;
     setIsSubmitting(true);
     setSubmitError(null);
+    const confirm = pendingConfirm;
     setPendingConfirm(null);
     try {
-      await solicitudesService.registrarLectura(selectedId, {
-        equipoId: activeEquipo,
-        fecha:    pendingConfirm.fecha,
-        tipo:     pendingConfirm.tipo,
-        valor:    pendingConfirm.valorNum,
-      });
-      setValor('');
+      if (confirm.tipo === 'tramo') {
+        await solicitudesService.registrarTramo(selectedId, {
+          equipoId:  activeEquipo,
+          fecha:     confirm.fecha,
+          horometro: confirm.valorNum,
+          extraId:   confirm.extraId ?? null,
+        });
+        resetTramoForm();
+      } else {
+        await solicitudesService.registrarLectura(selectedId, {
+          equipoId: activeEquipo,
+          fecha:    confirm.fecha,
+          tipo:     confirm.tipo,
+          valor:    confirm.valorNum,
+          ...(confirm.tipo === 'inicio' && confirm.extraId !== undefined ? { extraId: confirm.extraId } : {}),
+        });
+        setValor('');
+      }
       const freshLecturas = await refreshLecturas(selectedId);
 
       // Sync ultimaLectura in all stores so vencidas/activas cards reflect the new state
@@ -298,7 +390,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
             {pesadaItems.map(item => (
               <button
                 key={item.equipoId}
-                onClick={() => { setActiveEquipo(item.equipoId); setValor(''); setFechaActiva(hoy); setSubmitError(null); }}
+                onClick={() => { setActiveEquipo(item.equipoId); setValor(''); setFechaActiva(hoy); setSubmitError(null); resetTramoForm(); }}
                 className={`flex-shrink-0 px-3 py-2 rounded-xl border text-xs font-semibold transition-colors ${
                   activeEquipo === item.equipoId
                     ? 'bg-amber-50 border-amber-300 text-amber-700'
@@ -314,39 +406,40 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
 
         {/* Equipo info bar */}
         {activeItem && (
-          <div className="flex flex-wrap items-center gap-6 mb-6 px-5 py-3 bg-white border border-slate-200 rounded-xl text-sm">
-            <div>
-              <p className="text-xs text-slate-400 uppercase tracking-wide">Equipo</p>
-              <p className="font-semibold text-slate-800">
-                <span className="font-mono text-slate-400 mr-1">#{activeItem.numeracion}</span>
-                {activeItem.descripcion}
-              </p>
-            </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
+            <InfoTile
+              label="Equipo"
+              value={<><span className="font-mono text-slate-400 mr-1">#{activeItem.numeracion}</span>{activeItem.descripcion}</>}
+              icon={<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>}
+              color="slate"
+            />
             {activeItem.horometroInicial != null && (
-              <div className="border-l border-slate-200 pl-6">
-                <p className="text-xs text-slate-400">Entrega al cliente</p>
-                <p className="font-bold font-mono text-amber-700">
-                  {activeItem.horometroInicial.toLocaleString('es-GT', { minimumFractionDigits: 1 })} hrs
-                </p>
-              </div>
+              <InfoTile
+                label="Entrega al cliente"
+                value={`${activeItem.horometroInicial.toLocaleString('es-GT', { minimumFractionDigits: 1 })} hrs`}
+                icon={<><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></>}
+                color="amber"
+              />
             )}
-            <div className="border-l border-slate-200 pl-6">
-              <p className="text-xs text-slate-400">Tarifa</p>
-              <p className="font-bold text-slate-700">{formatQ(activeItem.tarifaEfectiva)}/hr</p>
-            </div>
-            <div className="border-l border-slate-200 pl-6 ml-auto">
-              <p className="text-xs text-slate-400">Inicio de renta</p>
-              <p className="font-medium text-slate-600 font-mono">
-                {fechaInicioStr.split('-').reverse().join('/')}
-              </p>
-            </div>
+            <InfoTile
+              label="Tarifa"
+              value={`${formatQ(activeItem.tarifaEfectiva)}/hr`}
+              icon={<><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></>}
+              color="emerald"
+            />
+            <InfoTile
+              label="Inicio de renta"
+              value={fechaInicioStr.split('-').reverse().join('/')}
+              icon={<><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></>}
+              color="slate"
+            />
             {selectedSol.fechaFinEstimada && (
-              <div className="border-l border-slate-200 pl-6">
-                <p className="text-xs text-slate-400">Fin estimado</p>
-                <p className={`font-medium font-mono ${new Date(selectedSol.fechaFinEstimada) < new Date() ? 'text-red-600' : 'text-slate-600'}`}>
-                  {selectedSol.fechaFinEstimada.substring(0, 10).split('-').reverse().join('/')}
-                </p>
-              </div>
+              <InfoTile
+                label="Fin estimado"
+                value={selectedSol.fechaFinEstimada.substring(0, 10).split('-').reverse().join('/')}
+                icon={<><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></>}
+                color={new Date(selectedSol.fechaFinEstimada) < new Date() ? 'red' : 'slate'}
+              />
             )}
           </div>
         )}
@@ -505,46 +598,86 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                   </button>
                 </div>
               ) : (
-                <form onSubmit={handleSubmit} className="flex flex-wrap gap-3 items-end">
-                  {tipoPendiente === 'fin5pm' && lecturaFecha?.horometroInicio != null && (
-                    <div className="flex items-center gap-2 px-3 py-2 bg-slate-100 rounded-lg text-xs text-slate-600 self-center">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-                      </svg>
-                      Inicio: <span className="font-mono font-bold ml-1">{lecturaFecha.horometroInicio}</span>
-                    </div>
-                  )}
-                  <div>
-                    <label className="text-xs font-medium text-slate-500 block mb-1">
-                      {tipoPendiente === 'inicio' ? 'Horómetro de inicio' : 'Horómetro de cierre (5PM)'}
-                    </label>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={valor}
-                      onChange={e => setValor(e.target.value)}
-                      placeholder="Ej: 1234.5"
-                      className="px-3 py-2 border border-slate-200 rounded-lg text-sm w-36 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
-                      autoFocus
+                <>
+                  {tipoPendiente === 'fin5pm' && lecturaFecha && activeItem && activeItem.extras.length > 0 && (
+                    <TramoProgreso
+                      lectura={lecturaFecha}
+                      extras={activeItem.extras}
+                      formOpen={tramoFormOpen}
+                      onToggleForm={() => setTramoFormOpen(o => !o)}
+                      valor={tramoValor}
+                      onValorChange={setTramoValor}
+                      extraId={tramoExtraId}
+                      onExtraIdChange={setTramoExtraId}
+                      error={tramoError}
+                      onSubmit={handleSubmitTramo}
+                      onUndo={handleDeshacerTramo}
+                      isUndoing={isUndoingTramo}
                     />
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting || !valor}
-                    className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
-                  >
-                    {isSubmitting ? (
-                      <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-                      </svg>
-                    ) : (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-                      </svg>
+                  )}
+                  <form onSubmit={handleSubmit} className="flex flex-wrap gap-3 items-end">
+                    {tipoPendiente === 'fin5pm' && lecturaFecha?.horometroInicio != null && (
+                      <div className="flex items-center gap-2 px-3 py-2 bg-slate-100 rounded-lg text-xs text-slate-600 self-center">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                        </svg>
+                        Inicio: <span className="font-mono font-bold ml-1">{lecturaFecha.horometroInicio}</span>
+                      </div>
                     )}
-                    {tipoPendiente === 'inicio' ? 'Registrar inicio' : 'Registrar cierre'}
-                  </button>
-                </form>
+                    <div>
+                      <label className="text-xs font-medium text-slate-500 block mb-1">
+                        {tipoPendiente === 'inicio' ? 'Horómetro de inicio' : 'Horómetro de cierre (5PM)'}
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={valor}
+                        onChange={e => setValor(e.target.value)}
+                        placeholder="Ej: 1234.5"
+                        className="px-3 py-2 border border-slate-200 rounded-lg text-sm w-36 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                        autoFocus
+                      />
+                    </div>
+                    {tipoPendiente === 'inicio' && activeItem && activeItem.extras.length > 0 && (
+                      <div>
+                        <label className="text-xs font-medium text-slate-500 block mb-1">
+                          Complemento inicial
+                        </label>
+                        <select
+                          value={inicioExtraId ?? ''}
+                          onChange={e => setInicioExtraId(e.target.value || null)}
+                          className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                        >
+                          <option value="">Ninguno</option>
+                          {activeItem.extras.map(ex => (
+                            <option key={ex.tipoExtraId} value={ex.tipoExtraId}>{ex.nombre}</option>
+                          ))}
+                        </select>
+                        {complementoHeredadoNombre && (
+                          <p className="text-xs text-slate-400 mt-1">
+                            Heredado del día anterior: {complementoHeredadoNombre}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    <button
+                      type="submit"
+                      disabled={isSubmitting || !valor}
+                      className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      {isSubmitting ? (
+                        <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                        </svg>
+                      ) : (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                        </svg>
+                      )}
+                      {tipoPendiente === 'inicio' ? 'Registrar inicio' : 'Registrar cierre'}
+                    </button>
+                  </form>
+                </>
               )}
 
               {submitError && (
@@ -602,35 +735,72 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                         )}
 
                         {lecturasDelMes.map(l => (
-                          <tr
-                            key={l.id}
-                            onClick={() => handleSelectDia(l.fecha)}
-                            className={`border-b border-slate-100 last:border-0 hover:bg-slate-50 cursor-pointer transition-colors ${l.fecha === fechaActiva ? 'bg-indigo-50' : ''}`}
-                          >
-                            <td className="px-3 py-2 font-medium text-slate-700 whitespace-nowrap">
-                              {formatFechaCorta(l.fecha)}
-                            </td>
-                            <td className="px-3 py-2 font-mono text-slate-600">
-                              {l.horometroInicio ?? <span className="text-slate-300">—</span>}
-                            </td>
-                            <td className="px-3 py-2 font-mono text-slate-600">
-                              {l.horometroFin5pm ?? <span className="text-slate-300">—</span>}
-                            </td>
-                            <td className="px-3 py-2 font-mono text-slate-600">
-                              {l.horometroInicio != null && l.horometroFin5pm != null
-                                ? (l.horometroFin5pm - l.horometroInicio).toFixed(1)
-                                : '—'}
-                            </td>
-                            <td className="px-3 py-2 font-mono text-amber-600">
-                              {l.horasNocturnas && l.horasNocturnas > 0 ? l.horasNocturnas.toFixed(1) : '—'}
-                            </td>
-                            <td className="px-3 py-2 font-mono text-slate-400">
-                              {l.ajusteMinimo && l.ajusteMinimo > 0 ? `+${l.ajusteMinimo.toFixed(1)}` : '—'}
-                            </td>
-                            <td className="px-3 py-2 font-mono font-bold text-slate-800">
-                              {l.costoTotal != null ? formatQ(l.costoTotal) : <span className="text-slate-300">—</span>}
-                            </td>
-                          </tr>
+                          <Fragment key={l.id}>
+                            <tr
+                              onClick={() => handleSelectDia(l.fecha)}
+                              className={`border-b border-slate-100 last:border-0 hover:bg-slate-50 cursor-pointer transition-colors ${l.fecha === fechaActiva ? 'bg-indigo-50' : ''}`}
+                            >
+                              <td className="px-3 py-2 font-medium text-slate-700 whitespace-nowrap">
+                                {formatFechaCorta(l.fecha)}
+                                {tieneComplementoMixto(l) && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setExpandedMixto(expandedMixto === l.fecha ? null : l.fecha);
+                                    }}
+                                    className="ml-1.5 text-xs font-semibold text-amber-600 bg-amber-100 hover:bg-amber-200 px-1.5 py-0.5 rounded-full"
+                                  >
+                                    mixto {expandedMixto === l.fecha ? '▲' : '▼'}
+                                  </button>
+                                )}
+                              </td>
+                              <td className="px-3 py-2 font-mono text-slate-600">
+                                {l.horometroInicio ?? <span className="text-slate-300">—</span>}
+                              </td>
+                              <td className="px-3 py-2 font-mono text-slate-600">
+                                {l.horometroFin5pm ?? <span className="text-slate-300">—</span>}
+                              </td>
+                              <td className="px-3 py-2 font-mono text-slate-600">
+                                {l.horometroInicio != null && l.horometroFin5pm != null
+                                  ? (l.horometroFin5pm - l.horometroInicio).toFixed(1)
+                                  : '—'}
+                              </td>
+                              <td className="px-3 py-2 font-mono text-amber-600">
+                                {l.horasNocturnas && l.horasNocturnas > 0 ? l.horasNocturnas.toFixed(1) : '—'}
+                              </td>
+                              <td className="px-3 py-2 font-mono text-slate-400">
+                                {l.ajusteMinimo && l.ajusteMinimo > 0 ? `+${l.ajusteMinimo.toFixed(1)}` : '—'}
+                              </td>
+                              <td className="px-3 py-2 font-mono font-bold text-slate-800">
+                                {l.costoTotal != null ? formatQ(l.costoTotal) : <span className="text-slate-300">—</span>}
+                              </td>
+                            </tr>
+                            {expandedMixto === l.fecha && (
+                              <tr className="border-b border-slate-100 last:border-0 bg-amber-50/40">
+                                <td colSpan={7} className="px-3 py-2">
+                                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+                                    Desglose de tramos — {formatFechaCorta(l.fecha)}
+                                  </p>
+                                  <ul className="space-y-1">
+                                    {l.tramos.map((t, i) => (
+                                      <li key={i} className="flex items-center justify-between text-xs">
+                                        <span className={t.extraId ? 'text-amber-700 font-medium' : 'text-slate-500'}>
+                                          {t.extraId ? t.extraNombre : 'Sin complemento'}
+                                          <span className="text-slate-400 font-mono ml-1.5">
+                                            ({t.horometroDesde.toFixed(1)} → {t.horometroHasta.toFixed(1)})
+                                          </span>
+                                        </span>
+                                        <span className="font-mono text-slate-600">
+                                          {t.horas.toFixed(1)}h × {formatQ(t.tarifa)} = <strong>{formatQ(t.costo)}</strong>
+                                        </span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </td>
+                              </tr>
+                            )}
+                          </Fragment>
                         ))}
                       </tbody>
                     </table>
@@ -664,9 +834,22 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                   </svg>
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-slate-800">Confirmar lectura</p>
+                  <p className="text-sm font-bold text-slate-800">
+                    {pendingConfirm.tipo === 'tramo' ? 'Confirmar cambio de complemento' : 'Confirmar lectura'}
+                  </p>
                   <p className="text-xs text-slate-500">
-                    {pendingConfirm.tipo === 'inicio' ? 'Horómetro de inicio' : 'Horómetro de cierre (5PM)'}
+                    {pendingConfirm.tipo === 'inicio' && pendingConfirm.extraId === undefined && 'Horómetro de inicio'}
+                    {pendingConfirm.tipo === 'inicio' && pendingConfirm.extraId !== undefined && (
+                      pendingConfirm.extraId
+                        ? `Horómetro de inicio · CON ${pendingConfirm.extraNombre}`
+                        : 'Horómetro de inicio · sin complemento'
+                    )}
+                    {pendingConfirm.tipo === 'fin5pm' && 'Horómetro de cierre (5PM)'}
+                    {pendingConfirm.tipo === 'tramo' && (
+                      pendingConfirm.extraId
+                        ? `Cambio a CON ${pendingConfirm.extraNombre}`
+                        : 'Cambio a SIN complemento'
+                    )}
                   </p>
                 </div>
               </div>
@@ -681,7 +864,9 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-slate-500">
-                    {pendingConfirm.tipo === 'inicio' ? 'Valor inicio' : 'Valor cierre'}
+                    {pendingConfirm.tipo === 'inicio' && 'Valor inicio'}
+                    {pendingConfirm.tipo === 'fin5pm' && 'Valor cierre'}
+                    {pendingConfirm.tipo === 'tramo' && 'Horómetro del cambio'}
                   </span>
                   <span className="text-lg font-bold font-mono text-amber-700">
                     {pendingConfirm.valorNum.toLocaleString('es-GT', { minimumFractionDigits: 1 })} hrs
@@ -708,7 +893,9 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                 <button
                   type="button"
                   onClick={confirmarLectura}
-                  className="flex-1 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold transition-colors"
+                  className={`flex-1 px-4 py-2.5 rounded-xl text-white text-sm font-semibold transition-colors ${
+                    pendingConfirm.tipo === 'tramo' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-amber-500 hover:bg-amber-600'
+                  }`}
                 >
                   Confirmar
                 </button>
@@ -904,6 +1091,203 @@ function PesadaStatCard({
         )}
         <p className="text-xs text-slate-400 mt-0.5">{sublabel}</p>
       </div>
+    </div>
+  );
+}
+
+// ── Tile de información de solo lectura (barra de info del equipo) ────────────
+function InfoTile({
+  label, value, icon, color,
+}: {
+  label: string;
+  value: React.ReactNode;
+  icon:  React.ReactNode;
+  color: 'slate' | 'amber' | 'emerald' | 'red';
+}) {
+  const styles = {
+    slate:   { bg: '#f1f5f9', fg: '#475569', text: 'text-slate-700' },
+    amber:   { bg: '#fef3c7', fg: '#d97706', text: 'text-amber-700' },
+    emerald: { bg: '#dcfce7', fg: '#16a34a', text: 'text-emerald-700' },
+    red:     { bg: '#fee2e2', fg: '#dc2626', text: 'text-red-600' },
+  }[color];
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl px-4 py-3 flex items-center gap-3">
+      <div
+        className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+        style={{ background: styles.bg, color: styles.fg }}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          {icon}
+        </svg>
+      </div>
+      <div className="min-w-0">
+        <p className="text-xs text-slate-400">{label}</p>
+        <p className={`text-sm font-bold truncate ${styles.text}`}>{value}</p>
+      </div>
+    </div>
+  );
+}
+
+// ── Progreso de tramos del día (cambios de complemento intradía) ──────────────────
+function TramoProgreso({
+  lectura, extras, formOpen, onToggleForm, valor, onValorChange, extraId, onExtraIdChange, error, onSubmit, onUndo, isUndoing,
+}: {
+  lectura:         LecturaHorometro;
+  extras:          ExtraSeleccionado[];
+  formOpen:        boolean;
+  onToggleForm:    () => void;
+  valor:           string;
+  onValorChange:   (v: string) => void;
+  extraId:         string | null;
+  onExtraIdChange: (v: string | null) => void;
+  error:           string | null;
+  onSubmit:        (e: React.FormEvent) => void;
+  onUndo:          () => void;
+  isUndoing:       boolean;
+}) {
+  const fmt = (n: number) => n.toLocaleString('es-GT', { minimumFractionDigits: 1 });
+
+  type Paso = {
+    desde:       number;
+    hasta:       number | null;
+    extraId:     string | null;
+    extraNombre: string | null;
+    horas:       number | null;
+    costo:       number | null;
+    abierto:     boolean;
+  };
+
+  const pasos: Paso[] = [
+    ...lectura.tramos.map(t => ({
+      desde: t.horometroDesde, hasta: t.horometroHasta,
+      extraId: t.extraId, extraNombre: t.extraNombre,
+      horas: t.horas, costo: t.costo, abierto: false,
+    })),
+    {
+      desde: lectura.tramos.length > 0
+        ? lectura.tramos[lectura.tramos.length - 1].horometroHasta
+        : (lectura.horometroInicio ?? 0),
+      hasta: null,
+      extraId: lectura.complementoActivoId ?? null,
+      extraNombre: lectura.complementoActivoNombre ?? null,
+      horas: null, costo: null, abierto: true,
+    },
+  ];
+
+  return (
+    <div className="mb-4 p-4 bg-slate-50 border border-slate-200 rounded-lg">
+      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Progreso del día</p>
+
+      <div className="relative pl-5 mb-3">
+        <div className="absolute left-[5px] top-1.5 bottom-1.5 w-px bg-slate-200" />
+        {pasos.map((p, i) => (
+          <div key={i} className="relative pb-3 last:pb-0">
+            <span
+              className={`absolute -left-5 top-1 w-2.5 h-2.5 rounded-full ring-2 ring-slate-50 ${
+                p.abierto
+                  ? (p.extraId ? 'bg-amber-500 animate-pulse' : 'bg-slate-400 animate-pulse')
+                  : (p.extraId ? 'bg-amber-500' : 'bg-slate-300')
+              }`}
+            />
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs font-bold text-slate-700">
+                  {fmt(p.desde)} {p.hasta != null && <>→ {fmt(p.hasta)}</>}
+                </span>
+                <span
+                  className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
+                    p.extraId ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'
+                  }`}
+                >
+                  {p.extraId && (
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                    </svg>
+                  )}
+                  {p.extraId ? p.extraNombre : 'Sin complemento'}
+                </span>
+              </div>
+              <span className="text-xs">
+                {p.abierto ? (
+                  <span className="italic text-slate-400">en curso</span>
+                ) : (
+                  <span className="font-mono">
+                    <span className="text-slate-500">{p.horas!.toFixed(1)}h</span>
+                    {' · '}
+                    <span className="font-bold text-slate-700">{formatQ(p.costo!)}</span>
+                  </span>
+                )}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onToggleForm}
+          className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+            formOpen
+              ? 'border border-slate-200 text-slate-600 hover:bg-slate-100'
+              : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+          }`}
+        >
+          {formOpen ? 'Cancelar' : '+ Registrar cambio de complemento'}
+        </button>
+        {lectura.tramos.length > 0 && (
+          <button
+            type="button"
+            onClick={onUndo}
+            disabled={isUndoing}
+            className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-500 hover:bg-slate-100 disabled:opacity-40 transition-colors"
+          >
+            {isUndoing ? 'Deshaciendo…' : 'Quitar último cambio'}
+          </button>
+        )}
+      </div>
+
+      {formOpen && (
+        <form onSubmit={onSubmit} className="mt-3 flex flex-wrap gap-3 items-end">
+          <div>
+            <label className="text-xs font-medium text-slate-500 block mb-1">Horómetro</label>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={valor}
+              onChange={e => onValorChange(e.target.value)}
+              placeholder="Ej: 112.7"
+              className="px-3 py-2 border border-slate-200 rounded-lg text-sm w-32 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-slate-500 block mb-1">Complemento</label>
+            <select
+              value={extraId ?? ''}
+              onChange={e => onExtraIdChange(e.target.value || null)}
+              className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+            >
+              <option value="">Ninguno</option>
+              {extras.map(ex => (
+                <option key={ex.tipoExtraId} value={ex.tipoExtraId}>{ex.nombre}</option>
+              ))}
+            </select>
+          </div>
+          <button
+            type="submit"
+            disabled={!valor}
+            className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Registrar cambio
+          </button>
+        </form>
+      )}
+
+      {error && (
+        <p className="mt-2 text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2 border border-red-200">{error}</p>
+      )}
     </div>
   );
 }

@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, Fragment } from 'react';
+import type { AxiosError } from 'axios';
 import { solicitudesService, type LecturaHorometro, type DashboardStats } from '../../../services/solicitudes.service';
 import type { SolicitudRenta, ItemSnapshot, ExtraSeleccionado } from '../../../types/solicitud-renta.types';
 import { formatQ } from '../../../types/solicitud.types';
 import {
-  today, getDiaStatus, generarDias, tieneComplementoMixto,
-  formatFechaCorta, localDateOf, ultimoDiaHorometro, validarInicioHorometro, diasPendientesAnteriores, type DiaStatus,
+  today, getDiaStatus, tieneComplementoMixto,
+  formatFechaCorta, localDateOf, ultimoDiaHorometro, validarInicioHorometro, diasPendientesAnteriores,
 } from '../../../utils/horometro.utils';
 import HorometroRentaCard from '../HorometroRentaCard';
 import CalendarioMes from '../CalendarioMes';
@@ -12,6 +13,10 @@ import { useActivasStore, useAdminActivasStore } from '../../../store/activas.st
 import { useVencidasStore, useAdminVencidasStore } from '../../../store/vencidas.store';
 
 type PesadaItem = Extract<ItemSnapshot, { kind: 'pesada' }>;
+
+function getApiErrorMessage(err: unknown): string | string[] | undefined {
+  return (err as AxiosError<{ message?: string | string[] }>)?.response?.data?.message;
+}
 
 // Fetch por defecto: solo las rentas del encargado autenticado.
 // Definido a nivel de módulo para que sea estable como dependencia de useEffect.
@@ -63,7 +68,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
   const [errorModal, setErrorModal] = useState<{ titulo: string; mensaje: string } | null>(null);
 
   // Tramo (cambio de complemento intradía) form state
-  const [tramoFormOpen, setTramoFormOpen] = useState(false);
+  const [formTab,        setFormTab]        = useState<'cierre' | 'cambio'>('cierre');
   const [tramoValor,    setTramoValor]    = useState('');
   const [tramoExtraId,  setTramoExtraId]  = useState<string | null>(null);
   const [tramoError,    setTramoError]    = useState<string | null>(null);
@@ -74,7 +79,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
   const [inicioExtraId, setInicioExtraId] = useState<string | null>(null);
 
   const resetTramoForm = () => {
-    setTramoFormOpen(false); setTramoValor(''); setTramoExtraId(null); setTramoError(null);
+    setFormTab('cierre'); setTramoValor(''); setTramoExtraId(null); setTramoError(null);
   };
 
   const resolvedFetch  = fetchSolicitudes ?? fetchSolicitudesEncargado;
@@ -124,7 +129,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
     const items = (sol.items as ItemSnapshot[]).filter((i): i is PesadaItem => i.kind === 'pesada');
     setActiveEquipo(items[0]?.equipoId ?? '');
     setMesActivo({ año: new Date().getFullYear(), mes: new Date().getMonth() });
-    setFechaActiva(hoy);
+    setFechaActiva(today());
     setValor('');
     setSubmitError(null);
     resetTramoForm();
@@ -217,7 +222,6 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
 
   useEffect(() => {
     if (tipoPendiente === 'inicio') setInicioExtraId(complementoHeredadoId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeEquipo, fechaActiva, tipoPendiente, complementoHeredadoId]);
 
   const handleSelectDia = (d: string) => { setFechaActiva(d); setValor(''); setSubmitError(null); resetTramoForm(); };
@@ -296,7 +300,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
       await solicitudesService.deshacerUltimoTramo(selectedId, { equipoId: activeEquipo, fecha: fechaActiva });
       await refreshLecturas(selectedId);
     } catch (err: unknown) {
-      const msg = (err as any)?.response?.data?.message;
+      const msg = getApiErrorMessage(err);
       setTramoError(Array.isArray(msg) ? msg.join(' · ') : (msg ?? 'No se pudo deshacer el cambio.'));
     } finally {
       setIsUndoingTramo(false);
@@ -342,7 +346,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
         if (sol) store.getState().updateRenta({ ...sol, ultimaLectura: newUltimaLectura });
       }
     } catch (err: unknown) {
-      const msg = (err as any)?.response?.data?.message;
+      const msg = getApiErrorMessage(err);
       setSubmitError(Array.isArray(msg) ? msg.join(' · ') : (msg ?? 'No se pudo registrar la lectura.'));
     } finally {
       setIsSubmitting(false);
@@ -570,7 +574,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                           });
                           await refreshLecturas(selectedId); setValor('');
                         } catch (err: unknown) {
-                          const msg = (err as any)?.response?.data?.message;
+                          const msg = getApiErrorMessage(err);
                           setSubmitError(Array.isArray(msg) ? msg.join(' · ') : (msg ?? 'Error al corregir.'));
                         } finally { setIsSubmitting(false); }
                       }}
@@ -587,7 +591,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                           });
                           await refreshLecturas(selectedId); setValor('');
                         } catch (err: unknown) {
-                          const msg = (err as any)?.response?.data?.message;
+                          const msg = getApiErrorMessage(err);
                           setSubmitError(Array.isArray(msg) ? msg.join(' · ') : (msg ?? 'Error al corregir.'));
                         } finally { setIsSubmitting(false); }
                       }}
@@ -600,11 +604,36 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
               ) : (
                 <>
                   {tipoPendiente === 'fin5pm' && lecturaFecha && activeItem && activeItem.extras.length > 0 && (
-                    <TramoProgreso
+                    <>
+                      <ProgresoDelDiaTimeline lectura={lecturaFecha} />
+
+                      <div className="flex gap-1 mb-3 p-1 bg-slate-100 rounded-lg w-fit">
+                        <button
+                          type="button"
+                          onClick={() => setFormTab('cierre')}
+                          className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                            formTab === 'cierre' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                          }`}
+                        >
+                          Cerrar día
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFormTab('cambio')}
+                          className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                            formTab === 'cambio' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                          }`}
+                        >
+                          Cambiar complemento
+                        </button>
+                      </div>
+                    </>
+                  )}
+
+                  {tipoPendiente === 'fin5pm' && lecturaFecha && activeItem && activeItem.extras.length > 0 && formTab === 'cambio' ? (
+                    <CambioComplementoForm
                       lectura={lecturaFecha}
                       extras={activeItem.extras}
-                      formOpen={tramoFormOpen}
-                      onToggleForm={() => setTramoFormOpen(o => !o)}
                       valor={tramoValor}
                       onValorChange={setTramoValor}
                       extraId={tramoExtraId}
@@ -614,7 +643,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                       onUndo={handleDeshacerTramo}
                       isUndoing={isUndoingTramo}
                     />
-                  )}
+                  ) : (
                   <form onSubmit={handleSubmit} className="flex flex-wrap gap-3 items-end">
                     {tipoPendiente === 'fin5pm' && lecturaFecha?.horometroInicio != null && (
                       <div className="flex items-center gap-2 px-3 py-2 bg-slate-100 rounded-lg text-xs text-slate-600 self-center">
@@ -677,6 +706,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                       {tipoPendiente === 'inicio' ? 'Registrar inicio' : 'Registrar cierre'}
                     </button>
                   </form>
+                  )}
                 </>
               )}
 
@@ -806,16 +836,41 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                     </table>
                   </div>
 
-                  {lecturasDelMes.length > 0 && (
-                    <div className="px-5 py-3 border-t border-slate-100 flex justify-end">
-                      <div className="text-right">
-                        <p className="text-xs text-slate-500">Subtotal mes</p>
-                        <p className="text-base font-bold text-slate-800">
-                          {formatQ(lecturasDelMes.reduce((s, l) => s + (l.costoTotal ?? 0), 0))}
-                        </p>
+                  {lecturasDelMes.length > 0 && (() => {
+                    const subtotalCerrado    = lecturasDelMes.reduce((s, l) => s + (l.costoTotal ?? 0), 0);
+                    const lecturaHoyAbierta  = lecturasDelMes.find(l => l.fecha === hoy && l.costoTotal == null);
+                    const costoHoyEnCurso    = lecturaHoyAbierta?.tramos.reduce((s, t) => s + t.costo, 0) ?? 0;
+
+                    if (costoHoyEnCurso <= 0) {
+                      return (
+                        <div className="px-5 py-3 border-t border-slate-100 flex justify-end">
+                          <div className="text-right">
+                            <p className="text-xs text-slate-500">Subtotal mes</p>
+                            <p className="text-base font-bold text-slate-800">{formatQ(subtotalCerrado)}</p>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="px-5 py-3 border-t border-slate-100 flex justify-end">
+                        <div className="w-64 space-y-1">
+                          <div className="flex justify-between text-xs text-slate-500">
+                            <span>Subtotal mes (días cerrados)</span>
+                            <span className="font-mono">{formatQ(subtotalCerrado)}</span>
+                          </div>
+                          <div className="flex justify-between text-xs text-amber-600">
+                            <span>+ Hoy (en curso)</span>
+                            <span className="font-mono">{formatQ(costoHoyEnCurso)}</span>
+                          </div>
+                          <div className="flex justify-between pt-1 border-t border-slate-200">
+                            <span className="text-xs font-semibold text-slate-600 self-end">Total acumulado</span>
+                            <span className="text-base font-bold text-slate-800">{formatQ(subtotalCerrado + costoHoyEnCurso)}</span>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </>
               )}
             </div>
@@ -1130,22 +1185,7 @@ function InfoTile({
 }
 
 // ── Progreso de tramos del día (cambios de complemento intradía) ──────────────────
-function TramoProgreso({
-  lectura, extras, formOpen, onToggleForm, valor, onValorChange, extraId, onExtraIdChange, error, onSubmit, onUndo, isUndoing,
-}: {
-  lectura:         LecturaHorometro;
-  extras:          ExtraSeleccionado[];
-  formOpen:        boolean;
-  onToggleForm:    () => void;
-  valor:           string;
-  onValorChange:   (v: string) => void;
-  extraId:         string | null;
-  onExtraIdChange: (v: string | null) => void;
-  error:           string | null;
-  onSubmit:        (e: React.FormEvent) => void;
-  onUndo:          () => void;
-  isUndoing:       boolean;
-}) {
+function ProgresoDelDiaTimeline({ lectura }: { lectura: LecturaHorometro }) {
   const fmt = (n: number) => n.toLocaleString('es-GT', { minimumFractionDigits: 1 });
 
   type Paso = {
@@ -1179,7 +1219,7 @@ function TramoProgreso({
     <div className="mb-4 p-4 bg-slate-50 border border-slate-200 rounded-lg">
       <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Progreso del día</p>
 
-      <div className="relative pl-5 mb-3">
+      <div className="relative pl-5">
         <div className="absolute left-[5px] top-1.5 bottom-1.5 w-px bg-slate-200" />
         {pasos.map((p, i) => (
           <div key={i} className="relative pb-3 last:pb-0">
@@ -1223,67 +1263,71 @@ function TramoProgreso({
           </div>
         ))}
       </div>
+    </div>
+  );
+}
 
-      <div className="flex items-center gap-2">
+// ── Formulario del tab "Cambiar complemento" ───────────────────────────────────
+function CambioComplementoForm({
+  lectura, extras, valor, onValorChange, extraId, onExtraIdChange, error, onSubmit, onUndo, isUndoing,
+}: {
+  lectura:         LecturaHorometro;
+  extras:          ExtraSeleccionado[];
+  valor:           string;
+  onValorChange:   (v: string) => void;
+  extraId:         string | null;
+  onExtraIdChange: (v: string | null) => void;
+  error:           string | null;
+  onSubmit:        (e: React.FormEvent) => void;
+  onUndo:          () => void;
+  isUndoing:       boolean;
+}) {
+  return (
+    <div className="mb-2">
+      <form onSubmit={onSubmit} className="flex flex-wrap gap-3 items-end">
+        <div>
+          <label className="text-xs font-medium text-slate-500 block mb-1">Horómetro</label>
+          <input
+            type="text"
+            inputMode="decimal"
+            value={valor}
+            onChange={e => onValorChange(e.target.value)}
+            placeholder="Ej: 112.7"
+            className="px-3 py-2 border border-slate-200 rounded-lg text-sm w-32 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+            autoFocus
+          />
+        </div>
+        <div>
+          <label className="text-xs font-medium text-slate-500 block mb-1">Complemento</label>
+          <select
+            value={extraId ?? ''}
+            onChange={e => onExtraIdChange(e.target.value || null)}
+            className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+          >
+            <option value="">Ninguno</option>
+            {extras.map(ex => (
+              <option key={ex.tipoExtraId} value={ex.tipoExtraId}>{ex.nombre}</option>
+            ))}
+          </select>
+        </div>
         <button
-          type="button"
-          onClick={onToggleForm}
-          className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-            formOpen
-              ? 'border border-slate-200 text-slate-600 hover:bg-slate-100'
-              : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-          }`}
+          type="submit"
+          disabled={!valor}
+          className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {formOpen ? 'Cancelar' : '+ Registrar cambio de complemento'}
+          Registrar cambio
         </button>
         {lectura.tramos.length > 0 && (
           <button
             type="button"
             onClick={onUndo}
             disabled={isUndoing}
-            className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-500 hover:bg-slate-100 disabled:opacity-40 transition-colors"
+            className="px-2.5 py-2 rounded-lg border border-slate-200 text-xs font-medium text-slate-500 hover:bg-slate-100 disabled:opacity-40 transition-colors"
           >
             {isUndoing ? 'Deshaciendo…' : 'Quitar último cambio'}
           </button>
         )}
-      </div>
-
-      {formOpen && (
-        <form onSubmit={onSubmit} className="mt-3 flex flex-wrap gap-3 items-end">
-          <div>
-            <label className="text-xs font-medium text-slate-500 block mb-1">Horómetro</label>
-            <input
-              type="text"
-              inputMode="decimal"
-              value={valor}
-              onChange={e => onValorChange(e.target.value)}
-              placeholder="Ej: 112.7"
-              className="px-3 py-2 border border-slate-200 rounded-lg text-sm w-32 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
-              autoFocus
-            />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-slate-500 block mb-1">Complemento</label>
-            <select
-              value={extraId ?? ''}
-              onChange={e => onExtraIdChange(e.target.value || null)}
-              className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
-            >
-              <option value="">Ninguno</option>
-              {extras.map(ex => (
-                <option key={ex.tipoExtraId} value={ex.tipoExtraId}>{ex.nombre}</option>
-              ))}
-            </select>
-          </div>
-          <button
-            type="submit"
-            disabled={!valor}
-            className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            Registrar cambio
-          </button>
-        </form>
-      )}
+      </form>
 
       {error && (
         <p className="mt-2 text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2 border border-red-200">{error}</p>

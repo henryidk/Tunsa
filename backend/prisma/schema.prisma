@@ -11,60 +11,60 @@ datasource db {
 // ==================== AUTENTICACIÓN ====================
 
 model Usuario {
-  id            String   @id @default(cuid())
-  username      String   @unique  // Usuario único (ej: "admin", "secretaria1")
-  password      String              // Hash bcrypt (NO la contraseña real)
-  nombre        String              // Nombre completo
-  telefono      String?             // Teléfono opcional
-  isActive            Boolean  @default(true)
-  mustChangePassword  Boolean  @default(false)
+  id                 String  @id @default(cuid())
+  username           String  @unique // Usuario único (ej: "admin", "secretaria1")
+  password           String // Hash bcrypt (NO la contraseña real)
+  nombre             String // Nombre completo
+  telefono           String? // Teléfono opcional
+  isActive           Boolean @default(true)
+  mustChangePassword Boolean @default(false)
 
-  roleId        String
-  role          Role     @relation(fields: [roleId], references: [id])
+  roleId String
+  role   Role   @relation(fields: [roleId], references: [id])
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relaciones
   refreshTokens RefreshToken[]
+  // @@index([username]) eliminado: @unique ya crea un índice, este era redundante
 
   @@map("usuarios")
-  // @@index([username]) eliminado: @unique ya crea un índice, este era redundante
 }
 
 model Role {
-  id          String   @id @default(cuid())
-  nombre      String   @unique  // admin, secretaria, encargado_maquinas
+  id          String  @id @default(cuid())
+  nombre      String  @unique // admin, secretaria, encargado_maquinas
   descripcion String?
-  
-  createdAt   DateTime @default(now())
-  
-  usuarios    Usuario[]
-  
+
+  createdAt DateTime @default(now())
+
+  usuarios Usuario[]
+
   @@map("roles")
 }
 
 model RefreshToken {
-  id            String    @id @default(cuid())
-  token         String    @unique @db.Text  // @unique: O(1) lookup en revocación y validación
-  
-  userId        String
-  user          Usuario   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  expiresAt     DateTime
-  revoked       Boolean   @default(false)
-  revokedAt     DateTime?
-  
+  id    String @id @default(cuid())
+  token String @unique @db.Text // @unique: O(1) lookup en revocación y validación
+
+  userId String
+  user   Usuario @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  expiresAt DateTime
+  revoked   Boolean   @default(false)
+  revokedAt DateTime?
+
   // Información de seguridad
-  device        String?   // Navegador/dispositivo
-  ipAddress     String?   // IP desde donde se conectó
-  userAgent     String?   @db.Text
-  
-  createdAt     DateTime  @default(now())
-  
-  @@map("refresh_tokens")
+  device    String? // Navegador/dispositivo
+  ipAddress String? // IP desde donde se conectó
+  userAgent String? @db.Text
+
+  createdAt DateTime @default(now())
+
   @@index([userId])
   @@index([revoked, expiresAt])
+  @@map("refresh_tokens")
 }
 
 // ==================== EQUIPOS ====================
@@ -72,22 +72,22 @@ model RefreshToken {
 // Modalidad fija que dicta el comportamiento de negocio del tipo.
 // No es editable por el usuario — nombre sí, modalidad no.
 enum ModalidadTipo {
-  LIVIANA     // cobra por día / semana / mes
-  PESADA      // cobra por horómetro (hora)
-  USO_PROPIO  // sin precio de renta
+  LIVIANA // cobra por día / semana / mes
+  PESADA // cobra por horómetro (hora)
+  USO_PROPIO // sin precio de renta
 }
 
 // Tipo de maquinaria: dato "padre". Categoría es hija de tipo.
 model TipoEquipo {
   id          String        @id @default(cuid())
-  nombre      String        @unique            // etiqueta visible, editable por el admin
+  nombre      String        @unique // etiqueta visible, editable por el admin
   modalidad   ModalidadTipo @default(USO_PROPIO) // comportamiento de negocio, nunca editable
   descripcion String?
 
-  createdAt   DateTime    @default(now())
+  createdAt DateTime @default(now())
 
-  categorias  Categoria[]
-  equipos     Equipo[]
+  categorias Categoria[]
+  equipos    Equipo[]
 
   @@map("tipos_equipo")
 }
@@ -95,57 +95,57 @@ model TipoEquipo {
 // Categoría pertenece a un TipoEquipo.
 // @@unique([id, tipoId]) habilita la FK compuesta en equipos (integridad entre categoria y tipo).
 model Categoria {
-  id        String     @id @default(cuid())
-  nombre    String
-  tipoId    String     @map("tipo_id")
-  tipo      TipoEquipo @relation(fields: [tipoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  id     String     @id @default(cuid())
+  nombre String
+  tipoId String     @map("tipo_id")
+  tipo   TipoEquipo @relation(fields: [tipoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
-  createdAt DateTime   @default(now())
+  createdAt DateTime @default(now())
 
-  equipos   Equipo[]
+  equipos Equipo[]
 
-  @@unique([nombre, tipoId])  // nombre único dentro de cada tipo
-  @@unique([id, tipoId])      // para FK compuesta desde equipos
+  @@unique([nombre, tipoId]) // nombre único dentro de cada tipo
+  @@unique([id, tipoId]) // para FK compuesta desde equipos
   @@index([tipoId])
   @@map("categorias")
 }
 
 model Equipo {
-  id           String     @id @default(cuid())
-  numeracion   String     @unique
-  descripcion  String     @db.Text
-  serie        String?    @db.Text
-  fechaCompra  DateTime   @db.Date
-  montoCompra  Decimal?   @db.Decimal(12, 2)
+  id          String   @id @default(cuid())
+  numeracion  String   @unique
+  descripcion String   @db.Text
+  serie       String?  @db.Text
+  fechaCompra DateTime @db.Date
+  montoCompra Decimal? @db.Decimal(12, 2)
 
   // Tipo: requerido. Categoría: opcional, pero cuando existe debe pertenecer al mismo tipo.
   // La consistencia (categoria.tipoId == equipo.tipoId) se refuerza en DB con FK compuesta
   // y a nivel de servicio antes de persistir.
-  tipoId      String     @map("tipo_id")
-  tipo        TipoEquipo @relation(fields: [tipoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  tipoId String     @map("tipo_id")
+  tipo   TipoEquipo @relation(fields: [tipoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   categoriaId String?    @map("categoria_id")
   categoria   Categoria? @relation(fields: [categoriaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
-  rentaHora         Decimal?   @db.Decimal(10, 2)  // Exclusivo de PESADA
-  rentaDia          Decimal?   @db.Decimal(10, 2)
-  rentaSemana       Decimal?   @db.Decimal(10, 2)
-  rentaMes          Decimal?   @db.Decimal(10, 2)
+  rentaHora   Decimal? @db.Decimal(10, 2) // Exclusivo de PESADA
+  rentaDia    Decimal? @db.Decimal(10, 2)
+  rentaSemana Decimal? @db.Decimal(10, 2)
+  rentaMes    Decimal? @db.Decimal(10, 2)
 
-  isActive     Boolean    @default(true)
-  motivoBaja   String?
-  fechaBaja    DateTime?  @db.Date
+  isActive   Boolean   @default(true)
+  motivoBaja String?
+  fechaBaja  DateTime? @db.Date
 
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  lecturas      LecturaHorometro[]
-  extras        ExtraEquipo[]
+  lecturas LecturaHorometro[]
+  extras   ExtraEquipo[]
 
-  @@map("equipos")
   @@index([tipoId])
   @@index([categoriaId])
   @@index([isActive, createdAt])
+  @@map("equipos")
 }
 
 // ==================== EXTRAS DE MAQUINARIA PESADA ====================
@@ -153,13 +153,13 @@ model Equipo {
 // Catálogo de complementos disponibles (Martillo, Pluma hidráulica, etc.)
 // Solo el admin puede crear/editar/eliminar entradas del catálogo.
 model TipoExtra {
-  id          String        @id @default(cuid())
-  nombre      String        @unique
+  id          String   @id @default(cuid())
+  nombre      String   @unique
   descripcion String?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  extras      ExtraEquipo[]
+  extras ExtraEquipo[]
 
   @@map("tipos_extra")
 }
@@ -190,8 +190,8 @@ enum EstadoSolicitud {
   PENDIENTE
   APROBADA
   RECHAZADA
-  ACTIVA     // entregada al cliente y firmada — renta en curso
-  DEVUELTA   // cliente devolvió el equipo — renta cerrada
+  ACTIVA // entregada al cliente y firmada — renta en curso
+  DEVUELTA // cliente devolvió el equipo — renta cerrada
 }
 
 model Solicitud {
@@ -204,18 +204,18 @@ model Solicitud {
   totalEstimado Decimal         @db.Decimal(12, 2)
   estado        EstadoSolicitud @default(PENDIENTE)
   motivoRechazo String?         @db.Text
-  creadaPor     String          // username de quien creó la solicitud
-  gestionadaPor String?         // username del encargado asignado (solo en rentas retroactivas)
+  creadaPor     String // username de quien creó la solicitud
+  gestionadaPor String? // username del encargado asignado (solo en rentas retroactivas)
 
   // Folio — asignado al aprobar, nunca al crear
-  folio         String?         @unique   // "202604-0001" — identifica la renta en documentos
+  folio String? @unique // "202604-0001" — identifica la renta en documentos
 
   // Aprobación / rechazo
-  aprobadaPor   String?         // username de quien aprobó
-  fechaDecision DateTime?       // momento exacto en que admin aprobó o rechazó (inmutable)
+  aprobadaPor   String? // username de quien aprobó
+  fechaDecision DateTime? // momento exacto en que admin aprobó o rechazó (inmutable)
 
   // Entrega y comprobante
-  comprobanteKey   String?   // clave del objeto en R2: "clientes/CLI-XXXX/comprobantes/FOLIO.pdf"
+  comprobanteKey   String? // clave del objeto en R2: "clientes/CLI-XXXX/comprobantes/FOLIO.pdf"
   fechaInicioRenta DateTime? // momento exacto del primer "Generar Comprobante" — inicio oficial de la renta
   fechaEntrega     DateTime? // momento exacto en que se subió el comprobante firmado
 
@@ -226,53 +226,53 @@ model Solicitud {
 
   // Extensiones de renta — se acumulan sin mutar el JSON original de `items`.
   // Cada entrada identifica un ítem (por equipoId o tipo granel), la duración adicional y su costo adaptativo.
-  extensiones           Json?     // ExtensionEntry[]
+  extensiones Json? // ExtensionEntry[]
 
   // Devoluciones — puede haber múltiples entradas si la devolución es parcial.
   // Cada entrada registra qué ítems se devolvieron, cuándo, quién lo registró,
   // los cargos adicionales y la key del PDF de liquidación en R2.
-  devolucionesParciales Json?     // DevolucionEntry[]
+  devolucionesParciales Json? // DevolucionEntry[]
 
   // Flag: true cuando todos los ítems son PESADA (cobro por horómetro, sin totalEstimado real).
-  esPesada              Boolean   @default(false)
+  esPesada Boolean @default(false)
 
   // Flag: true cuando el cliente es especial y la renta no tiene duración definida.
   // fechaFinEstimada queda en null; el costo se calcula con días calendario al devolver.
-  esIndefinida          Boolean   @default(false)
+  esIndefinida Boolean @default(false)
 
   // Monto real cobrado al cerrar la renta (suma de todos los totalLote de devolucionesParciales).
   // Puede diferir de totalEstimado en devoluciones anticipadas o por recargos adicionales.
-  totalFinal            Decimal?  @db.Decimal(12, 2)
+  totalFinal Decimal? @db.Decimal(12, 2)
 
   // Fecha de la última devolución registrada (parcial o completa).
   // Se actualiza en cada llamada a registrarDevolucion. Permite filtrar el historial
   // por fecha de devolución sin hacer queries sobre el JSONB devolucionesParciales.
   fechaUltimaDevolucion DateTime?
 
-  lecturas              LecturaHorometro[]
-  resumenItems          ResumenItem[]
+  lecturas     LecturaHorometro[]
+  resumenItems ResumenItem[]
 
   // Suma acumulada de costoTotal de todas las lecturas de horómetro.
   // Se incrementa atómicamente con cada lectura registrada o actualizada.
-  costoAcumuladoPesada  Decimal   @default(0) @db.Decimal(12, 2)
+  costoAcumuladoPesada Decimal @default(0) @db.Decimal(12, 2)
 
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@map("solicitudes")
   @@index([estado, createdAt])
-  @@index([estado, fechaDecision, id])                          // keyset pagination admin: rechazadas
-  @@index([creadaPor, estado, fechaDecision, id])               // keyset pagination encargado: historial-mias (rechazadas)
-  @@index([creadaPor, fechaUltimaDevolucion, id])               // keyset pagination encargado: historial devueltas
-  @@index([creadaPor, estado, fechaFinEstimada])                // consulta encargado: activas-mias y vencidas-mias
-  @@index([gestionadaPor, estado, fechaFinEstimada])            // consulta encargado: retroactivas gestionadas
+  @@index([estado, fechaDecision, id]) // keyset pagination admin: rechazadas
+  @@index([creadaPor, estado, fechaDecision, id]) // keyset pagination encargado: historial-mias (rechazadas)
+  @@index([creadaPor, fechaUltimaDevolucion, id]) // keyset pagination encargado: historial devueltas
+  @@index([creadaPor, estado, fechaFinEstimada]) // consulta encargado: activas-mias y vencidas-mias
+  @@index([gestionadaPor, estado, fechaFinEstimada]) // consulta encargado: retroactivas gestionadas
   @@index([clienteId])
+  @@map("solicitudes")
 }
 
 // Contador mensual de folios — garantiza secuencia atómica sin gaps por mes.
 // Una fila por mes (ej: "202604"). El campo `ultimo` es el último número asignado.
 model FolioSecuencia {
-  mesAnio String @id         // "202604"
+  mesAnio String @id // "202604"
   ultimo  Int    @default(0)
 
   @@map("folio_secuencias")
@@ -298,11 +298,11 @@ model LoteGranel {
   ubicacion      String?
   isActive       Boolean    @default(true)
 
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@map("lotes_granel")
   @@index([tipo, isActive])
+  @@map("lotes_granel")
 }
 
 // Un registro de precios por cada TipoGranel — la clave primaria es el tipo.
@@ -324,8 +324,8 @@ model ConfigGranel {
 // ==================== BITÁCORAS ====================
 
 model Bitacora {
-  id            String   @id @default(cuid())
-  modulo        String   // "equipo" | "usuario"
+  id            String  @id @default(cuid())
+  modulo        String // "equipo" | "usuario"
   entidadId     String
   entidadNombre String
   campo         String
@@ -333,12 +333,12 @@ model Bitacora {
   valorNuevo    String?
   realizadoPor  String
 
-  createdAt     DateTime @default(now())
+  createdAt DateTime @default(now())
 
-  @@map("bitacoras")
-  @@index([createdAt, id])         // cursor pagination: ORDER BY createdAt DESC, id DESC — seek directo sin scan
+  @@index([createdAt, id]) // cursor pagination: ORDER BY createdAt DESC, id DESC — seek directo sin scan
   @@index([modulo, createdAt, id]) // filtro por módulo + cursor pagination
   @@index([entidadId])
+  @@map("bitacoras")
 }
 
 // (Categoria definida arriba junto a TipoEquipo y Equipo)
@@ -346,19 +346,19 @@ model Bitacora {
 // ==================== CLIENTES ====================
 
 model Cliente {
-  id           String   @id  // CLI-0001, CLI-0042 — auto-generado por el servicio
+  id           String   @id // CLI-0001, CLI-0042 — auto-generado por el servicio
   nombre       String
   dpi          String?  @unique
   telefono     String?  @unique
   esEspecial   Boolean  @default(false)
-  documentoKey String?  // clave del objeto en R2: "clientes/CLI-0001/documento.pdf"
+  documentoKey String? // clave del objeto en R2: "clientes/CLI-0001/documento.pdf"
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  solicitudes  Solicitud[]
+  solicitudes Solicitud[]
 
-  @@map("clientes")
   @@index([nombre])
+  @@map("clientes")
 }
 
 // ==================== HORÓMETRO (MAQUINARIA PESADA) ====================
@@ -366,45 +366,53 @@ model Cliente {
 /**
  * Registro diario de horómetro para maquinaria pesada en renta.
  * Una fila por (solicitud, equipo, fecha).
- *
  * Flujo de llenado:
- *  1. Mañana: se registra horometroInicio (crea la fila).
- *  2. 5 PM:   se registra horometroFin5pm; se calculan horasDiurnas y costos provisionales.
- *  3. Al registrar el horometroInicio del día siguiente:
- *     → si difiere de horometroFin5pm del día anterior, se actualiza horasNocturnas
- *       en la fila del día anterior y se recalculan sus costos definitivos.
- *  4. En la devolución: el horometroDevolucion cierra el último día igual que en (3).
+ * 1. Mañana: se registra horometroInicio (crea la fila).
+ * 2. 5 PM:   se registra horometroFin5pm; se calculan horasDiurnas y costos provisionales.
+ * 3. Al registrar el horometroInicio del día siguiente:
+ * → si difiere de horometroFin5pm del día anterior, se actualiza horasNocturnas
+ * en la fila del día anterior y se recalculan sus costos definitivos.
+ * 4. En la devolución: el horometroDevolucion cierra el último día igual que en (3).
+ * Tramos: dentro del día, el operador puede engancharle/quitarle un complemento
+ * (ej. martillo hidráulico) a la máquina en cualquier momento. Cada vez que esto pasa
+ * se cierra un tramo en `tramos` (con su propia tarifa) y `complementoActivoId` indica
+ * el complemento activo para el tramo abierto actual (null = sin complemento).
  */
 model LecturaHorometro {
-  id            String    @id @default(cuid())
-  solicitudId   String
-  solicitud     Solicitud @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
-  equipoId      String
-  equipo        Equipo    @relation(fields: [equipoId], references: [id])
+  id          String    @id @default(cuid())
+  solicitudId String
+  solicitud   Solicitud @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
+  equipoId    String
+  equipo      Equipo    @relation(fields: [equipoId], references: [id])
 
-  fecha           DateTime  @db.Date    // Día al que pertenece la lectura
+  fecha DateTime @db.Date // Día al que pertenece la lectura
 
-  horometroInicio Decimal?  @db.Decimal(10, 1)  // Lectura de inicio del día
-  horometroFin5pm Decimal?  @db.Decimal(10, 1)  // Lectura a las 5 PM
+  horometroInicio Decimal? @db.Decimal(10, 1) // Lectura de inicio del día
+  horometroFin5pm Decimal? @db.Decimal(10, 1) // Lectura a las 5 PM
 
   // Horas nocturnas de ESTE día — se conocen cuando se registra el inicio del día siguiente
   // (o en la devolución si es el último día).
-  horasNocturnas  Decimal?  @db.Decimal(6, 1)
+  horasNocturnas Decimal? @db.Decimal(6, 1)
+
+  // Tramos cerrados del día (con/sin complemento) — ver TramoHorometro en solicitudes.types.ts
+  tramos                  Json    @default("[]")
+  complementoActivoId     String? // complemento activo en el tramo abierto actual; null = sin complemento
+  complementoActivoNombre String?
 
   // Calculados y persistidos al cerrar nocturnas (para evitar recalcular en cada consulta)
-  horasDiurnasRaw        Decimal?  @db.Decimal(6, 1)   // horometroFin5pm − horometroInicio
-  horasDiurnasFacturadas Decimal?  @db.Decimal(6, 1)   // horasDiurnasRaw + ajusteMinimo
-  ajusteMinimo           Decimal?  @db.Decimal(6, 1)   // horas diurnas añadidas para llegar a 5 h/día
-  tarifaEfectiva         Decimal?  @db.Decimal(10, 2)  // Q/hora aplicada (con o sin martillo)
-  costoDiurno            Decimal?  @db.Decimal(10, 2)
-  costoNocturno          Decimal?  @db.Decimal(10, 2)
-  costoTotal             Decimal?  @db.Decimal(10, 2)
+  horasDiurnasRaw        Decimal? @db.Decimal(6, 1) // suma de horas de todos los tramos
+  horasDiurnasFacturadas Decimal? @db.Decimal(6, 1) // horasDiurnasRaw + ajusteMinimo
+  ajusteMinimo           Decimal? @db.Decimal(6, 1) // horas diurnas añadidas para llegar a 5 h/día (siempre a tarifa base)
+  tarifaEfectiva         Decimal? @db.Decimal(10, 2) // Q/hora BASE del equipo (sin complemento)
+  costoDiurno            Decimal? @db.Decimal(10, 2)
+  costoNocturno          Decimal? @db.Decimal(10, 2)
+  costoTotal             Decimal? @db.Decimal(10, 2)
 
-  registradoInicioBy  String?
-  registradoFinBy     String?
+  registradoInicioBy String?
+  registradoFinBy    String?
 
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([solicitudId, equipoId, fecha])
   @@index([solicitudId, equipoId])
@@ -421,15 +429,15 @@ model LecturaHorometro {
 model ResumenItem {
   id              String    @id @default(cuid())
   solicitudId     String
-  clienteId       String                        // desnormalizado para queries de reporte
-  equipoId        String?                       // null para granel
-  itemRef         String                        // equipoId (maquinaria/pesada) o tipo (granel)
-  tipoItem        String                        // 'maquinaria' | 'granel' | 'pesada'
+  clienteId       String // desnormalizado para queries de reporte
+  equipoId        String? // null para granel
+  itemRef         String // equipoId (maquinaria/pesada) o tipo (granel)
+  tipoItem        String // 'maquinaria' | 'granel' | 'pesada'
   fechaEntrega    DateTime
   fechaDevolucion DateTime?
-  tarifaEfectiva  Decimal   @db.Decimal(10,2)  // snapshot del precio aplicado
-  diasCobrados    Int?                           // livianas/granel
-  costoFinal      Decimal?  @db.Decimal(12,2)
+  tarifaEfectiva  Decimal   @db.Decimal(10, 2) // snapshot del precio aplicado
+  diasCobrados    Int? // livianas/granel
+  costoFinal      Decimal?  @db.Decimal(12, 2)
 
   solicitud Solicitud         @relation(fields: [solicitudId], references: [id])
   horometro DetalleHorometro?
@@ -446,11 +454,14 @@ model ResumenItem {
  */
 model DetalleHorometro {
   resumenItemId       String   @id
-  horometroEntrega    Decimal? @db.Decimal(10,1)  // lectura al iniciar la renta
-  horometroDevolucion Decimal? @db.Decimal(10,1)  // lectura final al devolver
-  horasDiurnasTotal   Decimal? @db.Decimal(10,1)  // Σ horasDiurnasFacturadas de todas las lecturas
-  ajusteMinimoTotal   Decimal? @db.Decimal(10,1)  // Σ ajusteMinimo aplicado
-  horasNocturnas      Decimal? @db.Decimal(10,1)  // total horas después de 5 PM
+  horometroEntrega    Decimal? @db.Decimal(10, 1) // lectura al iniciar la renta
+  horometroDevolucion Decimal? @db.Decimal(10, 1) // lectura final al devolver
+  horasDiurnasTotal   Decimal? @db.Decimal(10, 1) // Σ horasDiurnasFacturadas de todas las lecturas
+  ajusteMinimoTotal   Decimal? @db.Decimal(10, 1) // Σ ajusteMinimo aplicado
+  horasNocturnas      Decimal? @db.Decimal(10, 1) // total horas después de 5 PM
+
+  // Total de horas/costo por estado de complemento a lo largo de toda la renta — ver DesgloseComplemento en solicitudes.types.ts
+  desgloseComplementos Json @default("[]")
 
   resumenItem ResumenItem @relation(fields: [resumenItemId], references: [id])
 
@@ -476,22 +487,22 @@ model RecaudacionMensual {
 // ==================== AUDIT LOG ====================
 
 model AuditLog {
-  id         String   @id @default(cuid())
-  
-  userId     String?  // Null si es intento fallido
-  username   String?  // Para intentos fallidos
-  
-  action     String   // LOGIN_SUCCESS, LOGIN_FAILED, LOGOUT, etc.
-  
-  ipAddress  String?
-  userAgent  String?  @db.Text
-  
-  details    Json?    // Información adicional
-  
-  createdAt  DateTime @default(now())
-  
-  @@map("audit_logs")
+  id String @id @default(cuid())
+
+  userId   String? // Null si es intento fallido
+  username String? // Para intentos fallidos
+
+  action String // LOGIN_SUCCESS, LOGIN_FAILED, LOGOUT, etc.
+
+  ipAddress String?
+  userAgent String? @db.Text
+
+  details Json? // Información adicional
+
+  createdAt DateTime @default(now())
+
   @@index([username, createdAt])
   @@index([action, createdAt])
-  @@index([userId, createdAt])     // consultas por usuario específico ordenadas por fecha
+  @@index([userId, createdAt]) // consultas por usuario específico ordenadas por fecha
+  @@map("audit_logs")
 }

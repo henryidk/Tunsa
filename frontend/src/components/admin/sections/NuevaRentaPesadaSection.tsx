@@ -42,9 +42,8 @@ function today(): string {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
-function calcTarifa(tarifaBase: number, extras: ExtraSeleccionado[]): number {
-  const extrasSum = extras.reduce((s, e) => s + e.rentaHora, 0);
-  return tarifaBase + extrasSum;
+function calcTarifa(tarifaBase: number): number {
+  return tarifaBase;
 }
 
 export default function NuevaRentaPesadaSection({ onNavTo, onShowToast = () => {} }: Props) {
@@ -337,13 +336,9 @@ function EquipoAgregado({ item, indefinido, onQuitar, onUpdateItem }: {
   onQuitar:     () => void;
   onUpdateItem: (item: PesadaItem) => void;
 }) {
-  const tarifa      = calcTarifa(item.tarifaBaseEfectiva, item.extrasSeleccionados);
-  const catalogBase = item.equipo.rentaHora ?? 0;
-  const catalogTarifa = catalogBase + item.extrasSeleccionados.reduce((s, e) => {
-    const catalogExtra = item.equipo.extras.find(ex => ex.tipoExtraId === e.tipoExtraId);
-    return s + (catalogExtra?.rentaHora ?? e.rentaHora);
-  }, 0);
-  const tieneOverride = tarifa !== catalogTarifa;
+  const tarifa         = calcTarifa(item.tarifaBaseEfectiva);
+  const catalogBase    = item.equipo.rentaHora ?? 0;
+  const tieneOverride  = tarifa !== catalogBase;
 
   const [editing,     setEditing]     = useState(false);
   const [baseInput,   setBaseInput]   = useState('');
@@ -397,8 +392,8 @@ function EquipoAgregado({ item, indefinido, onQuitar, onUpdateItem }: {
                 <span className="font-medium text-slate-700">{item.equipo.descripcion}</span>
               </div>
               {item.extrasSeleccionados.length > 0 && (
-                <p className="text-[10px] text-amber-600 mt-0.5">
-                  {item.extrasSeleccionados.map(e => `+ ${e.nombre}`).join(' · ')}
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  Incluye: {item.extrasSeleccionados.map(e => `${e.nombre} (${formatQ(e.rentaHora)}/hr si se usa)`).join(' · ')}
                 </p>
               )}
             </td>
@@ -411,7 +406,7 @@ function EquipoAgregado({ item, indefinido, onQuitar, onUpdateItem }: {
             <td className="px-3 py-3 whitespace-nowrap">
               <div className="flex items-center gap-1.5">
                 {tieneOverride && (
-                  <span className="text-[10px] text-slate-400 line-through">{formatQ(catalogTarifa)}</span>
+                  <span className="text-[10px] text-slate-400 line-through">{formatQ(catalogBase)}</span>
                 )}
                 <span className={`font-mono font-semibold ${tieneOverride ? 'text-indigo-600' : 'text-slate-700'}`}>
                   {formatQ(tarifa)}/hr
@@ -536,13 +531,10 @@ function PesadaResumen({ cliente, items, indefinido, modalidadPago, canEnviar, i
               <p className="text-xs text-center">Sin equipo seleccionado</p>
             </div>
           ) : (() => {
-            const it          = items[0];
-            const tarifa       = calcTarifa(it.tarifaBaseEfectiva, it.extrasSeleccionados);
-            const catalogTarifa = (it.equipo.rentaHora ?? 0) + it.extrasSeleccionados.reduce((s, e) => {
-              const catalogExtra = it.equipo.extras.find(ex => ex.tipoExtraId === e.tipoExtraId);
-              return s + (catalogExtra?.rentaHora ?? e.rentaHora);
-            }, 0);
-            const tieneOverride = tarifa !== catalogTarifa;
+            const it             = items[0];
+            const tarifa         = calcTarifa(it.tarifaBaseEfectiva);
+            const catalogBase    = it.equipo.rentaHora ?? 0;
+            const tieneOverride  = tarifa !== catalogBase;
             return (
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
@@ -553,7 +545,7 @@ function PesadaResumen({ cliente, items, indefinido, modalidadPago, canEnviar, i
                   <p className="text-[10px] text-slate-400">
                     {indefinido
                       ? <span className="text-violet-500 font-medium">∞ Tiempo indefinido</span>
-                      : <>{unidadLabel(it.duracion!, it.unidad!)}{it.extrasSeleccionados.map(e => ` · ${e.nombre}`)}</>}
+                      : unidadLabel(it.duracion!, it.unidad!)}
                   </p>
                   {tieneOverride && (
                     <p className="text-[10px] text-indigo-500 font-medium mt-0.5">Tarifa personalizada</p>
@@ -639,7 +631,6 @@ interface PesadaPickerFormProps {
 function PesadaPickerForm({ disponibles, isLoading, indefinido, onAdd }: PesadaPickerFormProps) {
   const [busqueda,            setBusqueda]            = useState('');
   const [seleccionado,        setSeleccionado]        = useState<Equipo | null>(null);
-  const [extrasSeleccionados, setExtrasSeleccionados] = useState<ExtraSeleccionado[]>([]);
   const [dropdown,            setDropdown]            = useState(false);
   const fechaInicio = today();
   const [duracion,            setDuracion]            = useState(1);
@@ -664,26 +655,23 @@ function PesadaPickerForm({ disponibles, isLoading, indefinido, onAdd }: PesadaP
       .slice(0, 8);
   }, [disponibles, busqueda]);
 
-  const tarifaPreview = seleccionado ? calcTarifa(seleccionado.rentaHora ?? 0, extrasSeleccionados) : 0;
+  const tarifaPreview = seleccionado ? calcTarifa(seleccionado.rentaHora ?? 0) : 0;
 
   const handleSelect = (e: Equipo) => {
     setSeleccionado(e);
-    setExtrasSeleccionados([]);
     setBusqueda('');
     setDropdown(false);
     setError(null);
   };
 
-  const toggleExtrapicker = (extra: ExtraSeleccionado) => {
-    setExtrasSeleccionados(prev => {
-      const existe = prev.some(e => e.tipoExtraId === extra.tipoExtraId);
-      return existe ? prev.filter(e => e.tipoExtraId !== extra.tipoExtraId) : [...prev, extra];
-    });
-  };
-
   const handleAdd = () => {
     if (!seleccionado) { setError('Selecciona un equipo.'); return; }
     if (!indefinido && duracion < 1) { setError('La duración debe ser al menos 1.'); return; }
+    const extrasSeleccionados: ExtraSeleccionado[] = seleccionado.extras.map(ex => ({
+      tipoExtraId: ex.tipoExtraId,
+      nombre:      ex.nombre,
+      rentaHora:   ex.rentaHora,
+    }));
     onAdd({
       equipo:              seleccionado,
       extrasSeleccionados,
@@ -693,7 +681,6 @@ function PesadaPickerForm({ disponibles, isLoading, indefinido, onAdd }: PesadaP
       fechaInicio,
     });
     setSeleccionado(null);
-    setExtrasSeleccionados([]);
     setBusqueda('');
     setDuracion(1);
     setUnidad('dias');
@@ -717,7 +704,7 @@ function PesadaPickerForm({ disponibles, isLoading, indefinido, onAdd }: PesadaP
               #{seleccionado.numeracion}
             </span>
             <span className="text-sm font-medium text-slate-800 flex-1 truncate">{seleccionado.descripcion}</span>
-            <button onClick={() => { setSeleccionado(null); setExtrasSeleccionados([]); setError(null); }}
+            <button onClick={() => { setSeleccionado(null); setError(null); }}
               className="p-0.5 rounded text-slate-400 hover:text-slate-600 flex-shrink-0 transition-colors">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -772,22 +759,16 @@ function PesadaPickerForm({ disponibles, isLoading, indefinido, onAdd }: PesadaP
         )}
       </div>
 
-      {/* Extras del equipo seleccionado */}
+      {/* Extras del equipo seleccionado — informativo, viajan siempre con la máquina */}
       {seleccionado && seleccionado.extras.length > 0 && (
-        <div className="mb-3 space-y-1.5">
-          <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Complementos disponibles</p>
-          {seleccionado.extras.map(ex => {
-            const activo = extrasSeleccionados.some(e => e.tipoExtraId === ex.tipoExtraId);
-            return (
-              <label key={ex.tipoExtraId} className="flex items-center gap-2 cursor-pointer select-none">
-                <input type="checkbox" checked={activo}
-                  onChange={() => toggleExtrapicker({ tipoExtraId: ex.tipoExtraId, nombre: ex.nombre, rentaHora: ex.rentaHora })}
-                  className="w-3.5 h-3.5 accent-orange-500" />
-                <span className="text-xs font-medium text-slate-700">{ex.nombre}</span>
-                <span className="text-[10px] text-orange-600">+{formatQ(ex.rentaHora)}/hr</span>
-              </label>
-            );
-          })}
+        <div className="mb-3 space-y-1">
+          <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Complementos incluidos</p>
+          {seleccionado.extras.map(ex => (
+            <div key={ex.tipoExtraId} className="flex items-center gap-2 text-xs text-slate-600">
+              <span className="font-medium">{ex.nombre}</span>
+              <span className="text-[10px] text-slate-400">— {formatQ(ex.rentaHora)}/hr si se usa</span>
+            </div>
+          ))}
         </div>
       )}
 

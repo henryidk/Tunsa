@@ -43,10 +43,29 @@ export interface ItemPesadaSnapshot {
   equipoId:        string;
   numeracion:      string;
   descripcion:     string;
-  extras:          ExtraSeleccionadoSnapshot[];
-  tarifaEfectiva:  number;  // rentaHora base + suma de extras seleccionados
+  extras:          ExtraSeleccionadoSnapshot[];  // complementos disponibles para esta renta (no "incluidos" en el precio)
+  tarifaEfectiva:  number;  // rentaHora BASE del equipo (sin complemento) — puede venir de tarifaBaseFijada
   diasSolicitados?: number;
   duracion:        number;
   unidad:          string;
   subtotal:        number;
+}
+
+/** Un tramo cerrado del día: intervalo de horómetro con/sin complemento y su costo. */
+export interface TramoHorometro {
+  horometroDesde: number;
+  horometroHasta: number;
+  horas:          number;
+  extraId:        string | null;  // complemento activo durante este tramo; null = sin complemento
+  extraNombre:    string | null;
+  tarifa:         number;         // tarifaBase, o tarifaBase + rentaHora del extra
+  costo:          number;         // horas * tarifa
+}
+
+/** Total de horas/costo acumulado por estado de complemento, a lo largo de toda la renta de un equipo. */
+export interface DesgloseComplemento {
+  extraId:     string | null;  // null = sin complemento
+  extraNombre: string | null;
+  horas:       number;
+  costo:       number;
 }

@@ -39,10 +39,8 @@ function today(): string {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
-function calcTarifa(equipo: Equipo, extras: ExtraSeleccionado[]): number {
-  const base      = equipo.rentaHora ?? 0;
-  const extrasSum = extras.reduce((s, e) => s + e.rentaHora, 0);
-  return base + extrasSum;
+function calcTarifa(equipo: Equipo): number {
+  return equipo.rentaHora ?? 0;
 }
 
 export default function NuevaSolicitudPesadaSection({ onShowToast = () => {} }: Props) {
@@ -280,7 +278,7 @@ export default function NuevaSolicitudPesadaSection({ onShowToast = () => {} }: 
 // ── EquipoAgregado ────────────────────────────────────────────────────────────
 
 function EquipoAgregado({ item, indefinido, onQuitar }: { item: PesadaItem; indefinido: boolean; onQuitar: () => void }) {
-  const tarifa = calcTarifa(item.equipo, item.extrasSeleccionados);
+  const tarifa = calcTarifa(item.equipo);
   return (
     <div className="border border-slate-200 rounded-xl overflow-hidden">
       <table className="w-full text-xs">
@@ -301,8 +299,8 @@ function EquipoAgregado({ item, indefinido, onQuitar }: { item: PesadaItem; inde
                 <span className="font-medium text-slate-700">{item.equipo.descripcion}</span>
               </div>
               {item.extrasSeleccionados.length > 0 && (
-                <p className="text-[10px] text-amber-600 mt-0.5">
-                  {item.extrasSeleccionados.map(e => `+ ${e.nombre}`).join(' · ')}
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  Incluye: {item.extrasSeleccionados.map(e => `${e.nombre} (${formatQ(e.rentaHora)}/hr si se usa)`).join(' · ')}
                 </p>
               )}
             </td>
@@ -385,7 +383,7 @@ function PesadaResumen({ cliente, items, indefinido, modalidadPago, canEnviar, i
             </div>
           ) : (() => {
             const it     = items[0];
-            const tarifa = calcTarifa(it.equipo, it.extrasSeleccionados);
+            const tarifa = calcTarifa(it.equipo);
             return (
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
@@ -396,7 +394,7 @@ function PesadaResumen({ cliente, items, indefinido, modalidadPago, canEnviar, i
                   <p className="text-[10px] text-slate-400">
                     {indefinido
                       ? <span className="text-violet-500 font-medium">∞ Tiempo indefinido</span>
-                      : <>{unidadLabel(it.duracion!, it.unidad!)}{it.extrasSeleccionados.map(e => ` · ${e.nombre}`)}</>}
+                      : unidadLabel(it.duracion!, it.unidad!)}
                   </p>
                 </div>
                 <span className="text-xs font-mono font-semibold text-amber-700 flex-shrink-0 whitespace-nowrap">
@@ -479,7 +477,6 @@ interface PesadaPickerFormProps {
 function PesadaPickerForm({ disponibles, isLoading, indefinido, onAdd }: PesadaPickerFormProps) {
   const [busqueda,            setBusqueda]            = useState('');
   const [seleccionado,        setSeleccionado]        = useState<Equipo | null>(null);
-  const [extrasSeleccionados, setExtrasSeleccionados] = useState<ExtraSeleccionado[]>([]);
   const [dropdown,            setDropdown]            = useState(false);
   const fechaInicio = today();
   const [duracion,            setDuracion]            = useState(1);
@@ -504,26 +501,23 @@ function PesadaPickerForm({ disponibles, isLoading, indefinido, onAdd }: PesadaP
       .slice(0, 8);
   }, [disponibles, busqueda]);
 
-  const tarifaPreview = seleccionado ? calcTarifa(seleccionado, extrasSeleccionados) : 0;
+  const tarifaPreview = seleccionado ? calcTarifa(seleccionado) : 0;
 
   const handleSelect = (e: Equipo) => {
     setSeleccionado(e);
-    setExtrasSeleccionados([]);
     setBusqueda('');
     setDropdown(false);
     setError(null);
   };
 
-  const toggleExtrapicker = (extra: ExtraSeleccionado) => {
-    setExtrasSeleccionados(prev => {
-      const existe = prev.some(e => e.tipoExtraId === extra.tipoExtraId);
-      return existe ? prev.filter(e => e.tipoExtraId !== extra.tipoExtraId) : [...prev, extra];
-    });
-  };
-
   const handleAdd = () => {
     if (!seleccionado) { setError('Selecciona un equipo.'); return; }
     if (!indefinido && duracion < 1) { setError('La duración debe ser al menos 1.'); return; }
+    const extrasSeleccionados: ExtraSeleccionado[] = seleccionado.extras.map(ex => ({
+      tipoExtraId: ex.tipoExtraId,
+      nombre:      ex.nombre,
+      rentaHora:   ex.rentaHora,
+    }));
     onAdd({
       equipo:              seleccionado,
       extrasSeleccionados,
@@ -532,7 +526,6 @@ function PesadaPickerForm({ disponibles, isLoading, indefinido, onAdd }: PesadaP
       fechaInicio,
     });
     setSeleccionado(null);
-    setExtrasSeleccionados([]);
     setBusqueda('');
     setDuracion(1);
     setUnidad('dias');
@@ -611,22 +604,16 @@ function PesadaPickerForm({ disponibles, isLoading, indefinido, onAdd }: PesadaP
         )}
       </div>
 
-      {/* Extras del equipo seleccionado */}
+      {/* Extras del equipo seleccionado — informativo, viajan siempre con la máquina */}
       {seleccionado && seleccionado.extras.length > 0 && (
-        <div className="mb-3 space-y-1.5">
-          <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Complementos disponibles</p>
-          {seleccionado.extras.map(ex => {
-            const activo = extrasSeleccionados.some(e => e.tipoExtraId === ex.tipoExtraId);
-            return (
-              <label key={ex.tipoExtraId} className="flex items-center gap-2 cursor-pointer select-none">
-                <input type="checkbox" checked={activo}
-                  onChange={() => toggleExtrapicker({ tipoExtraId: ex.tipoExtraId, nombre: ex.nombre, rentaHora: ex.rentaHora })}
-                  className="w-3.5 h-3.5 accent-orange-500" />
-                <span className="text-xs font-medium text-slate-700">{ex.nombre}</span>
-                <span className="text-[10px] text-orange-600">+{formatQ(ex.rentaHora)}/hr</span>
-              </label>
-            );
-          })}
+        <div className="mb-3 space-y-1">
+          <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Complementos incluidos</p>
+          {seleccionado.extras.map(ex => (
+            <div key={ex.tipoExtraId} className="flex items-center gap-2 text-xs text-slate-600">
+              <span className="font-medium">{ex.nombre}</span>
+              <span className="text-[10px] text-slate-400">— {formatQ(ex.rentaHora)}/hr si se usa</span>
+            </div>
+          ))}
         </div>
       )}
 

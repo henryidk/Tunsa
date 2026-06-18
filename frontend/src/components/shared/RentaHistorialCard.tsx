@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { solicitudesService } from '../../services/solicitudes.service';
+import { solicitudesService, type ResumenHorometroEquipo } from '../../services/solicitudes.service';
 import type { SolicitudRenta, DevolucionEntry } from '../../types/solicitud-renta.types';
 import { formatFechaHora, formatQ } from '../../types/solicitud.types';
 import ClienteNombre from './ClienteNombre';
@@ -35,6 +35,28 @@ export default function RentaHistorialCard({ solicitud, showEncargado = false }:
       // silencioso
     } finally {
       setAbriendoComprobante(false);
+    }
+  };
+
+  const [mostrarHorometro, setMostrarHorometro] = useState(false);
+  const [resumenHorometro, setResumenHorometro] = useState<ResumenHorometroEquipo[] | null>(null);
+  const [cargandoHorometro, setCargandoHorometro] = useState(false);
+
+  const handleToggleHorometro = async () => {
+    if (mostrarHorometro) {
+      setMostrarHorometro(false);
+      return;
+    }
+    setMostrarHorometro(true);
+    if (resumenHorometro) return;
+    setCargandoHorometro(true);
+    try {
+      const data = await solicitudesService.getResumenHorometro(solicitud.id);
+      setResumenHorometro(data);
+    } catch {
+      // silencioso
+    } finally {
+      setCargandoHorometro(false);
     }
   };
 
@@ -79,6 +101,17 @@ export default function RentaHistorialCard({ solicitud, showEncargado = false }:
               Comprobante
             </button>
           )}
+          {solicitud.esPesada && (
+            <button
+              onClick={handleToggleHorometro}
+              className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-indigo-600 transition-colors"
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+              </svg>
+              Desglose de horómetro {mostrarHorometro ? '▲' : '▼'}
+            </button>
+          )}
         </div>
         <div className="text-right">
           <ClienteNombre nombre={solicitud.cliente.nombre} esEspecial={solicitud.cliente.esEspecial} textCls="text-xs font-semibold text-slate-700" className="flex items-center gap-1.5 justify-end flex-wrap" />
@@ -96,6 +129,49 @@ export default function RentaHistorialCard({ solicitud, showEncargado = false }:
           )}
         </div>
       </div>
+
+      {mostrarHorometro && (
+        <div className="px-5 py-4 bg-slate-50 border-b border-slate-100">
+          {cargandoHorometro ? (
+            <p className="text-xs text-slate-400">Cargando desglose…</p>
+          ) : !resumenHorometro || resumenHorometro.length === 0 ? (
+            <p className="text-xs text-slate-400">No hay datos de horómetro para esta renta.</p>
+          ) : (
+            <div className="space-y-3">
+              {resumenHorometro.map(eq => (
+                <div key={eq.equipoId} className="text-xs">
+                  <p className="font-semibold text-slate-700 mb-1">
+                    {eq.numeracion ? `#${eq.numeracion}` : eq.equipoId} {eq.descripcion ? `— ${eq.descripcion}` : ''}
+                  </p>
+                  <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-slate-500 mb-1.5">
+                    <span>Entrega: <span className="font-mono">{eq.horometroEntrega ?? '—'}</span></span>
+                    <span>Devolución: <span className="font-mono">{eq.horometroDevolucion ?? '—'}</span></span>
+                    <span>H. diurnas: <span className="font-mono">{eq.horasDiurnasTotal?.toFixed(1) ?? '—'}</span></span>
+                    <span>H. nocturnas: <span className="font-mono">{eq.horasNocturnas?.toFixed(1) ?? '—'}</span></span>
+                    {eq.ajusteMinimoTotal != null && eq.ajusteMinimoTotal > 0 && (
+                      <span>Ajuste mínimo: <span className="font-mono">+{eq.ajusteMinimoTotal.toFixed(1)}</span></span>
+                    )}
+                  </div>
+                  {eq.desgloseComplementos.length > 0 && (
+                    <ul className="space-y-0.5 pl-3 border-l-2 border-amber-200">
+                      {eq.desgloseComplementos.map((d, i) => (
+                        <li key={i} className="flex items-center justify-between">
+                          <span className={d.extraId ? 'text-amber-700 font-medium' : 'text-slate-500'}>
+                            {d.extraId ? d.extraNombre : 'Sin complemento'}
+                          </span>
+                          <span className="font-mono text-slate-600">
+                            {d.horas.toFixed(1)}h · {formatQ(d.costo)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="divide-y divide-slate-100">
         {devoluciones.map((lote, idx) => (

@@ -3,20 +3,26 @@
  * Sin acceso a DB — fácilmente testeable de forma aislada.
  *
  * Reglas de negocio:
+ *  - El día se compone de 1+ tramos (con/sin complemento), cada uno con su propia tarifa.
  *  - Mínimo 5 horas diarias (diurnas + nocturnas combinadas).
- *  - Si total < 5 h, se ajusta con horas diurnas adicionales.
- *  - Horas nocturnas = tarifa_base + Q100 por hora.
- *  - Los ajustes siempre se aplican a tarifa diurna.
+ *  - Si total < 5 h, el ajuste se valora siempre a tarifa base (sin complemento).
+ *  - Horas nocturnas = tarifa_nocturna_base + Q100 por hora. La tarifa nocturna base
+ *    refleja el complemento con el que cerró el día anterior (puede ser distinto de la base).
  */
 import { Injectable } from '@nestjs/common';
 
 export const MIN_HORAS_DIA   = 5;
 export const RECARGO_NOCTURNO = 100; // Q extra por cada hora nocturna
 
+export interface TramoCosto {
+  horas:  number;
+  tarifa: number;
+}
+
 export interface CostoDiaResult {
-  horasDiurnasRaw:        number;  // horometroFin5pm − horometroInicio
+  horasDiurnasRaw:        number;  // suma de horas de todos los tramos
   horasDiurnasFacturadas: number;  // horasDiurnasRaw + ajusteMinimo
-  ajusteMinimo:           number;  // horas diurnas añadidas para llegar a 5 h/día
+  ajusteMinimo:           number;  // horas diurnas añadidas para llegar a 5 h/día (a tarifa base)
   horasNocturnas:         number;
   costoDiurno:            number;
   costoNocturno:          number;
@@ -27,18 +33,24 @@ export interface CostoDiaResult {
 export class HorometroCalcService {
   /**
    * Calcula los costos de un día completo dado:
-   *  - horasDiurnasRaw  : lectura 5PM − lectura inicio
-   *  - horasNocturnas   : lectura inicio día siguiente − lectura 5PM (0 si no aplica)
-   *  - tarifaEfectiva   : Q/hora (ya considera martillo o tarifa base)
+   *  - tramos             : segmentos del día (con/sin complemento), cada uno con sus horas y su tarifa.
+   *  - horasNocturnas     : lectura inicio día siguiente − lectura 5PM (0 si no aplica).
+   *  - tarifaBase         : Q/hora SIN complemento — usada para el ajuste de mínimo.
+   *  - tarifaNocturnaBase : Q/hora base a usar para las horas nocturnas (antes de sumar el recargo).
+   *                         Resuelve el complemento que estaba activo cuando cerró el día (puede ser
+   *                         distinto de tarifaBase si la máquina se quedó de noche con el complemento puesto).
+   *                         Por defecto = tarifaBase (sin complemento), correcto cuando horasNocturnas = 0.
    */
   calcularCostoDia(
-    horasDiurnasRaw: number,
-    horasNocturnas:  number,
-    tarifaEfectiva:  number,
+    tramos:             TramoCosto[],
+    horasNocturnas:     number,
+    tarifaBase:         number,
+    tarifaNocturnaBase: number = tarifaBase,
   ): CostoDiaResult {
-    const totalHoras = horasDiurnasRaw + horasNocturnas;
+    const horasDiurnasRaw = tramos.reduce((s, t) => s + t.horas, 0);
+    const totalHoras      = horasDiurnasRaw + horasNocturnas;
 
-    let ajusteMinimo         = 0;
+    let ajusteMinimo           = 0;
     let horasDiurnasFacturadas = horasDiurnasRaw;
 
     if (totalHoras < MIN_HORAS_DIA) {
@@ -46,9 +58,10 @@ export class HorometroCalcService {
       horasDiurnasFacturadas = horasDiurnasRaw + ajusteMinimo;
     }
 
-    const costoDiurno  = horasDiurnasFacturadas * tarifaEfectiva;
-    const costoNocturno = horasNocturnas * (tarifaEfectiva + RECARGO_NOCTURNO);
-    const costoTotal   = costoDiurno + costoNocturno;
+    const costoTramos   = tramos.reduce((s, t) => s + t.horas * t.tarifa, 0);
+    const costoDiurno   = costoTramos + ajusteMinimo * tarifaBase;
+    const costoNocturno = horasNocturnas * (tarifaNocturnaBase + RECARGO_NOCTURNO);
+    const costoTotal    = costoDiurno + costoNocturno;
 
     return {
       horasDiurnasRaw,

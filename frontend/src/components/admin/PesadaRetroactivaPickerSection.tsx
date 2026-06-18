@@ -21,8 +21,8 @@ interface Props {
   onQuitar:    () => void;
 }
 
-function calcTarifa(equipo: Equipo, extras: ExtraSeleccionado[]): number {
-  return (equipo.rentaHora ?? 0) + extras.reduce((s, e) => s + e.rentaHora, 0);
+function calcTarifa(equipo: Equipo): number {
+  return equipo.rentaHora ?? 0;
 }
 
 export default function PesadaRetroactivaPickerSection({ disponibles, isLoading, indefinido, item, onAdd, onQuitar }: Props) {
@@ -48,7 +48,7 @@ function unidadLabel(dur: number, uni: UnidadDuracion): string {
 }
 
 function EquipoAgregado({ item, indefinido, onQuitar }: { item: PesadaItemRetro; indefinido: boolean; onQuitar: () => void }) {
-  const tarifa = calcTarifa(item.equipo, item.extrasSeleccionados);
+  const tarifa = calcTarifa(item.equipo);
   return (
     <div className="border border-slate-200 rounded-xl overflow-hidden">
       <table className="w-full text-xs">
@@ -69,8 +69,8 @@ function EquipoAgregado({ item, indefinido, onQuitar }: { item: PesadaItemRetro;
                 <span className="font-medium text-slate-700">{item.equipo.descripcion}</span>
               </div>
               {item.extrasSeleccionados.length > 0 && (
-                <p className="text-[10px] text-amber-600 mt-0.5">
-                  {item.extrasSeleccionados.map(e => `+ ${e.nombre}`).join(' · ')}
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  Incluye: {item.extrasSeleccionados.map(e => `${e.nombre} (${formatQ(e.rentaHora)}/hr si se usa)`).join(' · ')}
                 </p>
               )}
             </td>
@@ -111,7 +111,6 @@ function PesadaPickerForm({ disponibles, isLoading, indefinido, onAdd }: {
 }) {
   const [busqueda,            setBusqueda]            = useState('');
   const [seleccionado,        setSeleccionado]        = useState<Equipo | null>(null);
-  const [extrasSeleccionados, setExtrasSeleccionados] = useState<ExtraSeleccionado[]>([]);
   const [dropdown,            setDropdown]            = useState(false);
   const [diasSolicitados,     setDiasSolicitados]     = useState(1);
   const [unidad,              setUnidad]              = useState<UnidadDuracion>('dias');
@@ -135,21 +134,13 @@ function PesadaPickerForm({ disponibles, isLoading, indefinido, onAdd }: {
       .slice(0, 8);
   }, [disponibles, busqueda]);
 
-  const tarifaPreview = seleccionado ? calcTarifa(seleccionado, extrasSeleccionados) : 0;
+  const tarifaPreview = seleccionado ? calcTarifa(seleccionado) : 0;
 
   const handleSelect = (e: Equipo) => {
     setSeleccionado(e);
-    setExtrasSeleccionados([]);
     setBusqueda('');
     setDropdown(false);
     setError(null);
-  };
-
-  const toggleExtra = (extra: ExtraSeleccionado) => {
-    setExtrasSeleccionados(prev => {
-      const existe = prev.some(e => e.tipoExtraId === extra.tipoExtraId);
-      return existe ? prev.filter(e => e.tipoExtraId !== extra.tipoExtraId) : [...prev, extra];
-    });
   };
 
   const handleAdd = () => {
@@ -161,6 +152,11 @@ function PesadaPickerForm({ disponibles, isLoading, indefinido, onAdd }: {
       setError('El horómetro inicial debe ser un número válido.');
       return;
     }
+    const extrasSeleccionados: ExtraSeleccionado[] = seleccionado.extras.map(ex => ({
+      tipoExtraId: ex.tipoExtraId,
+      nombre:      ex.nombre,
+      rentaHora:   ex.rentaHora,
+    }));
     onAdd({
       equipo:              seleccionado,
       extrasSeleccionados,
@@ -169,7 +165,6 @@ function PesadaPickerForm({ disponibles, isLoading, indefinido, onAdd }: {
       horometroInicial:    horNum,
     });
     setSeleccionado(null);
-    setExtrasSeleccionados([]);
     setBusqueda('');
     setDiasSolicitados(1);
     setUnidad('dias');
@@ -194,7 +189,7 @@ function PesadaPickerForm({ disponibles, isLoading, indefinido, onAdd }: {
               #{seleccionado.numeracion}
             </span>
             <span className="text-sm font-medium text-slate-800 flex-1 truncate">{seleccionado.descripcion}</span>
-            <button onClick={() => { setSeleccionado(null); setExtrasSeleccionados([]); setError(null); }}
+            <button onClick={() => { setSeleccionado(null); setError(null); }}
               className="p-0.5 rounded text-slate-400 hover:text-slate-600 transition-colors flex-shrink-0">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -243,22 +238,16 @@ function PesadaPickerForm({ disponibles, isLoading, indefinido, onAdd }: {
         )}
       </div>
 
-      {/* Extras */}
+      {/* Extras — informativo, viajan siempre con la máquina */}
       {seleccionado && seleccionado.extras.length > 0 && (
-        <div className="mb-3 space-y-1.5">
-          <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Complementos disponibles</p>
-          {seleccionado.extras.map(ex => {
-            const activo = extrasSeleccionados.some(e => e.tipoExtraId === ex.tipoExtraId);
-            return (
-              <label key={ex.tipoExtraId} className="flex items-center gap-2 cursor-pointer select-none">
-                <input type="checkbox" checked={activo}
-                  onChange={() => toggleExtra({ tipoExtraId: ex.tipoExtraId, nombre: ex.nombre, rentaHora: ex.rentaHora })}
-                  className="w-3.5 h-3.5 accent-orange-500" />
-                <span className="text-xs font-medium text-slate-700">{ex.nombre}</span>
-                <span className="text-[10px] text-orange-600">+{formatQ(ex.rentaHora)}/hr</span>
-              </label>
-            );
-          })}
+        <div className="mb-3 space-y-1">
+          <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Complementos incluidos</p>
+          {seleccionado.extras.map(ex => (
+            <div key={ex.tipoExtraId} className="flex items-center gap-2 text-xs text-slate-600">
+              <span className="font-medium">{ex.nombre}</span>
+              <span className="text-[10px] text-slate-400">— {formatQ(ex.rentaHora)}/hr si se usa</span>
+            </div>
+          ))}
         </div>
       )}
 

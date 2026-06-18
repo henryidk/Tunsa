@@ -58,25 +58,61 @@ interface CreateRentaRetroactivaPayload {
   gestionadaPor?:   string;
 }
 
+/** Un tramo cerrado del día: intervalo de horómetro con/sin complemento y su costo. */
+export interface TramoHorometro {
+  horometroDesde: number;
+  horometroHasta: number;
+  horas:          number;
+  extraId:        string | null;
+  extraNombre:    string | null;
+  tarifa:         number;
+  costo:          number;
+}
+
 export interface LecturaHorometro {
-  id:                    string;
-  solicitudId:           string;
-  equipoId:              string;
-  fecha:                 string;
-  horometroInicio:       number | null;
-  horometroFin5pm:       number | null;
-  horasNocturnas:        number | null;
-  horasDiurnasRaw:       number | null;
-  horasDiurnasFacturadas: number | null;
-  ajusteMinimo:          number | null;
-  tarifaEfectiva:        number | null;
-  costoDiurno:           number | null;
-  costoNocturno:         number | null;
-  costoTotal:            number | null;
-  registradoInicioBy:    string | null;
-  registradoFinBy:       string | null;
-  createdAt:             string;
-  updatedAt:             string;
+  id:                      string;
+  solicitudId:             string;
+  equipoId:                string;
+  fecha:                   string;
+  horometroInicio:         number | null;
+  horometroFin5pm:         number | null;
+  horasNocturnas:          number | null;
+  horasDiurnasRaw:         number | null;
+  horasDiurnasFacturadas:  number | null;
+  ajusteMinimo:            number | null;
+  tarifaEfectiva:          number | null;
+  costoDiurno:             number | null;
+  costoNocturno:           number | null;
+  costoTotal:              number | null;
+  registradoInicioBy:      string | null;
+  registradoFinBy:         string | null;
+  tramos:                  TramoHorometro[];
+  complementoActivoId:     string | null;
+  complementoActivoNombre: string | null;
+  createdAt:               string;
+  updatedAt:               string;
+}
+
+/** Total de horas/costo acumulado por estado de complemento, a lo largo de toda la renta de un equipo. */
+export interface DesgloseComplemento {
+  extraId:     string | null;
+  extraNombre: string | null;
+  horas:       number;
+  costo:       number;
+}
+
+/** Resumen final de horómetro por equipo — disponible también para rentas ya cerradas. */
+export interface ResumenHorometroEquipo {
+  equipoId:             string;
+  numeracion:           string | null;
+  descripcion:          string | null;
+  horometroEntrega:     number | null;
+  horometroDevolucion:  number | null;
+  horasDiurnasTotal:    number | null;
+  ajusteMinimoTotal:    number | null;
+  horasNocturnas:       number | null;
+  costoFinal:           number | null;
+  desgloseComplementos: DesgloseComplemento[];
 }
 
 export interface DashboardStats {
@@ -250,7 +286,7 @@ export const solicitudesService = {
 
   async registrarLectura(
     solicitudId: string,
-    data: { equipoId: string; fecha: string; tipo: 'inicio' | 'fin5pm'; valor: number },
+    data: { equipoId: string; fecha: string; tipo: 'inicio' | 'fin5pm'; valor: number; extraId?: string | null },
   ): Promise<LecturaHorometro> {
     const res = await api.post<LecturaHorometro>(
       `/solicitudes/${solicitudId}/horometro/lecturas`,
@@ -259,8 +295,35 @@ export const solicitudesService = {
     return res.data;
   },
 
+  async registrarTramo(
+    solicitudId: string,
+    data: { equipoId: string; fecha: string; horometro: number; extraId?: string | null },
+  ): Promise<LecturaHorometro> {
+    const res = await api.post<LecturaHorometro>(
+      `/solicitudes/${solicitudId}/horometro/tramos`,
+      data,
+    );
+    return res.data;
+  },
+
+  async deshacerUltimoTramo(
+    solicitudId: string,
+    data: { equipoId: string; fecha: string },
+  ): Promise<LecturaHorometro> {
+    const res = await api.patch<LecturaHorometro>(
+      `/solicitudes/${solicitudId}/horometro/tramos/deshacer`,
+      data,
+    );
+    return res.data;
+  },
+
   async getLecturas(solicitudId: string): Promise<LecturaHorometro[]> {
     const res = await api.get<LecturaHorometro[]>(`/solicitudes/${solicitudId}/horometro`);
+    return res.data;
+  },
+
+  async getResumenHorometro(solicitudId: string): Promise<ResumenHorometroEquipo[]> {
+    const res = await api.get<ResumenHorometroEquipo[]>(`/solicitudes/${solicitudId}/horometro/resumen`);
     return res.data;
   },
 

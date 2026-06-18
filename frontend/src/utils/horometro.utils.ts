@@ -30,6 +30,11 @@ export function getDiaStatus(lecturas: LecturaHorometro[], fecha: string): DiaSt
   return l.horometroFin5pm !== null ? 'completo' : 'parcial';
 }
 
+/** True si el día tuvo más de un tramo (hubo al menos un cambio de complemento). */
+export function tieneComplementoMixto(lectura: LecturaHorometro | undefined | null): boolean {
+  return !!lectura && lectura.tramos.length > 1;
+}
+
 /**
  * Último día que requiere lecturas regulares de horómetro (inicio + fin5pm).
  * El día calendario de vencimiento es el día de entrega — el equipo no trabaja ese día.

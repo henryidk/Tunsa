@@ -172,9 +172,8 @@ export class SolicitudesService {
         const eq           = equipoMap.get(item.equipoId);
         const rentaBase    = eq?.rentaHora != null ? parseFloat(eq.rentaHora.toString()) : 0;
         const extras       = (item.extras ?? []) as { tipoExtraId: string; nombre: string; rentaHora: number }[];
-        const tarifaExtras = extras.reduce((s, e) => s + e.rentaHora, 0);
         const { tarifaEfectiva: _dropped, ...rest } = item as any;
-        return { ...rest, extras, tarifaEfectiva: rentaBase + tarifaExtras };
+        return { ...rest, extras, tarifaEfectiva: rentaBase };
       });
     }
 
@@ -239,9 +238,8 @@ export class SolicitudesService {
         const rentaCatalogo = eq?.rentaHora != null ? parseFloat(eq.rentaHora.toString()) : 0;
         const rentaBase    = item.tarifaBaseFijada != null ? item.tarifaBaseFijada : rentaCatalogo;
         const extras       = (item.extras ?? []) as { tipoExtraId: string; nombre: string; rentaHora: number }[];
-        const tarifaExtras = extras.reduce((s, e) => s + e.rentaHora, 0);
         const { tarifaEfectiva: _dropped, ...rest } = item as any;
-        return { ...rest, extras, tarifaEfectiva: rentaBase + tarifaExtras };
+        return { ...rest, extras, tarifaEfectiva: rentaBase };
       });
     }
 
@@ -323,9 +321,8 @@ export class SolicitudesService {
         const eq           = equipoMap.get(item.equipoId);
         const rentaBase    = eq?.rentaHora != null ? parseFloat(eq.rentaHora.toString()) : 0;
         const extras       = (item.extras ?? []) as { tipoExtraId: string; nombre: string; rentaHora: number }[];
-        const tarifaExtras = extras.reduce((s, e) => s + e.rentaHora, 0);
         const { tarifaEfectiva: _dropped, ...rest } = item as any;
-        return { ...rest, extras, tarifaEfectiva: rentaBase + tarifaExtras };
+        return { ...rest, extras, tarifaEfectiva: rentaBase };
       });
     }
 

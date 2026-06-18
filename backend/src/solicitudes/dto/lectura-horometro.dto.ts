@@ -1,4 +1,4 @@
-import { IsDateString, IsIn, IsNumber, IsString, Min } from 'class-validator';
+import { IsDateString, IsIn, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class RegistrarLecturaDto {
@@ -17,4 +17,9 @@ export class RegistrarLecturaDto {
   @Min(0)
   @Type(() => Number)
   valor: number;
+
+  /** Complemento con el que arranca el día (solo válido con tipo 'inicio'); null/omitido = heredar del día anterior o ninguno. */
+  @IsOptional()
+  @IsString()
+  extraId?: string | null;
 }

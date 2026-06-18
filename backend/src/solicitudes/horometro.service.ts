@@ -6,11 +6,12 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { HorometroCalcService } from './horometro-calc.service';
 import { RegistrarLecturaDto } from './dto/lectura-horometro.dto';
+import { RegistrarTramoDto, DeshacerTramoDto } from './dto/tramo-horometro.dto';
 import { RegistrarDevolucionPesadaDto } from './dto/registrar-devolucion-pesada.dto';
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
 import { tieneAccesoGlobal } from '../auth/utils/roles.util';
 import type { DevolucionEntry, DevolucionItemEntry, CargoAdicional, DescuentoAplicado } from './recargo.util';
-import type { ItemPesadaSnapshot } from './solicitudes.types';
+import type { ItemPesadaSnapshot, ExtraSeleccionadoSnapshot, TramoHorometro, DesgloseComplemento } from './solicitudes.types';
 
 @Injectable()
 export class HorometroService {
@@ -42,12 +43,148 @@ export class HorometroService {
     if (!item)
       throw new BadRequestException(`El equipo ${dto.equipoId} no pertenece a esta solicitud.`);
 
+    if (dto.tipo === 'fin5pm' && dto.extraId !== undefined)
+      throw new BadRequestException('El complemento inicial no aplica al registrar el cierre del día.');
+
     const fechaDate = new Date(dto.fecha + 'T00:00:00.000Z');
 
     if (dto.tipo === 'inicio') {
-      return this.registrarInicio(solicitudId, dto.equipoId, fechaDate, dto.valor, item.tarifaEfectiva, user.username);
+      return this.registrarInicio(solicitudId, dto.equipoId, fechaDate, dto.valor, item, dto.extraId, user.username);
     }
-    return this.registrarFin5pm(solicitudId, dto.equipoId, fechaDate, dto.valor, item.tarifaEfectiva, user.username);
+    return this.registrarFin5pm(solicitudId, dto.equipoId, fechaDate, dto.valor, item, user.username);
+  }
+
+  // ── Tramos (cambios de complemento dentro del día) ──────────────────────────
+
+  async registrarTramo(
+    solicitudId: string,
+    dto:         RegistrarTramoDto,
+    user:        AuthenticatedUser,
+  ) {
+    const solicitud = await this.prisma.solicitud.findUnique({ where: { id: solicitudId } });
+
+    if (!solicitud)
+      throw new NotFoundException('Solicitud no encontrada.');
+    if (!solicitud.esPesada)
+      throw new BadRequestException('Esta solicitud no es de maquinaria pesada.');
+    if (solicitud.estado !== 'ACTIVA')
+      throw new ConflictException('Solo se pueden registrar tramos en rentas activas.');
+    if (!tieneAccesoGlobal(user) && solicitud.creadaPor !== user.username && solicitud.gestionadaPor !== user.username)
+      throw new ForbiddenException('No tienes permiso para registrar tramos en esta solicitud.');
+
+    const items = solicitud.items as unknown as ItemPesadaSnapshot[];
+    const item  = items.find(i => i.equipoId === dto.equipoId);
+    if (!item)
+      throw new BadRequestException(`El equipo ${dto.equipoId} no pertenece a esta solicitud.`);
+    if (dto.extraId != null && !item.extras.some(e => e.tipoExtraId === dto.extraId))
+      throw new BadRequestException('El complemento indicado no está disponible para este equipo.');
+
+    const fechaDate = new Date(dto.fecha + 'T00:00:00.000Z');
+    const lectura = await this.prisma.lecturaHorometro.findUnique({
+      where: { solicitudId_equipoId_fecha: { solicitudId, equipoId: dto.equipoId, fecha: fechaDate } },
+    });
+
+    if (!lectura || lectura.horometroInicio == null)
+      throw new ConflictException('Registra primero el horómetro de inicio del día.');
+    if (lectura.horometroFin5pm != null)
+      throw new ConflictException('Este día ya está cerrado; no se pueden registrar más cambios de complemento.');
+
+    const tramosActuales   = (lectura.tramos ?? []) as unknown as TramoHorometro[];
+    const ultimaReferencia = tramosActuales.length > 0
+      ? tramosActuales[tramosActuales.length - 1].horometroHasta
+      : parseFloat(lectura.horometroInicio.toString());
+
+    if (dto.horometro <= ultimaReferencia)
+      throw new BadRequestException(
+        `El horómetro (${dto.horometro} hrs) debe ser mayor al último registrado en el día (${ultimaReferencia} hrs).`,
+      );
+
+    const estadoActual      = lectura.complementoActivoId ?? null;
+    const { tarifa, nombre } = this.resolverTarifa(item.tarifaEfectiva, estadoActual, item.extras);
+    const horas              = this.calc.diffHorometro(ultimaReferencia, dto.horometro);
+
+    const nuevoTramo: TramoHorometro = {
+      horometroDesde: ultimaReferencia,
+      horometroHasta: dto.horometro,
+      horas,
+      extraId:        estadoActual,
+      extraNombre:    nombre,
+      tarifa,
+      costo:          horas * tarifa,
+    };
+    const tramos = [...tramosActuales, nuevoTramo];
+
+    const nuevoExtra       = dto.extraId != null ? item.extras.find(e => e.tipoExtraId === dto.extraId) : undefined;
+    const nuevoActivoId    = dto.extraId ?? null;
+    const nuevoActivoNombre = nuevoExtra?.nombre ?? null;
+
+    const actualizada = await this.prisma.lecturaHorometro.update({
+      where: { id: lectura.id },
+      data: {
+        tramos:                   tramos as unknown as Prisma.InputJsonValue,
+        complementoActivoId:      nuevoActivoId,
+        complementoActivoNombre:  nuevoActivoNombre,
+      },
+    });
+
+    return this.serializeLectura(actualizada);
+  }
+
+  async deshacerUltimoTramo(
+    solicitudId: string,
+    dto:         DeshacerTramoDto,
+    user:        AuthenticatedUser,
+  ) {
+    const solicitud = await this.prisma.solicitud.findUnique({ where: { id: solicitudId } });
+
+    if (!solicitud)
+      throw new NotFoundException('Solicitud no encontrada.');
+    if (!solicitud.esPesada)
+      throw new BadRequestException('Esta solicitud no es de maquinaria pesada.');
+    if (solicitud.estado !== 'ACTIVA')
+      throw new ConflictException('Solo se pueden corregir tramos en rentas activas.');
+    if (!tieneAccesoGlobal(user) && solicitud.creadaPor !== user.username && solicitud.gestionadaPor !== user.username)
+      throw new ForbiddenException('No tienes permiso para corregir tramos en esta solicitud.');
+
+    const fechaDate = new Date(dto.fecha + 'T00:00:00.000Z');
+    const lectura = await this.prisma.lecturaHorometro.findUnique({
+      where: { solicitudId_equipoId_fecha: { solicitudId, equipoId: dto.equipoId, fecha: fechaDate } },
+    });
+
+    if (!lectura)
+      throw new NotFoundException('No se encontró la lectura de este día.');
+    if (lectura.horometroFin5pm != null)
+      throw new ConflictException('Este día ya está cerrado; no se puede deshacer un cambio de complemento.');
+
+    const tramosActuales = (lectura.tramos ?? []) as unknown as TramoHorometro[];
+    if (tramosActuales.length === 0)
+      throw new ConflictException('No hay cambios de complemento registrados en este día.');
+
+    const ultimoTramo = tramosActuales[tramosActuales.length - 1];
+    const tramos       = tramosActuales.slice(0, -1);
+
+    const actualizada = await this.prisma.lecturaHorometro.update({
+      where: { id: lectura.id },
+      data: {
+        tramos:                  tramos as unknown as Prisma.InputJsonValue,
+        complementoActivoId:     ultimoTramo.extraId,
+        complementoActivoNombre: ultimoTramo.extraNombre,
+      },
+    });
+
+    return this.serializeLectura(actualizada);
+  }
+
+  /** Resuelve la tarifa Q/hora y el nombre del complemento para un estado dado (null = sin complemento). */
+  private resolverTarifa(
+    tarifaBase: number,
+    extraId:    string | null,
+    extras:     ExtraSeleccionadoSnapshot[],
+  ): { tarifa: number; nombre: string | null } {
+    if (extraId == null) return { tarifa: tarifaBase, nombre: null };
+    const extra = extras.find(e => e.tipoExtraId === extraId);
+    if (!extra) throw new BadRequestException('El complemento activo ya no está disponible para este equipo.');
+    return { tarifa: tarifaBase + extra.rentaHora, nombre: extra.nombre };
   }
 
   private async registrarInicio(
@@ -55,10 +192,13 @@ export class HorometroService {
     equipoId:        string,
     fecha:           Date,
     horometroInicio: number,
-    tarifaEfectiva:  number,
+    item:            ItemPesadaSnapshot,
+    extraIdInicial:  string | null | undefined,
     username:        string,
   ) {
-    // Buscar el día anterior para detectar horas nocturnas
+    const tarifaEfectiva = item.tarifaEfectiva;
+
+    // Buscar el día anterior para detectar horas nocturnas y heredar el complemento activo
     const fechaAnterior = new Date(fecha);
     fechaAnterior.setUTCDate(fechaAnterior.getUTCDate() - 1);
 
@@ -66,20 +206,18 @@ export class HorometroService {
       where: { solicitudId_equipoId_fecha: { solicitudId, equipoId, fecha: fechaAnterior } },
     });
 
-    // Detectar horas nocturnas del día anterior
+    // Detectar horas nocturnas del día anterior — se facturan con el complemento con el que cerró ese día
     if (lecturaAnterior?.horometroFin5pm != null) {
       const finAnterior     = parseFloat(lecturaAnterior.horometroFin5pm.toString());
       const horasNocturnas  = this.calc.diffHorometro(finAnterior, horometroInicio);
 
       if (horasNocturnas > 0) {
-        const diurnas  = lecturaAnterior.horometroInicio != null
-          ? this.calc.diffHorometro(
-              parseFloat(lecturaAnterior.horometroInicio.toString()),
-              finAnterior,
-            )
-          : 0;
+        const tramosAnteriores  = (lecturaAnterior.tramos ?? []) as unknown as TramoHorometro[];
+        const tarifaNocturnaBase = this.resolverTarifa(
+          tarifaEfectiva, lecturaAnterior.complementoActivoId ?? null, item.extras,
+        ).tarifa;
 
-        const costos        = this.calc.calcularCostoDia(diurnas, horasNocturnas, tarifaEfectiva);
+        const costos        = this.calc.calcularCostoDia(tramosAnteriores, horasNocturnas, tarifaEfectiva, tarifaNocturnaBase);
         const costoAnterior = lecturaAnterior.costoTotal != null
           ? parseFloat(lecturaAnterior.costoTotal.toString())
           : 0;
@@ -107,6 +245,33 @@ export class HorometroService {
       }
     }
 
+    // Resolver el complemento inicial del día: override explícito > herencia del día anterior > ninguno
+    let complementoActivoId: string | null = null;
+    let complementoActivoNombre: string | null = null;
+    let aplicarComplementoInicial = extraIdInicial !== undefined;
+
+    if (extraIdInicial !== undefined) {
+      if (extraIdInicial != null) {
+        const extra = item.extras.find(e => e.tipoExtraId === extraIdInicial);
+        if (!extra)
+          throw new BadRequestException('El complemento indicado no está disponible para este equipo.');
+        complementoActivoId     = extraIdInicial;
+        complementoActivoNombre = extra.nombre;
+      }
+
+      const lecturaExistente = await this.prisma.lecturaHorometro.findUnique({
+        where: { solicitudId_equipoId_fecha: { solicitudId, equipoId, fecha } },
+      });
+      const tramosExistentes = (lecturaExistente?.tramos ?? []) as unknown as TramoHorometro[];
+      if (tramosExistentes.length > 0)
+        throw new BadRequestException(
+          'No se puede cambiar el complemento inicial porque ya hay tramos registrados este día. Usa "Registrar cambio de complemento" en su lugar.',
+        );
+    } else if (lecturaAnterior?.horometroFin5pm != null) {
+      complementoActivoId     = lecturaAnterior.complementoActivoId ?? null;
+      complementoActivoNombre = lecturaAnterior.complementoActivoNombre ?? null;
+    }
+
     // Crear o actualizar el registro del día actual
     return this.prisma.lecturaHorometro.upsert({
       where:  { solicitudId_equipoId_fecha: { solicitudId, equipoId, fecha } },
@@ -117,21 +282,24 @@ export class HorometroService {
         horometroInicio,
         tarifaEfectiva,
         registradoInicioBy: username,
+        complementoActivoId,
+        complementoActivoNombre,
       },
       update: {
         horometroInicio,
         registradoInicioBy: username,
+        ...(aplicarComplementoInicial ? { complementoActivoId, complementoActivoNombre } : {}),
       },
     });
   }
 
   private async registrarFin5pm(
-    solicitudId:    string,
-    equipoId:       string,
-    fecha:          Date,
+    solicitudId:     string,
+    equipoId:        string,
+    fecha:           Date,
     horometroFin5pm: number,
-    tarifaEfectiva: number,
-    username:       string,
+    item:            ItemPesadaSnapshot,
+    username:        string,
   ) {
     const lectura = await this.prisma.lecturaHorometro.findUnique({
       where: { solicitudId_equipoId_fecha: { solicitudId, equipoId, fecha } },
@@ -144,11 +312,31 @@ export class HorometroService {
     if (lectura.horometroInicio == null)
       throw new ConflictException('El horómetro de inicio del día no está registrado.');
 
-    const horometroInicioNum = parseFloat(lectura.horometroInicio.toString());
-    const horasDiurnasRaw    = this.calc.diffHorometro(horometroInicioNum, horometroFin5pm);
+    const tramosActuales   = (lectura.tramos ?? []) as unknown as TramoHorometro[];
+    const ultimaReferencia = tramosActuales.length > 0
+      ? tramosActuales[tramosActuales.length - 1].horometroHasta
+      : parseFloat(lectura.horometroInicio.toString());
+
+    if (horometroFin5pm <= ultimaReferencia)
+      throw new BadRequestException(
+        `El horómetro de cierre (${horometroFin5pm} hrs) debe ser mayor al último registrado en el día (${ultimaReferencia} hrs).`,
+      );
+
+    const horas               = this.calc.diffHorometro(ultimaReferencia, horometroFin5pm);
+    const { tarifa, nombre }  = this.resolverTarifa(item.tarifaEfectiva, lectura.complementoActivoId ?? null, item.extras);
+    const tramoFinal: TramoHorometro = {
+      horometroDesde: ultimaReferencia,
+      horometroHasta: horometroFin5pm,
+      horas,
+      extraId:        lectura.complementoActivoId ?? null,
+      extraNombre:    nombre,
+      tarifa,
+      costo:          horas * tarifa,
+    };
+    const tramos = [...tramosActuales, tramoFinal];
 
     // Costos provisionales (nocturnas aún desconocidas → 0)
-    const costos        = this.calc.calcularCostoDia(horasDiurnasRaw, 0, tarifaEfectiva);
+    const costos        = this.calc.calcularCostoDia(tramos, 0, item.tarifaEfectiva);
     const costoAnterior = lectura.costoTotal != null ? parseFloat(lectura.costoTotal.toString()) : 0;
     const delta         = costos.costoTotal - costoAnterior;
 
@@ -157,11 +345,12 @@ export class HorometroService {
         where: { id: lectura.id },
         data: {
           horometroFin5pm,
+          tramos:                 tramos as unknown as Prisma.InputJsonValue,
           horasDiurnasRaw:        costos.horasDiurnasRaw,
           horasDiurnasFacturadas: costos.horasDiurnasFacturadas,
           ajusteMinimo:           costos.ajusteMinimo,
           horasNocturnas:         0,
-          tarifaEfectiva,
+          tarifaEfectiva:         item.tarifaEfectiva,
           costoDiurno:            costos.costoDiurno,
           costoNocturno:          0,
           costoTotal:             costos.costoTotal,
@@ -195,6 +384,43 @@ export class HorometroService {
     });
 
     return lecturas.map(l => this.serializeLectura(l));
+  }
+
+  /** Resumen final por equipo (horómetros, horas y desglose de complementos) — disponible también para rentas ya cerradas. */
+  async getResumenHorometro(solicitudId: string, user: AuthenticatedUser) {
+    const solicitud = await this.prisma.solicitud.findUnique({ where: { id: solicitudId } });
+
+    if (!solicitud)
+      throw new NotFoundException('Solicitud no encontrada.');
+    if (!solicitud.esPesada)
+      throw new BadRequestException('Esta solicitud no es de maquinaria pesada.');
+    if (!tieneAccesoGlobal(user) && solicitud.creadaPor !== user.username && solicitud.gestionadaPor !== user.username)
+      throw new ForbiddenException('No tienes acceso a esta solicitud.');
+
+    const items = solicitud.items as unknown as ItemPesadaSnapshot[];
+
+    const resumenItems = await this.prisma.resumenItem.findMany({
+      where:   { solicitudId, tipoItem: 'pesada' },
+      include: { horometro: true },
+    });
+
+    const toNum = (v: any) => v != null ? parseFloat(v.toString()) : null;
+
+    return resumenItems.map(ri => {
+      const item = items.find(i => i.equipoId === ri.itemRef);
+      return {
+        equipoId:             ri.itemRef,
+        numeracion:           item?.numeracion ?? null,
+        descripcion:          item?.descripcion ?? null,
+        horometroEntrega:     toNum(ri.horometro?.horometroEntrega),
+        horometroDevolucion:  toNum(ri.horometro?.horometroDevolucion),
+        horasDiurnasTotal:    toNum(ri.horometro?.horasDiurnasTotal),
+        ajusteMinimoTotal:    toNum(ri.horometro?.ajusteMinimoTotal),
+        horasNocturnas:       toNum(ri.horometro?.horasNocturnas),
+        costoFinal:           toNum(ri.costoFinal),
+        desgloseComplementos: (ri.horometro?.desgloseComplementos ?? []) as unknown as DesgloseComplemento[],
+      };
+    });
   }
 
   // ── Devolución pesada ────────────────────────────────────────────────────────
@@ -276,14 +502,12 @@ export class HorometroService {
           const horasNocturnas = this.calc.diffHorometro(finAnterior, horometroDevolucion);
 
           if (horasNocturnas > 0) {
-            const diurnas = ultimaLectura.horometroInicio != null
-              ? this.calc.diffHorometro(
-                  parseFloat(ultimaLectura.horometroInicio.toString()),
-                  finAnterior,
-                )
-              : 0;
+            const tramosAnteriores  = (ultimaLectura.tramos ?? []) as unknown as TramoHorometro[];
+            const tarifaNocturnaBase = this.resolverTarifa(
+              item.tarifaEfectiva, ultimaLectura.complementoActivoId ?? null, item.extras,
+            ).tarifa;
 
-            const costos        = this.calc.calcularCostoDia(diurnas, horasNocturnas, item.tarifaEfectiva);
+            const costos        = this.calc.calcularCostoDia(tramosAnteriores, horasNocturnas, item.tarifaEfectiva, tarifaNocturnaBase);
             const costoAnterior = ultimaLectura.costoTotal != null
               ? parseFloat(ultimaLectura.costoTotal.toString())
               : 0;
@@ -327,6 +551,7 @@ export class HorometroService {
         const horasDiurnasTotal = todasLasLecturas.reduce((s, l) => s + (l.horasDiurnasFacturadas != null ? parseFloat(l.horasDiurnasFacturadas.toString()) : 0), 0);
         const ajusteMinimoTotal = todasLasLecturas.reduce((s, l) => s + (l.ajusteMinimo         != null ? parseFloat(l.ajusteMinimo.toString())          : 0), 0);
         const horasNoctTotal    = todasLasLecturas.reduce((s, l) => s + (l.horasNocturnas        != null ? parseFloat(l.horasNocturnas.toString())         : 0), 0);
+        const desgloseComplementos = this.calcularDesgloseComplementos(todasLasLecturas);
 
         const resumenItem = await tx.resumenItem.findUnique({
           where: { solicitudId_itemRef: { solicitudId, itemRef: item.equipoId } },
@@ -339,7 +564,13 @@ export class HorometroService {
           });
           await tx.detalleHorometro.update({
             where: { resumenItemId: resumenItem.id },
-            data: { horometroDevolucion: horoDev, horasDiurnasTotal, ajusteMinimoTotal, horasNocturnas: horasNoctTotal },
+            data: {
+              horometroDevolucion: horoDev,
+              horasDiurnasTotal,
+              ajusteMinimoTotal,
+              horasNocturnas: horasNoctTotal,
+              desgloseComplementos: desgloseComplementos as unknown as Prisma.InputJsonValue,
+            },
           });
         }
 
@@ -439,6 +670,38 @@ export class HorometroService {
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
+  /**
+   * Suma horas/costo de todos los tramos de todas las lecturas, agrupados por complemento activo.
+   * Incluye también las horas nocturnas de cada lectura, atribuidas al complemento con el que
+   * cerró ese día (`complementoActivoId`) — la misma referencia usada para facturarlas.
+   */
+  private calcularDesgloseComplementos(
+    lecturas: { tramos: unknown; horasNocturnas: unknown; costoNocturno: unknown; complementoActivoId: string | null; complementoActivoNombre: string | null }[],
+  ): DesgloseComplemento[] {
+    const porComplemento = new Map<string, DesgloseComplemento>();
+    const toNum = (v: unknown) => v != null ? parseFloat((v as any).toString()) : 0;
+
+    const acumular = (extraId: string | null, extraNombre: string | null, horas: number, costo: number) => {
+      if (horas === 0 && costo === 0) return;
+      const clave = extraId ?? '__ninguno__';
+      const acumulado = porComplemento.get(clave) ?? { extraId, extraNombre, horas: 0, costo: 0 };
+      acumulado.horas += horas;
+      acumulado.costo += costo;
+      porComplemento.set(clave, acumulado);
+    };
+
+    for (const lectura of lecturas) {
+      const tramos = (lectura.tramos ?? []) as unknown as TramoHorometro[];
+      for (const t of tramos) acumular(t.extraId, t.extraNombre, t.horas, t.costo);
+
+      const horasNocturnas = toNum(lectura.horasNocturnas);
+      const costoNocturno  = toNum(lectura.costoNocturno);
+      if (horasNocturnas > 0) acumular(lectura.complementoActivoId ?? null, lectura.complementoActivoNombre ?? null, horasNocturnas, costoNocturno);
+    }
+
+    return Array.from(porComplemento.values());
+  }
+
   private serializeLectura(l: any) {
     const toNum = (v: any) => v != null ? parseFloat(v.toString()) : null;
     return {
@@ -456,6 +719,9 @@ export class HorometroService {
       costoDiurno:           toNum(l.costoDiurno),
       costoNocturno:         toNum(l.costoNocturno),
       costoTotal:            toNum(l.costoTotal),
+      tramos:                  (l.tramos ?? []) as TramoHorometro[],
+      complementoActivoId:     l.complementoActivoId ?? null,
+      complementoActivoNombre: l.complementoActivoNombre ?? null,
       registradoInicioBy:    l.registradoInicioBy,
       registradoFinBy:       l.registradoFinBy,
       createdAt:             l.createdAt,

@@ -14,6 +14,7 @@ import { CreateRentaRetroactivaDto } from './dto/create-renta-retroactiva.dto';
 import { AmpliacionRentaDto } from './dto/ampliar-renta.dto';
 import { RegistrarDevolucionDto } from './dto/registrar-devolucion.dto';
 import { RegistrarLecturaDto } from './dto/lectura-horometro.dto';
+import { RegistrarTramoDto, DeshacerTramoDto } from './dto/tramo-horometro.dto';
 import { RegistrarDevolucionPesadaDto } from './dto/registrar-devolucion-pesada.dto';
 import { QueryRechazadasDto } from './dto/query-rechazadas.dto';
 import { QueryHistorialDto } from './dto/query-historial.dto';
@@ -177,6 +178,26 @@ export class SolicitudesController {
     return this.horometroService.registrarLectura(id, dto, user);
   }
 
+  @Post(':id/horometro/tramos')
+  @Roles('encargado_maquinas', 'admin')
+  registrarTramo(
+    @Param('id') id: string,
+    @Body() dto: RegistrarTramoDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.horometroService.registrarTramo(id, dto, user);
+  }
+
+  @Patch(':id/horometro/tramos/deshacer')
+  @Roles('encargado_maquinas', 'admin')
+  deshacerUltimoTramo(
+    @Param('id') id: string,
+    @Body() dto: DeshacerTramoDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.horometroService.deshacerUltimoTramo(id, dto, user);
+  }
+
   @Patch(':id/registrar-devolucion-pesada')
   @Roles('encargado_maquinas', 'admin', 'secretaria')
   registrarDevolucionPesada(
@@ -331,5 +352,14 @@ export class SolicitudesController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.horometroService.getLecturas(id, user);
+  }
+
+  @Get(':id/horometro/resumen')
+  @Roles('encargado_maquinas', 'admin', 'secretaria')
+  getResumenHorometro(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.horometroService.getResumenHorometro(id, user);
   }
 }

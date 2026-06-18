@@ -549,7 +549,7 @@ function PesadaPickerForm({ disponibles, isLoading, indefinido, onAdd }: PesadaP
               #{seleccionado.numeracion}
             </span>
             <span className="text-sm font-medium text-slate-800 flex-1 truncate">{seleccionado.descripcion}</span>
-            <button onClick={() => { setSeleccionado(null); setExtrasSeleccionados([]); setError(null); }}
+            <button onClick={() => { setSeleccionado(null); setError(null); }}
               className="p-0.5 rounded text-slate-400 hover:text-slate-600 flex-shrink-0 transition-colors">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>

@@ -289,6 +289,7 @@ export const solicitudesService = {
     solicitudId: string,
     data: {
       equipoId: string; fecha: string; tipo: 'inicio' | 'fin5pm'; valor: number; extraId?: string | null;
+      complementoNocturnoInicialId?: string | null;
       tramosNocturnos?: { horometroCorte: number; extraId: string | null }[];
     },
   ): Promise<LecturaHorometro> {

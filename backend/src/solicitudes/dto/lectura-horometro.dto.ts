@@ -40,9 +40,16 @@ export class RegistrarLecturaDto {
   extraId?: string | null;
 
   /**
-   * Puntos de corte para dividir en tramos la noche anterior (solo válido con tipo 'inicio',
-   * y solo si esa noche tuvo horas nocturnas). Omitido = la noche completa se factura con el
-   * complemento heredado del cierre de ayer (comportamiento por defecto).
+   * Complemento del primer tramo de la noche anterior (solo válido con tipo 'inicio', y solo si
+   * esa noche tuvo horas nocturnas). Omitido = heredar el complemento con el que cerró ese día.
+   */
+  @IsOptional()
+  @IsString()
+  complementoNocturnoInicialId?: string | null;
+
+  /**
+   * Puntos de corte para dividir en más de un tramo la noche anterior (solo válido con tipo
+   * 'inicio', y solo si esa noche tuvo horas nocturnas). Omitido = un solo tramo nocturno.
    */
   @IsOptional()
   @IsArray()

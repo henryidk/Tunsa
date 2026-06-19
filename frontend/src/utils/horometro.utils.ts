@@ -36,6 +36,19 @@ export function tieneComplementoMixto(lectura: LecturaHorometro | undefined | nu
 }
 
 /**
+ * Nombre del complemento usado durante las horas nocturnas, solo si fue el mismo durante toda la
+ * noche (caso simple). Si hubo más de un complemento distinto ("mixto") o no se usó ninguno,
+ * devuelve null — ese detalle se ve en el desglose expandible, no aquí.
+ */
+export function complementoNocturnoUnico(lectura: LecturaHorometro | undefined | null): string | null {
+  const tramos = lectura?.tramosNocturnos ?? [];
+  if (tramos.length === 0) return null;
+  const idsDistintos = new Set(tramos.map(t => t.extraId));
+  if (idsDistintos.size !== 1) return null;
+  return tramos[0].extraId ? tramos[0].extraNombre : null;
+}
+
+/**
  * Último día que requiere lecturas regulares de horómetro (inicio + fin5pm).
  * El día calendario de vencimiento es el día de entrega — el equipo no trabaja ese día.
  * Acotado por hoy: no se pueden registrar días futuros aunque la renta siga activa.

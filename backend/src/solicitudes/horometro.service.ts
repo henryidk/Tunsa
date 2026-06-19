@@ -56,7 +56,8 @@ export class HorometroService {
         extraId:        c.extraId ?? null,
       }));
       return this.registrarInicio(
-        solicitudId, dto.equipoId, fechaDate, dto.valor, item, dto.extraId, cortesNocturnos, user.username,
+        solicitudId, dto.equipoId, fechaDate, dto.valor, item,
+        dto.extraId, dto.complementoNocturnoInicialId, cortesNocturnos, user.username,
       );
     }
     return this.registrarFin5pm(solicitudId, dto.equipoId, fechaDate, dto.valor, item, user.username);
@@ -213,7 +214,7 @@ export class HorometroService {
     for (const c of puntos) {
       if (c.horometroCorte <= finAnterior || c.horometroCorte >= horometroInicio)
         throw new BadRequestException(
-          `El punto de corte (${c.horometroCorte} hrs) debe estar entre el cierre de ayer (${finAnterior} hrs) y el inicio de hoy (${horometroInicio} hrs).`,
+          `El punto de corte (${c.horometroCorte} hrs) debe ser mayor a ${finAnterior} hrs (cierre de ayer) y menor a ${horometroInicio} hrs (inicio de hoy).`,
         );
     }
     for (let i = 1; i < puntos.length; i++) {
@@ -248,14 +249,15 @@ export class HorometroService {
   }
 
   private async registrarInicio(
-    solicitudId:      string,
-    equipoId:         string,
-    fecha:            Date,
-    horometroInicio:  number,
-    item:             ItemPesadaSnapshot,
-    extraIdInicial:   string | null | undefined,
-    cortesNocturnos:  CorteNocturnoInput[] | undefined,
-    username:         string,
+    solicitudId:                   string,
+    equipoId:                      string,
+    fecha:                         Date,
+    horometroInicio:               number,
+    item:                          ItemPesadaSnapshot,
+    extraIdInicial:                string | null | undefined,
+    complementoNocturnoInicialId:  string | null | undefined,
+    cortesNocturnos:               CorteNocturnoInput[] | undefined,
+    username:                      string,
   ) {
     const tarifaEfectiva = item.tarifaEfectiva;
 
@@ -273,10 +275,13 @@ export class HorometroService {
       const horasNocturnas = this.calc.diffHorometro(finAnterior, horometroInicio);
 
       if (horasNocturnas > 0) {
-        const tramosAnteriores = (lecturaAnterior.tramos ?? []) as unknown as TramoHorometro[];
-        const tramosNocturnos  = this.construirTramosNocturnos(
+        const tramosAnteriores       = (lecturaAnterior.tramos ?? []) as unknown as TramoHorometro[];
+        const complementoPrimerTramo = complementoNocturnoInicialId !== undefined
+          ? complementoNocturnoInicialId
+          : (lecturaAnterior.complementoActivoId ?? null);
+        const tramosNocturnos        = this.construirTramosNocturnos(
           finAnterior, horometroInicio, cortesNocturnos,
-          lecturaAnterior.complementoActivoId ?? null, tarifaEfectiva, item.extras,
+          complementoPrimerTramo, tarifaEfectiva, item.extras,
         );
 
         const costos        = this.calc.calcularCostoDia(tramosAnteriores, tramosNocturnos, tarifaEfectiva);

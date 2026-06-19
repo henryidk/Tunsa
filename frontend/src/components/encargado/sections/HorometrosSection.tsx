@@ -4,7 +4,7 @@ import { solicitudesService, type LecturaHorometro, type DashboardStats } from '
 import type { SolicitudRenta, ItemSnapshot, ExtraSeleccionado } from '../../../types/solicitud-renta.types';
 import { formatQ } from '../../../types/solicitud.types';
 import {
-  today, getDiaStatus, tieneComplementoMixto,
+  today, getDiaStatus, tieneComplementoMixto, complementoNocturnoUnico,
   formatFechaCorta, localDateOf, ultimoDiaHorometro, validarInicioHorometro, diasPendientesAnteriores,
 } from '../../../utils/horometro.utils';
 import HorometroRentaCard from '../HorometroRentaCard';
@@ -83,15 +83,24 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
 
   // Tramos de la noche anterior (cuando el inicio de hoy implica horas nocturnas) — se construyen
   // en el cliente y se envían junto con el horómetro de inicio, sin llamadas intermedias al servidor.
-  const [cortesNocturnos, setCortesNocturnos] = useState<{ horometroCorte: number; extraId: string | null }[]>([]);
-  const [corteFormOpen,   setCorteFormOpen]   = useState(false);
-  const [corteValor,      setCorteValor]      = useState('');
-  const [corteExtraId,    setCorteExtraId]    = useState<string | null>(null);
-  const [corteError,      setCorteError]      = useState<string | null>(null);
+  // `nocheModo` decide qué tan detallado se ve el editor: el caso simple (toda la noche con o sin
+  // complemento) no necesita ver el concepto de "tramos" en absoluto.
+  // `nocheTramos.cortes` son los puntos donde se divide la noche; `complementos` tiene SIEMPRE un
+  // elemento más que `cortes` (uno por tramo resultante) — se guardan juntos en un solo estado para
+  // que sea imposible que se desincronicen entre sí (antes eran 2 estados separados y un useEffect
+  // los recomponía un render después, lo que dejaba una fracción de render con tamaños distintos).
+  const [nocheModo,        setNocheModo]        = useState<'sin' | 'con' | 'mixto'>('sin');
+  const [nocheTramos,      setNocheTramos]      = useState<{ cortes: number[]; complementos: (string | null)[] }>({
+    cortes: [], complementos: [null],
+  });
+  const [divisionFormOpen, setDivisionFormOpen] = useState(false);
+  const [divisionValor,    setDivisionValor]    = useState('');
+  const [divisionError,    setDivisionError]    = useState<string | null>(null);
 
   const resetTramoForm = () => {
     setFormTab('cierre'); setTramoValor(''); setTramoExtraId(null); setTramoError(null);
-    setCortesNocturnos([]); setCorteFormOpen(false); setCorteValor(''); setCorteExtraId(null); setCorteError(null);
+    setNocheModo('sin'); setNocheTramos({ cortes: [], complementos: [null] });
+    setDivisionFormOpen(false); setDivisionValor(''); setDivisionError(null);
   };
 
   const resolvedFetch  = fetchSolicitudes ?? fetchSolicitudesEncargado;
@@ -233,7 +242,11 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
   const complementoHeredadoNombre = diaAnteriorCerrado?.complementoActivoNombre ?? null;
 
   useEffect(() => {
-    if (tipoPendiente === 'inicio') setInicioExtraId(complementoHeredadoId);
+    if (tipoPendiente === 'inicio') {
+      setInicioExtraId(complementoHeredadoId);
+      setNocheModo(complementoHeredadoId ? 'con' : 'sin');
+      setNocheTramos({ cortes: [], complementos: [complementoHeredadoId] });
+    }
   }, [activeEquipo, fechaActiva, tipoPendiente, complementoHeredadoId]);
 
   // Detección en vivo de horas nocturnas: si lo que se está escribiendo como horómetro de inicio
@@ -244,49 +257,67 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
     ? valorInicioNum - finAnteriorNum
     : 0;
 
-  // Quita de la lista los cortes que dejaron de tener sentido (ej. el usuario bajó el horómetro escrito)
+  // Quita los cortes que dejaron de tener sentido (ej. el usuario bajó el horómetro escrito) — cortes
+  // y complementos se actualizan siempre juntos, en la misma llamada, para que nunca queden desincronizados.
   useEffect(() => {
     if (finAnteriorNum == null || isNaN(valorInicioNum)) return;
-    setCortesNocturnos(cs => cs.filter(c => c.horometroCorte > finAnteriorNum && c.horometroCorte < valorInicioNum));
+    setNocheTramos(nt => {
+      const cortesValidos = nt.cortes.filter(c => c > finAnteriorNum && c < valorInicioNum);
+      if (cortesValidos.length === nt.cortes.length) return nt;
+      return { cortes: cortesValidos, complementos: nt.complementos.slice(0, cortesValidos.length + 1) };
+    });
   }, [finAnteriorNum, valorInicioNum]);
 
-  // Segmentos de la noche anterior, construidos a partir de los cortes agregados — mismo cálculo que hace el backend.
+  // Segmentos de la noche anterior — mismo cálculo que hace el backend, para mostrar el preview en vivo.
   const segmentosNocturnos = (() => {
     if (horasNocturnasDetectadas <= 0 || finAnteriorNum == null || !activeItem) return [];
-    const puntos  = [...cortesNocturnos].sort((a, b) => a.horometroCorte - b.horometroCorte);
-    const bordes  = [finAnteriorNum, ...puntos.map(c => c.horometroCorte), valorInicioNum];
-    const activos = [complementoHeredadoId, ...puntos.map(c => c.extraId)];
-    return activos.map((extraId, i) => {
-      const desde   = bordes[i];
-      const hasta   = bordes[i + 1];
-      const horas   = Math.max(0, hasta - desde);
-      const extra   = extraId ? activeItem.extras.find(ex => ex.tipoExtraId === extraId) : undefined;
-      const tarifa  = activeItem.tarifaEfectiva + (extra?.rentaHora ?? 0) + RECARGO_NOCTURNO;
+    const bordes = [finAnteriorNum, ...nocheTramos.cortes, valorInicioNum];
+    return nocheTramos.complementos.map((extraId, i) => {
+      const desde  = bordes[i];
+      const hasta  = bordes[i + 1];
+      const horas  = Math.max(0, hasta - desde);
+      const extra  = extraId ? activeItem.extras.find(ex => ex.tipoExtraId === extraId) : undefined;
+      const tarifa = activeItem.tarifaEfectiva + (extra?.rentaHora ?? 0) + RECARGO_NOCTURNO;
       return { desde, hasta, extraId, extraNombre: extra?.nombre ?? null, horas, costo: horas * tarifa };
     });
   })();
 
-  const handleAgregarCorte = () => {
+  // Cambia el modo de la noche: 'sin'/'con' colapsan siempre a un solo tramo (sin exponer
+  // el concepto de "tramos" al usuario); 'mixto' revela el editor de divisiones.
+  const handleCambiarModoNoche = (modo: 'sin' | 'con' | 'mixto') => {
+    setNocheModo(modo);
+    if (modo === 'sin') {
+      setNocheTramos({ cortes: [], complementos: [null] });
+    } else if (modo === 'con') {
+      const elegido = nocheTramos.complementos[0] ?? complementoHeredadoId ?? activeItem?.extras[0]?.tipoExtraId ?? null;
+      setNocheTramos({ cortes: [], complementos: [elegido] });
+    }
+    // 'mixto' no resetea nada: continúa desde el tramo único que ya hubiera (sin o con complemento)
+    // y el usuario lo divide a partir de ahí.
+  };
+
+  const handleCambiarComplementoSegmento = (index: number, extraId: string | null) => {
+    setNocheTramos(nt => ({ ...nt, complementos: nt.complementos.map((c, i) => i === index ? extraId : c) }));
+  };
+
+  const handleDividirTramoNocturno = () => {
     if (finAnteriorNum == null) return;
-    const v = parseFloat(corteValor);
-    if (isNaN(v)) { setCorteError('Ingresa un horómetro válido.'); return; }
-    if (v <= finAnteriorNum || v >= valorInicioNum) {
-      setCorteError(`El punto de corte debe estar entre ${fmtHorometro(finAnteriorNum)} y ${fmtHorometro(valorInicioNum)} hrs.`);
+    const v = parseFloat(divisionValor);
+    if (isNaN(v)) { setDivisionError('Ingresa un horómetro válido.'); return; }
+    const ultimoCorte = nocheTramos.cortes.length > 0 ? nocheTramos.cortes[nocheTramos.cortes.length - 1] : finAnteriorNum;
+    if (v <= ultimoCorte || v >= valorInicioNum) {
+      setDivisionError(`El punto de división debe ser mayor a ${fmtHorometro(ultimoCorte)} y menor a ${fmtHorometro(valorInicioNum)} hrs.`);
       return;
     }
-    if (cortesNocturnos.some(c => c.horometroCorte === v)) {
-      setCorteError('Ya existe un punto de corte con ese horómetro.');
-      return;
-    }
-    const ultimoActivo = cortesNocturnos.length > 0
-      ? [...cortesNocturnos].sort((a, b) => a.horometroCorte - b.horometroCorte).find(c => c.horometroCorte < v)?.extraId ?? complementoHeredadoId
-      : complementoHeredadoId;
-    if (corteExtraId === ultimoActivo) {
-      setCorteError('Selecciona un complemento distinto al del tramo anterior.');
-      return;
-    }
-    setCortesNocturnos(cs => [...cs, { horometroCorte: v, extraId: corteExtraId }].sort((a, b) => a.horometroCorte - b.horometroCorte));
-    setCorteValor(''); setCorteExtraId(null); setCorteError(null); setCorteFormOpen(false);
+    setNocheTramos(nt => ({
+      cortes:      [...nt.cortes, v],
+      complementos: [...nt.complementos, nt.complementos[nt.complementos.length - 1]],
+    }));
+    setDivisionValor(''); setDivisionError(null); setDivisionFormOpen(false);
+  };
+
+  const handleUnirUltimoTramoNocturno = () => {
+    setNocheTramos(nt => ({ cortes: nt.cortes.slice(0, -1), complementos: nt.complementos.slice(0, -1) }));
   };
 
   const handleSelectDia = (d: string) => { setFechaActiva(d); setValor(''); setSubmitError(null); resetTramoForm(); };
@@ -395,7 +426,13 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
           tipo:     confirm.tipo,
           valor:    confirm.valorNum,
           ...(confirm.tipo === 'inicio' && confirm.extraId !== undefined ? { extraId: confirm.extraId } : {}),
-          ...(confirm.tipo === 'inicio' && cortesNocturnos.length > 0 ? { tramosNocturnos: cortesNocturnos } : {}),
+          ...(confirm.tipo === 'inicio' && horasNocturnasDetectadas > 0 ? {
+            complementoNocturnoInicialId: nocheTramos.complementos[0] ?? null,
+            tramosNocturnos: nocheTramos.cortes.map((horometroCorte, i) => ({
+              horometroCorte,
+              extraId: nocheTramos.complementos[i + 1] ?? null,
+            })),
+          } : {}),
         });
         setValor('');
         resetTramoForm();
@@ -759,96 +796,139 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
 
                     {tipoPendiente === 'inicio' && horasNocturnasDetectadas > 0 && activeItem && activeItem.extras.length > 0 && finAnteriorNum != null && (
                       <div className="w-full p-3 bg-indigo-50/50 border border-indigo-100 rounded-lg">
-                        <p className="text-xs font-semibold text-indigo-700 mb-2">
+                        <p className="text-xs font-semibold text-indigo-700 mb-1">
                           🌙 Se detectan {horasNocturnasDetectadas.toFixed(1)}h nocturnas desde el cierre de ayer
                           ({fmtHorometro(finAnteriorNum)} → {fmtHorometro(valorInicioNum)})
                         </p>
+                        <p className="text-xs text-slate-500 mb-2">¿Cómo se trabajaron estas horas?</p>
 
-                        <div className="space-y-1 mb-2">
-                          {segmentosNocturnos.map((s, i) => (
-                            <div key={i} className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                              <span className="flex items-center gap-1.5">
-                                <span className="font-mono font-bold text-slate-700">
-                                  {fmtHorometro(s.desde)} → {fmtHorometro(s.hasta)}
-                                </span>
-                                <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full ${
-                                  s.extraId ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'
-                                }`}>
-                                  {s.extraId ? s.extraNombre : 'Sin complemento'}
-                                </span>
-                              </span>
-                              <span className="font-mono text-slate-600">
-                                {s.horas.toFixed(1)}h · {formatQ(s.costo)}
-                              </span>
+                        <div className="flex flex-wrap gap-1.5 mb-2">
+                          <button
+                            type="button"
+                            onClick={() => handleCambiarModoNoche('sin')}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                              nocheModo === 'sin' ? 'bg-indigo-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                            }`}
+                          >
+                            Sin complemento
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleCambiarModoNoche('con')}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                              nocheModo === 'con' ? 'bg-indigo-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                            }`}
+                          >
+                            {activeItem.extras.length === 1 ? `Con ${activeItem.extras[0].nombre}` : 'Con complemento'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleCambiarModoNoche('mixto')}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                              nocheModo === 'mixto' ? 'bg-indigo-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                            }`}
+                          >
+                            Cambió durante la noche
+                          </button>
+                        </div>
+
+                        {nocheModo === 'con' && activeItem.extras.length > 1 && (
+                          <select
+                            value={nocheTramos.complementos[0] ?? ''}
+                            onChange={e => setNocheTramos({ cortes: [], complementos: [e.target.value || null] })}
+                            className="mb-2 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                          >
+                            {activeItem.extras.map(ex => (
+                              <option key={ex.tipoExtraId} value={ex.tipoExtraId}>{ex.nombre}</option>
+                            ))}
+                          </select>
+                        )}
+
+                        {nocheModo !== 'mixto' && segmentosNocturnos[0] && (
+                          <p className="text-xs font-mono text-slate-500">
+                            {segmentosNocturnos[0].horas.toFixed(1)}h · {formatQ(segmentosNocturnos[0].costo)}
+                          </p>
+                        )}
+
+                        {nocheModo === 'mixto' && (
+                          <div className="mt-1">
+                            <div className="space-y-1.5 mb-2">
+                              {segmentosNocturnos.map((s, i) => (
+                                <div key={i} className="flex flex-wrap items-center gap-2 text-xs bg-white rounded-lg px-2.5 py-2 border border-indigo-100/70">
+                                  <span className="font-mono font-bold text-slate-700 whitespace-nowrap">
+                                    {fmtHorometro(s.desde)} → {fmtHorometro(s.hasta)}
+                                  </span>
+                                  <select
+                                    value={s.extraId ?? ''}
+                                    onChange={e => handleCambiarComplementoSegmento(i, e.target.value || null)}
+                                    className="px-2 py-1 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                                  >
+                                    <option value="">Sin complemento</option>
+                                    {activeItem.extras.map(ex => (
+                                      <option key={ex.tipoExtraId} value={ex.tipoExtraId}>{ex.nombre}</option>
+                                    ))}
+                                  </select>
+                                  <span className="font-mono text-slate-500 ml-auto whitespace-nowrap">
+                                    {s.horas.toFixed(1)}h · {formatQ(s.costo)}
+                                  </span>
+                                </div>
+                              ))}
                             </div>
-                          ))}
-                        </div>
 
-                        <div className="flex flex-wrap items-end gap-2">
-                          {!corteFormOpen ? (
-                            <button
-                              type="button"
-                              onClick={() => setCorteFormOpen(true)}
-                              className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
-                            >
-                              + Agregar punto de cambio
-                            </button>
-                          ) : (
-                            <>
-                              <div>
-                                <label className="text-xs text-slate-500 block mb-1">Horómetro del cambio</label>
-                                <input
-                                  type="text"
-                                  inputMode="decimal"
-                                  value={corteValor}
-                                  onChange={e => setCorteValor(e.target.value)}
-                                  placeholder="Ej: 114.0"
-                                  className="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs w-28 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
-                                  autoFocus
-                                />
-                              </div>
-                              <div>
-                                <label className="text-xs text-slate-500 block mb-1">Complemento</label>
-                                <select
-                                  value={corteExtraId ?? ''}
-                                  onChange={e => setCorteExtraId(e.target.value || null)}
-                                  className="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                            <div className="flex flex-wrap items-end gap-2">
+                              {!divisionFormOpen ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setDivisionFormOpen(true)}
+                                  className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
                                 >
-                                  <option value="">Ninguno</option>
-                                  {activeItem.extras.map(ex => (
-                                    <option key={ex.tipoExtraId} value={ex.tipoExtraId}>{ex.nombre}</option>
-                                  ))}
-                                </select>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={handleAgregarCorte}
-                                className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-colors"
-                              >
-                                Agregar
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => { setCorteFormOpen(false); setCorteValor(''); setCorteExtraId(null); setCorteError(null); }}
-                                className="text-xs text-slate-400 underline"
-                              >
-                                Cancelar
-                              </button>
-                            </>
-                          )}
-                          {cortesNocturnos.length > 0 && (
-                            <button
-                              type="button"
-                              onClick={() => setCortesNocturnos(cs => cs.slice(0, -1))}
-                              className="text-xs text-slate-500 hover:text-slate-700 underline ml-auto"
-                            >
-                              Quitar último corte
-                            </button>
-                          )}
-                        </div>
+                                  + Marcar otro cambio
+                                </button>
+                              ) : (
+                                <>
+                                  <div>
+                                    <label className="text-xs text-slate-500 block mb-1">¿En qué horómetro cambió?</label>
+                                    <input
+                                      type="text"
+                                      inputMode="decimal"
+                                      value={divisionValor}
+                                      onChange={e => setDivisionValor(e.target.value)}
+                                      placeholder={`Entre ${fmtHorometro(nocheTramos.cortes[nocheTramos.cortes.length - 1] ?? finAnteriorNum)} y ${fmtHorometro(valorInicioNum)}`}
+                                      className="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs w-40 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                                      autoFocus
+                                    />
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={handleDividirTramoNocturno}
+                                    className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-colors"
+                                  >
+                                    Marcar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => { setDivisionFormOpen(false); setDivisionValor(''); setDivisionError(null); }}
+                                    className="text-xs text-slate-400 underline"
+                                  >
+                                    Cancelar
+                                  </button>
+                                </>
+                              )}
+                              {nocheTramos.cortes.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={handleUnirUltimoTramoNocturno}
+                                  className="text-xs text-slate-500 hover:text-slate-700 underline ml-auto"
+                                >
+                                  Quitar el último cambio
+                                </button>
+                              )}
+                            </div>
 
-                        {corteError && (
-                          <p className="mt-2 text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2 border border-red-200">{corteError}</p>
+                            {divisionError && (
+                              <p className="mt-2 text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2 border border-red-200">{divisionError}</p>
+                            )}
+                          </div>
                         )}
                       </div>
                     )}
@@ -960,8 +1040,15 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                                   ? (l.horometroFin5pm - l.horometroInicio).toFixed(1)
                                   : '—'}
                               </td>
-                              <td className="px-3 py-2 font-mono text-amber-600">
-                                {l.horasNocturnas && l.horasNocturnas > 0 ? l.horasNocturnas.toFixed(1) : '—'}
+                              <td className="px-3 py-2 font-mono text-amber-600 whitespace-nowrap">
+                                {l.horasNocturnas && l.horasNocturnas > 0 ? (
+                                  <>
+                                    {l.horasNocturnas.toFixed(1)}
+                                    {complementoNocturnoUnico(l) && (
+                                      <span className="ml-1 text-xs font-sans text-amber-500">({complementoNocturnoUnico(l)})</span>
+                                    )}
+                                  </>
+                                ) : '—'}
                               </td>
                               <td className="px-3 py-2 font-mono text-slate-400">
                                 {l.ajusteMinimo && l.ajusteMinimo > 0 ? `+${l.ajusteMinimo.toFixed(1)}` : '—'}

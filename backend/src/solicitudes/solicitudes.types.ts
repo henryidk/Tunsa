@@ -62,6 +62,12 @@ export interface TramoHorometro {
   costo:          number;         // horas * tarifa
 }
 
+/** Punto de corte indicado por el usuario para dividir la noche en varios tramos. */
+export interface CorteNocturnoInput {
+  horometroCorte: number;
+  extraId:        string | null;  // complemento que aplica DESDE este corte en adelante
+}
+
 /** Total de horas/costo acumulado por estado de complemento, a lo largo de toda la renta de un equipo. */
 export interface DesgloseComplemento {
   extraId:     string | null;  // null = sin complemento

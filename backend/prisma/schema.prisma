@@ -399,6 +399,11 @@ model LecturaHorometro {
   complementoActivoId     String? // complemento activo en el tramo abierto actual; null = sin complemento
   complementoActivoNombre String?
 
+  // Tramos de la noche que sigue al cierre de este día (entre horometroFin5pm y el
+  // horometroInicio del día siguiente) — mismo formato que `tramos`, construidos
+  // retroactivamente al registrar el inicio del día siguiente.
+  tramosNocturnos Json @default("[]")
+
   // Calculados y persistidos al cerrar nocturnas (para evitar recalcular en cada consulta)
   horasDiurnasRaw        Decimal? @db.Decimal(6, 1) // suma de horas de todos los tramos
   horasDiurnasFacturadas Decimal? @db.Decimal(6, 1) // horasDiurnasRaw + ajusteMinimo

@@ -4,14 +4,16 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { HorometroCalcService } from './horometro-calc.service';
+import { HorometroCalcService, RECARGO_NOCTURNO } from './horometro-calc.service';
 import { RegistrarLecturaDto } from './dto/lectura-horometro.dto';
 import { RegistrarTramoDto, DeshacerTramoDto } from './dto/tramo-horometro.dto';
 import { RegistrarDevolucionPesadaDto } from './dto/registrar-devolucion-pesada.dto';
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
 import { tieneAccesoGlobal } from '../auth/utils/roles.util';
 import type { DevolucionEntry, DevolucionItemEntry, CargoAdicional, DescuentoAplicado } from './recargo.util';
-import type { ItemPesadaSnapshot, ExtraSeleccionadoSnapshot, TramoHorometro, DesgloseComplemento } from './solicitudes.types';
+import type {
+  ItemPesadaSnapshot, ExtraSeleccionadoSnapshot, TramoHorometro, DesgloseComplemento, CorteNocturnoInput,
+} from './solicitudes.types';
 
 @Injectable()
 export class HorometroService {
@@ -49,7 +51,13 @@ export class HorometroService {
     const fechaDate = new Date(dto.fecha + 'T00:00:00.000Z');
 
     if (dto.tipo === 'inicio') {
-      return this.registrarInicio(solicitudId, dto.equipoId, fechaDate, dto.valor, item, dto.extraId, user.username);
+      const cortesNocturnos = dto.tramosNocturnos?.map(c => ({
+        horometroCorte: c.horometroCorte,
+        extraId:        c.extraId ?? null,
+      }));
+      return this.registrarInicio(
+        solicitudId, dto.equipoId, fechaDate, dto.valor, item, dto.extraId, cortesNocturnos, user.username,
+      );
     }
     return this.registrarFin5pm(solicitudId, dto.equipoId, fechaDate, dto.valor, item, user.username);
   }
@@ -187,14 +195,67 @@ export class HorometroService {
     return { tarifa: tarifaBase + extra.rentaHora, nombre: extra.nombre };
   }
 
+  /**
+   * Construye los tramos de la noche entre el cierre de un día y el inicio del siguiente, a partir
+   * de los puntos de corte indicados por el usuario. Sin cortes, es un solo tramo con el complemento
+   * heredado del cierre — mismo comportamiento que antes de existir esta granularidad.
+   */
+  private construirTramosNocturnos(
+    finAnterior:           number,
+    horometroInicio:       number,
+    cortes:                CorteNocturnoInput[] | undefined,
+    complementoHeredadoId: string | null,
+    tarifaEfectiva:        number,
+    extras:                ExtraSeleccionadoSnapshot[],
+  ): TramoHorometro[] {
+    const puntos = [...(cortes ?? [])].sort((a, b) => a.horometroCorte - b.horometroCorte);
+
+    for (const c of puntos) {
+      if (c.horometroCorte <= finAnterior || c.horometroCorte >= horometroInicio)
+        throw new BadRequestException(
+          `El punto de corte (${c.horometroCorte} hrs) debe estar entre el cierre de ayer (${finAnterior} hrs) y el inicio de hoy (${horometroInicio} hrs).`,
+        );
+    }
+    for (let i = 1; i < puntos.length; i++) {
+      if (puntos[i].horometroCorte === puntos[i - 1].horometroCorte)
+        throw new BadRequestException('No puede haber dos puntos de corte con el mismo horómetro.');
+    }
+
+    const bordes  = [finAnterior, ...puntos.map(c => c.horometroCorte), horometroInicio];
+    const activos = [complementoHeredadoId, ...puntos.map(c => c.extraId)];
+
+    for (let i = 1; i < activos.length; i++) {
+      if (activos[i] === activos[i - 1])
+        throw new BadRequestException('Selecciona un complemento distinto al del tramo anterior en cada punto de corte.');
+    }
+
+    return activos.map((extraId, i) => {
+      const desde = bordes[i];
+      const hasta = bordes[i + 1];
+      const horas = this.calc.diffHorometro(desde, hasta);
+      const { tarifa: tarifaResuelta, nombre } = this.resolverTarifa(tarifaEfectiva, extraId, extras);
+      const tarifa = tarifaResuelta + RECARGO_NOCTURNO;
+      return {
+        horometroDesde: desde,
+        horometroHasta: hasta,
+        horas,
+        extraId,
+        extraNombre: nombre,
+        tarifa,
+        costo: horas * tarifa,
+      };
+    });
+  }
+
   private async registrarInicio(
-    solicitudId:     string,
-    equipoId:        string,
-    fecha:           Date,
-    horometroInicio: number,
-    item:            ItemPesadaSnapshot,
-    extraIdInicial:  string | null | undefined,
-    username:        string,
+    solicitudId:      string,
+    equipoId:         string,
+    fecha:            Date,
+    horometroInicio:  number,
+    item:             ItemPesadaSnapshot,
+    extraIdInicial:   string | null | undefined,
+    cortesNocturnos:  CorteNocturnoInput[] | undefined,
+    username:         string,
   ) {
     const tarifaEfectiva = item.tarifaEfectiva;
 
@@ -206,18 +267,19 @@ export class HorometroService {
       where: { solicitudId_equipoId_fecha: { solicitudId, equipoId, fecha: fechaAnterior } },
     });
 
-    // Detectar horas nocturnas del día anterior — se facturan con el complemento con el que cerró ese día
+    // Detectar horas nocturnas del día anterior — se facturan en sus propios tramos nocturnos
     if (lecturaAnterior?.horometroFin5pm != null) {
-      const finAnterior     = parseFloat(lecturaAnterior.horometroFin5pm.toString());
-      const horasNocturnas  = this.calc.diffHorometro(finAnterior, horometroInicio);
+      const finAnterior    = parseFloat(lecturaAnterior.horometroFin5pm.toString());
+      const horasNocturnas = this.calc.diffHorometro(finAnterior, horometroInicio);
 
       if (horasNocturnas > 0) {
-        const tramosAnteriores  = (lecturaAnterior.tramos ?? []) as unknown as TramoHorometro[];
-        const tarifaNocturnaBase = this.resolverTarifa(
-          tarifaEfectiva, lecturaAnterior.complementoActivoId ?? null, item.extras,
-        ).tarifa;
+        const tramosAnteriores = (lecturaAnterior.tramos ?? []) as unknown as TramoHorometro[];
+        const tramosNocturnos  = this.construirTramosNocturnos(
+          finAnterior, horometroInicio, cortesNocturnos,
+          lecturaAnterior.complementoActivoId ?? null, tarifaEfectiva, item.extras,
+        );
 
-        const costos        = this.calc.calcularCostoDia(tramosAnteriores, horasNocturnas, tarifaEfectiva, tarifaNocturnaBase);
+        const costos        = this.calc.calcularCostoDia(tramosAnteriores, tramosNocturnos, tarifaEfectiva);
         const costoAnterior = lecturaAnterior.costoTotal != null
           ? parseFloat(lecturaAnterior.costoTotal.toString())
           : 0;
@@ -232,6 +294,7 @@ export class HorometroService {
               horasDiurnasFacturadas: costos.horasDiurnasFacturadas,
               ajusteMinimo:           costos.ajusteMinimo,
               tarifaEfectiva,
+              tramosNocturnos:        tramosNocturnos as unknown as Prisma.InputJsonValue,
               costoDiurno:            costos.costoDiurno,
               costoNocturno:          costos.costoNocturno,
               costoTotal:             costos.costoTotal,
@@ -242,6 +305,8 @@ export class HorometroService {
             data: { costoAcumuladoPesada: { increment: delta } },
           }),
         ]);
+      } else if (cortesNocturnos != null && cortesNocturnos.length > 0) {
+        throw new BadRequestException('No se detectaron horas nocturnas; no hay nada que dividir en tramos.');
       }
     }
 
@@ -335,8 +400,8 @@ export class HorometroService {
     };
     const tramos = [...tramosActuales, tramoFinal];
 
-    // Costos provisionales (nocturnas aún desconocidas → 0)
-    const costos        = this.calc.calcularCostoDia(tramos, 0, item.tarifaEfectiva);
+    // Costos provisionales (nocturnas aún desconocidas → sin tramos nocturnos)
+    const costos        = this.calc.calcularCostoDia(tramos, [], item.tarifaEfectiva);
     const costoAnterior = lectura.costoTotal != null ? parseFloat(lectura.costoTotal.toString()) : 0;
     const delta         = costos.costoTotal - costoAnterior;
 
@@ -502,12 +567,15 @@ export class HorometroService {
           const horasNocturnas = this.calc.diffHorometro(finAnterior, horometroDevolucion);
 
           if (horasNocturnas > 0) {
-            const tramosAnteriores  = (ultimaLectura.tramos ?? []) as unknown as TramoHorometro[];
-            const tarifaNocturnaBase = this.resolverTarifa(
-              item.tarifaEfectiva, ultimaLectura.complementoActivoId ?? null, item.extras,
-            ).tarifa;
+            const tramosAnteriores = (ultimaLectura.tramos ?? []) as unknown as TramoHorometro[];
+            // Devolución: no hay UI para dividir esta noche en tramos, se factura como uno solo
+            // con el complemento heredado del cierre (mismo comportamiento que antes).
+            const tramosNocturnos = this.construirTramosNocturnos(
+              finAnterior, horometroDevolucion, undefined,
+              ultimaLectura.complementoActivoId ?? null, item.tarifaEfectiva, item.extras,
+            );
 
-            const costos        = this.calc.calcularCostoDia(tramosAnteriores, horasNocturnas, item.tarifaEfectiva, tarifaNocturnaBase);
+            const costos        = this.calc.calcularCostoDia(tramosAnteriores, tramosNocturnos, item.tarifaEfectiva);
             const costoAnterior = ultimaLectura.costoTotal != null
               ? parseFloat(ultimaLectura.costoTotal.toString())
               : 0;
@@ -521,6 +589,7 @@ export class HorometroService {
                 horasDiurnasFacturadas: costos.horasDiurnasFacturadas,
                 ajusteMinimo:           costos.ajusteMinimo,
                 tarifaEfectiva:         item.tarifaEfectiva,
+                tramosNocturnos:        tramosNocturnos as unknown as Prisma.InputJsonValue,
                 costoDiurno:            costos.costoDiurno,
                 costoNocturno:          costos.costoNocturno,
                 costoTotal:             costos.costoTotal,
@@ -671,12 +740,15 @@ export class HorometroService {
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
   /**
-   * Suma horas/costo de todos los tramos de todas las lecturas, agrupados por complemento activo.
-   * Incluye también las horas nocturnas de cada lectura, atribuidas al complemento con el que
-   * cerró ese día (`complementoActivoId`) — la misma referencia usada para facturarlas.
+   * Suma horas/costo de todos los tramos (diurnos y nocturnos) de todas las lecturas, agrupados
+   * por complemento. Para lecturas anteriores a esta funcionalidad (sin tramosNocturnos guardados
+   * pero con horasNocturnas > 0), se usa como respaldo el complemento con el que cerró ese día.
    */
   private calcularDesgloseComplementos(
-    lecturas: { tramos: unknown; horasNocturnas: unknown; costoNocturno: unknown; complementoActivoId: string | null; complementoActivoNombre: string | null }[],
+    lecturas: {
+      tramos: unknown; tramosNocturnos: unknown; horasNocturnas: unknown; costoNocturno: unknown;
+      complementoActivoId: string | null; complementoActivoNombre: string | null;
+    }[],
   ): DesgloseComplemento[] {
     const porComplemento = new Map<string, DesgloseComplemento>();
     const toNum = (v: unknown) => v != null ? parseFloat((v as any).toString()) : 0;
@@ -694,9 +766,15 @@ export class HorometroService {
       const tramos = (lectura.tramos ?? []) as unknown as TramoHorometro[];
       for (const t of tramos) acumular(t.extraId, t.extraNombre, t.horas, t.costo);
 
-      const horasNocturnas = toNum(lectura.horasNocturnas);
-      const costoNocturno  = toNum(lectura.costoNocturno);
-      if (horasNocturnas > 0) acumular(lectura.complementoActivoId ?? null, lectura.complementoActivoNombre ?? null, horasNocturnas, costoNocturno);
+      const tramosNocturnos = (lectura.tramosNocturnos ?? []) as unknown as TramoHorometro[];
+      if (tramosNocturnos.length > 0) {
+        for (const t of tramosNocturnos) acumular(t.extraId, t.extraNombre, t.horas, t.costo);
+      } else {
+        // Respaldo para lecturas anteriores a tramosNocturnos.
+        const horasNocturnas = toNum(lectura.horasNocturnas);
+        const costoNocturno  = toNum(lectura.costoNocturno);
+        if (horasNocturnas > 0) acumular(lectura.complementoActivoId ?? null, lectura.complementoActivoNombre ?? null, horasNocturnas, costoNocturno);
+      }
     }
 
     return Array.from(porComplemento.values());
@@ -720,6 +798,7 @@ export class HorometroService {
       costoNocturno:         toNum(l.costoNocturno),
       costoTotal:            toNum(l.costoTotal),
       tramos:                  (l.tramos ?? []) as TramoHorometro[],
+      tramosNocturnos:         (l.tramosNocturnos ?? []) as TramoHorometro[],
       complementoActivoId:     l.complementoActivoId ?? null,
       complementoActivoNombre: l.complementoActivoNombre ?? null,
       registradoInicioBy:    l.registradoInicioBy,

@@ -14,6 +14,9 @@ import { useVencidasStore, useAdminVencidasStore } from '../../../store/vencidas
 
 type PesadaItem = Extract<ItemSnapshot, { kind: 'pesada' }>;
 
+const RECARGO_NOCTURNO = 100; // Q extra por hora nocturna — mismo valor que backend/horometro-calc.service.ts
+const fmtHorometro = (n: number) => n.toLocaleString('es-GT', { minimumFractionDigits: 1 });
+
 function getApiErrorMessage(err: unknown): string | string[] | undefined {
   return (err as AxiosError<{ message?: string | string[] }>)?.response?.data?.message;
 }
@@ -78,8 +81,17 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
   // Complemento inicial del día (solo aplica al registrar el horómetro de inicio de un día nuevo)
   const [inicioExtraId, setInicioExtraId] = useState<string | null>(null);
 
+  // Tramos de la noche anterior (cuando el inicio de hoy implica horas nocturnas) — se construyen
+  // en el cliente y se envían junto con el horómetro de inicio, sin llamadas intermedias al servidor.
+  const [cortesNocturnos, setCortesNocturnos] = useState<{ horometroCorte: number; extraId: string | null }[]>([]);
+  const [corteFormOpen,   setCorteFormOpen]   = useState(false);
+  const [corteValor,      setCorteValor]      = useState('');
+  const [corteExtraId,    setCorteExtraId]    = useState<string | null>(null);
+  const [corteError,      setCorteError]      = useState<string | null>(null);
+
   const resetTramoForm = () => {
     setFormTab('cierre'); setTramoValor(''); setTramoExtraId(null); setTramoError(null);
+    setCortesNocturnos([]); setCorteFormOpen(false); setCorteValor(''); setCorteExtraId(null); setCorteError(null);
   };
 
   const resolvedFetch  = fetchSolicitudes ?? fetchSolicitudesEncargado;
@@ -224,6 +236,59 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
     if (tipoPendiente === 'inicio') setInicioExtraId(complementoHeredadoId);
   }, [activeEquipo, fechaActiva, tipoPendiente, complementoHeredadoId]);
 
+  // Detección en vivo de horas nocturnas: si lo que se está escribiendo como horómetro de inicio
+  // es mayor al cierre de ayer, hubo horas nocturnas que el usuario puede dividir en tramos.
+  const finAnteriorNum  = diaAnteriorCerrado?.horometroFin5pm ?? null;
+  const valorInicioNum  = tipoPendiente === 'inicio' ? parseFloat(valor) : NaN;
+  const horasNocturnasDetectadas = (finAnteriorNum != null && !isNaN(valorInicioNum))
+    ? valorInicioNum - finAnteriorNum
+    : 0;
+
+  // Quita de la lista los cortes que dejaron de tener sentido (ej. el usuario bajó el horómetro escrito)
+  useEffect(() => {
+    if (finAnteriorNum == null || isNaN(valorInicioNum)) return;
+    setCortesNocturnos(cs => cs.filter(c => c.horometroCorte > finAnteriorNum && c.horometroCorte < valorInicioNum));
+  }, [finAnteriorNum, valorInicioNum]);
+
+  // Segmentos de la noche anterior, construidos a partir de los cortes agregados — mismo cálculo que hace el backend.
+  const segmentosNocturnos = (() => {
+    if (horasNocturnasDetectadas <= 0 || finAnteriorNum == null || !activeItem) return [];
+    const puntos  = [...cortesNocturnos].sort((a, b) => a.horometroCorte - b.horometroCorte);
+    const bordes  = [finAnteriorNum, ...puntos.map(c => c.horometroCorte), valorInicioNum];
+    const activos = [complementoHeredadoId, ...puntos.map(c => c.extraId)];
+    return activos.map((extraId, i) => {
+      const desde   = bordes[i];
+      const hasta   = bordes[i + 1];
+      const horas   = Math.max(0, hasta - desde);
+      const extra   = extraId ? activeItem.extras.find(ex => ex.tipoExtraId === extraId) : undefined;
+      const tarifa  = activeItem.tarifaEfectiva + (extra?.rentaHora ?? 0) + RECARGO_NOCTURNO;
+      return { desde, hasta, extraId, extraNombre: extra?.nombre ?? null, horas, costo: horas * tarifa };
+    });
+  })();
+
+  const handleAgregarCorte = () => {
+    if (finAnteriorNum == null) return;
+    const v = parseFloat(corteValor);
+    if (isNaN(v)) { setCorteError('Ingresa un horómetro válido.'); return; }
+    if (v <= finAnteriorNum || v >= valorInicioNum) {
+      setCorteError(`El punto de corte debe estar entre ${fmtHorometro(finAnteriorNum)} y ${fmtHorometro(valorInicioNum)} hrs.`);
+      return;
+    }
+    if (cortesNocturnos.some(c => c.horometroCorte === v)) {
+      setCorteError('Ya existe un punto de corte con ese horómetro.');
+      return;
+    }
+    const ultimoActivo = cortesNocturnos.length > 0
+      ? [...cortesNocturnos].sort((a, b) => a.horometroCorte - b.horometroCorte).find(c => c.horometroCorte < v)?.extraId ?? complementoHeredadoId
+      : complementoHeredadoId;
+    if (corteExtraId === ultimoActivo) {
+      setCorteError('Selecciona un complemento distinto al del tramo anterior.');
+      return;
+    }
+    setCortesNocturnos(cs => [...cs, { horometroCorte: v, extraId: corteExtraId }].sort((a, b) => a.horometroCorte - b.horometroCorte));
+    setCorteValor(''); setCorteExtraId(null); setCorteError(null); setCorteFormOpen(false);
+  };
+
   const handleSelectDia = (d: string) => { setFechaActiva(d); setValor(''); setSubmitError(null); resetTramoForm(); };
 
   // Valida y abre el modal de confirmación
@@ -330,8 +395,10 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
           tipo:     confirm.tipo,
           valor:    confirm.valorNum,
           ...(confirm.tipo === 'inicio' && confirm.extraId !== undefined ? { extraId: confirm.extraId } : {}),
+          ...(confirm.tipo === 'inicio' && cortesNocturnos.length > 0 ? { tramosNocturnos: cortesNocturnos } : {}),
         });
         setValor('');
+        resetTramoForm();
       }
       const freshLecturas = await refreshLecturas(selectedId);
 
@@ -689,6 +756,103 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                         )}
                       </div>
                     )}
+
+                    {tipoPendiente === 'inicio' && horasNocturnasDetectadas > 0 && activeItem && activeItem.extras.length > 0 && finAnteriorNum != null && (
+                      <div className="w-full p-3 bg-indigo-50/50 border border-indigo-100 rounded-lg">
+                        <p className="text-xs font-semibold text-indigo-700 mb-2">
+                          🌙 Se detectan {horasNocturnasDetectadas.toFixed(1)}h nocturnas desde el cierre de ayer
+                          ({fmtHorometro(finAnteriorNum)} → {fmtHorometro(valorInicioNum)})
+                        </p>
+
+                        <div className="space-y-1 mb-2">
+                          {segmentosNocturnos.map((s, i) => (
+                            <div key={i} className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                              <span className="flex items-center gap-1.5">
+                                <span className="font-mono font-bold text-slate-700">
+                                  {fmtHorometro(s.desde)} → {fmtHorometro(s.hasta)}
+                                </span>
+                                <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full ${
+                                  s.extraId ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'
+                                }`}>
+                                  {s.extraId ? s.extraNombre : 'Sin complemento'}
+                                </span>
+                              </span>
+                              <span className="font-mono text-slate-600">
+                                {s.horas.toFixed(1)}h · {formatQ(s.costo)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="flex flex-wrap items-end gap-2">
+                          {!corteFormOpen ? (
+                            <button
+                              type="button"
+                              onClick={() => setCorteFormOpen(true)}
+                              className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
+                            >
+                              + Agregar punto de cambio
+                            </button>
+                          ) : (
+                            <>
+                              <div>
+                                <label className="text-xs text-slate-500 block mb-1">Horómetro del cambio</label>
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  value={corteValor}
+                                  onChange={e => setCorteValor(e.target.value)}
+                                  placeholder="Ej: 114.0"
+                                  className="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs w-28 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                                  autoFocus
+                                />
+                              </div>
+                              <div>
+                                <label className="text-xs text-slate-500 block mb-1">Complemento</label>
+                                <select
+                                  value={corteExtraId ?? ''}
+                                  onChange={e => setCorteExtraId(e.target.value || null)}
+                                  className="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                                >
+                                  <option value="">Ninguno</option>
+                                  {activeItem.extras.map(ex => (
+                                    <option key={ex.tipoExtraId} value={ex.tipoExtraId}>{ex.nombre}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={handleAgregarCorte}
+                                className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-colors"
+                              >
+                                Agregar
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { setCorteFormOpen(false); setCorteValor(''); setCorteExtraId(null); setCorteError(null); }}
+                                className="text-xs text-slate-400 underline"
+                              >
+                                Cancelar
+                              </button>
+                            </>
+                          )}
+                          {cortesNocturnos.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setCortesNocturnos(cs => cs.slice(0, -1))}
+                              className="text-xs text-slate-500 hover:text-slate-700 underline ml-auto"
+                            >
+                              Quitar último corte
+                            </button>
+                          )}
+                        </div>
+
+                        {corteError && (
+                          <p className="mt-2 text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2 border border-red-200">{corteError}</p>
+                        )}
+                      </div>
+                    )}
+
                     <button
                       type="submit"
                       disabled={isSubmitting || !valor}
@@ -817,6 +981,19 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                                       <li key={i} className="flex items-center justify-between text-xs">
                                         <span className={t.extraId ? 'text-amber-700 font-medium' : 'text-slate-500'}>
                                           {t.extraId ? t.extraNombre : 'Sin complemento'}
+                                          <span className="text-slate-400 font-mono ml-1.5">
+                                            ({t.horometroDesde.toFixed(1)} → {t.horometroHasta.toFixed(1)})
+                                          </span>
+                                        </span>
+                                        <span className="font-mono text-slate-600">
+                                          {t.horas.toFixed(1)}h × {formatQ(t.tarifa)} = <strong>{formatQ(t.costo)}</strong>
+                                        </span>
+                                      </li>
+                                    ))}
+                                    {(l.tramosNocturnos ?? []).map((t, i) => (
+                                      <li key={`n-${i}`} className="flex items-center justify-between text-xs">
+                                        <span className={t.extraId ? 'text-amber-700 font-medium' : 'text-slate-500'}>
+                                          🌙 {t.extraId ? t.extraNombre : 'Sin complemento'}
                                           <span className="text-slate-400 font-mono ml-1.5">
                                             ({t.horometroDesde.toFixed(1)} → {t.horometroHasta.toFixed(1)})
                                           </span>

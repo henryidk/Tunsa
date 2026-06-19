@@ -87,6 +87,7 @@ export interface LecturaHorometro {
   registradoInicioBy:      string | null;
   registradoFinBy:         string | null;
   tramos:                  TramoHorometro[];
+  tramosNocturnos:         TramoHorometro[];
   complementoActivoId:     string | null;
   complementoActivoNombre: string | null;
   createdAt:               string;
@@ -286,7 +287,10 @@ export const solicitudesService = {
 
   async registrarLectura(
     solicitudId: string,
-    data: { equipoId: string; fecha: string; tipo: 'inicio' | 'fin5pm'; valor: number; extraId?: string | null },
+    data: {
+      equipoId: string; fecha: string; tipo: 'inicio' | 'fin5pm'; valor: number; extraId?: string | null;
+      tramosNocturnos?: { horometroCorte: number; extraId: string | null }[];
+    },
   ): Promise<LecturaHorometro> {
     const res = await api.post<LecturaHorometro>(
       `/solicitudes/${solicitudId}/horometro/lecturas`,

@@ -30,9 +30,9 @@ export function getDiaStatus(lecturas: LecturaHorometro[], fecha: string): DiaSt
   return l.horometroFin5pm !== null ? 'completo' : 'parcial';
 }
 
-/** True si el día tuvo más de un tramo (hubo al menos un cambio de complemento). */
+/** True si el día (o la noche que sigue a su cierre) tuvo más de un tramo, es decir, hubo al menos un cambio de complemento. */
 export function tieneComplementoMixto(lectura: LecturaHorometro | undefined | null): boolean {
-  return !!lectura && lectura.tramos.length > 1;
+  return !!lectura && ((lectura.tramos?.length ?? 0) > 1 || (lectura.tramosNocturnos?.length ?? 0) > 1);
 }
 
 /**

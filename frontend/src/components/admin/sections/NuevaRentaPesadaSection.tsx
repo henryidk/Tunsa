@@ -13,6 +13,8 @@ import type { ModalidadPago, UnidadDuracion } from '../../../types/solicitud.typ
 import EspecialBadge from '../../shared/EspecialBadge';
 import PaymentModeSelector from '../../encargado/PaymentModeSelector';
 import EncargadoSelector from '../../shared/EncargadoSelector';
+import { useTarifaPesadaEdit } from '../../../hooks/useTarifaPesadaEdit';
+import { TarifaConOverride, PencilIcon, PesadaTarifaEditorPanel } from '../PesadaTarifaEditor';
 
 interface Props {
   onNavTo?:     (section: string) => void;
@@ -336,41 +338,10 @@ function EquipoAgregado({ item, indefinido, onQuitar, onUpdateItem }: {
   onQuitar:     () => void;
   onUpdateItem: (item: PesadaItem) => void;
 }) {
-  const tarifa         = calcTarifa(item.tarifaBaseEfectiva);
-  const catalogBase    = item.equipo.rentaHora ?? 0;
-  const tieneOverride  = tarifa !== catalogBase;
-
-  const [editing,     setEditing]     = useState(false);
-  const [baseInput,   setBaseInput]   = useState('');
-  const [extraInputs, setExtraInputs] = useState<Record<string, string>>({});
-
-  const startEdit = () => {
-    setBaseInput(String(item.tarifaBaseEfectiva));
-    const inputs: Record<string, string> = {};
-    item.extrasSeleccionados.forEach(e => { inputs[e.tipoExtraId] = String(e.rentaHora); });
-    setExtraInputs(inputs);
-    setEditing(true);
-  };
-
-  const commitEdit = () => {
-    const nuevaBase = parseFloat(baseInput);
-    if (isNaN(nuevaBase) || nuevaBase < 0) return;
-    const nuevosExtras = item.extrasSeleccionados.map(e => {
-      const val = parseFloat(extraInputs[e.tipoExtraId]);
-      return isNaN(val) || val < 0 ? e : { ...e, rentaHora: val };
-    });
-    onUpdateItem({ ...item, tarifaBaseEfectiva: nuevaBase, extrasSeleccionados: nuevosExtras });
-    setEditing(false);
-  };
-
-  const restablecer = () => {
-    const nuevosExtras = item.extrasSeleccionados.map(e => {
-      const catalogExtra = item.equipo.extras.find(ex => ex.tipoExtraId === e.tipoExtraId);
-      return catalogExtra ? { ...e, rentaHora: catalogExtra.rentaHora } : e;
-    });
-    onUpdateItem({ ...item, tarifaBaseEfectiva: catalogBase, extrasSeleccionados: nuevosExtras });
-    setEditing(false);
-  };
+  const {
+    catalogBase, tieneOverride, editing, startEdit, cancelEdit,
+    baseInput, setBaseInput, extraInputs, setExtraInput, commitEdit, restablecer,
+  } = useTarifaPesadaEdit(item, onUpdateItem);
 
   return (
     <div className="border border-slate-200 rounded-xl overflow-hidden">
@@ -404,14 +375,7 @@ function EquipoAgregado({ item, indefinido, onQuitar, onUpdateItem }: {
                 : <span className="text-slate-600">{unidadLabel(item.duracion!, item.unidad!)}</span>}
             </td>
             <td className="px-3 py-3 whitespace-nowrap">
-              <div className="flex items-center gap-1.5">
-                {tieneOverride && (
-                  <span className="text-[10px] text-slate-400 line-through">{formatQ(catalogBase)}</span>
-                )}
-                <span className={`font-mono font-semibold ${tieneOverride ? 'text-indigo-600' : 'text-slate-700'}`}>
-                  {formatQ(tarifa)}/hr
-                </span>
-              </div>
+              <TarifaConOverride tarifa={item.tarifaBaseEfectiva} catalogBase={catalogBase} tieneOverride={tieneOverride} />
             </td>
             <td className="px-3 py-3 text-right">
               <div className="flex items-center justify-end gap-2.5">
@@ -430,44 +394,17 @@ function EquipoAgregado({ item, indefinido, onQuitar, onUpdateItem }: {
       </table>
 
       {editing && (
-        <div className="px-4 py-3 border-t border-slate-100 bg-indigo-50/40 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-indigo-700 uppercase tracking-wide">Editar tarifas (Q/hora)</span>
-            {tieneOverride && (
-              <button onClick={restablecer} className="text-[11px] text-slate-500 hover:text-red-500 font-medium transition-colors">
-                Restablecer a catálogo
-              </button>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <div className="w-28">
-              <label className="block text-[10px] font-semibold text-slate-500 mb-1">Equipo base</label>
-              <input
-                type="number" min="0" step="0.01" value={baseInput}
-                onChange={e => setBaseInput(e.target.value)}
-                className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs font-mono bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
-              />
-            </div>
-            {item.extrasSeleccionados.map(e => (
-              <div key={e.tipoExtraId} className="w-28">
-                <label className="block text-[10px] font-semibold text-slate-500 mb-1 truncate" title={e.nombre}>{e.nombre}</label>
-                <input
-                  type="number" min="0" step="0.01" value={extraInputs[e.tipoExtraId] ?? ''}
-                  onChange={ev => setExtraInputs(prev => ({ ...prev, [e.tipoExtraId]: ev.target.value }))}
-                  className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs font-mono bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
-                />
-              </div>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <button onClick={commitEdit} className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-colors">
-              Aplicar
-            </button>
-            <button onClick={() => setEditing(false)} className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-xs font-medium transition-colors">
-              Cancelar
-            </button>
-          </div>
-        </div>
+        <PesadaTarifaEditorPanel
+          extrasSeleccionados={item.extrasSeleccionados}
+          tieneOverride={tieneOverride}
+          baseInput={baseInput}
+          onBaseInputChange={setBaseInput}
+          extraInputs={extraInputs}
+          onExtraInputChange={setExtraInput}
+          onAplicar={commitEdit}
+          onCancelar={cancelEdit}
+          onRestablecer={restablecer}
+        />
       )}
 
       <div className="px-4 py-2.5 border-t border-slate-100 flex items-center justify-between">
@@ -914,8 +851,4 @@ function PaymentIcon() {
 
 function EncargadoIcon() {
   return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>;
-}
-
-function PencilIcon() {
-  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>;
 }

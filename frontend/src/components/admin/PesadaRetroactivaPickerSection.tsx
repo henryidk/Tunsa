@@ -3,31 +3,35 @@ import type { Equipo } from '../../types/equipo.types';
 import type { ExtraSeleccionado } from '../../types/solicitud-renta.types';
 import type { UnidadDuracion } from '../../types/solicitud.types';
 import { formatQ } from '../../types/solicitud.types';
+import { useTarifaPesadaEdit } from '../../hooks/useTarifaPesadaEdit';
+import { TarifaConOverride, PencilIcon, PesadaTarifaEditorPanel } from './PesadaTarifaEditor';
 
 export interface PesadaItemRetro {
   equipo:              Equipo;
   extrasSeleccionados: ExtraSeleccionado[];
+  tarifaBaseEfectiva:  number;
   diasSolicitados?:    number;
   unidad?:             UnidadDuracion;
   horometroInicial?:   number;
 }
 
 interface Props {
-  disponibles: Equipo[];
-  isLoading:   boolean;
-  indefinido:  boolean;
-  item:        PesadaItemRetro | null;
-  onAdd:       (item: PesadaItemRetro) => void;
-  onQuitar:    () => void;
+  disponibles:  Equipo[];
+  isLoading:    boolean;
+  indefinido:   boolean;
+  item:         PesadaItemRetro | null;
+  onAdd:        (item: PesadaItemRetro) => void;
+  onQuitar:     () => void;
+  onUpdateItem: (item: PesadaItemRetro) => void;
 }
 
 function calcTarifa(equipo: Equipo): number {
   return equipo.rentaHora ?? 0;
 }
 
-export default function PesadaRetroactivaPickerSection({ disponibles, isLoading, indefinido, item, onAdd, onQuitar }: Props) {
+export default function PesadaRetroactivaPickerSection({ disponibles, isLoading, indefinido, item, onAdd, onQuitar, onUpdateItem }: Props) {
   if (item) {
-    return <EquipoAgregado item={item} indefinido={indefinido} onQuitar={onQuitar} />;
+    return <EquipoAgregado item={item} indefinido={indefinido} onQuitar={onQuitar} onUpdateItem={onUpdateItem} />;
   }
   return (
     <PesadaPickerForm
@@ -47,8 +51,17 @@ function unidadLabel(dur: number, uni: UnidadDuracion): string {
   return `${dur} mes${dur !== 1 ? 'es' : ''}`;
 }
 
-function EquipoAgregado({ item, indefinido, onQuitar }: { item: PesadaItemRetro; indefinido: boolean; onQuitar: () => void }) {
-  const tarifa = calcTarifa(item.equipo);
+function EquipoAgregado({ item, indefinido, onQuitar, onUpdateItem }: {
+  item:         PesadaItemRetro;
+  indefinido:   boolean;
+  onQuitar:     () => void;
+  onUpdateItem: (item: PesadaItemRetro) => void;
+}) {
+  const {
+    catalogBase, tieneOverride, editing, startEdit, cancelEdit,
+    baseInput, setBaseInput, extraInputs, setExtraInput, commitEdit, restablecer,
+  } = useTarifaPesadaEdit(item, onUpdateItem);
+
   return (
     <div className="border border-slate-200 rounded-xl overflow-hidden">
       <table className="w-full text-xs">
@@ -82,17 +95,39 @@ function EquipoAgregado({ item, indefinido, onQuitar }: { item: PesadaItemRetro;
             <td className="px-3 py-3 font-mono text-slate-500">
               {item.horometroInicial != null ? item.horometroInicial.toLocaleString('es-GT') : <span className="text-slate-300">No registrado</span>}
             </td>
-            <td className="px-3 py-3 font-mono font-semibold text-slate-700 whitespace-nowrap">{formatQ(tarifa)}/hr</td>
+            <td className="px-3 py-3 whitespace-nowrap">
+              <TarifaConOverride tarifa={item.tarifaBaseEfectiva} catalogBase={catalogBase} tieneOverride={tieneOverride} />
+            </td>
             <td className="px-3 py-3 text-right">
-              <button onClick={onQuitar} className="text-slate-300 hover:text-red-400 transition-colors">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                </svg>
-              </button>
+              <div className="flex items-center justify-end gap-2.5">
+                <button onClick={startEdit} title="Editar tarifas" className="text-slate-300 hover:text-indigo-500 transition-colors">
+                  <PencilIcon />
+                </button>
+                <button onClick={onQuitar} className="text-slate-300 hover:text-red-400 transition-colors">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              </div>
             </td>
           </tr>
         </tbody>
       </table>
+
+      {editing && (
+        <PesadaTarifaEditorPanel
+          extrasSeleccionados={item.extrasSeleccionados}
+          tieneOverride={tieneOverride}
+          baseInput={baseInput}
+          onBaseInputChange={setBaseInput}
+          extraInputs={extraInputs}
+          onExtraInputChange={setExtraInput}
+          onAplicar={commitEdit}
+          onCancelar={cancelEdit}
+          onRestablecer={restablecer}
+        />
+      )}
+
       <div className="px-4 py-2.5 border-t border-slate-100 flex items-center justify-between">
         <span className="text-[11px] text-slate-400">1 equipo</span>
         <span className="text-[11px] text-slate-400">Facturación por horómetro real</span>
@@ -160,6 +195,7 @@ function PesadaPickerForm({ disponibles, isLoading, indefinido, onAdd }: {
     onAdd({
       equipo:              seleccionado,
       extrasSeleccionados,
+      tarifaBaseEfectiva:  calcTarifa(seleccionado),
       diasSolicitados:     indefinido ? undefined : diasSolicitados,
       unidad:              indefinido ? undefined : unidad,
       horometroInicial:    horNum,

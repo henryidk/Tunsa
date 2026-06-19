@@ -164,7 +164,7 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
 
       let rentaCreada;
       if (equipoTab === 'pesada' && pesadaItem) {
-        const { equipo, extrasSeleccionados, diasSolicitados, unidad, horometroInicial } = pesadaItem;
+        const { equipo, extrasSeleccionados, tarifaBaseEfectiva, diasSolicitados, unidad, horometroInicial } = pesadaItem;
         rentaCreada = await solicitudesService.crearRentaRetroactiva({
           clienteId:        clienteSeleccionado.id,
           fechaInicioRenta: fechaISO,
@@ -180,6 +180,7 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
             descripcion:      equipo.descripcion,
             fechaInicio:      fechaISO,
             extras:           extrasSeleccionados,
+            tarifaBaseFijada: tarifaBaseEfectiva,
             diasSolicitados:  indefinido ? undefined : diasSolicitados,
             unidad:           indefinido ? undefined : unidad,
             horometroInicial: horometroInicial,
@@ -422,6 +423,7 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
                 item={pesadaItem}
                 onAdd={setPesadaItem}
                 onQuitar={() => setPesadaItem(null)}
+                onUpdateItem={setPesadaItem}
               />
             )}
 
@@ -715,7 +717,7 @@ function RentaResumen({
                       : null}
                 </div>
                 <span className="text-xs font-mono font-semibold text-slate-500 flex-shrink-0 whitespace-nowrap">
-                  {formatQ((pesadaItem.equipo.rentaHora ?? 0) + pesadaItem.extrasSeleccionados.reduce((s, e) => s + e.rentaHora, 0))}/hr
+                  {formatQ(pesadaItem.tarifaBaseEfectiva + pesadaItem.extrasSeleccionados.reduce((s, e) => s + e.rentaHora, 0))}/hr
                 </span>
               </div>
             ) : (

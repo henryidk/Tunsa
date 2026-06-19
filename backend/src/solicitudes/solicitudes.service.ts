@@ -318,9 +318,10 @@ export class SolicitudesService {
       const equipoMap = new Map(equipos.map(e => [e.id, e]));
       itemsToStore = dto.items.map(item => {
         if (item.kind !== 'pesada' || !item.equipoId) return item as object;
-        const eq           = equipoMap.get(item.equipoId);
-        const rentaBase    = eq?.rentaHora != null ? parseFloat(eq.rentaHora.toString()) : 0;
-        const extras       = (item.extras ?? []) as { tipoExtraId: string; nombre: string; rentaHora: number }[];
+        const eq            = equipoMap.get(item.equipoId);
+        const rentaCatalogo = eq?.rentaHora != null ? parseFloat(eq.rentaHora.toString()) : 0;
+        const rentaBase     = item.tarifaBaseFijada != null ? item.tarifaBaseFijada : rentaCatalogo;
+        const extras        = (item.extras ?? []) as { tipoExtraId: string; nombre: string; rentaHora: number }[];
         const { tarifaEfectiva: _dropped, ...rest } = item as any;
         return { ...rest, extras, tarifaEfectiva: rentaBase };
       });

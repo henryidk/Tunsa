@@ -17,6 +17,60 @@ type PesadaItem = Extract<ItemSnapshot, { kind: 'pesada' }>;
 const RECARGO_NOCTURNO = 100; // Q extra por hora nocturna — mismo valor que backend/horometro-calc.service.ts
 const fmtHorometro = (n: number) => n.toLocaleString('es-GT', { minimumFractionDigits: 1 });
 
+// Tema de color del acento principal de esta sección — ámbar para encargado (a juego con su sidebar
+// y el resto de sus pantallas), indigo para admin/secretaria (su color primario en todo el panel).
+// No reemplaza los colores semánticos fijos (emerald = dinero/tarifa, red = vencido, slate = neutral).
+export interface TonoHorometro {
+  boton:        string; // botón primario (fondo + hover)
+  texto:        string; // texto de acento, peso fuerte (títulos, valores destacados)
+  textoSuave:   string; // texto de acento, peso medio
+  link:         string; // links de acento (texto + hover)
+  fondoSuave:   string; // fondo de cajas informativas
+  borde:        string; // borde de cajas informativas
+  badge:        string; // fondo + texto de badges (ej. "entrega")
+  badgeHover:   string; // badge interactivo (ej. "mixto")
+  pillActiva:   string; // pill/tab seleccionada (ej. selector de equipo)
+  iconoFondo:   string; // fondo de ícono circular
+  iconoTexto:   string; // color del ícono
+  punto:        string; // punto/dot de estado activo en líneas de tiempo
+  hexBg:        string; // fondo de ícono circular (estilo inline, InfoTile/PesadaStatCard)
+  hexFg:        string; // color de ícono (estilo inline, InfoTile/PesadaStatCard)
+}
+
+const TONO_AMBAR: TonoHorometro = {
+  boton:      'bg-amber-500 hover:bg-amber-600',
+  texto:      'text-amber-700',
+  textoSuave: 'text-amber-600',
+  link:       'text-amber-700 hover:text-amber-800',
+  fondoSuave: 'bg-amber-50',
+  borde:      'border-amber-100',
+  badge:      'bg-amber-100 text-amber-700',
+  badgeHover: 'bg-amber-100 hover:bg-amber-200 text-amber-600',
+  pillActiva: 'bg-amber-50 border-amber-300 text-amber-700',
+  iconoFondo: 'bg-amber-100',
+  iconoTexto: 'text-amber-600',
+  punto:      'bg-amber-500',
+  hexBg:      '#fef3c7',
+  hexFg:      '#d97706',
+};
+
+const TONO_INDIGO: TonoHorometro = {
+  boton:      'bg-indigo-600 hover:bg-indigo-700',
+  texto:      'text-indigo-700',
+  textoSuave: 'text-indigo-600',
+  link:       'text-indigo-700 hover:text-indigo-800',
+  fondoSuave: 'bg-indigo-50',
+  borde:      'border-indigo-100',
+  badge:      'bg-indigo-100 text-indigo-700',
+  badgeHover: 'bg-indigo-100 hover:bg-indigo-200 text-indigo-600',
+  pillActiva: 'bg-indigo-50 border-indigo-300 text-indigo-700',
+  iconoFondo: 'bg-indigo-100',
+  iconoTexto: 'text-indigo-600',
+  punto:      'bg-indigo-500',
+  hexBg:      '#e0e7ff',
+  hexFg:      '#4f46e5',
+};
+
 function getApiErrorMessage(err: unknown): string | string[] | undefined {
   return (err as AxiosError<{ message?: string | string[] }>)?.response?.data?.message;
 }
@@ -105,6 +159,10 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
 
   const resolvedFetch  = fetchSolicitudes ?? fetchSolicitudesEncargado;
   const modoEncargado  = fetchSolicitudes == null;
+  // Esta sección la usan tanto encargado (tema ámbar) como admin/secretaria (tema indigo, vía
+  // admin/sections/HorometrosSection.tsx, que envuelve este mismo componente). El acento debe
+  // coincidir con el resto del panel donde se está viendo, no quedar fijo en un solo color.
+  const tono = modoEncargado ? TONO_AMBAR : TONO_INDIGO;
 
   const [pesadaStats,        setPesadaStats]        = useState<Pick<DashboardStats, 'pesadaRecaudadaMes'> | null>(null);
   const [loadingPesadaStats, setLoadingPesadaStats] = useState(modoEncargado);
@@ -501,7 +559,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                 onClick={() => { setActiveEquipo(item.equipoId); setValor(''); setFechaActiva(hoy); setSubmitError(null); resetTramoForm(); }}
                 className={`flex-shrink-0 px-3 py-2 rounded-xl border text-xs font-semibold transition-colors ${
                   activeEquipo === item.equipoId
-                    ? 'bg-amber-50 border-amber-300 text-amber-700'
+                    ? tono.pillActiva
                     : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                 }`}
               >
@@ -516,6 +574,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
         {activeItem && (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
             <InfoTile
+              tono={tono}
               label="Equipo"
               value={<><span className="font-mono text-slate-400 mr-1">#{activeItem.numeracion}</span>{activeItem.descripcion}</>}
               icon={<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>}
@@ -523,19 +582,22 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
             />
             {activeItem.horometroInicial != null && (
               <InfoTile
+                tono={tono}
                 label="Entrega al cliente"
                 value={`${activeItem.horometroInicial.toLocaleString('es-GT', { minimumFractionDigits: 1 })} hrs`}
                 icon={<><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></>}
-                color="amber"
+                color="acento"
               />
             )}
             <InfoTile
+              tono={tono}
               label="Tarifa"
               value={`${formatQ(activeItem.tarifaEfectiva)}/hr`}
               icon={<><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></>}
               color="emerald"
             />
             <InfoTile
+              tono={tono}
               label="Inicio de renta"
               value={fechaInicioStr.split('-').reverse().join('/')}
               icon={<><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></>}
@@ -543,6 +605,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
             />
             {selectedSol.fechaFinEstimada && (
               <InfoTile
+                tono={tono}
                 label="Fin estimado"
                 value={selectedSol.fechaFinEstimada.substring(0, 10).split('-').reverse().join('/')}
                 icon={<><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></>}
@@ -664,6 +727,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-3">
                     <CorregirInput
+                      tono={tono}
                       label="Horómetro de inicio"
                       defaultValue={lecturaFecha?.horometroInicio ?? undefined}
                       onConfirm={async v => {
@@ -684,6 +748,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                       }}
                     />
                     <CorregirInput
+                      tono={tono}
                       label="Horómetro de cierre"
                       defaultValue={lecturaFecha?.horometroFin5pm ?? undefined}
                       onConfirm={async v => {
@@ -709,14 +774,14 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                 <>
                   {tipoPendiente === 'fin5pm' && lecturaFecha && activeItem && activeItem.extras.length > 0 && (
                     <>
-                      <ProgresoDelDiaTimeline lectura={lecturaFecha} />
+                      <ProgresoDelDiaTimeline lectura={lecturaFecha} tono={tono} />
 
                       <div className="flex gap-1 mb-3 p-1 bg-slate-100 rounded-lg w-fit">
                         <button
                           type="button"
                           onClick={() => setFormTab('cierre')}
                           className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-                            formTab === 'cierre' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                            formTab === 'cierre' ? `bg-white ${tono.texto} shadow-sm` : 'text-slate-500 hover:text-slate-700'
                           }`}
                         >
                           Cerrar día
@@ -725,7 +790,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                           type="button"
                           onClick={() => setFormTab('cambio')}
                           className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-                            formTab === 'cambio' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                            formTab === 'cambio' ? `bg-white ${tono.texto} shadow-sm` : 'text-slate-500 hover:text-slate-700'
                           }`}
                         >
                           Cambiar complemento
@@ -746,6 +811,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                       onSubmit={handleSubmitTramo}
                       onUndo={handleDeshacerTramo}
                       isUndoing={isUndoingTramo}
+                      tono={tono}
                     />
                   ) : (
                   <form onSubmit={handleSubmit} className="flex flex-wrap gap-3 items-end">
@@ -795,8 +861,8 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                     )}
 
                     {tipoPendiente === 'inicio' && horasNocturnasDetectadas > 0 && activeItem && activeItem.extras.length > 0 && finAnteriorNum != null && (
-                      <div className="w-full p-3 bg-indigo-50/50 border border-indigo-100 rounded-lg">
-                        <p className="text-xs font-semibold text-indigo-700 mb-1">
+                      <div className={`w-full p-3 ${tono.fondoSuave}/60 border ${tono.borde} rounded-lg`}>
+                        <p className={`text-xs font-semibold ${tono.texto} mb-1`}>
                           🌙 Se detectan {horasNocturnasDetectadas.toFixed(1)}h nocturnas desde el cierre de ayer
                           ({fmtHorometro(finAnteriorNum)} → {fmtHorometro(valorInicioNum)})
                         </p>
@@ -807,7 +873,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                             type="button"
                             onClick={() => handleCambiarModoNoche('sin')}
                             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                              nocheModo === 'sin' ? 'bg-indigo-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                              nocheModo === 'sin' ? `${tono.boton} text-white` : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
                             }`}
                           >
                             Sin complemento
@@ -816,7 +882,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                             type="button"
                             onClick={() => handleCambiarModoNoche('con')}
                             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                              nocheModo === 'con' ? 'bg-indigo-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                              nocheModo === 'con' ? `${tono.boton} text-white` : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
                             }`}
                           >
                             {activeItem.extras.length === 1 ? `Con ${activeItem.extras[0].nombre}` : 'Con complemento'}
@@ -825,7 +891,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                             type="button"
                             onClick={() => handleCambiarModoNoche('mixto')}
                             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                              nocheModo === 'mixto' ? 'bg-indigo-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                              nocheModo === 'mixto' ? `${tono.boton} text-white` : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
                             }`}
                           >
                             Cambió durante la noche
@@ -854,7 +920,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                           <div className="mt-1">
                             <div className="space-y-1.5 mb-2">
                               {segmentosNocturnos.map((s, i) => (
-                                <div key={i} className="flex flex-wrap items-center gap-2 text-xs bg-white rounded-lg px-2.5 py-2 border border-indigo-100/70">
+                                <div key={i} className={`flex flex-wrap items-center gap-2 text-xs bg-white rounded-lg px-2.5 py-2 border ${tono.borde}`}>
                                   <span className="font-mono font-bold text-slate-700 whitespace-nowrap">
                                     {fmtHorometro(s.desde)} → {fmtHorometro(s.hasta)}
                                   </span>
@@ -880,7 +946,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                                 <button
                                   type="button"
                                   onClick={() => setDivisionFormOpen(true)}
-                                  className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
+                                  className={`text-xs font-semibold ${tono.link}`}
                                 >
                                   + Marcar otro cambio
                                 </button>
@@ -901,7 +967,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                                   <button
                                     type="button"
                                     onClick={handleDividirTramoNocturno}
-                                    className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-colors"
+                                    className={`px-3 py-1.5 rounded-lg ${tono.boton} text-white text-xs font-semibold transition-colors`}
                                   >
                                     Marcar
                                   </button>
@@ -936,7 +1002,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                     <button
                       type="submit"
                       disabled={isSubmitting || !valor}
-                      className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+                      className={`px-4 py-2 rounded-lg ${tono.boton} text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2`}
                     >
                       {isSubmitting ? (
                         <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -994,12 +1060,12 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                       <tbody>
                         {/* Reference row: delivery reading (first month only) */}
                         {isFirstMonth && activeItem?.horometroInicial != null && (
-                          <tr className="border-b border-amber-100 bg-amber-50/50">
+                          <tr className={`border-b ${tono.borde} ${tono.fondoSuave}/50`}>
                             <td className="px-3 py-2 whitespace-nowrap">
                               <span className="text-slate-500">{formatFechaCorta(fechaInicioStr)}</span>
-                              <span className="ml-1.5 text-xs font-semibold text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full">entrega</span>
+                              <span className={`ml-1.5 text-xs font-semibold ${tono.badge} px-1.5 py-0.5 rounded-full`}>entrega</span>
                             </td>
-                            <td className="px-3 py-2 font-mono font-bold text-amber-700">
+                            <td className={`px-3 py-2 font-mono font-bold ${tono.texto}`}>
                               {activeItem.horometroInicial.toLocaleString('es-GT', { minimumFractionDigits: 1 })}
                             </td>
                             <td colSpan={5} className="px-3 py-2 text-xs text-slate-400 italic">
@@ -1012,7 +1078,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                           <Fragment key={l.id}>
                             <tr
                               onClick={() => handleSelectDia(l.fecha)}
-                              className={`border-b border-slate-100 last:border-0 hover:bg-slate-50 cursor-pointer transition-colors ${l.fecha === fechaActiva ? 'bg-indigo-50' : ''}`}
+                              className={`border-b border-slate-100 last:border-0 hover:bg-slate-50 cursor-pointer transition-colors ${l.fecha === fechaActiva ? tono.fondoSuave : ''}`}
                             >
                               <td className="px-3 py-2 font-medium text-slate-700 whitespace-nowrap">
                                 {formatFechaCorta(l.fecha)}
@@ -1023,7 +1089,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                                       e.stopPropagation();
                                       setExpandedMixto(expandedMixto === l.fecha ? null : l.fecha);
                                     }}
-                                    className="ml-1.5 text-xs font-semibold text-amber-600 bg-amber-100 hover:bg-amber-200 px-1.5 py-0.5 rounded-full"
+                                    className={`ml-1.5 text-xs font-semibold ${tono.badgeHover} px-1.5 py-0.5 rounded-full`}
                                   >
                                     mixto {expandedMixto === l.fecha ? '▲' : '▼'}
                                   </button>
@@ -1040,12 +1106,12 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                                   ? (l.horometroFin5pm - l.horometroInicio).toFixed(1)
                                   : '—'}
                               </td>
-                              <td className="px-3 py-2 font-mono text-amber-600 whitespace-nowrap">
+                              <td className={`px-3 py-2 font-mono ${tono.textoSuave} whitespace-nowrap`}>
                                 {l.horasNocturnas && l.horasNocturnas > 0 ? (
                                   <>
                                     {l.horasNocturnas.toFixed(1)}
                                     {complementoNocturnoUnico(l) && (
-                                      <span className="ml-1 text-xs font-sans text-amber-500">({complementoNocturnoUnico(l)})</span>
+                                      <span className={`ml-1 text-xs font-sans ${tono.textoSuave}`}>({complementoNocturnoUnico(l)})</span>
                                     )}
                                   </>
                                 ) : '—'}
@@ -1058,7 +1124,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                               </td>
                             </tr>
                             {expandedMixto === l.fecha && (
-                              <tr className="border-b border-slate-100 last:border-0 bg-amber-50/40">
+                              <tr className={`border-b border-slate-100 last:border-0 ${tono.fondoSuave}/40`}>
                                 <td colSpan={7} className="px-3 py-2">
                                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
                                     Desglose de tramos — {formatFechaCorta(l.fecha)}
@@ -1066,7 +1132,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                                   <ul className="space-y-1">
                                     {l.tramos.map((t, i) => (
                                       <li key={i} className="flex items-center justify-between text-xs">
-                                        <span className={t.extraId ? 'text-amber-700 font-medium' : 'text-slate-500'}>
+                                        <span className={t.extraId ? `${tono.texto} font-medium` : 'text-slate-500'}>
                                           {t.extraId ? t.extraNombre : 'Sin complemento'}
                                           <span className="text-slate-400 font-mono ml-1.5">
                                             ({t.horometroDesde.toFixed(1)} → {t.horometroHasta.toFixed(1)})
@@ -1079,7 +1145,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                                     ))}
                                     {(l.tramosNocturnos ?? []).map((t, i) => (
                                       <li key={`n-${i}`} className="flex items-center justify-between text-xs">
-                                        <span className={t.extraId ? 'text-amber-700 font-medium' : 'text-slate-500'}>
+                                        <span className={t.extraId ? `${tono.texto} font-medium` : 'text-slate-500'}>
                                           🌙 {t.extraId ? t.extraNombre : 'Sin complemento'}
                                           <span className="text-slate-400 font-mono ml-1.5">
                                             ({t.horometroDesde.toFixed(1)} → {t.horometroHasta.toFixed(1)})
@@ -1123,7 +1189,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                             <span>Subtotal mes (días cerrados)</span>
                             <span className="font-mono">{formatQ(subtotalCerrado)}</span>
                           </div>
-                          <div className="flex justify-between text-xs text-amber-600">
+                          <div className={`flex justify-between text-xs ${tono.textoSuave}`}>
                             <span>+ Hoy (en curso)</span>
                             <span className="font-mono">{formatQ(costoHoyEnCurso)}</span>
                           </div>
@@ -1147,8 +1213,8 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
             <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-sm p-6">
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-600">
+                <div className={`w-10 h-10 rounded-full ${tono.iconoFondo} flex items-center justify-center flex-shrink-0`}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={tono.iconoTexto}>
                     <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
                   </svg>
                 </div>
@@ -1178,7 +1244,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                   <span className="text-xs text-slate-500">Fecha</span>
                   <span className="text-xs font-mono font-semibold text-slate-700">
                     {formatFechaCorta(pendingConfirm.fecha)}
-                    {pendingConfirm.fecha === hoy && <span className="ml-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-full">hoy</span>}
+                    {pendingConfirm.fecha === hoy && <span className={`ml-1.5 text-xs font-semibold ${tono.badge} px-1.5 py-0.5 rounded-full`}>hoy</span>}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
@@ -1187,7 +1253,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                     {pendingConfirm.tipo === 'fin5pm' && 'Valor cierre'}
                     {pendingConfirm.tipo === 'tramo' && 'Horómetro del cambio'}
                   </span>
-                  <span className="text-lg font-bold font-mono text-amber-700">
+                  <span className={`text-lg font-bold font-mono ${tono.texto}`}>
                     {pendingConfirm.valorNum.toLocaleString('es-GT', { minimumFractionDigits: 1 })} hrs
                   </span>
                 </div>
@@ -1212,9 +1278,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                 <button
                   type="button"
                   onClick={confirmarLectura}
-                  className={`flex-1 px-4 py-2.5 rounded-xl text-white text-sm font-semibold transition-colors ${
-                    pendingConfirm.tipo === 'tramo' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-amber-500 hover:bg-amber-600'
-                  }`}
+                  className={`flex-1 px-4 py-2.5 rounded-xl text-white text-sm font-semibold transition-colors ${tono.boton}`}
                 >
                   Confirmar
                 </button>
@@ -1416,16 +1480,17 @@ function PesadaStatCard({
 
 // ── Tile de información de solo lectura (barra de info del equipo) ────────────
 function InfoTile({
-  label, value, icon, color,
+  label, value, icon, color, tono,
 }: {
   label: string;
   value: React.ReactNode;
   icon:  React.ReactNode;
-  color: 'slate' | 'amber' | 'emerald' | 'red';
+  color: 'slate' | 'acento' | 'emerald' | 'red';
+  tono:  TonoHorometro;
 }) {
   const styles = {
     slate:   { bg: '#f1f5f9', fg: '#475569', text: 'text-slate-700' },
-    amber:   { bg: '#fef3c7', fg: '#d97706', text: 'text-amber-700' },
+    acento:  { bg: tono.hexBg, fg: tono.hexFg, text: tono.texto },
     emerald: { bg: '#dcfce7', fg: '#16a34a', text: 'text-emerald-700' },
     red:     { bg: '#fee2e2', fg: '#dc2626', text: 'text-red-600' },
   }[color];
@@ -1449,7 +1514,7 @@ function InfoTile({
 }
 
 // ── Progreso de tramos del día (cambios de complemento intradía) ──────────────────
-function ProgresoDelDiaTimeline({ lectura }: { lectura: LecturaHorometro }) {
+function ProgresoDelDiaTimeline({ lectura, tono }: { lectura: LecturaHorometro; tono: TonoHorometro }) {
   const fmt = (n: number) => n.toLocaleString('es-GT', { minimumFractionDigits: 1 });
 
   type Paso = {
@@ -1490,8 +1555,8 @@ function ProgresoDelDiaTimeline({ lectura }: { lectura: LecturaHorometro }) {
             <span
               className={`absolute -left-5 top-1 w-2.5 h-2.5 rounded-full ring-2 ring-slate-50 ${
                 p.abierto
-                  ? (p.extraId ? 'bg-amber-500 animate-pulse' : 'bg-slate-400 animate-pulse')
-                  : (p.extraId ? 'bg-amber-500' : 'bg-slate-300')
+                  ? (p.extraId ? `${tono.punto} animate-pulse` : 'bg-slate-400 animate-pulse')
+                  : (p.extraId ? tono.punto : 'bg-slate-300')
               }`}
             />
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1501,7 +1566,7 @@ function ProgresoDelDiaTimeline({ lectura }: { lectura: LecturaHorometro }) {
                 </span>
                 <span
                   className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
-                    p.extraId ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'
+                    p.extraId ? tono.badge : 'bg-slate-100 text-slate-500'
                   }`}
                 >
                   {p.extraId && (
@@ -1533,7 +1598,7 @@ function ProgresoDelDiaTimeline({ lectura }: { lectura: LecturaHorometro }) {
 
 // ── Formulario del tab "Cambiar complemento" ───────────────────────────────────
 function CambioComplementoForm({
-  lectura, extras, valor, onValorChange, extraId, onExtraIdChange, error, onSubmit, onUndo, isUndoing,
+  lectura, extras, valor, onValorChange, extraId, onExtraIdChange, error, onSubmit, onUndo, isUndoing, tono,
 }: {
   lectura:         LecturaHorometro;
   extras:          ExtraSeleccionado[];
@@ -1545,6 +1610,7 @@ function CambioComplementoForm({
   onSubmit:        (e: React.FormEvent) => void;
   onUndo:          () => void;
   isUndoing:       boolean;
+  tono:            TonoHorometro;
 }) {
   return (
     <div className="mb-2">
@@ -1577,7 +1643,7 @@ function CambioComplementoForm({
         <button
           type="submit"
           disabled={!valor}
-          className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className={`px-4 py-2 rounded-lg ${tono.boton} text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed`}
         >
           Registrar cambio
         </button>
@@ -1605,10 +1671,12 @@ function CorregirInput({
   label,
   defaultValue,
   onConfirm,
+  tono,
 }: {
   label:         string;
   defaultValue?: number;
   onConfirm:     (v: number) => Promise<void>;
+  tono:          TonoHorometro;
 }) {
   const [val, setVal] = useState(defaultValue?.toString() ?? '');
   return (
@@ -1626,7 +1694,7 @@ function CorregirInput({
           type="button"
           disabled={!val}
           onClick={() => { const n = parseFloat(val); if (!isNaN(n)) void onConfirm(n); }}
-          className="px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold disabled:opacity-40 transition-colors"
+          className={`px-2.5 py-1.5 rounded-lg ${tono.boton} text-white text-xs font-semibold disabled:opacity-40 transition-colors`}
         >
           OK
         </button>

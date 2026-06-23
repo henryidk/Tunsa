@@ -37,6 +37,7 @@ export interface DevolucionEntry {
   descuento?:          import('./descuento.types').DescuentoAplicado;
   totalLote:           number;
   liquidacionKey:      string | null;
+  detalleHorometroKey?: string | null;
 }
 
 /** Una extensión aplicada a un ítem de la renta. */

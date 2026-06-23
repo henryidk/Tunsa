@@ -68,10 +68,12 @@ export interface CorteNocturnoInput {
   extraId:        string | null;  // complemento que aplica DESDE este corte en adelante
 }
 
-/** Total de horas/costo acumulado por estado de complemento, a lo largo de toda la renta de un equipo. */
+/** Total de horas/costo acumulado por estado de complemento y franja horaria, a lo largo de toda la renta de un equipo. */
 export interface DesgloseComplemento {
   extraId:     string | null;  // null = sin complemento
   extraNombre: string | null;
+  periodo:     'diurno' | 'nocturno';
+  tarifa:      number;         // Q/hr aplicada a este grupo (ya incluye recargo nocturno y/o rentaHora del extra)
   horas:       number;
   costo:       number;
 }

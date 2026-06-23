@@ -94,10 +94,12 @@ export interface LecturaHorometro {
   updatedAt:               string;
 }
 
-/** Total de horas/costo acumulado por estado de complemento, a lo largo de toda la renta de un equipo. */
+/** Total de horas/costo acumulado por estado de complemento y franja horaria, a lo largo de toda la renta de un equipo. */
 export interface DesgloseComplemento {
   extraId:     string | null;
   extraNombre: string | null;
+  periodo:     'diurno' | 'nocturno';
+  tarifa:      number;
   horas:       number;
   costo:       number;
 }
@@ -258,6 +260,17 @@ export const solicitudesService = {
     return res.data;
   },
 
+  async subirDetalleHorometro(id: string, pdfBlob: Blob): Promise<{ url: string }> {
+    const form = new FormData();
+    form.append('detalleHorometro', pdfBlob, 'detalle-horometro.pdf');
+    const res = await api.patch<{ url: string }>(
+      `/solicitudes/${id}/detalle-horometro`,
+      form,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    );
+    return res.data;
+  },
+
   async getHistorial(params: QueryHistorial): Promise<RechazadasPage> {
     const res = await api.get<RechazadasPage>('/solicitudes/historial', { params });
     return res.data;
@@ -275,6 +288,11 @@ export const solicitudesService = {
 
   async getLiquidacionUrl(id: string, loteIndex: number): Promise<{ url: string }> {
     const res = await api.get<{ url: string }>(`/solicitudes/${id}/liquidacion/${loteIndex}`);
+    return res.data;
+  },
+
+  async getDetalleHorometroUrl(id: string, loteIndex: number): Promise<{ url: string }> {
+    const res = await api.get<{ url: string }>(`/solicitudes/${id}/detalle-horometro/${loteIndex}`);
     return res.data;
   },
 

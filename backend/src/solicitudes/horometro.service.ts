@@ -746,8 +746,10 @@ export class HorometroService {
 
   /**
    * Suma horas/costo de todos los tramos (diurnos y nocturnos) de todas las lecturas, agrupados
-   * por complemento. Para lecturas anteriores a esta funcionalidad (sin tramosNocturnos guardados
-   * pero con horasNocturnas > 0), se usa como respaldo el complemento con el que cerró ese día.
+   * por complemento Y por franja horaria (diurno/nocturno) — la tarifa nocturna ya incluye el
+   * recargo, por lo que mezclar día y noche en una sola fila ocultaría esa diferencia de costo.
+   * Para lecturas anteriores a esta funcionalidad (sin tramosNocturnos guardados pero con
+   * horasNocturnas > 0), se usa como respaldo el complemento con el que cerró ese día.
    */
   private calcularDesgloseComplementos(
     lecturas: {
@@ -758,10 +760,13 @@ export class HorometroService {
     const porComplemento = new Map<string, DesgloseComplemento>();
     const toNum = (v: unknown) => v != null ? parseFloat((v as any).toString()) : 0;
 
-    const acumular = (extraId: string | null, extraNombre: string | null, horas: number, costo: number) => {
+    const acumular = (
+      extraId: string | null, extraNombre: string | null,
+      periodo: 'diurno' | 'nocturno', tarifa: number, horas: number, costo: number,
+    ) => {
       if (horas === 0 && costo === 0) return;
-      const clave = extraId ?? '__ninguno__';
-      const acumulado = porComplemento.get(clave) ?? { extraId, extraNombre, horas: 0, costo: 0 };
+      const clave = `${extraId ?? '__ninguno__'}|${periodo}`;
+      const acumulado = porComplemento.get(clave) ?? { extraId, extraNombre, periodo, tarifa, horas: 0, costo: 0 };
       acumulado.horas += horas;
       acumulado.costo += costo;
       porComplemento.set(clave, acumulado);
@@ -769,16 +774,19 @@ export class HorometroService {
 
     for (const lectura of lecturas) {
       const tramos = (lectura.tramos ?? []) as unknown as TramoHorometro[];
-      for (const t of tramos) acumular(t.extraId, t.extraNombre, t.horas, t.costo);
+      for (const t of tramos) acumular(t.extraId, t.extraNombre, 'diurno', t.tarifa, t.horas, t.costo);
 
       const tramosNocturnos = (lectura.tramosNocturnos ?? []) as unknown as TramoHorometro[];
       if (tramosNocturnos.length > 0) {
-        for (const t of tramosNocturnos) acumular(t.extraId, t.extraNombre, t.horas, t.costo);
+        for (const t of tramosNocturnos) acumular(t.extraId, t.extraNombre, 'nocturno', t.tarifa, t.horas, t.costo);
       } else {
         // Respaldo para lecturas anteriores a tramosNocturnos.
         const horasNocturnas = toNum(lectura.horasNocturnas);
         const costoNocturno  = toNum(lectura.costoNocturno);
-        if (horasNocturnas > 0) acumular(lectura.complementoActivoId ?? null, lectura.complementoActivoNombre ?? null, horasNocturnas, costoNocturno);
+        if (horasNocturnas > 0) {
+          const tarifaImplicita = costoNocturno / horasNocturnas;
+          acumular(lectura.complementoActivoId ?? null, lectura.complementoActivoNombre ?? null, 'nocturno', tarifaImplicita, horasNocturnas, costoNocturno);
+        }
       }
     }
 

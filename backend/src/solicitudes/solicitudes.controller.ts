@@ -166,6 +166,25 @@ export class SolicitudesController {
     return this.solicitudesService.subirLiquidacion(id, file.buffer, file.mimetype, user);
   }
 
+  @Patch(':id/detalle-horometro')
+  @Roles('encargado_maquinas', 'admin', 'secretaria')
+  @UseInterceptors(FileInterceptor('detalleHorometro', { limits: { fileSize: MAX_PDF_SIZE } }))
+  subirDetalleHorometro(
+    @Param('id') id: string,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: MAX_PDF_SIZE }),
+          new FileTypeValidator({ fileType: 'application/pdf' }),
+        ],
+      }),
+    )
+    file: Express.Multer.File,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.solicitudesService.subirDetalleHorometro(id, file.buffer, file.mimetype, user);
+  }
+
   // ── Lecturas (maquinaria pesada) ──────────────────────────────────────────────
 
   @Post(':id/horometro/lecturas')
@@ -343,6 +362,16 @@ export class SolicitudesController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.solicitudesService.getLiquidacionUrl(id, loteIndex, user);
+  }
+
+  @Get(':id/detalle-horometro/:loteIndex')
+  @Roles('encargado_maquinas', 'admin', 'secretaria')
+  getDetalleHorometro(
+    @Param('id') id: string,
+    @Param('loteIndex', ParseIntPipe) loteIndex: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.solicitudesService.getDetalleHorometroUrl(id, loteIndex, user);
   }
 
   @Get(':id/horometro')

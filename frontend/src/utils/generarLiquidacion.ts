@@ -1,94 +1,14 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { SolicitudRenta, DevolucionEntry, ItemSnapshot } from '../types/solicitud-renta.types';
-import type { LecturaHorometro } from '../services/solicitudes.service';
+import type { ResumenHorometroEquipo } from '../services/solicitudes.service';
 import { resolverLabelItem } from './devolucion.helpers';
-
-// ── Constants ─────────────────────────────────────────────────────────────────
-
-const EMPRESA = {
-  linea1: 'San Juan Chamelco, Alta Verapaz',
-  linea2: 'E-mail: gerencia@tunsa.com.gt',
-  linea3: 'Teléfono: 7950-0095',
-  linea4: 'WUATE, SOCIEDAD ANÓNIMA',
-  nit:    'NIT: 10030249-1',
-};
-
-const COLORES = {
-  primario:   [49,  80, 174] as [number, number, number],
-  exitoso:    [22, 163,  74] as [number, number, number],
-  texto:      [30,  41,  59] as [number, number, number],
-  textoSuave: [100, 116, 139] as [number, number, number],
-  borde:      [226, 232, 240] as [number, number, number],
-  fondo:      [248, 250, 252] as [number, number, number],
-  blanco:     [255, 255, 255] as [number, number, number],
-  alerta:     [217, 119,   6] as [number, number, number],
-  ambar:      [251, 191,  36] as [number, number, number],
-  fondoAmbar: [255, 251, 235] as [number, number, number],
-};
-
-const FOOTER_RESERVE = 14;
-
-// ── Logo loader ───────────────────────────────────────────────────────────────
-
-async function cargarLogoBase64(src: string): Promise<string | null> {
-  try {
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const el = new Image();
-      el.onload  = () => resolve(el);
-      el.onerror = reject;
-      el.src = src;
-    });
-
-    const LOGO_PX = 320;
-    const scale  = Math.min(LOGO_PX / img.width, LOGO_PX / img.height, 1);
-    const w = Math.round(img.width  * scale);
-    const h = Math.round(img.height * scale);
-
-    const canvas = document.createElement('canvas');
-    canvas.width  = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d')!;
-    ctx.fillStyle = '#f8fafc'; // slate-50 — mismo fondo que el encabezado del PDF
-    ctx.fillRect(0, 0, w, h);
-    ctx.drawImage(img, 0, 0, w, h);
-
-    return canvas.toDataURL('image/jpeg', 0.82);
-  } catch {
-    return null;
-  }
-}
-
-// ── Date helpers ──────────────────────────────────────────────────────────────
-
-function formatFechaHoraLarga(iso: string): string {
-  return new Date(iso).toLocaleString('es-GT', {
-    day: '2-digit', month: 'long', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  });
-}
-
-function formatFechaCortaLocal(yyyymmdd: string): string {
-  // "2026-04-25" → "25/04/2026" sin ajuste de zona horaria
-  const [y, m, d] = yyyymmdd.split('-');
-  return `${d}/${m}/${y}`;
-}
-
-function formatQ(n: number): string {
-  return `Q ${n.toLocaleString('es-GT', { minimumFractionDigits: 2 })}`;
-}
-
-function fmt1(n: number | null): string {
-  return n != null ? n.toFixed(1) : '—';
-}
-
-function formatDesglose(d: { meses: number; semanas: number; dias: number }): string {
-  const partes: string[] = [];
-  if (d.meses   > 0) partes.push(`${d.meses} mes${d.meses   > 1 ? 'es' : ''}`);
-  if (d.semanas > 0) partes.push(`${d.semanas} sem.`);
-  if (d.dias    > 0) partes.push(`${d.dias} día${d.dias > 1 ? 's' : ''}`);
-  return partes.length > 0 ? partes.join(' + ') : '1 día';
-}
+import {
+  COLORES, FOOTER_RESERVE,
+  cargarLogoBase64, formatQ, fmt1,
+  construirEncabezadoEmpresa, construirTituloBarra, construirInfoCliente,
+  construirEncabezadoEquipoPesado, construirPiePagina,
+} from './pdfHelpers';
 
 // ── Horometer section builder ─────────────────────────────────────────────────
 
@@ -96,7 +16,7 @@ function buildSeccionHorometro(
   doc:       jsPDF,
   solicitud: SolicitudRenta,
   devolucion: DevolucionEntry,
-  lecturas:  LecturaHorometro[],
+  resumenes: ResumenHorometroEquipo[],
   yStart:    number,
   W:         number,
   contentBottom: number,
@@ -112,49 +32,12 @@ function buildSeccionHorometro(
   for (const item of pesadaItems) {
     if (!equiposDevueltos.has(item.equipoId)) continue;
 
-    const lecturasEquipo = lecturas
-      .filter(l => l.equipoId === item.equipoId)
-      .sort((a, b) => a.fecha.localeCompare(b.fecha));
+    const resumen     = resumenes.find(r => r.equipoId === item.equipoId);
+    const costoEquipo = resumen?.costoFinal ?? 0;
 
-    const costoEquipo = lecturasEquipo.reduce((s, l) => s + (l.costoTotal ?? 0), 0);
+    y = construirEncabezadoEquipoPesado(doc, item, costoEquipo, y, W, contentBottom);
 
-    // ── Encabezado del equipo
-    if (y + 40 > contentBottom) { doc.addPage(); y = 18; }
-
-    doc.setFillColor(...COLORES.fondoAmbar);
-    doc.setDrawColor(...COLORES.ambar);
-    doc.setLineWidth(0.3);
-    doc.roundedRect(14, y, W - 28, 14, 2, 2, 'FD');
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.setTextColor(...COLORES.alerta);
-    doc.text(
-      `#${item.numeracion}  —  ${item.descripcion}${item.extras.length > 0 ? '  (' + item.extras.map(e => `+${e.nombre}`).join(', ') + ')' : ''}`,
-      18, y + 6,
-    );
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(...COLORES.textoSuave);
-    doc.text(
-      `Tarifa: ${formatQ(item.tarifaEfectiva)}/hr`,
-      W - 18, y + 6,
-      { align: 'right' },
-    );
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.setTextColor(...COLORES.alerta);
-    doc.text(
-      `Acumulado: ${formatQ(costoEquipo)}`,
-      W - 18, y + 11,
-      { align: 'right' },
-    );
-
-    y += 17;
-
-    if (lecturasEquipo.length === 0) {
+    if (!resumen) {
       if (y + 12 > contentBottom) { doc.addPage(); y = 18; }
       doc.setFont('helvetica', 'italic');
       doc.setFontSize(10);
@@ -164,31 +47,57 @@ function buildSeccionHorometro(
       continue;
     }
 
-    // ── Tabla de lecturas
-    const filas: (string | { content: string; styles: object })[][] = lecturasEquipo.map(l => {
-      const hTrab = l.horometroInicio != null && l.horometroFin5pm != null
-        ? (l.horometroFin5pm - l.horometroInicio).toFixed(1)
-        : '—';
-      return [
-        formatFechaCortaLocal(l.fecha),
-        fmt1(l.horometroInicio),
-        fmt1(l.horometroFin5pm),
-        hTrab,
-        l.horasNocturnas && l.horasNocturnas > 0 ? l.horasNocturnas.toFixed(1) : '—',
-        l.ajusteMinimo   && l.ajusteMinimo   > 0 ? `+${l.ajusteMinimo.toFixed(1)}` : '—',
-        l.costoTotal != null ? formatQ(l.costoTotal) : '—',
-      ];
-    });
+    // ── Entrega / devolución / horas diurnas / horas nocturnas
+    const colW = (W - 28) / 4;
+    const campoMini = (label: string, valor: string, x: number) => {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(...COLORES.textoSuave);
+      doc.text(label, x, y);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10.5);
+      doc.setTextColor(...COLORES.texto);
+      doc.text(valor, x, y + 5.5);
+    };
+    campoMini('Entrega',      fmt1(resumen.horometroEntrega),    18);
+    campoMini('Devolución',   fmt1(resumen.horometroDevolucion), 18 + colW);
+    campoMini('H. diurnas',   fmt1(resumen.horasDiurnasTotal),   18 + colW * 2);
+    campoMini('H. nocturnas', fmt1(resumen.horasNocturnas),      18 + colW * 3);
+    y += 11;
+
+    // ── Desglose de horas/costo por complemento Y franja horaria (diurno/nocturno) — la tarifa de
+    // cada fila ya refleja si lleva complemento y/o recargo nocturno, para que quede explícito
+    // cuánto se cobra por hora en cada caso.
+    const periodoLabel = (p: 'diurno' | 'nocturno') => p === 'diurno' ? 'Diurno' : 'Nocturno';
+
+    const filas: string[][] = resumen.desgloseComplementos
+      .slice()
+      .sort((a, b) => (a.periodo === b.periodo ? b.costo - a.costo : a.periodo === 'diurno' ? -1 : 1))
+      .map(d => [
+        `${periodoLabel(d.periodo)} · ${d.extraNombre ?? 'Sin complemento'}`,
+        `${formatQ(d.tarifa)}/hr`,
+        `${d.horas.toFixed(1)} h`,
+        formatQ(d.costo),
+      ]);
+
+    const ajusteMinimo      = resumen.ajusteMinimoTotal ?? 0;
+    const costoAjusteMinimo = ajusteMinimo * item.tarifaEfectiva;
+    if (ajusteMinimo > 0) {
+      filas.push(['Ajuste mínimo (5h/día)', `${formatQ(item.tarifaEfectiva)}/hr`, `${ajusteMinimo.toFixed(1)} h`, formatQ(costoAjusteMinimo)]);
+    }
+    if (filas.length === 0) {
+      filas.push(['Sin lecturas registradas', '—', '—', '—']);
+    }
 
     autoTable(doc, {
       startY: y,
-      head: [['Fecha', 'Horóm. inicio', 'Horóm. fin 5PM', 'H. trabajadas', 'H. noct.', 'Ajuste', 'Total día']],
+      head: [['Uso', 'Tarifa/hr', 'Horas', 'Costo']],
       body: filas,
-      foot: [['', '', '', '', '', 'TOTAL EQUIPO', formatQ(costoEquipo)]],
+      foot: [['', '', 'TOTAL EQUIPO', formatQ(costoEquipo)]],
       margin: { left: 14, right: 14, bottom: FOOTER_RESERVE + 2 },
       styles: {
-        fontSize: 9,
-        cellPadding: 2.5,
+        fontSize: 9.5,
+        cellPadding: 3,
         textColor: COLORES.texto,
         lineColor: COLORES.borde,
         lineWidth: 0.2,
@@ -197,25 +106,22 @@ function buildSeccionHorometro(
         fillColor: COLORES.primario,
         textColor: COLORES.blanco,
         fontStyle: 'bold',
-        fontSize: 9,
+        fontSize: 9.5,
       },
       footStyles: {
         fillColor: COLORES.fondo,
         textColor: COLORES.texto,
         fontStyle: 'bold',
-        fontSize: 9,
+        fontSize: 9.5,
       },
       alternateRowStyles: {
         fillColor: [250, 252, 255] as [number, number, number],
       },
       columnStyles: {
-        0: { cellWidth: 22, halign: 'center' },
-        1: { cellWidth: 26, halign: 'right', font: 'courier' },
-        2: { cellWidth: 27, halign: 'right', font: 'courier' },
-        3: { cellWidth: 24, halign: 'right', font: 'courier', fontStyle: 'bold' },
-        4: { cellWidth: 18, halign: 'right', font: 'courier' },
-        5: { cellWidth: 16, halign: 'right', font: 'courier' },
-        6: { cellWidth: 26, halign: 'right', fontStyle: 'bold' },
+        0: { cellWidth: 62 },
+        1: { cellWidth: 28, halign: 'right', font: 'courier' },
+        2: { cellWidth: 26, halign: 'right', font: 'courier' },
+        3: { cellWidth: 36, halign: 'right', fontStyle: 'bold' },
       },
     });
 
@@ -229,9 +135,9 @@ function buildSeccionHorometro(
 // ── Main generator ────────────────────────────────────────────────────────────
 
 export async function generarLiquidacion(
-  solicitud:  SolicitudRenta,
-  devolucion: DevolucionEntry,
-  lecturas?:  LecturaHorometro[],
+  solicitud:      SolicitudRenta,
+  devolucion:     DevolucionEntry,
+  resumenHorometro?: ResumenHorometroEquipo[],
 ): Promise<Blob> {
   const doc   = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
   const W     = doc.internal.pageSize.getWidth();
@@ -241,110 +147,21 @@ export async function generarLiquidacion(
   const logoSrc = new URL('../assets/logo-tunsa.png', import.meta.url).href;
   const logoB64 = await cargarLogoBase64(logoSrc);
 
-  let y = 12;
-
-  // ── ENCABEZADO ──────────────────────────────────────────────────────────────
-
-  doc.setFillColor(...COLORES.fondo);
-  doc.roundedRect(10, y - 2, W - 20, 46, 3, 3, 'F');
-
-  if (logoB64) {
-    doc.addImage(logoB64, 'JPEG', 13, y + 10, 44, 22);
-  }
-
-  const cx = W / 2;
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.setTextColor(...COLORES.primario);
-  doc.text(EMPRESA.linea4, cx, y + 6, { align: 'center' });
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(11);
-  doc.setTextColor(...COLORES.textoSuave);
-  doc.text(EMPRESA.linea1, cx, y + 13, { align: 'center' });
-  doc.text(EMPRESA.linea2, cx, y + 19, { align: 'center' });
-  doc.text(EMPRESA.linea3, cx, y + 25, { align: 'center' });
-  doc.text(EMPRESA.nit,    cx, y + 31, { align: 'center' });
-
-  const rx = W - 13;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(...COLORES.textoSuave);
-  doc.text('FOLIO', rx, y + 4, { align: 'right' });
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(14);
-  doc.setTextColor(...COLORES.primario);
-  doc.text(solicitud.folio ?? '—', rx, y + 11, { align: 'right' });
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(...COLORES.textoSuave);
-  doc.text('Fecha devolución:', rx, y + 18, { align: 'right' });
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.setTextColor(...COLORES.texto);
-  doc.text(formatFechaHoraLarga(devolucion.fechaDevolucion), rx, y + 25, { align: 'right' });
-
-  y += 51;
+  let y = construirEncabezadoEmpresa(doc, solicitud, devolucion, logoB64, 12, W);
 
   // ── TÍTULO LIQUIDACIÓN ───────────────────────────────────────────────────────
 
   const esTardia = devolucion.tipoDevolucion === 'TARDIA';
-  doc.setFillColor(...(esTardia ? COLORES.alerta : COLORES.exitoso));
-  doc.roundedRect(10, y, W - 20, 9, 2, 2, 'F');
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.setTextColor(...COLORES.blanco);
-  doc.text(
-    devolucion.esParcial
-      ? 'LIQUIDACIÓN PARCIAL DE RENTA DE MAQUINARIA'
-      : 'LIQUIDACIÓN DE RENTA DE MAQUINARIA',
-    W / 2, y + 6.5,
-    { align: 'center' },
+  y = construirTituloBarra(
+    doc,
+    devolucion.esParcial ? 'LIQUIDACIÓN PARCIAL DE RENTA DE MAQUINARIA' : 'LIQUIDACIÓN DE RENTA DE MAQUINARIA',
+    esTardia ? COLORES.alerta : COLORES.exitoso,
+    y, W,
   );
-
-  y += 15;
 
   // ── DATOS DEL CLIENTE ────────────────────────────────────────────────────────
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.setTextColor(...COLORES.primario);
-  doc.text('INFORMACIÓN DEL CLIENTE', 14, y);
-  y += 4;
-
-  doc.setDrawColor(...COLORES.borde);
-  doc.setLineWidth(0.3);
-  doc.line(14, y, W - 14, y);
-  y += 5;
-
-  const campo = (label: string, valor: string, x: number, cy: number) => {
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.setTextColor(...COLORES.textoSuave);
-    doc.text(label, x, cy);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(11);
-    doc.setTextColor(...COLORES.texto);
-    doc.text(valor, x, cy + 5.5);
-  };
-
-  const { cliente } = solicitud;
-  campo('Nombre completo', cliente.nombre,           14,      y);
-  campo('DPI',             cliente.dpi ?? '—',       W / 2,   y);
-  campo('Teléfono',        cliente.telefono ?? '—',  W - 60,  y);
-  y += 14;
-
-  campo('Modalidad de pago',
-    solicitud.modalidad === 'CONTADO' ? 'Contado' : 'Crédito',
-    14, y);
-  campo('Devolución registrada por', devolucion.registradoPor, W / 2, y);
-  campo('Tipo de devolución',
-    devolucion.esParcial ? 'Parcial' : 'Completa',
-    W - 60, y);
-  y += 14;
+  y = construirInfoCliente(doc, solicitud, devolucion, y, W);
 
   // ── DETALLE SEGÚN TIPO DE RENTA ──────────────────────────────────────────────
 
@@ -357,9 +174,9 @@ export async function generarLiquidacion(
   );
   y += 6;
 
-  if (solicitud.esPesada && lecturas && lecturas.length > 0) {
-    // Tabla de horómetro por equipo
-    y = buildSeccionHorometro(doc, solicitud, devolucion, lecturas, y, W, contentBottom);
+  if (solicitud.esPesada && resumenHorometro && resumenHorometro.length > 0) {
+    // Resumen agregado de horómetro por equipo (entrega/devolución/diurnas/nocturnas + desglose por complemento)
+    y = buildSeccionHorometro(doc, solicitud, devolucion, resumenHorometro, y, W, contentBottom);
   } else if (!solicitud.esPesada) {
     // ── DETALLE DE COBRO — rentas livianas (definidas e indefinidas) ─────────────
     y -= 3;
@@ -570,21 +387,7 @@ export async function generarLiquidacion(
     y += 17;
   }
 
-  // ── PIE DE PÁGINA ─────────────────────────────────────────────────────────────
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const totalPages = (doc as any).internal.getNumberOfPages();
-  for (let i = 1; i <= totalPages; i++) {
-    doc.setPage(i);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(...COLORES.textoSuave);
-    doc.text(
-      'TUNSA — Documento generado electrónicamente.',
-      W / 2, pageH - 5,
-      { align: 'center' },
-    );
-  }
+  construirPiePagina(doc, W, pageH);
 
   return doc.output('blob');
 }

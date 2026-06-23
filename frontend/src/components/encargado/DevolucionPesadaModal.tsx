@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { solicitudesService, type LecturaHorometro } from '../../services/solicitudes.service';
 import { generarLiquidacion } from '../../utils/generarLiquidacion';
+import { generarDetalleHorometro } from '../../utils/generarDetalleHorometro';
 import { ultimoDiaHorometro, localDateOf } from '../../utils/horometro.utils';
 import type { SolicitudRenta, DevolucionEntry } from '../../types/solicitud-renta.types';
 import { useAuthStore, selectUser, selectUserRole } from '../../store/auth.store';
@@ -19,6 +20,7 @@ import {
   buildSecuencia,
   getPendientes,
   estimarLecturasConDevolucion,
+  calcularResumenHorometroEstimado,
   calcularBloqueos,
 } from './devolucion-pesada/types';
 import PasoIndicador from './devolucion-pesada/PasoIndicador';
@@ -52,9 +54,11 @@ export default function DevolucionPesadaModal({
 
   const [paso,           setPaso]          = useState<PasoKey>('equipos');
   const [guardando,      setGuardando]     = useState(false);
+  const [guardandoFase,  setGuardandoFase] = useState<'registrando' | 'documentos'>('registrando');
   const [error,          setError]         = useState<string | null>(null);
   const [resultado,      setResultado]     = useState<SolicitudRenta | null>(null);
   const [liquidacionUrl, setLiquidacionUrl] = useState<string | null>(null);
+  const [detalleHorometroUrl, setDetalleHorometroUrl] = useState<string | null>(null);
 
   const [pdfBlobUrl,   setPdfBlobUrl]   = useState<string | null>(null);
   const [generandoPdf, setGenerandoPdf] = useState(false);
@@ -79,6 +83,7 @@ export default function DevolucionPesadaModal({
       descripcion:         p.descripcion,
       extras:              p.extras,
       tarifaEfectiva:      p.tarifaEfectiva,
+      horometroInicial:    p.horometroInicial ?? null,
       horometroDevolucion: '',
       seleccionado:        esItemUnico,
     })),
@@ -176,6 +181,7 @@ export default function DevolucionPesadaModal({
     setPdfError(false);
 
     const lecturasEstimadas = estimarLecturasConDevolucion(lecturas, seleccionados);
+    const resumenEstimado   = calcularResumenHorometroEstimado(lecturasEstimadas, seleccionados);
     const totalBase         = costoEstimadoTotal + totalCargosAd;
 
     const devolucionPrevia: DevolucionEntry = {
@@ -195,7 +201,7 @@ export default function DevolucionPesadaModal({
       totalLote:           descuentoAplicado ? descuentoAplicado.montoFinal : totalBase,
       liquidacionKey:      null,
     };
-    generarLiquidacion(solicitud, devolucionPrevia, lecturasEstimadas)
+    generarLiquidacion(solicitud, devolucionPrevia, resumenEstimado)
       .then(blob => setPdfBlobUrl(URL.createObjectURL(blob)))
       .catch(() => setPdfError(true))
       .finally(() => setGenerandoPdf(false));
@@ -224,6 +230,7 @@ export default function DevolucionPesadaModal({
 
   const handleConfirmar = async () => {
     setError(null);
+    setGuardandoFase('registrando');
     setGuardando(true);
     try {
       const descuentoPayload = descuentoState.aplicar && puedeDescuento
@@ -244,21 +251,42 @@ export default function DevolucionPesadaModal({
       });
 
       let url: string | null = null;
+      let urlDetalle: string | null = null;
       const devs       = actualizada.devolucionesParciales ?? [];
       const devolucion = devs[devs.length - 1] as DevolucionEntry | undefined;
       if (devolucion) {
+        setGuardandoFase('documentos');
         try {
-          const lecturasActualizadas = await solicitudesService.getLecturas(solicitud.id);
-          const pdfBlob = await generarLiquidacion(actualizada, devolucion, lecturasActualizadas);
-          const { url: uploadedUrl } = await solicitudesService.subirLiquidacion(solicitud.id, pdfBlob);
-          url = uploadedUrl;
+          // El resumen ya quedó calculado y guardado por el backend dentro de registrarDevolucionPesada()
+          // — es la fuente de verdad agregada (entrega/devolución/diurnas/nocturnas/desglose por
+          // complemento). El detalle día por día sí necesita el historial completo de lecturas,
+          // porque ese es justamente el documento que lo preserva una vez la renta se cierra.
+          const [resumenFinal, lecturasFinales] = await Promise.all([
+            solicitudesService.getResumenHorometro(solicitud.id),
+            solicitudesService.getLecturas(solicitud.id),
+          ]);
+
+          const [pdfLiquidacion, pdfDetalle] = await Promise.all([
+            generarLiquidacion(actualizada, devolucion, resumenFinal),
+            generarDetalleHorometro(actualizada, devolucion, lecturasFinales),
+          ]);
+
+          // Secuencial, NO Promise.all: ambos endpoints hacen "leer devolucionesParciales completo,
+          // mutar un campo, escribir el array completo" sobre la MISMA fila. En paralelo, el segundo
+          // en escribir pisa el campo que acababa de guardar el primero (lost update) — por eso solo
+          // sobrevivía una de las dos keys.
+          const liquidacionSubida = await solicitudesService.subirLiquidacion(solicitud.id, pdfLiquidacion);
+          const detalleSubido     = await solicitudesService.subirDetalleHorometro(solicitud.id, pdfDetalle);
+          url        = liquidacionSubida.url;
+          urlDetalle = detalleSubido.url;
         } catch {
-          // No bloquear la devolución si el PDF falla
+          // No bloquear la devolución si algún PDF falla
         }
       }
 
       setResultado(actualizada);
       setLiquidacionUrl(url);
+      setDetalleHorometroUrl(urlDetalle);
       setPaso('resultado');
       onDevolucion(actualizada);
     } catch (err: any) {
@@ -359,7 +387,7 @@ export default function DevolucionPesadaModal({
             />
           )}
           {paso === 'resultado' && resultado && (
-            <PasoResultado resultado={resultado} liquidacionUrl={liquidacionUrl} />
+            <PasoResultado resultado={resultado} liquidacionUrl={liquidacionUrl} detalleHorometroUrl={detalleHorometroUrl} />
           )}
         </div>
 
@@ -423,7 +451,9 @@ export default function DevolucionPesadaModal({
                       <polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/>
                     </svg>
                   )}
-                  {guardando ? 'Registrando…' : 'Confirmar y registrar'}
+                  {guardando
+                    ? (guardandoFase === 'registrando' ? 'Registrando…' : 'Generando documentos…')
+                    : 'Confirmar y registrar'}
                 </button>
               )}
             </div>

@@ -58,6 +58,7 @@ export interface DevolucionEntry {
   descuento?:          DescuentoAplicado;
   totalLote:           number;                  // monto final a cobrar (después de descuento si aplica)
   liquidacionKey:      string | null;           // R2 key del PDF de liquidación
+  detalleHorometroKey?: string | null;          // R2 key del PDF de detalle de uso de horómetro (solo pesada)
 }
 
 /** Representa una extensión aplicada a un ítem de la renta. */

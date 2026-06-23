@@ -2,11 +2,12 @@ import { formatQ } from './types';
 import type { SolicitudRenta, DevolucionEntry } from '../../../types/solicitud-renta.types';
 
 interface Props {
-  resultado:      SolicitudRenta;
-  liquidacionUrl: string | null;
+  resultado:           SolicitudRenta;
+  liquidacionUrl:      string | null;
+  detalleHorometroUrl?: string | null;
 }
 
-export default function PasoResultado({ resultado, liquidacionUrl }: Props) {
+export default function PasoResultado({ resultado, liquidacionUrl, detalleHorometroUrl }: Props) {
   return (
     <div className="space-y-4 py-1">
       <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
@@ -81,6 +82,27 @@ export default function PasoResultado({ resultado, liquidacionUrl }: Props) {
             <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
           </svg>
           <p className="text-xs text-slate-500">El documento de liquidación no está disponible por el momento. Puedes descargarlo desde el historial.</p>
+        </div>
+      )}
+
+      {detalleHorometroUrl && (
+        <div className="space-y-2">
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Detalle de uso de horómetro</p>
+          <a
+            href={detalleHorometroUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-sm font-semibold text-slate-700 transition-colors"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+            Ver detalle día por día
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="opacity-70">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+              <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+            </svg>
+          </a>
         </div>
       )}
     </div>

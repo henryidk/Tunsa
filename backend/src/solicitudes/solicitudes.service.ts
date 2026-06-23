@@ -1017,6 +1017,45 @@ export class SolicitudesService {
     return { url };
   }
 
+  /**
+   * Recibe el PDF de detalle de uso de horómetro (día por día / tramo por tramo) generado en el
+   * frontend, lo sube a R2 y actualiza la `detalleHorometroKey` de la última entrada en
+   * `devolucionesParciales`. Mismo patrón que `subirLiquidacion`, documento separado.
+   */
+  async subirDetalleHorometro(
+    id:       string,
+    buffer:   Buffer,
+    mimetype: string,
+    user:     AuthenticatedUser,
+  ): Promise<{ url: string }> {
+    const solicitud = await this.prisma.solicitud.findUnique({ where: { id } });
+
+    if (!solicitud)
+      throw new NotFoundException('Solicitud no encontrada.');
+    if (!tieneAccesoGlobal(user) && solicitud.creadaPor !== user.username)
+      throw new ForbiddenException('Solo el encargado que creó la solicitud puede subir este documento.');
+
+    const devoluciones = (solicitud.devolucionesParciales as unknown as DevolucionEntry[]) ?? [];
+    if (devoluciones.length === 0)
+      throw new ConflictException('No hay devolución registrada para esta solicitud.');
+
+    this.validatePdfBuffer(buffer);
+
+    const loteIndex = devoluciones.length;
+    const key       = `clientes/${solicitud.clienteId}/horometros/${solicitud.folio ?? solicitud.id}-${loteIndex}.pdf`;
+    await this.r2.uploadFile(key, buffer, mimetype);
+
+    devoluciones[devoluciones.length - 1].detalleHorometroKey = key;
+
+    await this.prisma.solicitud.update({
+      where: { id },
+      data:  { devolucionesParciales: devoluciones as object[] },
+    });
+
+    const url = await this.r2.getPresignedUrl(key);
+    return { url };
+  }
+
   async getComprobanteUrl(id: string, username: string): Promise<{ url: string }> {
     const solicitud = await this.prisma.solicitud.findUnique({ where: { id } });
 
@@ -1045,6 +1084,27 @@ export class SolicitudesService {
     const key = devoluciones[loteIndex].liquidacionKey;
     if (!key)
       throw new NotFoundException('Este lote no tiene liquidación generada.');
+
+    const url = await this.r2.getPresignedUrl(key);
+    return { url };
+  }
+
+  async getDetalleHorometroUrl(id: string, loteIndex: number, user: AuthenticatedUser): Promise<{ url: string }> {
+    const solicitud = await this.prisma.solicitud.findUnique({ where: { id } });
+
+    if (!solicitud)
+      throw new NotFoundException('Solicitud no encontrada.');
+    if (!tieneAccesoGlobal(user) && solicitud.creadaPor !== user.username)
+      throw new ForbiddenException('No tienes acceso a esta solicitud.');
+
+    const devoluciones = (solicitud.devolucionesParciales ?? []) as unknown as DevolucionEntry[];
+
+    if (loteIndex < 0 || loteIndex >= devoluciones.length)
+      throw new NotFoundException('Lote de devolución no encontrado.');
+
+    const key = devoluciones[loteIndex].detalleHorometroKey;
+    if (!key)
+      throw new NotFoundException('Este lote no tiene detalle de horómetro generado.');
 
     const url = await this.r2.getPresignedUrl(key);
     return { url };

@@ -17,6 +17,17 @@ type PesadaItem = Extract<ItemSnapshot, { kind: 'pesada' }>;
 const RECARGO_NOCTURNO = 100; // Q extra por hora nocturna — mismo valor que backend/horometro-calc.service.ts
 const fmtHorometro = (n: number) => n.toLocaleString('es-GT', { minimumFractionDigits: 1 });
 
+// Ícono de luna (trazo, estilo Lucide) — reemplaza el emoji 🌙 para que el color herede `currentColor`
+// (y por lo tanto el `tono` ámbar/indigo) en vez de depender del render de emoji de cada sistema operativo.
+function IconoLuna({ className = 'w-3.5 h-3.5' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z" />
+    </svg>
+  );
+}
+
 // Tema de color del acento principal de esta sección — ámbar para encargado (a juego con su sidebar
 // y el resto de sus pantallas), indigo para admin/secretaria (su color primario en todo el panel).
 // No reemplaza los colores semánticos fijos (emerald = dinero/tarifa, red = vencido, slate = neutral).
@@ -121,13 +132,14 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
     fecha:        string;
     extraId?:     string | null;
     extraNombre?: string | null;
+    horasTramo?:  number;
+    costoTramo?:  number;
   } | null>(null);
   const [errorModal, setErrorModal] = useState<{ titulo: string; mensaje: string } | null>(null);
 
-  // Tramo (cambio de complemento intradía) form state
-  const [formTab,        setFormTab]        = useState<'cierre' | 'cambio'>('cierre');
-  const [tramoValor,    setTramoValor]    = useState('');
-  const [tramoExtraId,  setTramoExtraId]  = useState<string | null>(null);
+  // Tramo (cambio de complemento intradía) form state — "Marcar cambio de complemento" es una
+  // acción secundaria inline (no una pestaña): tramoFormOpen solo controla si está desplegada.
+  const [tramoFormOpen, setTramoFormOpen] = useState(false);
   const [tramoError,    setTramoError]    = useState<string | null>(null);
   const [isUndoingTramo, setIsUndoingTramo] = useState(false);
   const [expandedMixto, setExpandedMixto] = useState<string | null>(null);
@@ -148,13 +160,12 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
     cortes: [], complementos: [null],
   });
   const [divisionFormOpen, setDivisionFormOpen] = useState(false);
-  const [divisionValor,    setDivisionValor]    = useState('');
   const [divisionError,    setDivisionError]    = useState<string | null>(null);
 
   const resetTramoForm = () => {
-    setFormTab('cierre'); setTramoValor(''); setTramoExtraId(null); setTramoError(null);
+    setTramoFormOpen(false); setTramoError(null);
     setNocheModo('sin'); setNocheTramos({ cortes: [], complementos: [null] });
-    setDivisionFormOpen(false); setDivisionValor(''); setDivisionError(null);
+    setDivisionFormOpen(false); setDivisionError(null);
   };
 
   const resolvedFetch  = fetchSolicitudes ?? fetchSolicitudesEncargado;
@@ -358,20 +369,21 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
     setNocheTramos(nt => ({ ...nt, complementos: nt.complementos.map((c, i) => i === index ? extraId : c) }));
   };
 
-  const handleDividirTramoNocturno = () => {
+  const handleDividirTramoNocturno = (v: number, extraId: string | null) => {
     if (finAnteriorNum == null) return;
-    const v = parseFloat(divisionValor);
     if (isNaN(v)) { setDivisionError('Ingresa un horómetro válido.'); return; }
     const ultimoCorte = nocheTramos.cortes.length > 0 ? nocheTramos.cortes[nocheTramos.cortes.length - 1] : finAnteriorNum;
     if (v <= ultimoCorte || v >= valorInicioNum) {
       setDivisionError(`El punto de división debe ser mayor a ${fmtHorometro(ultimoCorte)} y menor a ${fmtHorometro(valorInicioNum)} hrs.`);
       return;
     }
-    setNocheTramos(nt => ({
-      cortes:      [...nt.cortes, v],
-      complementos: [...nt.complementos, nt.complementos[nt.complementos.length - 1]],
-    }));
-    setDivisionValor(''); setDivisionError(null); setDivisionFormOpen(false);
+    const ultimoComplemento = nocheTramos.complementos[nocheTramos.complementos.length - 1];
+    if (extraId === ultimoComplemento) {
+      setDivisionError('Selecciona un complemento distinto al del tramo anterior.');
+      return;
+    }
+    setNocheTramos(nt => ({ cortes: [...nt.cortes, v], complementos: [...nt.complementos, extraId] }));
+    setDivisionError(null); setDivisionFormOpen(false);
   };
 
   const handleUnirUltimoTramoNocturno = () => {
@@ -419,10 +431,8 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
   };
 
   // Valida y abre el modal de confirmación para un cambio de complemento intradía
-  const handleSubmitTramo = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmitTramo = (valorNum: number, tramoExtraId: string | null) => {
     if (!selectedId || !lecturaFecha || lecturaFecha.horometroInicio == null) return;
-    const valorNum = parseFloat(tramoValor);
     if (isNaN(valorNum) || valorNum < 0) {
       setTramoError('El valor del horómetro debe ser un número válido mayor o igual a 0.');
       return;
@@ -443,7 +453,15 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
     const extraNombre = tramoExtraId
       ? activeItem?.extras.find(ex => ex.tipoExtraId === tramoExtraId)?.nombre ?? null
       : null;
-    setPendingConfirm({ tipo: 'tramo', valorNum, fecha: fechaActiva, extraId: tramoExtraId, extraNombre });
+    // Horas y costo del tramo que se está cerrando (con la tarifa del complemento activo HASTA ahora,
+    // no la del nuevo), para mostrarlos en la confirmación junto con el horómetro del cambio.
+    const horasTramo  = valorNum - ultimaReferencia;
+    const extraActivo = activoActual ? activeItem?.extras.find(ex => ex.tipoExtraId === activoActual) : undefined;
+    const costoTramo  = horasTramo * ((activeItem?.tarifaEfectiva ?? 0) + (extraActivo?.rentaHora ?? 0));
+    // No cerramos tramoFormOpen aquí — si el usuario cancela el modal de confirmación, el formulario
+    // inline se queda abierto con sus valores (igual que el resto de los formularios de esta vista).
+    // Se cierra en resetTramoForm() solo cuando el cambio realmente se confirma y persiste.
+    setPendingConfirm({ tipo: 'tramo', valorNum, fecha: fechaActiva, extraId: tramoExtraId, extraNombre, horasTramo, costoTramo });
   };
 
   const handleDeshacerTramo = async () => {
@@ -772,48 +790,11 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                 </div>
               ) : (
                 <>
+                  {/* Línea de tramos del día, siempre visible — la misma interfaz que se usa para la noche */}
                   {tipoPendiente === 'fin5pm' && lecturaFecha && activeItem && activeItem.extras.length > 0 && (
-                    <>
-                      <ProgresoDelDiaTimeline lectura={lecturaFecha} tono={tono} />
-
-                      <div className="flex gap-1 mb-3 p-1 bg-slate-100 rounded-lg w-fit">
-                        <button
-                          type="button"
-                          onClick={() => setFormTab('cierre')}
-                          className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-                            formTab === 'cierre' ? `bg-white ${tono.texto} shadow-sm` : 'text-slate-500 hover:text-slate-700'
-                          }`}
-                        >
-                          Cerrar día
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setFormTab('cambio')}
-                          className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-                            formTab === 'cambio' ? `bg-white ${tono.texto} shadow-sm` : 'text-slate-500 hover:text-slate-700'
-                          }`}
-                        >
-                          Cambiar complemento
-                        </button>
-                      </div>
-                    </>
+                    <TramoTimeline titulo="Progreso del día" segmentos={segmentosDelDia(lecturaFecha)} tono={tono} />
                   )}
 
-                  {tipoPendiente === 'fin5pm' && lecturaFecha && activeItem && activeItem.extras.length > 0 && formTab === 'cambio' ? (
-                    <CambioComplementoForm
-                      lectura={lecturaFecha}
-                      extras={activeItem.extras}
-                      valor={tramoValor}
-                      onValorChange={setTramoValor}
-                      extraId={tramoExtraId}
-                      onExtraIdChange={setTramoExtraId}
-                      error={tramoError}
-                      onSubmit={handleSubmitTramo}
-                      onUndo={handleDeshacerTramo}
-                      isUndoing={isUndoingTramo}
-                      tono={tono}
-                    />
-                  ) : (
                   <form onSubmit={handleSubmit} className="flex flex-wrap gap-3 items-end">
                     {tipoPendiente === 'fin5pm' && lecturaFecha?.horometroInicio != null && (
                       <div className="flex items-center gap-2 px-3 py-2 bg-slate-100 rounded-lg text-xs text-slate-600 self-center">
@@ -825,7 +806,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                     )}
                     <div>
                       <label className="text-xs font-medium text-slate-500 block mb-1">
-                        {tipoPendiente === 'inicio' ? 'Horómetro de inicio' : 'Horómetro de cierre (5PM)'}
+                        {tipoPendiente === 'inicio' ? 'Horómetro de inicio' : 'Horómetro de cierre'}
                       </label>
                       <input
                         type="text"
@@ -862,8 +843,8 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
 
                     {tipoPendiente === 'inicio' && horasNocturnasDetectadas > 0 && activeItem && activeItem.extras.length > 0 && finAnteriorNum != null && (
                       <div className={`w-full p-3 ${tono.fondoSuave}/60 border ${tono.borde} rounded-lg`}>
-                        <p className={`text-xs font-semibold ${tono.texto} mb-1`}>
-                          🌙 Se detectan {horasNocturnasDetectadas.toFixed(1)}h nocturnas desde el cierre de ayer
+                        <p className={`text-xs font-semibold ${tono.texto} mb-1 flex items-center gap-1`}>
+                          <IconoLuna className="w-3.5 h-3.5" /> Se detectan {horasNocturnasDetectadas.toFixed(1)}h nocturnas desde el cierre de ayer
                           ({fmtHorometro(finAnteriorNum)} → {fmtHorometro(valorInicioNum)})
                         </p>
                         <p className="text-xs text-slate-500 mb-2">¿Cómo se trabajaron estas horas?</p>
@@ -918,81 +899,33 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
 
                         {nocheModo === 'mixto' && (
                           <div className="mt-1">
-                            <div className="space-y-1.5 mb-2">
-                              {segmentosNocturnos.map((s, i) => (
-                                <div key={i} className={`flex flex-wrap items-center gap-2 text-xs bg-white rounded-lg px-2.5 py-2 border ${tono.borde}`}>
-                                  <span className="font-mono font-bold text-slate-700 whitespace-nowrap">
-                                    {fmtHorometro(s.desde)} → {fmtHorometro(s.hasta)}
-                                  </span>
-                                  <select
-                                    value={s.extraId ?? ''}
-                                    onChange={e => handleCambiarComplementoSegmento(i, e.target.value || null)}
-                                    className="px-2 py-1 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
-                                  >
-                                    <option value="">Sin complemento</option>
-                                    {activeItem.extras.map(ex => (
-                                      <option key={ex.tipoExtraId} value={ex.tipoExtraId}>{ex.nombre}</option>
-                                    ))}
-                                  </select>
-                                  <span className="font-mono text-slate-500 ml-auto whitespace-nowrap">
-                                    {s.horas.toFixed(1)}h · {formatQ(s.costo)}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
+                            <TramoTimeline
+                              titulo="Tramos de la noche"
+                              segmentos={segmentosNocturnos.map(s => ({ ...s, nocturno: true }))}
+                              tono={tono}
+                              extras={activeItem.extras}
+                              onCambiarComplemento={handleCambiarComplementoSegmento}
+                              onQuitarSegmento={() => handleUnirUltimoTramoNocturno()}
+                            />
 
-                            <div className="flex flex-wrap items-end gap-2">
-                              {!divisionFormOpen ? (
-                                <button
-                                  type="button"
-                                  onClick={() => setDivisionFormOpen(true)}
-                                  className={`text-xs font-semibold ${tono.link}`}
-                                >
-                                  + Marcar otro cambio
-                                </button>
-                              ) : (
-                                <>
-                                  <div>
-                                    <label className="text-xs text-slate-500 block mb-1">¿En qué horómetro cambió?</label>
-                                    <input
-                                      type="text"
-                                      inputMode="decimal"
-                                      value={divisionValor}
-                                      onChange={e => setDivisionValor(e.target.value)}
-                                      placeholder={`Entre ${fmtHorometro(nocheTramos.cortes[nocheTramos.cortes.length - 1] ?? finAnteriorNum)} y ${fmtHorometro(valorInicioNum)}`}
-                                      className="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs w-40 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
-                                      autoFocus
-                                    />
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={handleDividirTramoNocturno}
-                                    className={`px-3 py-1.5 rounded-lg ${tono.boton} text-white text-xs font-semibold transition-colors`}
-                                  >
-                                    Marcar
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => { setDivisionFormOpen(false); setDivisionValor(''); setDivisionError(null); }}
-                                    className="text-xs text-slate-400 underline"
-                                  >
-                                    Cancelar
-                                  </button>
-                                </>
-                              )}
-                              {nocheTramos.cortes.length > 0 && (
-                                <button
-                                  type="button"
-                                  onClick={handleUnirUltimoTramoNocturno}
-                                  className="text-xs text-slate-500 hover:text-slate-700 underline ml-auto"
-                                >
-                                  Quitar el último cambio
-                                </button>
-                              )}
-                            </div>
-
-                            {divisionError && (
-                              <p className="mt-2 text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2 border border-red-200">{divisionError}</p>
+                            {!divisionFormOpen ? (
+                              <button
+                                type="button"
+                                onClick={() => setDivisionFormOpen(true)}
+                                className={`text-xs font-semibold ${tono.link}`}
+                              >
+                                + Marcar otro cambio
+                              </button>
+                            ) : (
+                              <MarcarCambioInline
+                                extras={activeItem.extras}
+                                tono={tono}
+                                referenciaMin={nocheTramos.cortes.length > 0 ? nocheTramos.cortes[nocheTramos.cortes.length - 1] : finAnteriorNum}
+                                referenciaMax={valorInicioNum}
+                                onSubmit={handleDividirTramoNocturno}
+                                onCancel={() => { setDivisionFormOpen(false); setDivisionError(null); }}
+                                error={divisionError}
+                              />
                             )}
                           </div>
                         )}
@@ -1013,9 +946,46 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                           <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
                         </svg>
                       )}
-                      {tipoPendiente === 'inicio' ? 'Registrar inicio' : 'Registrar cierre'}
+                      {tipoPendiente === 'inicio' ? 'Registrar inicio' : 'Cerrar día'}
                     </button>
                   </form>
+
+                  {/* Acción secundaria: marcar un cambio de complemento durante el día — solo si ya hay
+                      inicio registrado y el equipo tiene complementos. No es una pestaña: el cierre
+                      sigue siendo la acción primaria, siempre visible arriba. */}
+                  {tipoPendiente === 'fin5pm' && lecturaFecha && activeItem && activeItem.extras.length > 0 && (
+                    <div className="mt-2 flex flex-wrap items-center gap-3">
+                      {!tramoFormOpen ? (
+                        <button
+                          type="button"
+                          onClick={() => setTramoFormOpen(true)}
+                          className={`text-xs font-semibold ${tono.link}`}
+                        >
+                          + Marcar cambio de complemento
+                        </button>
+                      ) : (
+                        <MarcarCambioInline
+                          extras={activeItem.extras}
+                          tono={tono}
+                          referenciaMin={lecturaFecha.tramos.length > 0
+                            ? lecturaFecha.tramos[lecturaFecha.tramos.length - 1].horometroHasta
+                            : lecturaFecha.horometroInicio!}
+                          onSubmit={handleSubmitTramo}
+                          onCancel={() => { setTramoFormOpen(false); setTramoError(null); }}
+                          error={tramoError}
+                        />
+                      )}
+                      {lecturaFecha.tramos.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleDeshacerTramo}
+                          disabled={isUndoingTramo}
+                          className="text-xs text-slate-500 hover:text-slate-700 underline disabled:opacity-40 transition-colors"
+                        >
+                          {isUndoingTramo ? 'Deshaciendo…' : 'Quitar último cambio'}
+                        </button>
+                      )}
+                    </div>
                   )}
                 </>
               )}
@@ -1052,7 +1022,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                     <table className="w-full text-xs">
                       <thead className="bg-slate-50 border-b border-slate-200">
                         <tr>
-                          {['Fecha','Inicio','Fin 5PM','H. trab.','H. Noct.','Ajuste','Total'].map(h => (
+                          {['Fecha','Inicio','Cierre','H. trab.','H. Noct.','Ajuste','Total'].map(h => (
                             <th key={h} className="px-3 py-2 text-left font-semibold text-slate-500 whitespace-nowrap">{h}</th>
                           ))}
                         </tr>
@@ -1131,27 +1101,28 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                                   </p>
                                   <ul className="space-y-1">
                                     {l.tramos.map((t, i) => (
-                                      <li key={i} className="flex items-center justify-between text-xs">
-                                        <span className={t.extraId ? `${tono.texto} font-medium` : 'text-slate-500'}>
+                                      <li key={i} className="flex items-start justify-between gap-2 text-xs">
+                                        <span className={`min-w-0 ${t.extraId ? `${tono.texto} font-medium` : 'text-slate-500'}`}>
                                           {t.extraId ? t.extraNombre : 'Sin complemento'}
                                           <span className="text-slate-400 font-mono ml-1.5">
                                             ({t.horometroDesde.toFixed(1)} → {t.horometroHasta.toFixed(1)})
                                           </span>
                                         </span>
-                                        <span className="font-mono text-slate-600">
+                                        <span className="font-mono text-slate-600 flex-shrink-0 whitespace-nowrap">
                                           {t.horas.toFixed(1)}h × {formatQ(t.tarifa)} = <strong>{formatQ(t.costo)}</strong>
                                         </span>
                                       </li>
                                     ))}
                                     {(l.tramosNocturnos ?? []).map((t, i) => (
-                                      <li key={`n-${i}`} className="flex items-center justify-between text-xs">
-                                        <span className={t.extraId ? `${tono.texto} font-medium` : 'text-slate-500'}>
-                                          🌙 {t.extraId ? t.extraNombre : 'Sin complemento'}
+                                      <li key={`n-${i}`} className="flex items-start justify-between gap-2 text-xs">
+                                        <span className={`min-w-0 ${t.extraId ? `${tono.texto} font-medium` : 'text-slate-500'}`}>
+                                          <IconoLuna className="w-3 h-3 inline -mt-0.5 mr-1" />
+                                          {t.extraId ? t.extraNombre : 'Sin complemento'}
                                           <span className="text-slate-400 font-mono ml-1.5">
                                             ({t.horometroDesde.toFixed(1)} → {t.horometroHasta.toFixed(1)})
                                           </span>
                                         </span>
-                                        <span className="font-mono text-slate-600">
+                                        <span className="font-mono text-slate-600 flex-shrink-0 whitespace-nowrap">
                                           {t.horas.toFixed(1)}h × {formatQ(t.tarifa)} = <strong>{formatQ(t.costo)}</strong>
                                         </span>
                                       </li>
@@ -1229,7 +1200,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                         ? `Horómetro de inicio · CON ${pendingConfirm.extraNombre}`
                         : 'Horómetro de inicio · sin complemento'
                     )}
-                    {pendingConfirm.tipo === 'fin5pm' && 'Horómetro de cierre (5PM)'}
+                    {pendingConfirm.tipo === 'fin5pm' && 'Horómetro de cierre'}
                     {pendingConfirm.tipo === 'tramo' && (
                       pendingConfirm.extraId
                         ? `Cambio a CON ${pendingConfirm.extraNombre}`
@@ -1239,7 +1210,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                 </div>
               </div>
 
-              <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 mb-5 space-y-1.5">
+              <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 mb-3 space-y-1.5">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-slate-500">Fecha</span>
                   <span className="text-xs font-mono font-semibold text-slate-700">
@@ -1265,7 +1236,39 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                     </span>
                   </div>
                 )}
+                {pendingConfirm.tipo === 'tramo' && pendingConfirm.horasTramo != null && pendingConfirm.costoTramo != null && (
+                  <div className="flex items-center justify-between border-t border-slate-200 pt-1.5 mt-1.5">
+                    <span className="text-xs text-slate-400">Tramo que se cierra</span>
+                    <span className="text-sm font-bold font-mono text-emerald-700">
+                      {pendingConfirm.horasTramo.toFixed(1)}h · {formatQ(pendingConfirm.costoTramo)}
+                    </span>
+                  </div>
+                )}
               </div>
+
+              {pendingConfirm.tipo === 'inicio' && horasNocturnasDetectadas > 0 && segmentosNocturnos.length > 0 && (
+                <div className="border border-slate-200 rounded-xl px-4 py-3 mb-5">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Tramos nocturnos a cobrar</p>
+                  <div className="space-y-1">
+                    {segmentosNocturnos.map((s, i) => (
+                      <div key={i} className="flex items-start justify-between gap-2 text-xs">
+                        <span className="text-slate-600 min-w-0">
+                          <IconoLuna className="w-3 h-3 inline -mt-0.5 mr-1" />
+                          {s.extraNombre ?? 'Sin complemento'}{' '}
+                          <span className="font-mono text-slate-400">({fmtHorometro(s.desde)}→{fmtHorometro(s.hasta)})</span>
+                        </span>
+                        <span className="font-mono text-slate-700 flex-shrink-0 whitespace-nowrap">{s.horas.toFixed(1)}h · {formatQ(s.costo)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex items-center justify-between border-t border-slate-100 pt-1.5 mt-1.5">
+                    <span className="text-xs text-slate-400">Total nocturno</span>
+                    <span className="text-sm font-bold font-mono text-emerald-700">
+                      {formatQ(segmentosNocturnos.reduce((a, s) => a + s.costo, 0))}
+                    </span>
+                  </div>
+                </div>
+              )}
 
               <div className="flex gap-3">
                 <button
@@ -1514,20 +1517,21 @@ function InfoTile({
 }
 
 // ── Progreso de tramos del día (cambios de complemento intradía) ──────────────────
-function ProgresoDelDiaTimeline({ lectura, tono }: { lectura: LecturaHorometro; tono: TonoHorometro }) {
-  const fmt = (n: number) => n.toLocaleString('es-GT', { minimumFractionDigits: 1 });
+/** Segmento normalizado para `TramoTimeline` — el mismo shape sirve para tramos del día, de la noche y el paso "en curso". */
+export interface SegmentoVista {
+  desde:       number;
+  hasta:       number | null; // null = "en curso" (segmento abierto del día)
+  extraId:     string | null;
+  extraNombre: string | null;
+  horas:       number | null;
+  costo:       number | null;
+  nocturno?:   boolean;       // pinta el ícono de luna
+  abierto?:    boolean;       // punto pulsante "en curso"
+}
 
-  type Paso = {
-    desde:       number;
-    hasta:       number | null;
-    extraId:     string | null;
-    extraNombre: string | null;
-    horas:       number | null;
-    costo:       number | null;
-    abierto:     boolean;
-  };
-
-  const pasos: Paso[] = [
+/** Construye los segmentos del día (tramos cerrados + el tramo abierto en curso) a partir de una lectura. */
+function segmentosDelDia(lectura: LecturaHorometro): SegmentoVista[] {
+  return [
     ...lectura.tramos.map(t => ({
       desde: t.horometroDesde, hasta: t.horometroHasta,
       extraId: t.extraId, extraNombre: t.extraNombre,
@@ -1543,124 +1547,172 @@ function ProgresoDelDiaTimeline({ lectura, tono }: { lectura: LecturaHorometro; 
       horas: null, costo: null, abierto: true,
     },
   ];
+}
+
+// ── Línea de tramos — un solo componente para el progreso del día y para la noche ──────────────
+// Modo solo-lectura (sin `extras`/`onCambiarComplemento`): se ve como el "Progreso del día" de
+// siempre. Modo editable (con ambos): cada fila cerrada desde `segmentoEditableDesde` muestra un
+// <select> de complemento en vez del badge, y la última fila puede "quitarse" (deshacer el último
+// cambio) — así el día y la noche se editan con la misma interfaz.
+function TramoTimeline({
+  titulo, segmentos, tono, extras, onCambiarComplemento, onQuitarSegmento, segmentoEditableDesde = 0,
+}: {
+  titulo:                 string;
+  segmentos:               SegmentoVista[];
+  tono:                    TonoHorometro;
+  extras?:                 ExtraSeleccionado[];
+  onCambiarComplemento?:   (index: number, extraId: string | null) => void;
+  onQuitarSegmento?:       (index: number) => void;
+  segmentoEditableDesde?:  number;
+}) {
+  const fmt = fmtHorometro;
+  const puedeMostrarQuitar = (i: number) =>
+    !!onQuitarSegmento && i === segmentos.length - 1 && segmentos.length > segmentoEditableDesde + 1;
 
   return (
     <div className="mb-4 p-4 bg-slate-50 border border-slate-200 rounded-lg">
-      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Progreso del día</p>
+      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">{titulo}</p>
 
       <div className="relative pl-5">
         <div className="absolute left-[5px] top-1.5 bottom-1.5 w-px bg-slate-200" />
-        {pasos.map((p, i) => (
-          <div key={i} className="relative pb-3 last:pb-0">
-            <span
-              className={`absolute -left-5 top-1 w-2.5 h-2.5 rounded-full ring-2 ring-slate-50 ${
-                p.abierto
-                  ? (p.extraId ? `${tono.punto} animate-pulse` : 'bg-slate-400 animate-pulse')
-                  : (p.extraId ? tono.punto : 'bg-slate-300')
-              }`}
-            />
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-xs font-bold text-slate-700">
-                  {fmt(p.desde)} {p.hasta != null && <>→ {fmt(p.hasta)}</>}
-                </span>
-                <span
-                  className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
-                    p.extraId ? tono.badge : 'bg-slate-100 text-slate-500'
-                  }`}
-                >
-                  {p.extraId && (
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
-                    </svg>
+        {segmentos.map((s, i) => {
+          const editable = !!extras && !!onCambiarComplemento && i >= segmentoEditableDesde && s.hasta != null;
+          return (
+            <div key={i} className="relative pb-3 last:pb-0">
+              <span
+                className={`absolute -left-5 top-1 w-2.5 h-2.5 rounded-full ring-2 ring-slate-50 ${
+                  s.abierto
+                    ? (s.extraId ? `${tono.punto} animate-pulse` : 'bg-slate-400 animate-pulse')
+                    : (s.extraId ? tono.punto : 'bg-slate-300')
+                }`}
+              />
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-mono text-xs font-bold text-slate-700">
+                    {fmt(s.desde)} {s.hasta != null && <>→ {fmt(s.hasta)}</>}
+                  </span>
+                  {s.nocturno && (
+                    <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 rounded-full ${tono.badge}`}>
+                      <IconoLuna className="w-3 h-3" /> noche
+                    </span>
                   )}
-                  {p.extraId ? p.extraNombre : 'Sin complemento'}
+                  {editable ? (
+                    <select
+                      value={s.extraId ?? ''}
+                      onChange={e => onCambiarComplemento!(i, e.target.value || null)}
+                      className="px-2 py-1 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                    >
+                      <option value="">Sin complemento</option>
+                      {extras!.map(ex => (
+                        <option key={ex.tipoExtraId} value={ex.tipoExtraId}>{ex.nombre}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span
+                      className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
+                        s.extraId ? tono.badge : 'bg-slate-100 text-slate-500'
+                      }`}
+                    >
+                      {s.extraId && (
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                        </svg>
+                      )}
+                      {s.extraId ? s.extraNombre : 'Sin complemento'}
+                    </span>
+                  )}
+                  {editable && puedeMostrarQuitar(i) && (
+                    <button
+                      type="button"
+                      onClick={() => onQuitarSegmento!(i)}
+                      title="Quitar este cambio"
+                      className="text-slate-300 hover:text-red-400 transition-colors"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                      </svg>
+                    </button>
+                  )}
+                </div>
+                <span className="text-xs">
+                  {s.abierto ? (
+                    <span className="italic text-slate-400">en curso</span>
+                  ) : (
+                    <span className="font-mono">
+                      <span className="text-slate-500">{s.horas!.toFixed(1)}h</span>
+                      {' · '}
+                      <span className="font-bold text-slate-700">{formatQ(s.costo!)}</span>
+                    </span>
+                  )}
                 </span>
               </div>
-              <span className="text-xs">
-                {p.abierto ? (
-                  <span className="italic text-slate-400">en curso</span>
-                ) : (
-                  <span className="font-mono">
-                    <span className="text-slate-500">{p.horas!.toFixed(1)}h</span>
-                    {' · '}
-                    <span className="font-bold text-slate-700">{formatQ(p.costo!)}</span>
-                  </span>
-                )}
-              </span>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
 }
 
-// ── Formulario del tab "Cambiar complemento" ───────────────────────────────────
-function CambioComplementoForm({
-  lectura, extras, valor, onValorChange, extraId, onExtraIdChange, error, onSubmit, onUndo, isUndoing, tono,
+// ── Control único "marcar un cambio de complemento" — el mismo input+select+confirmar se usa para
+// el cambio intradía (persiste al instante con registrarTramo) y para dividir la noche (solo en
+// memoria, hasta que se registre el inicio). Lo único que cambia es el onSubmit inyectado.
+function MarcarCambioInline({
+  extras, tono, referenciaMin, referenciaMax, onSubmit, onCancel, error,
 }: {
-  lectura:         LecturaHorometro;
-  extras:          ExtraSeleccionado[];
-  valor:           string;
-  onValorChange:   (v: string) => void;
-  extraId:         string | null;
-  onExtraIdChange: (v: string | null) => void;
-  error:           string | null;
-  onSubmit:        (e: React.FormEvent) => void;
-  onUndo:          () => void;
-  isUndoing:       boolean;
-  tono:            TonoHorometro;
+  extras:         ExtraSeleccionado[];
+  tono:           TonoHorometro;
+  referenciaMin:  number;
+  referenciaMax?: number;
+  onSubmit:       (horometro: number, extraId: string | null) => void;
+  onCancel:       () => void;
+  error:          string | null;
 }) {
-  return (
-    <div className="mb-2">
-      <form onSubmit={onSubmit} className="flex flex-wrap gap-3 items-end">
-        <div>
-          <label className="text-xs font-medium text-slate-500 block mb-1">Horómetro</label>
-          <input
-            type="text"
-            inputMode="decimal"
-            value={valor}
-            onChange={e => onValorChange(e.target.value)}
-            placeholder="Ej: 112.7"
-            className="px-3 py-2 border border-slate-200 rounded-lg text-sm w-32 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
-            autoFocus
-          />
-        </div>
-        <div>
-          <label className="text-xs font-medium text-slate-500 block mb-1">Complemento</label>
-          <select
-            value={extraId ?? ''}
-            onChange={e => onExtraIdChange(e.target.value || null)}
-            className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
-          >
-            <option value="">Ninguno</option>
-            {extras.map(ex => (
-              <option key={ex.tipoExtraId} value={ex.tipoExtraId}>{ex.nombre}</option>
-            ))}
-          </select>
-        </div>
-        <button
-          type="submit"
-          disabled={!valor}
-          className={`px-4 py-2 rounded-lg ${tono.boton} text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed`}
-        >
-          Registrar cambio
-        </button>
-        {lectura.tramos.length > 0 && (
-          <button
-            type="button"
-            onClick={onUndo}
-            disabled={isUndoing}
-            className="px-2.5 py-2 rounded-lg border border-slate-200 text-xs font-medium text-slate-500 hover:bg-slate-100 disabled:opacity-40 transition-colors"
-          >
-            {isUndoing ? 'Deshaciendo…' : 'Quitar último cambio'}
-          </button>
-        )}
-      </form>
+  const [valor, setValor]     = useState('');
+  const [extraId, setExtraId] = useState<string | null>(null);
 
+  return (
+    <div className="flex flex-wrap items-end gap-2">
+      <div>
+        <label className="text-xs text-slate-500 block mb-1">¿En qué horómetro cambió?</label>
+        <input
+          type="text"
+          inputMode="decimal"
+          value={valor}
+          onChange={e => setValor(e.target.value)}
+          placeholder={referenciaMax != null
+            ? `Entre ${fmtHorometro(referenciaMin)} y ${fmtHorometro(referenciaMax)}`
+            : `Mayor a ${fmtHorometro(referenciaMin)}`}
+          className="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs w-40 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+          autoFocus
+        />
+      </div>
+      <div>
+        <label className="text-xs text-slate-500 block mb-1">Complemento</label>
+        <select
+          value={extraId ?? ''}
+          onChange={e => setExtraId(e.target.value || null)}
+          className="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+        >
+          <option value="">Ninguno</option>
+          {extras.map(ex => (
+            <option key={ex.tipoExtraId} value={ex.tipoExtraId}>{ex.nombre}</option>
+          ))}
+        </select>
+      </div>
+      <button
+        type="button"
+        disabled={!valor}
+        onClick={() => onSubmit(parseFloat(valor), extraId)}
+        className={`px-3 py-1.5 rounded-lg ${tono.boton} text-white text-xs font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed`}
+      >
+        Marcar cambio
+      </button>
+      <button type="button" onClick={onCancel} className="text-xs text-slate-400 underline">
+        Cancelar
+      </button>
       {error && (
-        <p className="mt-2 text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2 border border-red-200">{error}</p>
+        <p className="w-full mt-1 text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2 border border-red-200">{error}</p>
       )}
     </div>
   );

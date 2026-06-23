@@ -59,20 +59,26 @@ function buildSeccionDetalleEquipo(
     startY: y,
     head: [['Fecha', 'Inicio', 'Cierre', 'H. trab.', 'H. noct.', 'Ajuste', 'Total día']],
     body: filasDias,
-    foot: [['', '', '', '', '', 'TOTAL EQUIPO', formatQ(costoEquipo)]],
+    foot: [[
+      { content: 'TOTAL EQUIPO', colSpan: 6, styles: { halign: 'right' } },
+      formatQ(costoEquipo),
+    ]],
     margin: { left: 14, right: 14, bottom: FOOTER_RESERVE + 2 },
+    tableWidth: W - 28,
     styles: {
       fontSize: 9,
       cellPadding: 2.5,
       textColor: COLORES.texto,
       lineColor: COLORES.borde,
       lineWidth: 0.2,
+      halign: 'center',
     },
     headStyles: {
       fillColor: COLORES.primario,
       textColor: COLORES.blanco,
       fontStyle: 'bold',
       fontSize: 9,
+      halign: 'center',
     },
     footStyles: {
       fillColor: COLORES.fondo,
@@ -84,13 +90,13 @@ function buildSeccionDetalleEquipo(
       fillColor: [250, 252, 255] as [number, number, number],
     },
     columnStyles: {
-      0: { cellWidth: 22, halign: 'center' },
-      1: { cellWidth: 24, halign: 'right', font: 'courier' },
-      2: { cellWidth: 24, halign: 'right', font: 'courier' },
-      3: { cellWidth: 22, halign: 'right', font: 'courier', fontStyle: 'bold' },
-      4: { cellWidth: 18, halign: 'right', font: 'courier' },
-      5: { cellWidth: 16, halign: 'right', font: 'courier' },
-      6: { cellWidth: 26, halign: 'right', fontStyle: 'bold' },
+      0: { cellWidth: 24, halign: 'center' },
+      1: { cellWidth: 28, halign: 'right', font: 'courier' },
+      2: { cellWidth: 28, halign: 'right', font: 'courier' },
+      3: { cellWidth: 26, halign: 'right', font: 'courier', fontStyle: 'bold' },
+      4: { cellWidth: 24, halign: 'right', font: 'courier' },
+      5: { cellWidth: 22, halign: 'right', font: 'courier' },
+      6: { cellWidth: 36, halign: 'right', fontStyle: 'bold' },
     },
   });
 
@@ -117,13 +123,13 @@ function buildSeccionDetalleEquipo(
 
       const filasTramo: string[][] = [
         ...l.tramos.map(t => [
-          `${fmt1(t.horometroDesde)} → ${fmt1(t.horometroHasta)}`,
+          `${fmt1(t.horometroDesde)} - ${fmt1(t.horometroHasta)}`,
           nombreComplemento(t.extraId, t.extraNombre),
           `${t.horas.toFixed(1)} h`,
           formatQ(t.costo),
         ]),
         ...l.tramosNocturnos.map(t => [
-          `${fmt1(t.horometroDesde)} → ${fmt1(t.horometroHasta)} (noche)`,
+          `${fmt1(t.horometroDesde)} - ${fmt1(t.horometroHasta)} (noche)`,
           nombreComplemento(t.extraId, t.extraNombre),
           `${t.horas.toFixed(1)} h`,
           formatQ(t.costo),
@@ -143,6 +149,7 @@ function buildSeccionDetalleEquipo(
         head: [['Horómetro', 'Complemento', 'Horas', 'Costo']],
         body: filasTramo,
         margin: { left: 18, right: 14, bottom: FOOTER_RESERVE + 2 },
+        tableWidth: W - 32,
         styles: {
           fontSize: 8.5,
           cellPadding: 1.8,
@@ -155,12 +162,13 @@ function buildSeccionDetalleEquipo(
           textColor: COLORES.textoSuave,
           fontStyle: 'bold',
           fontSize: 8,
+          halign: 'center',
         },
         columnStyles: {
-          0: { cellWidth: 42, font: 'courier' },
-          1: { cellWidth: 50 },
-          2: { cellWidth: 22, halign: 'right', font: 'courier' },
-          3: { cellWidth: 30, halign: 'right' },
+          0: { cellWidth: 58, halign: 'center', font: 'courier' },
+          1: { cellWidth: 60, halign: 'center' },
+          2: { cellWidth: 26, halign: 'right', font: 'courier' },
+          3: { cellWidth: 40, halign: 'right' },
         },
       });
 

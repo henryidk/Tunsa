@@ -7,10 +7,20 @@ import {
 import { SolicitudesService } from './solicitudes.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { R2Service } from '../r2/r2.service';
+import { GranelService } from '../granel/granel.service';
+import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
 
 // Buffer mínimo con magic bytes válidos de PDF (%PDF-)
 const PDF_BUFFER = Buffer.from([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31]);
 const NOT_PDF    = Buffer.from([0x00, 0x01, 0x02, 0x03]);
+
+const mockUser: AuthenticatedUser = {
+  id:                 'usr-1',
+  username:           'enc1',
+  nombre:             'Encargado Uno',
+  role:               'encargado_maquinas',
+  mustChangePassword: false,
+};
 
 /**
  * Construye un objeto que imita la forma de una Solicitud de Prisma.
@@ -54,9 +64,10 @@ describe('SolicitudesService — confirmarEntrega', () => {
 
   beforeEach(async () => {
     mockTx = {
-      solicitud:        { update:     jest.fn() },
-      resumenItem:      { create:     jest.fn() },
-      detalleHorometro: { create:     jest.fn() },
+      solicitud:        { update:      jest.fn() },
+      resumenItem:      { create:      jest.fn() },
+      detalleHorometro: { create:      jest.fn() },
+      bitacora:         { createMany:  jest.fn().mockResolvedValue({ count: 0 }) },
     };
 
     prisma = {
@@ -69,11 +80,14 @@ describe('SolicitudesService — confirmarEntrega', () => {
       getPresignedUrl: jest.fn(),
     };
 
+    const granelService = { moverStock: jest.fn().mockResolvedValue(undefined) };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SolicitudesService,
-        { provide: PrismaService, useValue: prisma },
-        { provide: R2Service,     useValue: r2    },
+        { provide: PrismaService,  useValue: prisma       },
+        { provide: R2Service,      useValue: r2           },
+        { provide: GranelService,  useValue: granelService },
       ],
     }).compile();
 
@@ -87,7 +101,7 @@ describe('SolicitudesService — confirmarEntrega', () => {
       prisma.solicitud.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf'),
+        service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf', mockUser),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -97,7 +111,7 @@ describe('SolicitudesService — confirmarEntrega', () => {
       );
 
       await expect(
-        service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf'),
+        service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf', mockUser),
       ).rejects.toThrow(ConflictException);
     });
 
@@ -107,7 +121,7 @@ describe('SolicitudesService — confirmarEntrega', () => {
       );
 
       await expect(
-        service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf'),
+        service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf', mockUser),
       ).rejects.toThrow(ConflictException);
     });
 
@@ -115,7 +129,7 @@ describe('SolicitudesService — confirmarEntrega', () => {
       prisma.solicitud.findUnique.mockResolvedValue(makeSolicitud());
 
       await expect(
-        service.confirmarEntrega('sol-123', NOT_PDF, 'application/pdf'),
+        service.confirmarEntrega('sol-123', NOT_PDF, 'application/pdf', mockUser),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -123,7 +137,7 @@ describe('SolicitudesService — confirmarEntrega', () => {
       prisma.solicitud.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf'),
+        service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf', mockUser),
       ).rejects.toThrow();
 
       expect(prisma.$transaction).not.toHaveBeenCalled();
@@ -146,7 +160,7 @@ describe('SolicitudesService — confirmarEntrega', () => {
     });
 
     it('sube el comprobante a R2 con la key correcta', async () => {
-      await service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf');
+      await service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf', mockUser);
 
       expect(r2.uploadFile).toHaveBeenCalledWith(
         'clientes/cli-456/comprobantes/202605-0001.pdf',
@@ -156,7 +170,7 @@ describe('SolicitudesService — confirmarEntrega', () => {
     });
 
     it('actualiza el estado a ACTIVA dentro de la transacción', async () => {
-      await service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf');
+      await service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf', mockUser);
 
       expect(mockTx.solicitud.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -170,13 +184,13 @@ describe('SolicitudesService — confirmarEntrega', () => {
     });
 
     it('crea exactamente un resumenItem por cada ítem liviano', async () => {
-      await service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf');
+      await service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf', mockUser);
 
       expect(mockTx.resumenItem.create).toHaveBeenCalledTimes(2);
     });
 
     it('crea resumenItem de maquinaria con los datos correctos', async () => {
-      await service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf');
+      await service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf', mockUser);
 
       expect(mockTx.resumenItem.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -193,7 +207,7 @@ describe('SolicitudesService — confirmarEntrega', () => {
     });
 
     it('crea resumenItem de granel sin equipoId y con itemRef = tipo', async () => {
-      await service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf');
+      await service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf', mockUser);
 
       expect(mockTx.resumenItem.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -210,7 +224,7 @@ describe('SolicitudesService — confirmarEntrega', () => {
     });
 
     it('no crea ningún detalleHorometro para rentas livianas', async () => {
-      await service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf');
+      await service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf', mockUser);
 
       expect(mockTx.detalleHorometro.create).not.toHaveBeenCalled();
     });
@@ -224,7 +238,7 @@ describe('SolicitudesService — confirmarEntrega', () => {
       prisma.solicitud.findUnique.mockResolvedValue(sol);
       mockTx.solicitud.update.mockResolvedValue({ ...sol, estado: 'ACTIVA' });
 
-      await service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf');
+      await service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf', mockUser);
 
       // Solo se crea el de maquinaria; el granel con tipo vacío se omite
       expect(mockTx.resumenItem.create).toHaveBeenCalledTimes(1);
@@ -250,13 +264,13 @@ describe('SolicitudesService — confirmarEntrega', () => {
     });
 
     it('crea exactamente un resumenItem por cada equipo pesado', async () => {
-      await service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf');
+      await service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf', mockUser);
 
       expect(mockTx.resumenItem.create).toHaveBeenCalledTimes(2);
     });
 
     it('crea resumenItem pesado con tipoItem = pesada y tarifaEfectiva correcta', async () => {
-      await service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf');
+      await service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf', mockUser);
 
       expect(mockTx.resumenItem.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -273,13 +287,13 @@ describe('SolicitudesService — confirmarEntrega', () => {
     });
 
     it('crea exactamente un detalleHorometro por cada resumenItem pesado', async () => {
-      await service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf');
+      await service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf', mockUser);
 
       expect(mockTx.detalleHorometro.create).toHaveBeenCalledTimes(2);
     });
 
     it('graba el horometroInicial cuando está presente', async () => {
-      await service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf');
+      await service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf', mockUser);
 
       expect(mockTx.detalleHorometro.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -292,7 +306,7 @@ describe('SolicitudesService — confirmarEntrega', () => {
     });
 
     it('graba horometroEntrega = null cuando el horómetro inicial no fue ingresado', async () => {
-      await service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf');
+      await service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf', mockUser);
 
       expect(mockTx.detalleHorometro.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -305,7 +319,7 @@ describe('SolicitudesService — confirmarEntrega', () => {
     });
 
     it('calcula fechaFinEstimada usando el máximo de diasSolicitados', async () => {
-      await service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf');
+      await service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf', mockUser);
 
       const updateCall        = mockTx.solicitud.update.mock.calls[0][0];
       const fechaInicio       = new Date('2026-05-01T08:00:00Z');
@@ -315,7 +329,7 @@ describe('SolicitudesService — confirmarEntrega', () => {
     });
 
     it('no crea resumenItem de tipo liviano para rentas pesadas', async () => {
-      await service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf');
+      await service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf', mockUser);
 
       const createCalls = mockTx.resumenItem.create.mock.calls;
       createCalls.forEach((call: any[]) => {
@@ -335,7 +349,7 @@ describe('SolicitudesService — confirmarEntrega', () => {
       mockTx.resumenItem.create.mockResolvedValue({ id: 'ri-1' });
 
       await expect(
-        service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf'),
+        service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf', mockUser),
       ).resolves.not.toThrow();
 
       // fechaFinEstimada debe existir en el update (calculada desde fechaEntrega)
@@ -350,7 +364,7 @@ describe('SolicitudesService — confirmarEntrega', () => {
       mockTx.solicitud.update.mockResolvedValue({ ...sol, estado: 'ACTIVA' });
       mockTx.resumenItem.create.mockResolvedValue({ id: 'ri-1' });
 
-      await service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf');
+      await service.confirmarEntrega('sol-123', PDF_BUFFER, 'application/pdf', mockUser);
 
       const fechaEnUpdate       = mockTx.solicitud.update.mock.calls[0][0].data.fechaEntrega;
       const fechaEnResumenItem  = mockTx.resumenItem.create.mock.calls[0][0].data.fechaEntrega;

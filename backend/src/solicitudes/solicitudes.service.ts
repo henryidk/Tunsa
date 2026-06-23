@@ -14,6 +14,7 @@ import { tieneAccesoGlobal, puedeGestionarSolicitud } from '../auth/utils/roles.
 import { fechaGT } from '../common/utils/date.util';
 import { serializeSolicitud } from './solicitudes.serializer';
 import { tieneEquipoId, type ItemParaCalculo, type ItemConKind } from './solicitudes.types';
+import { SolicitudBitacoraFactory } from './solicitud-bitacora.factory';
 import {
   ExtensionEntry,
   DevolucionEntry,
@@ -132,7 +133,7 @@ export class SolicitudesService {
     return { costoReal, diasCobrados, recargoTiempo, desglose, tarifas: precios ?? undefined };
   }
 
-  async create(dto: CreateSolicitudDto, username: string) {
+  async create(dto: CreateSolicitudDto, user: AuthenticatedUser) {
     const esPesada = dto.items.every(i => i.kind === 'pesada');
     const esMixta  = !esPesada && dto.items.some(i => i.kind === 'pesada');
 
@@ -177,19 +178,28 @@ export class SolicitudesService {
       });
     }
 
-    const solicitud = await this.prisma.solicitud.create({
-      data: {
-        clienteId:     dto.clienteId,
-        items:         itemsToStore,
-        modalidad:     dto.modalidad,
-        notas:         dto.notas,
-        totalEstimado: esPesada ? 0 : (dto.totalEstimado ?? 0),
-        esPesada,
-        esIndefinida:  dto.esIndefinida ?? false,
-        creadaPor:     username,
-      },
-      include: { cliente: true },
+    const solicitud = await this.prisma.$transaction(async (tx) => {
+      const s = await tx.solicitud.create({
+        data: {
+          clienteId:     dto.clienteId,
+          items:         itemsToStore,
+          modalidad:     dto.modalidad,
+          notas:         dto.notas,
+          totalEstimado: esPesada ? 0 : (dto.totalEstimado ?? 0),
+          esPesada,
+          esIndefinida:  dto.esIndefinida ?? false,
+          creadaPor:     user.username,
+        },
+        include: { cliente: true },
+      });
+
+      await tx.bitacora.createMany({
+        data: SolicitudBitacoraFactory.paraCrear(s.id, s.cliente.nombre, esPesada, user.nombre),
+      });
+
+      return s;
     });
+
     return serializeSolicitud(solicitud);
   }
 
@@ -197,7 +207,7 @@ export class SolicitudesService {
    * Crea una renta y la aprueba en una sola transacción.
    * Exclusivo para admin y secretaria: omite el paso de aprobación manual.
    */
-  async crearDirecta(username: string, dto: CreateSolicitudDirectaDto) {
+  async crearDirecta(user: AuthenticatedUser, dto: CreateSolicitudDirectaDto) {
     const esPesada = dto.items.every(i => i.kind === 'pesada');
     const esMixta  = !esPesada && dto.items.some(i => i.kind === 'pesada');
 
@@ -264,14 +274,18 @@ export class SolicitudesService {
           totalEstimado: esPesada ? 0 : (dto.totalEstimado ?? 0),
           esPesada,
           esIndefinida:  dto.esIndefinida ?? false,
-          creadaPor:     username,
+          creadaPor:     user.username,
           gestionadaPor: dto.gestionadaPor,
           estado:        'APROBADA',
-          aprobadaPor:   username,
+          aprobadaPor:   user.username,
           folio,
           fechaDecision: now,
         },
         include: { cliente: true },
+      });
+
+      await tx.bitacora.createMany({
+        data: SolicitudBitacoraFactory.paraCrearDirecta(solicitud.id, folio, user.nombre),
       });
 
       const nombres = await this.resolverNombresActores(solicitud.creadaPor, solicitud.aprobadaPor, solicitud.gestionadaPor);
@@ -279,8 +293,8 @@ export class SolicitudesService {
     });
   }
 
-  async crearRetroactiva(username: string, dto: CreateRentaRetroactivaDto) {
-    const gestionadaPor = dto.gestionadaPor ?? username;
+  async crearRetroactiva(user: AuthenticatedUser, dto: CreateRentaRetroactivaDto) {
+    const gestionadaPor = dto.gestionadaPor ?? user.username;
     const esPesada = dto.items.every(i => i.kind === 'pesada');
     const esMixta  = !esPesada && dto.items.some(i => i.kind === 'pesada');
 
@@ -364,10 +378,10 @@ export class SolicitudesService {
           totalEstimado:   esPesada ? 0 : (dto.totalEstimado ?? 0),
           esPesada,
           esIndefinida:    dto.esIndefinida ?? false,
-          creadaPor:       username,
+          creadaPor:       user.username,
           gestionadaPor:   gestionadaPor,
           estado:          'ACTIVA',
-          aprobadaPor:     username,
+          aprobadaPor:     user.username,
           folio,
           fechaDecision:   fechaInicio,
           fechaInicioRenta: fechaInicio,
@@ -389,12 +403,16 @@ export class SolicitudesService {
         }
       }
 
+      await tx.bitacora.createMany({
+        data: SolicitudBitacoraFactory.paraCrearRetroactiva(solicitud.id, folio, fechaInicio, user.nombre),
+      });
+
       const nombres = await this.resolverNombresActores(solicitud.creadaPor, solicitud.aprobadaPor, solicitud.gestionadaPor);
       return serializeSolicitud(solicitud, nombres);
     });
   }
 
-  async aprobar(id: string, aprobadaPor: string) {
+  async aprobar(id: string, user: AuthenticatedUser) {
     return this.prisma.$transaction(async (tx) => {
       const now     = new Date();
       const mesAnio = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -409,21 +427,38 @@ export class SolicitudesService {
 
       const solicitud = await tx.solicitud.update({
         where:   { id },
-        data:    { estado: 'APROBADA', aprobadaPor, folio, fechaDecision: now },
+        data:    { estado: 'APROBADA', aprobadaPor: user.username, folio, fechaDecision: now },
         include: { cliente: true },
+      });
+
+      // Backfill entidadNombre en la fila de PENDIENTE creada por create()
+      await tx.bitacora.updateMany({
+        where: { entidadId: id },
+        data:  { entidadNombre: folio },
+      });
+
+      await tx.bitacora.createMany({
+        data: SolicitudBitacoraFactory.paraAprobar(id, folio, user.nombre),
       });
 
       return serializeSolicitud(solicitud);
     });
   }
 
-  async rechazar(id: string, motivoRechazo: string) {
-    const solicitud = await this.prisma.solicitud.update({
-      where:   { id },
-      data:    { estado: 'RECHAZADA', motivoRechazo, fechaDecision: new Date() },
-      include: { cliente: true },
+  async rechazar(id: string, motivoRechazo: string, user: AuthenticatedUser) {
+    return this.prisma.$transaction(async (tx) => {
+      const solicitud = await tx.solicitud.update({
+        where:   { id },
+        data:    { estado: 'RECHAZADA', motivoRechazo, fechaDecision: new Date() },
+        include: { cliente: true },
+      });
+
+      await tx.bitacora.createMany({
+        data: SolicitudBitacoraFactory.paraRechazar(id, solicitud.cliente.nombre, solicitud.esPesada, user.nombre),
+      });
+
+      return serializeSolicitud(solicitud);
     });
-    return serializeSolicitud(solicitud);
   }
 
   /**
@@ -431,16 +466,17 @@ export class SolicitudesService {
    * vez que el encargado genera el comprobante. Si ya está fijada, devuelve la solicitud
    * sin modificarla — la fecha de inicio es inmutable una vez establecida.
    */
-  async iniciarEntrega(id: string, dto?: IniciarEntregaDto) {
+  async iniciarEntrega(id: string, user: AuthenticatedUser, dto?: IniciarEntregaDto) {
     const solicitud = await this.prisma.solicitud.findUnique({ where: { id } });
 
     if (!solicitud) throw new NotFoundException('Solicitud no encontrada.');
     if (solicitud.estado !== 'APROBADA')
       throw new ConflictException('Solo se puede iniciar la entrega de solicitudes aprobadas.');
 
+    const esNuevaFecha                = !solicitud.fechaInicioRenta;
     const data: Prisma.SolicitudUpdateInput = {};
 
-    if (!solicitud.fechaInicioRenta) {
+    if (esNuevaFecha) {
       data.fechaInicioRenta = new Date();
     }
 
@@ -454,12 +490,28 @@ export class SolicitudesService {
       ) as unknown as Prisma.InputJsonValue;
     }
 
-    const base = !data.fechaInicioRenta && !data.items
-      ? await this.prisma.solicitud.findUnique({ where: { id }, include: { cliente: true } })
-      : await this.prisma.solicitud.update({ where: { id }, data, include: { cliente: true } });
+    const noHayCambios = !data.fechaInicioRenta && !data.items;
 
-    const nombres = await this.resolverNombresActores(base!.creadaPor, base!.aprobadaPor, base!.gestionadaPor);
-    return serializeSolicitud(base!, nombres);
+    if (noHayCambios) {
+      const base    = await this.prisma.solicitud.findUnique({ where: { id }, include: { cliente: true } });
+      const nombres = await this.resolverNombresActores(base!.creadaPor, base!.aprobadaPor, base!.gestionadaPor);
+      return serializeSolicitud(base!, nombres);
+    }
+
+    const base = await this.prisma.$transaction(async (tx) => {
+      const s = await tx.solicitud.update({ where: { id }, data, include: { cliente: true } });
+
+      if (esNuevaFecha) {
+        await tx.bitacora.createMany({
+          data: SolicitudBitacoraFactory.paraIniciarEntrega(id, s.folio ?? id, s.fechaInicioRenta!, user.nombre),
+        });
+      }
+
+      return s;
+    });
+
+    const nombres = await this.resolverNombresActores(base.creadaPor, base.aprobadaPor, base.gestionadaPor);
+    return serializeSolicitud(base, nombres);
   }
 
   private async resolverNombresActores(creadaPor: string, aprobadaPor: string | null, gestionadaPor?: string | null) {
@@ -488,6 +540,7 @@ export class SolicitudesService {
     id:       string,
     buffer:   Buffer,
     mimetype: string,
+    user:     AuthenticatedUser,
   ) {
     const solicitud = await this.prisma.solicitud.findUnique({ where: { id } });
 
@@ -540,6 +593,10 @@ export class SolicitudesService {
           );
         }
       }
+
+      await tx.bitacora.createMany({
+        data: SolicitudBitacoraFactory.paraConfirmarEntrega(id, solicitud.folio!, key, user.nombre),
+      });
 
       return s;
     });
@@ -641,6 +698,7 @@ export class SolicitudesService {
       : extensionesActuales.filter(e => e.tipo !== 'gracia');
 
     const nuevasExtensiones: ExtensionEntry[] = [];
+    const extensionLabels:   string[]         = [];
     let   costoTotalExtra = 0;
 
     for (const extDto of dto.items) {
@@ -677,6 +735,12 @@ export class SolicitudesService {
         tipo:           tipoNuevaExt,
         fechaExtension: new Date().toISOString(),
       });
+
+      // Label legible para bitácora: numeracion para equipos, tipo para granel
+      const numeracion = (snapItem as any).numeracion as string | undefined;
+      extensionLabels.push(
+        extDto.kind === 'granel' ? extDto.itemRef : (numeracion ? `#${numeracion}` : extDto.itemRef.slice(-6)),
+      );
     }
 
     const todasLasExtensiones = [...extensionesActuales, ...nuevasExtensiones];
@@ -698,14 +762,24 @@ export class SolicitudesService {
       return new Date(Math.min(...fins));
     })();
 
-    const actualizada = await this.prisma.solicitud.update({
-      where: { id },
-      data:  {
-        extensiones:      todasLasExtensiones as object[],
-        totalEstimado:    { increment: costoTotalExtra },
-        fechaFinEstimada: nuevaFechaFin,
-      },
-      include: { cliente: true },
+    const actualizada = await this.prisma.$transaction(async (tx) => {
+      const s = await tx.solicitud.update({
+        where: { id },
+        data:  {
+          extensiones:      todasLasExtensiones as object[],
+          totalEstimado:    { increment: costoTotalExtra },
+          fechaFinEstimada: nuevaFechaFin,
+        },
+        include: { cliente: true },
+      });
+
+      const extensionesConLabel = nuevasExtensiones.map((e, i) => ({ ...e, label: extensionLabels[i] }));
+      const rows = SolicitudBitacoraFactory.paraAmpliar(id, s.folio ?? id, extensionesConLabel, user.nombre);
+      if (rows.length > 0) {
+        await tx.bitacora.createMany({ data: rows });
+      }
+
+      return s;
     });
 
     return serializeSolicitud(actualizada);
@@ -972,6 +1046,12 @@ export class SolicitudesService {
           update: { liviana: { increment: totalFinalLiviana } },
         });
       }
+
+      await tx.bitacora.createMany({
+        data: SolicitudBitacoraFactory.paraDevolucion(
+          id, s.folio ?? id, devolucionCompleta, devolucionItems, descuentoAplicado, totalLote, user.nombre,
+        ),
+      });
 
       return s;
     });

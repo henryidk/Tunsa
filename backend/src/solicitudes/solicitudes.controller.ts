@@ -48,7 +48,7 @@ export class SolicitudesController {
     @Body() dto: CreateSolicitudDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    const solicitud = await this.solicitudesService.create(dto, user.username);
+    const solicitud = await this.solicitudesService.create(dto, user);
     this.solicitudesGateway.emitNuevaSolicitud(solicitud);
     return solicitud;
   }
@@ -59,7 +59,7 @@ export class SolicitudesController {
     @Body() dto: CreateRentaRetroactivaDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.solicitudesService.crearRetroactiva(user.username, dto);
+    return this.solicitudesService.crearRetroactiva(user, dto);
   }
 
   @Post('directa')
@@ -68,7 +68,7 @@ export class SolicitudesController {
     @Body() dto: CreateSolicitudDirectaDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    const solicitud = await this.solicitudesService.crearDirecta(user.username, dto);
+    const solicitud = await this.solicitudesService.crearDirecta(user, dto);
     this.solicitudesGateway.emitSolicitudAprobada(solicitud, dto.gestionadaPor);
     return solicitud;
   }
@@ -79,7 +79,7 @@ export class SolicitudesController {
     @Param('id') id: string,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    const solicitud = await this.solicitudesService.aprobar(id, user.username);
+    const solicitud = await this.solicitudesService.aprobar(id, user);
     this.solicitudesGateway.emitSolicitudAprobada(solicitud, solicitud.creadaPor);
     return solicitud;
   }
@@ -89,8 +89,9 @@ export class SolicitudesController {
   async rechazar(
     @Param('id') id: string,
     @Body() dto: RechazarSolicitudDto,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
-    const solicitud = await this.solicitudesService.rechazar(id, dto.motivoRechazo);
+    const solicitud = await this.solicitudesService.rechazar(id, dto.motivoRechazo, user);
     this.solicitudesGateway.emitSolicitudRechazada(solicitud, solicitud.creadaPor);
     return solicitud;
   }
@@ -100,8 +101,9 @@ export class SolicitudesController {
   iniciarEntrega(
     @Param('id') id: string,
     @Body() dto: IniciarEntregaDto,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.solicitudesService.iniciarEntrega(id, dto);
+    return this.solicitudesService.iniciarEntrega(id, user, dto);
   }
 
   @Patch(':id/confirmar-entrega')
@@ -121,7 +123,7 @@ export class SolicitudesController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     const solicitud = await this.solicitudesService.confirmarEntrega(
-      id, file.buffer, file.mimetype,
+      id, file.buffer, file.mimetype, user,
     );
     this.solicitudesGateway.emitRentaActiva(solicitud, user.username);
     return solicitud;

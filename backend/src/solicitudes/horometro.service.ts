@@ -11,6 +11,7 @@ import { RegistrarDevolucionPesadaDto } from './dto/registrar-devolucion-pesada.
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
 import { tieneAccesoGlobal } from '../auth/utils/roles.util';
 import type { DevolucionEntry, DevolucionItemEntry, CargoAdicional, DescuentoAplicado } from './recargo.util';
+import { SolicitudBitacoraFactory } from './solicitud-bitacora.factory';
 import type {
   ItemPesadaSnapshot, ExtraSeleccionadoSnapshot, TramoHorometro, DesgloseComplemento, CorteNocturnoInput,
 } from './solicitudes.types';
@@ -735,6 +736,12 @@ export class HorometroService {
           update: { pesada: { increment: totalFinalPesada } },
         });
       }
+
+      await tx.bitacora.createMany({
+        data: SolicitudBitacoraFactory.paraDevolucion(
+          solicitudId, s.folio ?? solicitudId, devolucionCompleta, devolucionItems, descuentoAplicado, totalLote, user.nombre,
+        ),
+      });
 
       return s;
     });

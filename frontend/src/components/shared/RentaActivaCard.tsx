@@ -1,5 +1,6 @@
 import type { SolicitudRenta, ItemSnapshot, ExtensionEntry } from '../../types/solicitud-renta.types';
 import ClienteNombre from './ClienteNombre';
+import ProyectoBadge from './ProyectoBadge';
 import { formatFechaHora } from '../../types/solicitud.types';
 import {
   calcularFinConExtensiones,
@@ -65,7 +66,7 @@ export default function RentaActivaCard({
 
       {/* Top bar */}
       <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-slate-50">
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center flex-wrap gap-2.5">
           {solicitud.esPesada && (
             <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
               PESADA
@@ -81,6 +82,7 @@ export default function RentaActivaCard({
             </span>
           )}
           <span className="text-xs font-mono font-semibold text-slate-600">{solicitud.folio}</span>
+          <ProyectoBadge proyecto={solicitud.proyecto} />
         </div>
         <span className="text-xs text-slate-400">
           Inicio {solicitud.fechaInicioRenta ? formatFechaHora(solicitud.fechaInicioRenta) : '—'}

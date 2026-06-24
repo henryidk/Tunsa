@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import ClienteNombre from '../../shared/ClienteNombre';
+import ProyectoBadge from '../../shared/ProyectoBadge';
 import type { UseMisPendientesReturn } from '../../../hooks/useMisPendientes';
 import { useRechazadasStore } from '../../../store/rechazadas.store';
 import MisRechazadasTab from './MisRechazadasTab';
@@ -180,6 +181,7 @@ function SolicitudPendienteCard({ solicitud }: { solicitud: SolicitudRenta }) {
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Cliente</p>
           <ClienteNombre nombre={solicitud.cliente.nombre} esEspecial={solicitud.cliente.esEspecial} />
           <p className="text-xs font-mono text-slate-400 mt-0.5">{solicitud.cliente.id}</p>
+          <ProyectoBadge proyecto={solicitud.proyecto} className="mt-1.5" />
         </div>
 
         {/* Ítems */}

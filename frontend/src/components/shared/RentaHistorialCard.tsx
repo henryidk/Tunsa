@@ -3,6 +3,7 @@ import { solicitudesService } from '../../services/solicitudes.service';
 import type { SolicitudRenta, DevolucionEntry } from '../../types/solicitud-renta.types';
 import { formatFechaHora, formatQ } from '../../types/solicitud.types';
 import ClienteNombre from './ClienteNombre';
+import ProyectoBadge from './ProyectoBadge';
 import { resolverLabelItem } from '../../utils/devolucion.helpers';
 
 function contarItemsPendientes(solicitud: SolicitudRenta): number {
@@ -59,6 +60,7 @@ export default function RentaHistorialCard({ solicitud, showEncargado = false }:
             </span>
           )}
           <span className="text-xs font-mono font-semibold text-slate-600">{solicitud.folio}</span>
+          <ProyectoBadge proyecto={solicitud.proyecto} />
           {solicitud.comprobanteKey && (
             <button
               onClick={handleVerComprobante}

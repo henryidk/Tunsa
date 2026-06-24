@@ -7,6 +7,7 @@ export interface FlotaRentaInfo {
   fechaFinEstimada: string | null;
   esPesada:         boolean;
   creadaPor:        string;
+  proyecto:         { id: string; nombre: string } | null;
 }
 
 export interface FlotaItem {

@@ -1,5 +1,6 @@
 import { useAuthStore } from '../../store/auth.store';
 import type { FlotaItem } from '../../types/flota.types';
+import ProyectoBadge from './ProyectoBadge';
 
 const ESTADO_CFG = {
   'disponible': {
@@ -82,6 +83,7 @@ export default function FlotaEquipoCard({ item, onVerRenta }: Props) {
         ) : item.renta ? (
           <div className="space-y-0.5">
             <p className="text-xs font-semibold text-slate-700 truncate">{item.renta.clienteNombre}</p>
+            <ProyectoBadge proyecto={item.renta.proyecto} className="mt-0.5" />
             {item.renta.fechaFinEstimada && (
               <p className={`text-[11px] ${item.estado === 'vencida' ? 'text-red-600 font-semibold' : 'text-slate-400'}`}>
                 {item.estado === 'vencida' ? 'Venció' : 'Vence'}: {fmtFecha(item.renta.fechaFinEstimada)}

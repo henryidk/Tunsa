@@ -394,6 +394,7 @@ export class EquiposService {
               fechaFinEstimada: true,
               creadaPor:        true,
               cliente:          { select: { nombre: true } },
+              proyecto:         { select: { id: true, nombre: true } },
             },
           },
         },
@@ -407,6 +408,7 @@ export class EquiposService {
       fechaFinEstimada: string | null;
       esPesada:         boolean;
       creadaPor:        string;
+      proyecto:         { id: string; nombre: string } | null;
     }>();
 
     for (const item of itemsEnRenta) {
@@ -420,6 +422,7 @@ export class EquiposService {
           : null,
         esPesada:         item.solicitud.esPesada,
         creadaPor:        item.solicitud.creadaPor,
+        proyecto:         item.solicitud.proyecto ?? null,
       });
     }
 

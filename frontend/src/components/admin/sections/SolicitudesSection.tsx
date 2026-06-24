@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import ClienteNombre from '../../shared/ClienteNombre';
+import ProyectoBadge from '../../shared/ProyectoBadge';
 import { useSolicitudes } from '../../../hooks/useSolicitudes';
 import { clientesService } from '../../../services/clientes.service';
 import { useSolicitudesStore } from '../../../store/solicitudes.store';
@@ -187,6 +188,7 @@ function SolicitudCard({
           {solicitud.folio && (
             <span className="text-xs font-mono font-semibold text-slate-600">{solicitud.folio}</span>
           )}
+          <ProyectoBadge proyecto={solicitud.proyecto} />
         </div>
         <span className="text-xs text-slate-400">{fechaHora(solicitud.createdAt)}</span>
       </div>

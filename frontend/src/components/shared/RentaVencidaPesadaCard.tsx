@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { SolicitudRenta, ItemSnapshot } from '../../types/solicitud-renta.types';
 import ClienteNombre from './ClienteNombre';
+import ProyectoBadge from './ProyectoBadge';
 import { formatFechaHora } from '../../types/solicitud.types';
 import { calcularVentanaGracia, msAtraso, formatAtraso, formatGraciaRestante, calcularRecargoPesada } from '../../utils/renta-tiempo.utils';
 import { ultimoDiaHorometro } from '../../utils/horometro.utils';
@@ -94,6 +95,7 @@ export default function RentaVencidaPesadaCard({
             </span>
           )}
           <span className="text-xs font-mono font-semibold text-slate-600">{solicitud.folio}</span>
+          <ProyectoBadge proyecto={solicitud.proyecto} />
         </div>
         <div className="text-right">
           <p className="text-xs text-slate-400">Debía terminar</p>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { SolicitudRenta, ItemSnapshot, ExtensionEntry } from '../../types/solicitud-renta.types';
 import ClienteNombre from './ClienteNombre';
+import ProyectoBadge from './ProyectoBadge';
 import { formatFechaHora } from '../../types/solicitud.types';
 import {
   calcularFinConExtensiones,
@@ -103,6 +104,7 @@ export default function RentaVencidaCard({
             </span>
           )}
           <span className="text-xs font-mono font-semibold text-slate-600">{solicitud.folio}</span>
+          <ProyectoBadge proyecto={solicitud.proyecto} />
         </div>
         <div className="text-right">
           <p className="text-xs text-slate-400">Debía terminar</p>

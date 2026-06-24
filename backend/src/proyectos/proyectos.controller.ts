@@ -12,6 +12,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
 import { EstadoProyecto } from '@prisma/client';
+import { serializeSolicitud, type SolicitudConCliente } from '../solicitudes/solicitudes.serializer';
 
 @Controller('proyectos')
 @UseGuards(JwtAuthGuard, RolesGuard, MustChangePasswordGuard)
@@ -41,8 +42,15 @@ export class ProyectosController {
   }
 
   @Get(':id/solicitudes')
-  findSolicitudesDeProyecto(@Param('id') id: string) {
-    return this.proyectosService.findSolicitudesDeProyecto(id);
+  async findSolicitudesDeProyecto(@Param('id') id: string) {
+    const raw = await this.proyectosService.findSolicitudesDeProyecto(id);
+    const s = (arr: SolicitudConCliente[]) => arr.map(x => serializeSolicitud(x));
+    return {
+      enProceso: s(raw.enProceso as SolicitudConCliente[]),
+      activas:   s(raw.activas   as SolicitudConCliente[]),
+      vencidas:  s(raw.vencidas  as SolicitudConCliente[]),
+      devueltas: s(raw.devueltas as SolicitudConCliente[]),
+    };
   }
 
   @Post()

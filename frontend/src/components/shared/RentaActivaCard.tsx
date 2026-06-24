@@ -15,14 +15,15 @@ import { today } from '../../utils/horometro.utils';
 import VenceLabel from './VenceLabel';
 
 export interface RentaActivaCardProps {
-  solicitud:        SolicitudRenta;
-  ahora:            number;
-  abriendo:         boolean;
-  showEncargado?:   boolean;
-  onVerComprobante: () => void;
-  onAmpliar?:       () => void;
-  onDevolucion:     () => void;
-  onHorometro?:     () => void;
+  solicitud:           SolicitudRenta;
+  ahora:               number;
+  abriendo:            boolean;
+  showEncargado?:      boolean;
+  onVerComprobante:    () => void;
+  onAmpliar?:          () => void;
+  onDevolucion:        () => void;
+  onHorometro?:        () => void;
+  onAsignarProyecto?:  () => void;
 }
 
 export default function RentaActivaCard({
@@ -34,6 +35,7 @@ export default function RentaActivaCard({
   onAmpliar,
   onDevolucion,
   onHorometro,
+  onAsignarProyecto,
 }: RentaActivaCardProps) {
   const todayStr = today();
   const estadoHorometro = (() => {
@@ -171,6 +173,17 @@ export default function RentaActivaCard({
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
               )}
               Ver comprobante
+            </button>
+          )}
+          {onAsignarProyecto && !solicitud.proyecto && (
+            <button
+              onClick={onAsignarProyecto}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-medium text-slate-500 transition-colors"
+            >
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                <path d="M2 3.5A1.5 1.5 0 013.5 2h2.764c.958 0 1.76.56 2.134 1.373L8.75 4.5H12.5A1.5 1.5 0 0114 6v6.5A1.5 1.5 0 0112.5 14h-9A1.5 1.5 0 012 12.5v-9z" />
+              </svg>
+              Asignar proyecto
             </button>
           )}
         </div>

@@ -8,6 +8,7 @@ import DevolucionModal from './DevolucionModal';
 import DevolucionPesadaModal from '../encargado/DevolucionPesadaModal';
 import StatCard from './StatCard';
 import FiltroProyecto from './FiltroProyecto';
+import AsignarProyectoModal from './AsignarProyectoModal';
 import { filtrarPorProyecto } from '../../utils/filtrar-por-proyecto';
 
 interface Props {
@@ -38,6 +39,7 @@ export default function RentasActivasSection({
   }, [initialFolio]);
   const [abriendo,           setAbriendo]           = useState<string | null>(null);
   const [filtroProyecto,     setFiltroProyecto]     = useState<string | null>(null);
+  const [modalAsignar,       setModalAsignar]       = useState<SolicitudRenta | null>(null);
   const [modalAmpliar,       setModalAmpliar]       = useState<SolicitudRenta | null>(null);
   const [modalDevolucion,    setModalDevolucion]    = useState<SolicitudRenta | null>(null);
   const [modalDevPesada,     setModalDevPesada]     = useState<SolicitudRenta | null>(null);
@@ -97,6 +99,11 @@ export default function RentasActivasSection({
     setModalDevPesada(null);
   };
 
+  const handleAsignado = (solicitudId: string, proyectoId: string, nombre: string) => {
+    updateRenta({ ...solicitudes.find(s => s.id === solicitudId)!, proyecto: { id: proyectoId, nombre } });
+    setModalAsignar(null);
+  };
+
   const solicitudesFiltradas = filtrarPorProyecto(
     (showBusqueda || !!initialFolio) && busqueda.trim()
       ? solicitudes.filter(s => {
@@ -144,6 +151,14 @@ export default function RentasActivasSection({
           solicitud={modalDevPesada}
           onClose={() => setModalDevPesada(null)}
           onDevolucion={handleDevolucionPesada}
+        />
+      )}
+      {modalAsignar && (
+        <AsignarProyectoModal
+          solicitud={modalAsignar}
+          isOpen={!!modalAsignar}
+          onClose={() => setModalAsignar(null)}
+          onAsignado={(proyectoId, nombre) => handleAsignado(modalAsignar.id, proyectoId, nombre)}
         />
       )}
 
@@ -252,6 +267,7 @@ export default function RentasActivasSection({
               onAmpliar={() => setModalAmpliar(s)}
               onDevolucion={s.esPesada ? () => setModalDevPesada(s) : () => setModalDevolucion(s)}
               onHorometro={s.esPesada ? () => onNavTo?.('horometros', { solicitudId: s.id }) : undefined}
+              onAsignarProyecto={() => setModalAsignar(s)}
             />
           ))}
         </div>

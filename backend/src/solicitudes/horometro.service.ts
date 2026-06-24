@@ -724,7 +724,7 @@ export class HorometroService {
       const s = await tx.solicitud.update({
         where:   { id: solicitudId },
         data:    updateData,
-        include: { cliente: true },
+        include: { cliente: true, proyecto: { select: { id: true, nombre: true } } },
       });
 
       if (devolucionCompleta) {

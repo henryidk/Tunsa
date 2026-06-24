@@ -28,7 +28,7 @@ export class RentaVencimientoScheduler {
         estado:           'ACTIVA',
         fechaFinEstimada: { gte: haceUnMin, lt: ahora },
       },
-      include: { cliente: true, lecturas: { orderBy: { fecha: 'desc' }, take: 1 } },
+      include: { cliente: true, proyecto: { select: { id: true, nombre: true } }, lecturas: { orderBy: { fecha: 'desc' }, take: 1 } },
     });
 
     if (recienVencidas.length === 0) return;

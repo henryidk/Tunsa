@@ -60,7 +60,7 @@ export class SolicitudesQueryService {
   async findAll() {
     const solicitudes = await this.prisma.solicitud.findMany({
       where:   { estado: { in: ['PENDIENTE', 'APROBADA'] } },
-      include: { cliente: true },
+      include: { cliente: true, proyecto: { select: { id: true, nombre: true } } },
       orderBy: { createdAt: 'desc' },
     });
     const nombres = await this.buildNombresMap(solicitudes.map(s => s.creadaPor));
@@ -75,7 +75,7 @@ export class SolicitudesQueryService {
           { estado: { in: ['PENDIENTE', 'APROBADA'] } },
         ],
       },
-      include: { cliente: true },
+      include: { cliente: true, proyecto: { select: { id: true, nombre: true } } },
       orderBy: { createdAt: 'desc' },
     });
     return solicitudes.map(s => serializeSolicitud(s));
@@ -85,7 +85,7 @@ export class SolicitudesQueryService {
     const now = new Date();
     const solicitudes = await this.prisma.solicitud.findMany({
       where:   { estado: 'ACTIVA', fechaFinEstimada: { lt: now } },
-      include: { cliente: true, lecturas: { orderBy: { fecha: 'desc' }, take: 1 } },
+      include: { cliente: true, proyecto: { select: { id: true, nombre: true } }, lecturas: { orderBy: { fecha: 'desc' }, take: 1 } },
       orderBy: { fechaFinEstimada: 'asc' },
     });
     const nombres = await this.buildNombresMap(solicitudes.map(s => s.creadaPor));
@@ -99,7 +99,7 @@ export class SolicitudesQueryService {
         estado: 'ACTIVA',
         OR: [{ fechaFinEstimada: null }, { fechaFinEstimada: { gte: now } }],
       },
-      include: { cliente: true, lecturas: { orderBy: { fecha: 'desc' }, take: 1 } },
+      include: { cliente: true, proyecto: { select: { id: true, nombre: true } }, lecturas: { orderBy: { fecha: 'desc' }, take: 1 } },
       orderBy: { fechaEntrega: 'desc' },
     });
     const nombres = await this.buildNombresMap(solicitudes.map(s => s.creadaPor));
@@ -219,6 +219,7 @@ export class SolicitudesQueryService {
       },
       include: {
         cliente:  true,
+        proyecto: { select: { id: true, nombre: true } },
         lecturas: { orderBy: { fecha: 'desc' }, take: 1 },
       },
       orderBy: { fechaEntrega: 'desc' },
@@ -234,7 +235,7 @@ export class SolicitudesQueryService {
         estado:           'ACTIVA',
         fechaFinEstimada: { lt: now },
       },
-      include: { cliente: true, lecturas: { orderBy: { fecha: 'desc' }, take: 1 } },
+      include: { cliente: true, proyecto: { select: { id: true, nombre: true } }, lecturas: { orderBy: { fecha: 'desc' }, take: 1 } },
       orderBy: { fechaFinEstimada: 'asc' },
     });
     return solicitudes.map(s => serializeSolicitud(s as SolicitudConCliente));
@@ -263,7 +264,7 @@ export class SolicitudesQueryService {
           ],
         }),
       },
-      include: { cliente: true },
+      include: { cliente: true, proyecto: { select: { id: true, nombre: true } } },
       orderBy: [{ fechaDecision: 'desc' }, { id: 'desc' }],
       take:    PAGE_SIZE + 1,
     });
@@ -297,7 +298,7 @@ export class SolicitudesQueryService {
           ],
         }),
       },
-      include: { cliente: true },
+      include: { cliente: true, proyecto: { select: { id: true, nombre: true } } },
       orderBy: [{ fechaDecision: 'desc' }, { id: 'desc' }],
       take:    PAGE_SIZE + 1,
     });
@@ -339,7 +340,7 @@ export class SolicitudesQueryService {
           },
         ],
       },
-      include: { cliente: true },
+      include: { cliente: true, proyecto: { select: { id: true, nombre: true } } },
       orderBy: [{ fechaUltimaDevolucion: 'desc' }, { id: 'desc' }],
       take:    PAGE_SIZE + 1,
     });
@@ -379,7 +380,7 @@ export class SolicitudesQueryService {
           ],
         }),
       },
-      include: { cliente: true },
+      include: { cliente: true, proyecto: { select: { id: true, nombre: true } } },
       orderBy: [{ fechaUltimaDevolucion: 'desc' }, { id: 'desc' }],
       take:    PAGE_SIZE + 1,
     });

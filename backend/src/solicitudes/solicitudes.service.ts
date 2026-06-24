@@ -190,7 +190,7 @@ export class SolicitudesService {
           esIndefinida:  dto.esIndefinida ?? false,
           creadaPor:     user.username,
         },
-        include: { cliente: true },
+        include: { cliente: true, proyecto: { select: { id: true, nombre: true } } },
       });
 
       await tx.bitacora.createMany({
@@ -281,7 +281,7 @@ export class SolicitudesService {
           folio,
           fechaDecision: now,
         },
-        include: { cliente: true },
+        include: { cliente: true, proyecto: { select: { id: true, nombre: true } } },
       });
 
       await tx.bitacora.createMany({
@@ -388,7 +388,7 @@ export class SolicitudesService {
           fechaEntrega:    fechaInicio,
           fechaFinEstimada,
         },
-        include: { cliente: true },
+        include: { cliente: true, proyecto: { select: { id: true, nombre: true } } },
       });
 
       await this.crearRegistrosSeguimiento(tx, solicitud, fechaInicio);
@@ -428,7 +428,7 @@ export class SolicitudesService {
       const solicitud = await tx.solicitud.update({
         where:   { id },
         data:    { estado: 'APROBADA', aprobadaPor: user.username, folio, fechaDecision: now },
-        include: { cliente: true },
+        include: { cliente: true, proyecto: { select: { id: true, nombre: true } } },
       });
 
       // Backfill entidadNombre en la fila de PENDIENTE creada por create()
@@ -450,7 +450,7 @@ export class SolicitudesService {
       const solicitud = await tx.solicitud.update({
         where:   { id },
         data:    { estado: 'RECHAZADA', motivoRechazo, fechaDecision: new Date() },
-        include: { cliente: true },
+        include: { cliente: true, proyecto: { select: { id: true, nombre: true } } },
       });
 
       await tx.bitacora.createMany({
@@ -493,13 +493,13 @@ export class SolicitudesService {
     const noHayCambios = !data.fechaInicioRenta && !data.items;
 
     if (noHayCambios) {
-      const base    = await this.prisma.solicitud.findUnique({ where: { id }, include: { cliente: true } });
+      const base    = await this.prisma.solicitud.findUnique({ where: { id }, include: { cliente: true, proyecto: { select: { id: true, nombre: true } } } });
       const nombres = await this.resolverNombresActores(base!.creadaPor, base!.aprobadaPor, base!.gestionadaPor);
       return serializeSolicitud(base!, nombres);
     }
 
     const base = await this.prisma.$transaction(async (tx) => {
-      const s = await tx.solicitud.update({ where: { id }, data, include: { cliente: true } });
+      const s = await tx.solicitud.update({ where: { id }, data, include: { cliente: true, proyecto: { select: { id: true, nombre: true } } } });
 
       if (esNuevaFecha) {
         await tx.bitacora.createMany({
@@ -579,7 +579,7 @@ export class SolicitudesService {
       const s = await tx.solicitud.update({
         where:   { id },
         data:    { estado: 'ACTIVA', comprobanteKey: key, fechaEntrega, fechaFinEstimada },
-        include: { cliente: true },
+        include: { cliente: true, proyecto: { select: { id: true, nombre: true } } },
       });
 
       await this.crearRegistrosSeguimiento(tx, solicitud, fechaEntrega);
@@ -770,7 +770,7 @@ export class SolicitudesService {
           totalEstimado:    { increment: costoTotalExtra },
           fechaFinEstimada: nuevaFechaFin,
         },
-        include: { cliente: true },
+        include: { cliente: true, proyecto: { select: { id: true, nombre: true } } },
       });
 
       const extensionesConLabel = nuevasExtensiones.map((e, i) => ({ ...e, label: extensionLabels[i] }));
@@ -789,7 +789,7 @@ export class SolicitudesService {
     id:            string,
     itemRefsInput: string[] | undefined,
   ): Promise<{ itemRef: string; costoReal: number; diasCobrados: number; recargoTiempo: number }[]> {
-    const solicitud = await this.prisma.solicitud.findUnique({ where: { id }, include: { cliente: true } });
+    const solicitud = await this.prisma.solicitud.findUnique({ where: { id }, include: { cliente: true, proyecto: { select: { id: true, nombre: true } } } });
     if (!solicitud || !solicitud.fechaInicioRenta) return [];
 
     const fechaDevolucion    = new Date();
@@ -865,7 +865,7 @@ export class SolicitudesService {
    *  - Si todos los ítems fueron devueltos, la solicitud pasa a DEVUELTA y se fija totalFinal.
    */
   async registrarDevolucion(id: string, dto: RegistrarDevolucionDto, user: AuthenticatedUser) {
-    const solicitud = await this.prisma.solicitud.findUnique({ where: { id }, include: { cliente: true } });
+    const solicitud = await this.prisma.solicitud.findUnique({ where: { id }, include: { cliente: true, proyecto: { select: { id: true, nombre: true } } } });
 
     if (!solicitud)
       throw new NotFoundException('Solicitud no encontrada.');
@@ -1016,7 +1016,7 @@ export class SolicitudesService {
       const s = await tx.solicitud.update({
         where:   { id },
         data:    updateData,
-        include: { cliente: true },
+        include: { cliente: true, proyecto: { select: { id: true, nombre: true } } },
       });
 
       for (const devItem of devolucionItems) {

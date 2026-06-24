@@ -1,7 +1,12 @@
 import { Prisma } from '@prisma/client';
 import type { ExtensionEntry, DevolucionEntry } from './recargo.util';
 
-export type SolicitudConCliente = Prisma.SolicitudGetPayload<{ include: { cliente: true } }> & {
+export type SolicitudConCliente = Prisma.SolicitudGetPayload<{
+  include: {
+    cliente:  true;
+    proyecto: { select: { id: true; nombre: true } };
+  };
+}> & {
   lecturas?: { fecha: Date; horometroFin5pm: Prisma.Decimal | null }[];
 };
 

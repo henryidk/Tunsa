@@ -11,6 +11,8 @@ import HorometroRentaCard from '../HorometroRentaCard';
 import CalendarioMes from '../CalendarioMes';
 import { useActivasStore, useAdminActivasStore } from '../../../store/activas.store';
 import { useVencidasStore, useAdminVencidasStore } from '../../../store/vencidas.store';
+import FiltroProyecto from '../../shared/FiltroProyecto';
+import { filtrarPorProyecto } from '../../../utils/filtrar-por-proyecto';
 
 type PesadaItem = Extract<ItemSnapshot, { kind: 'pesada' }>;
 
@@ -111,7 +113,8 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
   const [lecturasMap,   setLecturasMap]   = useState<Record<string, LecturaHorometro[]>>({});
   const [isLoadingList, setIsLoadingList] = useState(true);
   const [listError,     setListError]     = useState<string | null>(null);
-  const [busqueda,      setBusqueda]      = useState('');
+  const [busqueda,       setBusqueda]      = useState('');
+  const [filtroProyecto, setFiltroProyecto] = useState<string | null>(null);
 
   // Detail view state
   const [selectedId,  setSelectedId]  = useState<string | null>(initialSolicitudId ?? null);
@@ -1321,12 +1324,15 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
   // ── LIST VIEW ─────────────────────────────────────────────────────────────────
   const pendientesCobrar = solicitudes.reduce((sum, s) => sum + s.costoAcumuladoPesada, 0);
 
-  const solicitudesFiltradas = busqueda.trim()
-    ? solicitudes.filter(s => {
-        const q = busqueda.toLowerCase().trim();
-        return (s.folio ?? '').toLowerCase().includes(q) || s.cliente.nombre.toLowerCase().includes(q);
-      })
-    : solicitudes;
+  const solicitudesFiltradas = filtrarPorProyecto(
+    busqueda.trim()
+      ? solicitudes.filter(s => {
+          const q = busqueda.toLowerCase().trim();
+          return (s.folio ?? '').toLowerCase().includes(q) || s.cliente.nombre.toLowerCase().includes(q);
+        })
+      : solicitudes,
+    filtroProyecto,
+  );
 
   return (
     <div>
@@ -1365,7 +1371,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
         </div>
       )}
 
-      <div className="mb-4">
+      <div className="mb-4 flex flex-wrap gap-3 items-center">
         <input
           type="search"
           value={busqueda}
@@ -1373,6 +1379,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
           placeholder="Buscar por folio o cliente..."
           className="w-full sm:w-72 border border-slate-200 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
         />
+        <FiltroProyecto solicitudes={solicitudes} value={filtroProyecto} onChange={setFiltroProyecto} />
       </div>
 
       {!isLoadingList && pendientesHoy > 0 && (

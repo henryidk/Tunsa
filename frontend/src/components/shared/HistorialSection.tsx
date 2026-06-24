@@ -3,6 +3,8 @@ import { usuariosService } from '../../services/usuarios.service';
 import type { SolicitudRenta } from '../../types/solicitud-renta.types';
 import type { QueryHistorial, RechazadasPage } from '../../services/solicitudes.service';
 import RentaHistorialCard from './RentaHistorialCard';
+import FiltroProyecto from './FiltroProyecto';
+import { filtrarPorProyecto } from '../../utils/filtrar-por-proyecto';
 
 // ── Helpers de fecha ──────────────────────────────────────────────────────────
 
@@ -50,7 +52,8 @@ export default function HistorialSection({
   const [fechaHasta,    setFechaHasta]    = useState(hoy());
   const [encargado,     setEncargado]     = useState('');
   const [encargados,    setEncargados]    = useState<Encargado[]>([]);
-  const [busqueda,      setBusqueda]      = useState('');
+  const [busqueda,       setBusqueda]       = useState('');
+  const [filtroProyecto, setFiltroProyecto] = useState<string | null>(null);
   const [filtroActivo,  setFiltroActivo]  = useState<FiltroActivo>({ desde: inicioMes(), hasta: hoy(), creadaPor: '', busqueda: '' });
   const [solicitudes,   setSolicitudes]   = useState<SolicitudRenta[]>([]);
   const [nextCursor,    setNextCursor]    = useState<string | null>(null);
@@ -147,6 +150,9 @@ export default function HistorialSection({
         onChangeBusqueda={setBusqueda}
         onBuscar={() => buscar(fechaDesde, fechaHasta, encargado)}
       />
+      <div className="mt-3">
+        <FiltroProyecto solicitudes={solicitudes} value={filtroProyecto} onChange={setFiltroProyecto} />
+      </div>
 
       {error && (
         <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 mb-4">
@@ -156,12 +162,13 @@ export default function HistorialSection({
 
       {(() => {
         const q = busqueda.toLowerCase().trim();
-        const visibles = q
+        const porTexto = q
           ? solicitudes.filter(s =>
               (s.folio ?? '').toLowerCase().includes(q) ||
               s.cliente.nombre.toLowerCase().includes(q),
             )
           : solicitudes;
+        const visibles = filtrarPorProyecto(porTexto, filtroProyecto);
 
         if (isLoading) return <Skeletons />;
         if (visibles.length === 0) return <SinResultados hayFiltro={q.length > 0} />;

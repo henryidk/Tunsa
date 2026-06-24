@@ -7,6 +7,8 @@ import AmpliacionRentaModal from './AmpliacionRentaModal';
 import DevolucionModal from './DevolucionModal';
 import DevolucionPesadaModal from '../encargado/DevolucionPesadaModal';
 import StatCard from './StatCard';
+import FiltroProyecto from './FiltroProyecto';
+import { filtrarPorProyecto } from '../../utils/filtrar-por-proyecto';
 
 interface Props {
   solicitudes:      SolicitudRenta[];
@@ -35,6 +37,7 @@ export default function RentasActivasSection({
     if (initialFolio) setBusqueda(initialFolio);
   }, [initialFolio]);
   const [abriendo,           setAbriendo]           = useState<string | null>(null);
+  const [filtroProyecto,     setFiltroProyecto]     = useState<string | null>(null);
   const [modalAmpliar,       setModalAmpliar]       = useState<SolicitudRenta | null>(null);
   const [modalDevolucion,    setModalDevolucion]    = useState<SolicitudRenta | null>(null);
   const [modalDevPesada,     setModalDevPesada]     = useState<SolicitudRenta | null>(null);
@@ -94,12 +97,15 @@ export default function RentasActivasSection({
     setModalDevPesada(null);
   };
 
-  const solicitudesFiltradas = (showBusqueda || !!initialFolio) && busqueda.trim()
-    ? solicitudes.filter(s => {
-        const q = busqueda.toLowerCase().trim();
-        return (s.folio ?? '').toLowerCase().includes(q) || s.cliente.nombre.toLowerCase().includes(q);
-      })
-    : solicitudes;
+  const solicitudesFiltradas = filtrarPorProyecto(
+    (showBusqueda || !!initialFolio) && busqueda.trim()
+      ? solicitudes.filter(s => {
+          const q = busqueda.toLowerCase().trim();
+          return (s.folio ?? '').toLowerCase().includes(q) || s.cliente.nombre.toLowerCase().includes(q);
+        })
+      : solicitudes,
+    filtroProyecto,
+  );
 
   const contratosActivos = solicitudes.length;
 
@@ -212,8 +218,8 @@ export default function RentasActivasSection({
         </div>
       )}
 
-      {(showBusqueda || !!initialFolio) && (
-        <div className="mb-4">
+      <div className="mb-4 flex flex-wrap gap-3 items-center">
+        {(showBusqueda || !!initialFolio) && (
           <input
             type="search"
             value={busqueda}
@@ -221,8 +227,9 @@ export default function RentasActivasSection({
             placeholder="Buscar por folio o cliente..."
             className="w-full sm:w-72 border border-slate-200 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
           />
-        </div>
-      )}
+        )}
+        <FiltroProyecto solicitudes={solicitudes} value={filtroProyecto} onChange={setFiltroProyecto} />
+      </div>
 
       {isLoading ? (
         <div className="space-y-3">

@@ -10,6 +10,8 @@ import TiempoGraciaModal from './TiempoGraciaModal';
 import DevolucionModal from './DevolucionModal';
 import DevolucionPesadaModal from '../encargado/DevolucionPesadaModal';
 import StatCard from './StatCard';
+import FiltroProyecto from './FiltroProyecto';
+import { filtrarPorProyecto } from '../../utils/filtrar-por-proyecto';
 
 type NavTo = (section: string, state?: { solicitudId?: string; folio?: string }) => void;
 
@@ -34,6 +36,7 @@ export default function VencidasSection({
   const [isLoading,       setIsLoading]       = useState(true);
   const [error,           setError]           = useState<string | null>(null);
   const [busqueda,        setBusqueda]        = useState(initialFolio ?? '');
+  const [filtroProyecto,  setFiltroProyecto]  = useState<string | null>(null);
   const [ahora,           setAhora]           = useState(() => Date.now());
   const [abriendo,        setAbriendo]        = useState<string | null>(null);
   const [modalAmpliar,    setModalAmpliar]    = useState<SolicitudRenta | null>(null);
@@ -124,12 +127,15 @@ export default function VencidasSection({
     return sum + pendientes.length;
   }, 0);
 
-  const solicitudesFiltradas = busqueda.trim()
-    ? solicitudes.filter(s => {
-        const q = busqueda.toLowerCase().trim();
-        return (s.folio ?? '').toLowerCase().includes(q) || s.cliente.nombre.toLowerCase().includes(q);
-      })
-    : solicitudes;
+  const solicitudesFiltradas = filtrarPorProyecto(
+    busqueda.trim()
+      ? solicitudes.filter(s => {
+          const q = busqueda.toLowerCase().trim();
+          return (s.folio ?? '').toLowerCase().includes(q) || s.cliente.nombre.toLowerCase().includes(q);
+        })
+      : solicitudes,
+    filtroProyecto,
+  );
 
   return (
     <div>
@@ -180,7 +186,7 @@ export default function VencidasSection({
         </div>
       )}
 
-      <div className="mb-4">
+      <div className="mb-4 flex flex-wrap gap-3 items-center">
         <input
           type="search"
           value={busqueda}
@@ -188,6 +194,7 @@ export default function VencidasSection({
           placeholder="Buscar por folio o cliente..."
           className="w-full sm:w-72 border border-slate-200 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
         />
+        <FiltroProyecto solicitudes={solicitudes} value={filtroProyecto} onChange={setFiltroProyecto} />
       </div>
 
       {isLoading ? (

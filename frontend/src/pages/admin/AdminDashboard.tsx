@@ -24,6 +24,7 @@ import UsuariosSection from '../../components/admin/sections/UsuariosSection'
 import BitacorasSection from '../../components/admin/sections/BitacorasSection'
 import CategoriasSection from '../../components/admin/sections/CategoriasSection'
 import HorometrosSection from '../../components/admin/sections/HorometrosSection'
+import ProyectosSectionShared from '../../components/shared/ProyectosSection'
 import DisponibilidadFlotaSection from '../../components/shared/DisponibilidadFlotaSection'
 import NuevaRentaLivianaSection from '../../components/admin/sections/NuevaRentaLivianaSection'
 import NuevaRentaPesadaSection from '../../components/admin/sections/NuevaRentaPesadaSection'
@@ -40,6 +41,7 @@ export type Section =
   | 'rentas-historial'
   | 'rentas-vencidas'
   | 'horometros'
+  | 'proyectos'
   | 'flota'
   | 'equipos'
   | 'categorias'
@@ -159,6 +161,9 @@ export default function AdminDashboard() {
           )}
           {activeSection === 'horometros' && (
             <HorometrosSection initialSolicitudId={navSolicitudId} onNavTo={navTo} />
+          )}
+          {activeSection === 'proyectos' && (
+            <ProyectosSectionShared onNavTo={navTo} />
           )}
           {activeSection === 'equipos' && (
             <EquiposSection onShowToast={showToast} />

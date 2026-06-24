@@ -24,6 +24,7 @@ import HistorialSection from '../../components/encargado/sections/HistorialSecti
 import EquiposSection from '../../components/encargado/sections/EquiposSection';
 import ClientesSection from '../../components/encargado/sections/ClientesSection';
 import DisponibilidadFlotaSection from '../../components/shared/DisponibilidadFlotaSection';
+import ProyectosSectionShared from '../../components/shared/ProyectosSection';
 import CambiarPasswordModal from '../../components/admin/CambiarPasswordModal';
 import type { ToastType } from '../../types/ui.types';
 import type { ToastState } from '../admin/AdminDashboard';
@@ -37,6 +38,7 @@ type Section =
   | 'mis-solicitudes'
   | 'rentas-activas'
   | 'horometros'
+  | 'proyectos'
   | 'vencidas'
   | 'historial'
   | 'flota'
@@ -98,6 +100,7 @@ export default function EncargadoDashboard() {
       case 'mis-solicitudes': return <MisSolicitudesSection onNavTo={navTo} misPendientes={misPendientes} />;
       case 'rentas-activas':  return <RentasActivasSection onNavTo={navTo} initialFolio={navState.folio} />;
       case 'horometros':      return <HorometrosSection key={horometrosKey} initialSolicitudId={navState.solicitudId} onNavTo={navTo} />;
+      case 'proyectos':       return <ProyectosSectionShared onNavTo={navTo} />;
       case 'vencidas':        return <VencidasSection initialFolio={navState.folio} onNavTo={navTo} />;
       case 'historial':       return <HistorialSection />;
       case 'flota':           return <DisponibilidadFlotaSection onNavTo={navTo} />;

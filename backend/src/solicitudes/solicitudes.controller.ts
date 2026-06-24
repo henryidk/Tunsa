@@ -27,6 +27,8 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
 import { tieneAccesoGlobal } from '../auth/utils/roles.util';
+import { ProyectosService } from '../proyectos/proyectos.service';
+import { AsignarProyectoDto } from '../proyectos/dto/asignar-proyecto.dto';
 
 const MAX_PDF_SIZE = 10 * 1024 * 1024; // 10 MB
 
@@ -38,6 +40,7 @@ export class SolicitudesController {
     private readonly solicitudesQueryService: SolicitudesQueryService,
     private readonly solicitudesGateway:      SolicitudesGateway,
     private readonly horometroService:        HorometroService,
+    private readonly proyectosService:        ProyectosService,
   ) {}
 
   // ── Escrituras ────────────────────────────────────────────────────────────────
@@ -392,5 +395,16 @@ export class SolicitudesController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.horometroService.getResumenHorometro(id, user);
+  }
+
+  // ── Proyectos ─────────────────────────────────────────────────────────────────
+
+  @Post(':id/asignar-proyecto')
+  @Roles('encargado_maquinas', 'admin', 'secretaria')
+  asignarProyecto(
+    @Param('id') solicitudId: string,
+    @Body() dto: AsignarProyectoDto,
+  ) {
+    return this.proyectosService.asignarSolicitud(solicitudId, dto);
   }
 }

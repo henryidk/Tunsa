@@ -11,6 +11,7 @@ import { ExtrasModule } from './extras/extras.module';
 import { CategoriasModule } from './categorias/categorias.module';
 import { BitacorasModule } from './bitacoras/bitacoras.module';
 import { ClientesModule } from './clientes/clientes.module';
+import { ProyectosModule } from './proyectos/proyectos.module';
 import { GranelModule } from './granel/granel.module';
 import { SolicitudesModule } from './solicitudes/solicitudes.module';
 import { CleanupModule } from './cleanup/cleanup.module';
@@ -74,6 +75,7 @@ import { BackupModule } from './backup/backup.module';
     CategoriasModule,
     BitacorasModule,
     ClientesModule,
+    ProyectosModule,
     GranelModule,
     SolicitudesModule,
     CleanupModule,

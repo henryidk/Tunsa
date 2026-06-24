@@ -194,10 +194,17 @@ enum EstadoSolicitud {
   DEVUELTA // cliente devolvió el equipo — renta cerrada
 }
 
+enum EstadoProyecto {
+  ACTIVO
+  FINALIZADO
+}
+
 model Solicitud {
   id            String          @id @default(cuid())
   clienteId     String
   cliente       Cliente         @relation(fields: [clienteId], references: [id])
+  proyectoId    String?
+  proyecto      Proyecto?       @relation(fields: [proyectoId], references: [id])
   items         Json
   modalidad     ModalidadPago
   notas         String          @db.Text
@@ -266,6 +273,7 @@ model Solicitud {
   @@index([creadaPor, estado, fechaFinEstimada]) // consulta encargado: activas-mias y vencidas-mias
   @@index([gestionadaPor, estado, fechaFinEstimada]) // consulta encargado: retroactivas gestionadas
   @@index([clienteId])
+  @@index([proyectoId]) // filtrar rentas por proyecto
   @@map("solicitudes")
 }
 
@@ -356,9 +364,32 @@ model Cliente {
   updatedAt    DateTime @updatedAt
 
   solicitudes Solicitud[]
+  proyectos   Proyecto[]
 
   @@index([nombre])
   @@map("clientes")
+}
+
+// ==================== PROYECTOS ====================
+
+model Proyecto {
+  id          String         @id // PROY-0001 — auto-generado por el servicio
+  nombre      String
+  descripcion String?        @db.Text
+  clienteId   String
+  cliente     Cliente        @relation(fields: [clienteId], references: [id])
+  estado      EstadoProyecto @default(ACTIVO)
+  fechaInicio DateTime       @db.Date
+  fechaFin    DateTime?      @db.Date
+  creadoPor   String // username de quien creó el proyecto
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  solicitudes Solicitud[]
+
+  @@index([clienteId, estado]) // selector de proyectos al elegir cliente (filtra ACTIVO)
+  @@index([estado, createdAt]) // lista de proyectos con filtro por estado
+  @@map("proyectos")
 }
 
 // ==================== HORÓMETRO (MAQUINARIA PESADA) ====================

@@ -105,6 +105,7 @@ export interface SolicitudRenta {
   id:             string;
   clienteId:      string;
   cliente:        ClienteBasico;
+  proyecto:       import('./proyecto.types').ProyectoResumen | null;
   items:          ItemSnapshot[];
   modalidad:      ModalidadPago;
   notas:          string;

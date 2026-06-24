@@ -12,6 +12,8 @@ import { formatQ, unidadLabel } from '../../../types/solicitud.types';
 import type { ModalidadPago, UnidadDuracion } from '../../../types/solicitud.types';
 import EspecialBadge from '../../shared/EspecialBadge';
 import PaymentModeSelector from '../PaymentModeSelector';
+import ProyectoSelector from '../../shared/ProyectoSelector';
+import { useProyectosCliente } from '../../../hooks/useProyectosCliente';
 
 interface Props {
   onShowToast?: (type: ToastType, title: string, msg: string) => void;
@@ -58,6 +60,9 @@ export default function NuevaSolicitudPesadaSection({ onShowToast = () => {} }: 
   const [indefinido,    setIndefinido]    = useState(false);
   const [modalidadPago, setModalidadPago] = useState<ModalidadPago | null>(null);
   const [isSubmitting,  setIsSubmitting]  = useState(false);
+  const [proyectoId,    setProyectoId]    = useState<string | null>(null);
+
+  const { proyectos } = useProyectosCliente(cliente?.id ?? null);
 
   const [showNoNotasModal, setShowNoNotasModal] = useState(false);
   const [showNoPagoModal,  setShowNoPagoModal]  = useState(false);
@@ -88,6 +93,7 @@ export default function NuevaSolicitudPesadaSection({ onShowToast = () => {} }: 
   const handleClienteSelect = (c: Cliente | null) => {
     if (c?.id !== cliente?.id) {
       setIndefinido(false);
+      setProyectoId(null);
       setItems([]);
     }
     setCliente(c);
@@ -141,6 +147,7 @@ export default function NuevaSolicitudPesadaSection({ onShowToast = () => {} }: 
 
       const nueva = await solicitudesService.create({
         clienteId:    cliente.id,
+        proyectoId:   proyectoId || undefined,
         modalidad:    modalidadPago!,
         notas:        notas.trim(),
         esIndefinida: indefinido || undefined,
@@ -155,6 +162,7 @@ export default function NuevaSolicitudPesadaSection({ onShowToast = () => {} }: 
       setItems([]);
       setIndefinido(false);
       setModalidadPago(null);
+      setProyectoId(null);
       const reservados = await solicitudesService.getEquiposReservados();
       setReservedIds(reservados);
     } catch (err: any) {
@@ -188,6 +196,7 @@ export default function NuevaSolicitudPesadaSection({ onShowToast = () => {} }: 
 
           <SectionCard icon={<UserIcon />} title="Cliente de la Solicitud" subtitle={cliente ? 'Cliente seleccionado' : 'Busca un cliente registrado'}>
             <ClienteSearchWidget key={clienteKey} onSelect={handleClienteSelect} />
+            <ProyectoSelector proyectos={proyectos} value={proyectoId} onChange={setProyectoId} />
             {cliente?.esEspecial && (
               <div className="mt-3 flex items-center justify-between px-3 py-2.5 bg-violet-50 border border-violet-200 rounded-lg">
                 <div className="flex items-center gap-2">

@@ -15,6 +15,10 @@ export class CreateSolicitudDirectaDto {
   @IsString()
   clienteId: string;
 
+  @IsOptional()
+  @IsString()
+  proyectoId?: string;
+
   @IsString()
   @IsNotEmpty()
   gestionadaPor: string;

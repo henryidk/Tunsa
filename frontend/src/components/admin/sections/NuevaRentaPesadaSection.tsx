@@ -13,6 +13,8 @@ import type { ModalidadPago, UnidadDuracion } from '../../../types/solicitud.typ
 import EspecialBadge from '../../shared/EspecialBadge';
 import PaymentModeSelector from '../../encargado/PaymentModeSelector';
 import EncargadoSelector from '../../shared/EncargadoSelector';
+import ProyectoSelector from '../../shared/ProyectoSelector';
+import { useProyectosCliente } from '../../../hooks/useProyectosCliente';
 import { useTarifaPesadaEdit } from '../../../hooks/useTarifaPesadaEdit';
 import { TarifaConOverride, PencilIcon, PesadaTarifaEditorPanel } from '../PesadaTarifaEditor';
 
@@ -64,6 +66,9 @@ export default function NuevaRentaPesadaSection({ onNavTo, onShowToast = () => {
   const [isSubmitting,  setIsSubmitting]  = useState(false);
   const [gestionadaPor, setGestionadaPor] = useState('');
   const [encargados,    setEncargados]    = useState<{ username: string; nombre: string }[]>([]);
+  const [proyectoId,    setProyectoId]    = useState<string | null>(null);
+
+  const { proyectos } = useProyectosCliente(cliente?.id ?? null);
 
   const [showNoEncargadoModal, setShowNoEncargadoModal] = useState(false);
   const [showNoPagoModal,      setShowNoPagoModal]      = useState(false);
@@ -101,6 +106,7 @@ export default function NuevaRentaPesadaSection({ onNavTo, onShowToast = () => {
   const handleClienteSelect = (c: Cliente | null) => {
     if (c?.id !== cliente?.id) {
       setIndefinido(false);
+      setProyectoId(null);
       setItems([]);
     }
     setCliente(c);
@@ -131,6 +137,7 @@ export default function NuevaRentaPesadaSection({ onNavTo, onShowToast = () => {
     setIndefinido(false);
     setModalidadPago(null);
     setGestionadaPor('');
+    setProyectoId(null);
   };
 
   const submitRenta = async () => {
@@ -168,6 +175,7 @@ export default function NuevaRentaPesadaSection({ onNavTo, onShowToast = () => {
 
       await solicitudesService.crearRentaDirecta({
         clienteId:     cliente.id,
+        proyectoId:    proyectoId || undefined,
         gestionadaPor,
         modalidad:     modalidadPago!,
         notas:         notas.trim() || undefined,
@@ -212,6 +220,7 @@ export default function NuevaRentaPesadaSection({ onNavTo, onShowToast = () => {
 
           <SectionCard icon={<UserIcon />} title="Cliente de la Renta" subtitle={cliente ? 'Cliente seleccionado' : 'Busca un cliente registrado'}>
             <ClienteSearchWidget key={clienteKey} onSelect={handleClienteSelect} />
+            <ProyectoSelector proyectos={proyectos} value={proyectoId} onChange={setProyectoId} />
             {cliente?.esEspecial && (
               <div className="mt-3 flex items-center justify-between px-3 py-2.5 bg-violet-50 border border-violet-200 rounded-lg">
                 <div className="flex items-center gap-2">

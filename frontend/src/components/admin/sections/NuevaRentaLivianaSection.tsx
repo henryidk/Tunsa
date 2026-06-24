@@ -18,6 +18,8 @@ import { usePrecioOverride } from '../../../hooks/usePrecioOverride';
 import { solicitudesService } from '../../../services/solicitudes.service';
 import { usuariosService } from '../../../services/usuarios.service';
 import EncargadoSelector from '../../shared/EncargadoSelector';
+import ProyectoSelector from '../../shared/ProyectoSelector';
+import { useProyectosCliente } from '../../../hooks/useProyectosCliente';
 import type { ItemSnapshot } from '../../../types/solicitud-renta.types';
 import type { ToastType } from '../../../types/ui.types';
 
@@ -37,6 +39,9 @@ export default function NuevaRentaLivianaSection({ onNavTo, onShowToast = () => 
   const [isSubmitting,         setIsSubmitting]         = useState(false);
   const [indefinido,           setIndefinido]           = useState(false);
   const [gestionadaPor,        setGestionadaPor]        = useState('');
+  const [proyectoId,           setProyectoId]           = useState<string | null>(null);
+
+  const { proyectos } = useProyectosCliente(clienteSeleccionado?.id ?? null);
   const [encargados,           setEncargados]           = useState<{ username: string; nombre: string }[]>([]);
 
   useEffect(() => {
@@ -66,6 +71,7 @@ export default function NuevaRentaLivianaSection({ onNavTo, onShowToast = () => 
   const handleClienteSelect = (cliente: Cliente | null) => {
     if (cliente?.id !== clienteSeleccionado?.id) {
       setIndefinido(false);
+      setProyectoId(null);
       cart.clear();
       precioOverride.clear();
     }
@@ -94,6 +100,7 @@ export default function NuevaRentaLivianaSection({ onNavTo, onShowToast = () => 
     setNotas('');
     setIndefinido(false);
     setGestionadaPor('');
+    setProyectoId(null);
   };
 
   const handleRegistrar = () => {
@@ -157,6 +164,7 @@ export default function NuevaRentaLivianaSection({ onNavTo, onShowToast = () => 
 
       await solicitudesService.crearRentaDirecta({
         clienteId:     clienteSeleccionado.id,
+        proyectoId:    proyectoId || undefined,
         gestionadaPor,
         modalidad:     modalidadPago,
         notas:         notas.trim() || undefined,
@@ -210,6 +218,7 @@ export default function NuevaRentaLivianaSection({ onNavTo, onShowToast = () => 
               : 'Busca un cliente registrado o regístralo desde aquí'}
           >
             <ClienteSearchWidget key={clienteKey} onSelect={handleClienteSelect} />
+            <ProyectoSelector proyectos={proyectos} value={proyectoId} onChange={setProyectoId} />
             {clienteSeleccionado?.esEspecial && (
               <div className="mt-3 flex items-center justify-between px-3 py-2.5 bg-violet-50 border border-violet-200 rounded-lg">
                 <div className="flex items-center gap-2">

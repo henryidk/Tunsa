@@ -60,6 +60,16 @@ export class SolicitudesService {
     return v != null ? parseFloat(String(v)) : null;
   }
 
+  private async validarProyecto(proyectoId: string, clienteId: string): Promise<void> {
+    const proyecto = await this.prisma.proyecto.findUnique({ where: { id: proyectoId } });
+    if (!proyecto)
+      throw new BadRequestException(`No existe el proyecto "${proyectoId}".`);
+    if (proyecto.clienteId !== clienteId)
+      throw new BadRequestException('El proyecto no pertenece al cliente seleccionado.');
+    if (proyecto.estado !== 'ACTIVO')
+      throw new BadRequestException('Solo se pueden asignar proyectos activos.');
+  }
+
   /**
    * Devuelve los precios vigentes de un ítem consultando la tabla que corresponde a su kind.
    * Centraliza toda la lógica de "qué tabla consultar según el tipo de ítem":
@@ -178,10 +188,13 @@ export class SolicitudesService {
       });
     }
 
+    if (dto.proyectoId) await this.validarProyecto(dto.proyectoId, dto.clienteId);
+
     const solicitud = await this.prisma.$transaction(async (tx) => {
       const s = await tx.solicitud.create({
         data: {
           clienteId:     dto.clienteId,
+          proyectoId:    dto.proyectoId,
           items:         itemsToStore,
           modalidad:     dto.modalidad,
           notas:         dto.notas,
@@ -253,6 +266,8 @@ export class SolicitudesService {
       });
     }
 
+    if (dto.proyectoId) await this.validarProyecto(dto.proyectoId, dto.clienteId);
+
     return this.prisma.$transaction(async (tx) => {
       const now     = new Date();
       const mesAnio = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -268,6 +283,7 @@ export class SolicitudesService {
       const solicitud = await tx.solicitud.create({
         data: {
           clienteId:     dto.clienteId,
+          proyectoId:    dto.proyectoId,
           items:         itemsToStore,
           modalidad:     dto.modalidad,
           notas:         dto.notas ?? '',
@@ -341,6 +357,8 @@ export class SolicitudesService {
       });
     }
 
+    if (dto.proyectoId) await this.validarProyecto(dto.proyectoId, dto.clienteId);
+
     return this.prisma.$transaction(async (tx) => {
       const now     = new Date();
       const mesAnio = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -372,6 +390,7 @@ export class SolicitudesService {
       const solicitud = await tx.solicitud.create({
         data: {
           clienteId:       dto.clienteId,
+          proyectoId:      dto.proyectoId,
           items:           itemsToStore,
           modalidad:       dto.modalidad,
           notas:           dto.notas ?? '',

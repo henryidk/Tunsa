@@ -16,6 +16,8 @@ import { usePendientesStore } from '../../../store/pendientes.store';
 import type { ItemSnapshot } from '../../../types/solicitud-renta.types';
 import type { ToastType } from '../../../types/ui.types';
 import EspecialBadge from '../../shared/EspecialBadge';
+import ProyectoSelector from '../../shared/ProyectoSelector';
+import { useProyectosCliente } from '../../../hooks/useProyectosCliente';
 
 interface Props {
   onNavTo?:     (section: string) => void;
@@ -33,7 +35,9 @@ export default function NuevaSolicitudSection({ onShowToast = () => {} }: Props)
   const [showNoNotasModal,    setShowNoNotasModal]    = useState(false);
   const [isSubmitting,        setIsSubmitting]        = useState(false);
   const [indefinido,          setIndefinido]          = useState(false);
+  const [proyectoId,          setProyectoId]          = useState<string | null>(null);
 
+  const { proyectos } = useProyectosCliente(clienteSeleccionado?.id ?? null);
   const { equiposLiviana, granelData, reservedIds, isLoading, error: dataError, refreshReservedIds } = useSolicitudData();
   const cart = useSolicitudCart();
 
@@ -46,6 +50,7 @@ export default function NuevaSolicitudSection({ onShowToast = () => {} }: Props)
   const handleClienteSelect = (cliente: Cliente | null) => {
     if (cliente?.id !== clienteSeleccionado?.id) {
       setIndefinido(false);
+      setProyectoId(null);
       cart.clear();
     }
     setClienteSeleccionado(cliente);
@@ -69,6 +74,7 @@ export default function NuevaSolicitudSection({ onShowToast = () => {} }: Props)
     setModalidadPago(null);
     setNotas('');
     setIndefinido(false);
+    setProyectoId(null);
   };
 
   const handleEnviar = () => {
@@ -136,6 +142,7 @@ export default function NuevaSolicitudSection({ onShowToast = () => {} }: Props)
 
       const nuevaSolicitud = await solicitudesService.create({
         clienteId:     clienteSeleccionado.id,
+        proyectoId:    proyectoId || undefined,
         modalidad:     modalidadPago,
         notas:         notas.trim(),
         totalEstimado: cart.summary.total,
@@ -191,6 +198,7 @@ export default function NuevaSolicitudSection({ onShowToast = () => {} }: Props)
               : 'Busca un cliente registrado o regístralo desde aquí'}
           >
             <ClienteSearchWidget key={clienteKey} onSelect={handleClienteSelect} />
+            <ProyectoSelector proyectos={proyectos} value={proyectoId} onChange={setProyectoId} />
             {clienteSeleccionado?.esEspecial && (
               <div className="mt-3 flex items-center justify-between px-3 py-2.5 bg-violet-50 border border-violet-200 rounded-lg">
                 <div className="flex items-center gap-2">

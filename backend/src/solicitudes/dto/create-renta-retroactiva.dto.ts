@@ -10,6 +10,10 @@ export class CreateRentaRetroactivaDto {
   @IsString()
   clienteId: string;
 
+  @IsOptional()
+  @IsString()
+  proyectoId?: string;
+
   @IsDateString()
   fechaInicioRenta: string;
 

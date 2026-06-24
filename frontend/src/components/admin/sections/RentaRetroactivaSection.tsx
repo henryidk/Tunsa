@@ -22,6 +22,8 @@ import { equiposService } from '../../../services/equipos.service';
 import { useReservadosStore } from '../../../store/reservados.store';
 import { usuariosService } from '../../../services/usuarios.service';
 import EncargadoSelector from '../../shared/EncargadoSelector';
+import ProyectoSelector from '../../shared/ProyectoSelector';
+import { useProyectosCliente } from '../../../hooks/useProyectosCliente';
 import type { ItemSnapshot } from '../../../types/solicitud-renta.types';
 import type { ToastType } from '../../../types/ui.types';
 
@@ -52,6 +54,9 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
   const [showNoFechaModal,    setShowNoFechaModal]    = useState(false);
   const [isSubmitting,        setIsSubmitting]        = useState(false);
   const [indefinido,          setIndefinido]          = useState(false);
+  const [proyectoId,          setProyectoId]          = useState<string | null>(null);
+
+  const { proyectos } = useProyectosCliente(clienteSeleccionado?.id ?? null);
   const [fechaInicioRenta,    setFechaInicioRenta]    = useState('');
   const [gestionadaPor,          setGestionadaPor]          = useState('');
   const [encargados,             setEncargados]             = useState<{ username: string; nombre: string }[]>([]);
@@ -104,6 +109,7 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
   const handleClienteSelect = (cliente: Cliente | null) => {
     if (cliente?.id !== clienteSeleccionado?.id) {
       setIndefinido(false);
+      setProyectoId(null);
       cart.clear();
       precioOverride.clear();
       setPesadaItem(null);
@@ -147,6 +153,7 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
     setFechaInicioRenta('');
     setGestionadaPor('');
     setPesadaItem(null);
+    setProyectoId(null);
   };
 
   const handleRegistrar = () => {
@@ -167,6 +174,7 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
         const { equipo, extrasSeleccionados, tarifaBaseEfectiva, diasSolicitados, unidad, horometroInicial } = pesadaItem;
         rentaCreada = await solicitudesService.crearRentaRetroactiva({
           clienteId:        clienteSeleccionado.id,
+          proyectoId:       proyectoId || undefined,
           fechaInicioRenta: fechaISO,
           modalidad:        modalidadPago,
           notas:            notas.trim() || undefined,
@@ -239,6 +247,7 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
 
         rentaCreada = await solicitudesService.crearRentaRetroactiva({
           clienteId:        clienteSeleccionado.id,
+          proyectoId:       proyectoId || undefined,
           fechaInicioRenta: fechaISO,
           modalidad:        modalidadPago,
           notas:            notas.trim() || undefined,
@@ -334,6 +343,7 @@ export default function RentaRetroactivaSection({ onNavTo, onShowToast = () => {
               : 'Busca un cliente registrado o regístralo desde aquí'}
           >
             <ClienteSearchWidget key={clienteKey} onSelect={handleClienteSelect} />
+            <ProyectoSelector proyectos={proyectos} value={proyectoId} onChange={setProyectoId} />
             {clienteSeleccionado?.esEspecial && (
               <div className="mt-3 flex items-center justify-between px-3 py-2.5 bg-violet-50 border border-violet-200 rounded-lg">
                 <div className="flex items-center gap-2">

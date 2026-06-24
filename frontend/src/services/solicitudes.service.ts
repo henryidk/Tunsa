@@ -30,6 +30,7 @@ export interface QueryHistorial {
 
 interface CreateSolicitudPayload {
   clienteId:      string;
+  proyectoId?:    string;
   modalidad:      ModalidadPago;
   notas:          string;
   totalEstimado?: number;
@@ -39,6 +40,7 @@ interface CreateSolicitudPayload {
 
 interface CreateSolicitudDirectaPayload {
   clienteId:      string;
+  proyectoId?:    string;
   gestionadaPor:  string;
   modalidad:      ModalidadPago;
   notas?:         string;
@@ -49,6 +51,7 @@ interface CreateSolicitudDirectaPayload {
 
 interface CreateRentaRetroactivaPayload {
   clienteId:        string;
+  proyectoId?:      string;
   fechaInicioRenta: string;
   modalidad:        ModalidadPago;
   notas?:           string;

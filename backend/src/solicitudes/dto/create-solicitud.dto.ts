@@ -49,6 +49,10 @@ export class CreateSolicitudDto {
   clienteId: string;
 
   @IsOptional()
+  @IsString()
+  proyectoId?: string;
+
+  @IsOptional()
   @IsBoolean()
   esIndefinida?: boolean;
 

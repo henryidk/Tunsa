@@ -11,24 +11,17 @@ interface Props {
   onGuardado: (p: Proyecto) => void;
 }
 
-function hoyISO(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
 export default function ProyectoFormModal({ proyecto, isOpen, onClose, onGuardado }: Props) {
   const esEdicion = !!proyecto;
 
-  const [nombre,      setNombre]      = useState('');
-  const [descripcion, setDescripcion] = useState('');
-  const [clienteId,   setClienteId]   = useState('');
-  const [fechaInicio, setFechaInicio] = useState(hoyISO());
-  const [fechaFin,    setFechaFin]    = useState('');
-  const [clientes,    setClientes]    = useState<Cliente[]>([]);
-  const [loadingCli,  setLoadingCli]  = useState(false);
+  const [nombre,       setNombre]       = useState('');
+  const [descripcion,  setDescripcion]  = useState('');
+  const [clienteId,    setClienteId]    = useState('');
+  const [clientes,     setClientes]     = useState<Cliente[]>([]);
+  const [loadingCli,   setLoadingCli]   = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error,       setError]       = useState<string | null>(null);
-  const [errores,     setErrores]     = useState<Record<string, string>>({});
+  const [error,        setError]        = useState<string | null>(null);
+  const [errores,      setErrores]      = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!isOpen) return;
@@ -38,19 +31,15 @@ export default function ProyectoFormModal({ proyecto, isOpen, onClose, onGuardad
       setNombre(proyecto.nombre);
       setDescripcion(proyecto.descripcion ?? '');
       setClienteId(proyecto.clienteId);
-      setFechaInicio(proyecto.fechaInicio);
-      setFechaFin(proyecto.fechaFin ?? '');
     } else {
       setNombre('');
       setDescripcion('');
       setClienteId('');
-      setFechaInicio(hoyISO());
-      setFechaFin('');
     }
     if (!esEdicion) {
       setLoadingCli(true);
       clientesService.getAll()
-        .then(data => { setClientes(data); if (data.length > 0 && !clienteId) setClienteId(data[0].id); })
+        .then(data => { setClientes(data); if (data.length > 0) setClienteId(data[0].id); })
         .catch(() => setError('No se pudieron cargar los clientes.'))
         .finally(() => setLoadingCli(false));
     }
@@ -59,10 +48,8 @@ export default function ProyectoFormModal({ proyecto, isOpen, onClose, onGuardad
 
   const validar = (): boolean => {
     const e: Record<string, string> = {};
-    if (!nombre.trim())     e.nombre      = 'El nombre es requerido';
-    if (!esEdicion && !clienteId) e.clienteId = 'Selecciona un cliente';
-    if (!fechaInicio)       e.fechaInicio = 'La fecha de inicio es requerida';
-    if (fechaFin && fechaFin < fechaInicio) e.fechaFin = 'La fecha de cierre no puede ser anterior al inicio';
+    if (!nombre.trim())            e.nombre    = 'El nombre es requerido';
+    if (!esEdicion && !clienteId)  e.clienteId = 'Selecciona un cliente';
     setErrores(e);
     return Object.keys(e).length === 0;
   };
@@ -77,8 +64,6 @@ export default function ProyectoFormModal({ proyecto, isOpen, onClose, onGuardad
         const data: UpdateProyectoData = {
           nombre:      nombre.trim(),
           descripcion: descripcion.trim() || undefined,
-          fechaInicio,
-          fechaFin:    fechaFin || undefined,
         };
         resultado = await proyectosService.update(proyecto!.id, data);
       } else {
@@ -86,8 +71,6 @@ export default function ProyectoFormModal({ proyecto, isOpen, onClose, onGuardad
           nombre:      nombre.trim(),
           descripcion: descripcion.trim() || undefined,
           clienteId,
-          fechaInicio,
-          fechaFin:    fechaFin || undefined,
         };
         resultado = await proyectosService.create(data);
       }
@@ -138,7 +121,7 @@ export default function ProyectoFormModal({ proyecto, isOpen, onClose, onGuardad
             {errores.nombre && <p className="text-xs text-red-500 mt-1">{errores.nombre}</p>}
           </div>
 
-          {/* Cliente (solo en creación) */}
+          {/* Cliente */}
           {esEdicion ? (
             <div>
               <label className="text-xs font-medium text-slate-600 block mb-1.5">Cliente</label>
@@ -171,33 +154,6 @@ export default function ProyectoFormModal({ proyecto, isOpen, onClose, onGuardad
               {errores.clienteId && <p className="text-xs text-red-500 mt-1">{errores.clienteId}</p>}
             </div>
           )}
-
-          {/* Fechas */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-medium text-slate-600 block mb-1.5">
-                Fecha de inicio <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="date"
-                value={fechaInicio}
-                onChange={e => setFechaInicio(e.target.value)}
-                className={`w-full px-3 py-2 rounded-xl border text-sm text-slate-700 focus:outline-none focus:ring-2 transition-all ${errores.fechaInicio ? 'border-red-300 focus:ring-red-100' : 'border-slate-200 focus:border-indigo-400 focus:ring-indigo-100'}`}
-              />
-              {errores.fechaInicio && <p className="text-xs text-red-500 mt-1">{errores.fechaInicio}</p>}
-            </div>
-            <div>
-              <label className="text-xs font-medium text-slate-600 block mb-1.5">Fecha de cierre estimada</label>
-              <input
-                type="date"
-                value={fechaFin}
-                min={fechaInicio}
-                onChange={e => setFechaFin(e.target.value)}
-                className={`w-full px-3 py-2 rounded-xl border text-sm text-slate-700 focus:outline-none focus:ring-2 transition-all ${errores.fechaFin ? 'border-red-300 focus:ring-red-100' : 'border-slate-200 focus:border-indigo-400 focus:ring-indigo-100'}`}
-              />
-              {errores.fechaFin && <p className="text-xs text-red-500 mt-1">{errores.fechaFin}</p>}
-            </div>
-          </div>
 
           {/* Descripción */}
           <div>

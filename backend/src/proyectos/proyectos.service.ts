@@ -124,8 +124,7 @@ export class ProyectosService {
         nombre:      dto.nombre,
         descripcion: dto.descripcion ?? null,
         clienteId:   dto.clienteId,
-        fechaInicio: new Date(dto.fechaInicio),
-        fechaFin:    dto.fechaFin ? new Date(dto.fechaFin) : null,
+        fechaInicio: new Date(),
         creadoPor,
       },
     });
@@ -138,8 +137,6 @@ export class ProyectosService {
     const data: Prisma.ProyectoUpdateInput = {};
     if (dto.nombre      !== undefined) data.nombre      = dto.nombre;
     if (dto.descripcion !== undefined) data.descripcion = dto.descripcion;
-    if (dto.fechaInicio !== undefined) data.fechaInicio = new Date(dto.fechaInicio);
-    if (dto.fechaFin    !== undefined) data.fechaFin    = dto.fechaFin ? new Date(dto.fechaFin) : null;
 
     await this.prisma.proyecto.update({ where: { id }, data });
     return this.toResponse(id);
@@ -158,7 +155,7 @@ export class ProyectosService {
       );
     }
 
-    await this.prisma.proyecto.update({ where: { id }, data: { estado: 'FINALIZADO' } });
+    await this.prisma.proyecto.update({ where: { id }, data: { estado: 'FINALIZADO', fechaFin: new Date() } });
     return this.toResponse(id);
   }
 

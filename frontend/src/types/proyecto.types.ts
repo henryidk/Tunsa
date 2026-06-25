@@ -29,16 +29,12 @@ export interface ProyectoSolicitudes {
 }
 
 export interface CreateProyectoData {
-  nombre:      string;
+  nombre:       string;
   descripcion?: string;
-  clienteId:   string;
-  fechaInicio: string;
-  fechaFin?:   string;
+  clienteId:    string;
 }
 
 export interface UpdateProyectoData {
   nombre?:      string;
   descripcion?: string;
-  fechaInicio?: string;
-  fechaFin?:    string;
 }

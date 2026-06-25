@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, MaxLength, IsDateString } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, MaxLength } from 'class-validator';
 
 export class CreateProyectoDto {
   @IsString()
@@ -14,11 +14,4 @@ export class CreateProyectoDto {
   @IsString()
   @IsNotEmpty()
   clienteId: string;
-
-  @IsDateString()
-  fechaInicio: string;
-
-  @IsDateString()
-  @IsOptional()
-  fechaFin?: string;
 }

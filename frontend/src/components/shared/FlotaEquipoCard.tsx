@@ -38,11 +38,12 @@ function fmtFecha(iso: string): string {
 }
 
 interface Props {
-  item:        FlotaItem;
-  onVerRenta?: (folio: string, estado: 'en-renta' | 'vencida') => void;
+  item:              FlotaItem;
+  onVerRenta?:       (folio: string, estado: 'en-renta' | 'vencida') => void;
+  onProyectoClick?:  (proyectoId: string) => void;
 }
 
-export default function FlotaEquipoCard({ item, onVerRenta }: Props) {
+export default function FlotaEquipoCard({ item, onVerRenta, onProyectoClick }: Props) {
   const user     = useAuthStore(s => s.user);
   const roleName = user?.role.nombre;
   const tieneAccesoGlobal = roleName === 'admin' || roleName === 'secretaria';
@@ -83,7 +84,13 @@ export default function FlotaEquipoCard({ item, onVerRenta }: Props) {
         ) : item.renta ? (
           <div className="space-y-0.5">
             <p className="text-xs font-semibold text-slate-700 truncate">{item.renta.clienteNombre}</p>
-            <ProyectoBadge proyecto={item.renta.proyecto} className="mt-0.5" />
+            <ProyectoBadge
+              proyecto={item.renta.proyecto}
+              className="mt-0.5"
+              onClick={item.renta.proyecto && onProyectoClick
+                ? () => onProyectoClick(item.renta!.proyecto!.id)
+                : undefined}
+            />
             {item.renta.fechaFinEstimada && (
               <p className={`text-[11px] ${item.estado === 'vencida' ? 'text-red-600 font-semibold' : 'text-slate-400'}`}>
                 {item.estado === 'vencida' ? 'Venció' : 'Vence'}: {fmtFecha(item.renta.fechaFinEstimada)}

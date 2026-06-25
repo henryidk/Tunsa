@@ -27,7 +27,6 @@ export class ProyectosService {
       include: {
         cliente: { select: { id: true, nombre: true } },
         _count:  { select: { solicitudes: true } },
-        // Cuenta cuántas rentas están en curso sin cargar los registros completos
         solicitudes: {
           where:  { estado: { in: ['ACTIVA', 'APROBADA', 'PENDIENTE'] } },
           select: { id: true },
@@ -35,10 +34,37 @@ export class ProyectosService {
       },
     });
 
+    if (proyectos.length === 0) return [];
+
+    const ids = proyectos.map(p => p.id);
+
+    const [costosAgg, activeSols] = await Promise.all([
+      this.prisma.solicitud.groupBy({
+        by:    ['proyectoId'],
+        where: { proyectoId: { in: ids }, totalFinal: { not: null } },
+        _sum:  { totalFinal: true },
+      }),
+      this.prisma.solicitud.findMany({
+        where:  { proyectoId: { in: ids }, estado: 'ACTIVA' },
+        select: { proyectoId: true, items: true },
+      }),
+    ]);
+
+    const costoMap   = new Map(costosAgg.map(r => [r.proyectoId, Number(r._sum.totalFinal ?? 0)]));
+    const equiposMap = new Map<string, number>();
+    for (const s of activeSols) {
+      const items = (s.items as any[]) ?? [];
+      const count = items.reduce((n: number, item: any) =>
+        n + (item.kind === 'granel' ? (item.cantidad ?? 1) : 1), 0);
+      equiposMap.set(s.proyectoId!, (equiposMap.get(s.proyectoId!) ?? 0) + count);
+    }
+
     return proyectos.map(p => ({
       ...p,
       solicitudesActivas: p.solicitudes.length,
-      solicitudes:        undefined, // no exponer el array al cliente
+      solicitudes:        undefined,
+      costoAcumulado:     costoMap.get(p.id)   ?? 0,
+      equiposEnCampo:     equiposMap.get(p.id) ?? 0,
     }));
   }
 
@@ -210,18 +236,42 @@ export class ProyectosService {
   // ── Helpers privados ─────────────────────────────────────────────────────
 
   private async toResponse(id: string) {
-    const p = await this.prisma.proyecto.findUniqueOrThrow({
-      where: { id },
-      include: {
-        cliente:    { select: { id: true, nombre: true } },
-        _count:     { select: { solicitudes: true } },
-        solicitudes: {
-          where:  { estado: { in: ['ACTIVA', 'APROBADA', 'PENDIENTE'] } },
-          select: { id: true },
+    const [p, costosAgg, activeSols] = await Promise.all([
+      this.prisma.proyecto.findUniqueOrThrow({
+        where: { id },
+        include: {
+          cliente:    { select: { id: true, nombre: true } },
+          _count:     { select: { solicitudes: true } },
+          solicitudes: {
+            where:  { estado: { in: ['ACTIVA', 'APROBADA', 'PENDIENTE'] } },
+            select: { id: true },
+          },
         },
-      },
-    });
-    return { ...p, solicitudesActivas: p.solicitudes.length, solicitudes: undefined };
+      }),
+      this.prisma.solicitud.aggregate({
+        where: { proyectoId: id, totalFinal: { not: null } },
+        _sum:  { totalFinal: true },
+      }),
+      this.prisma.solicitud.findMany({
+        where:  { proyectoId: id, estado: 'ACTIVA' },
+        select: { items: true },
+      }),
+    ]);
+
+    const costoAcumulado = Number(costosAgg._sum.totalFinal ?? 0);
+    const equiposEnCampo = activeSols.reduce((sum, s) => {
+      const items = (s.items as any[]) ?? [];
+      return sum + items.reduce((n: number, item: any) =>
+        n + (item.kind === 'granel' ? (item.cantidad ?? 1) : 1), 0);
+    }, 0);
+
+    return {
+      ...p,
+      solicitudesActivas: p.solicitudes.length,
+      solicitudes:        undefined,
+      costoAcumulado,
+      equiposEnCampo,
+    };
   }
 
   private async generarId(): Promise<string> {

@@ -1,12 +1,15 @@
 import { useState, useMemo } from 'react';
 import { useFlotaDisponibilidad } from '../../hooks/useFlotaDisponibilidad';
 import type { FlotaEstado } from '../../types/flota.types';
+import type { TonoSistema } from '../../types/tono.types';
+import { TONO_INDIGO } from '../../types/tono.types';
 import FlotaEquipoCard from './FlotaEquipoCard';
 
 type FiltroEstado = FlotaEstado | 'todos';
 type FiltroTipo   = 'todos' | 'pesada' | 'liviana';
 
 interface Props {
+  tono?:            TonoSistema;
   onNavTo?:         (section: string, state?: { folio?: string }) => void;
   sectionActivas?:  string;
   sectionVencidas?: string;
@@ -30,17 +33,32 @@ const FILTRO_CFG: {
 const GRUPOS_ORDER: FlotaEstado[] = ['vencida', 'en-renta', 'disponible'];
 
 const GRUPO_CFG: Record<FlotaEstado, { label: string; badgeCls: string }> = {
-  vencida:    { label: 'Vencidas',    badgeCls: 'bg-red-100 text-red-700 border-red-200'              },
-  'en-renta': { label: 'En renta',    badgeCls: 'bg-indigo-100 text-indigo-700 border-indigo-200'     },
-  disponible: { label: 'Disponibles', badgeCls: 'bg-emerald-100 text-emerald-700 border-emerald-200'  },
+  vencida:    { label: 'Vencidas',    badgeCls: 'bg-red-100 text-red-700 border-red-200'            },
+  'en-renta': { label: 'En renta',    badgeCls: 'bg-indigo-100 text-indigo-700 border-indigo-200'   },
+  disponible: { label: 'Disponibles', badgeCls: 'bg-emerald-100 text-emerald-700 border-emerald-200'},
 };
 
-export default function DisponibilidadFlotaSection({ onNavTo, sectionActivas = 'rentas-activas', sectionVencidas = 'vencidas' }: Props) {
+export default function DisponibilidadFlotaSection({
+  tono = TONO_INDIGO,
+  onNavTo,
+  sectionActivas  = 'rentas-activas',
+  sectionVencidas = 'vencidas',
+}: Props) {
   const { items, isLoading, error, refresh } = useFlotaDisponibilidad();
 
-  const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>('todos');
-  const [filtroTipo,   setFiltroTipo]   = useState<FiltroTipo>('todos');
-  const [busqueda,     setBusqueda]     = useState('');
+  const [filtroEstado,   setFiltroEstado]   = useState<FiltroEstado>('todos');
+  const [filtroTipo,     setFiltroTipo]     = useState<FiltroTipo>('todos');
+  const [busqueda,       setBusqueda]       = useState('');
+  const [filtroProyecto, setFiltroProyecto] = useState<string | null>(null);
+
+  // Proyectos presentes en equipos en renta — derivado sin llamada extra
+  const proyectosActivos = useMemo(() => {
+    const map = new Map<string, { id: string; nombre: string }>();
+    items.forEach(i => {
+      if (i.renta?.proyecto) map.set(i.renta.proyecto.id, i.renta.proyecto);
+    });
+    return [...map.values()];
+  }, [items]);
 
   // Contadores siempre del dataset completo — no se ven afectados por búsqueda/tipo
   const counts = useMemo(() => ({
@@ -50,22 +68,25 @@ export default function DisponibilidadFlotaSection({ onNavTo, sectionActivas = '
     vencida:    items.filter(i => i.estado === 'vencida').length,
   }), [items]);
 
-  // Items con solo filtro de tipo + búsqueda (sin estado) — base para secciones agrupadas
+  // Items con filtros de tipo, búsqueda y proyecto (sin estado) — base para grupos
   const itemsBase = useMemo(() => {
     return items.filter(item => {
       if (filtroTipo === 'pesada'  && !item.esPesada) return false;
       if (filtroTipo === 'liviana' &&  item.esPesada) return false;
       if (busqueda.trim()) {
         const q = busqueda.toLowerCase().trim();
-        return item.numeracion.toLowerCase().includes(q)
-            || item.descripcion.toLowerCase().includes(q)
-            || (item.categoria ?? '').toLowerCase().includes(q)
-            || (item.renta?.clienteNombre ?? '').toLowerCase().includes(q)
-            || (item.renta?.folio ?? '').toLowerCase().includes(q);
+        if (
+          !item.numeracion.toLowerCase().includes(q) &&
+          !item.descripcion.toLowerCase().includes(q) &&
+          !(item.categoria ?? '').toLowerCase().includes(q) &&
+          !(item.renta?.clienteNombre ?? '').toLowerCase().includes(q) &&
+          !(item.renta?.folio ?? '').toLowerCase().includes(q)
+        ) return false;
       }
+      if (filtroProyecto !== null && item.renta?.proyecto?.id !== filtroProyecto) return false;
       return true;
     });
-  }, [items, filtroTipo, busqueda]);
+  }, [items, filtroTipo, busqueda, filtroProyecto]);
 
   // Items con todos los filtros — para vista plana al hacer drill-down por estado
   const itemsFiltrados = useMemo(
@@ -77,7 +98,8 @@ export default function DisponibilidadFlotaSection({ onNavTo, sectionActivas = '
     onNavTo?.(estado === 'en-renta' ? sectionActivas : sectionVencidas, { folio });
   };
 
-  const hayFiltroActivo = filtroEstado !== 'todos' || filtroTipo !== 'todos' || busqueda.trim().length > 0;
+  const hayFiltroActivo = filtroEstado !== 'todos' || filtroTipo !== 'todos'
+    || busqueda.trim().length > 0 || filtroProyecto !== null;
 
   return (
     <div>
@@ -101,7 +123,7 @@ export default function DisponibilidadFlotaSection({ onNavTo, sectionActivas = '
         </button>
       </div>
 
-      {/* Stat cards — resumen siempre visible, clic para drill-down */}
+      {/* Stat cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
         {FILTRO_CFG.map(({ key, label, activeBg, activeBorder, activeCount, activeLabel, inactiveCount }) => {
           const count  = counts[key as keyof typeof counts];
@@ -121,7 +143,7 @@ export default function DisponibilidadFlotaSection({ onNavTo, sectionActivas = '
                 <p className={`text-xl font-bold font-mono leading-none ${activo ? activeCount : inactiveCount}`}>
                   {isLoading ? '—' : count}
                 </p>
-                <p className={`text-[11px] font-semibold mt-0.5 ${activo ? activeLabel : 'text-slate-500'}`}>
+                <p className={`text-xs font-semibold mt-0.5 ${activo ? activeLabel : 'text-slate-500'}`}>
                   {label}
                 </p>
               </div>
@@ -131,13 +153,13 @@ export default function DisponibilidadFlotaSection({ onNavTo, sectionActivas = '
       </div>
 
       {/* Búsqueda + filtro tipo */}
-      <div className="flex flex-wrap items-center gap-3 mb-5">
+      <div className="flex flex-wrap items-center gap-3 mb-4">
         <input
           type="search"
           value={busqueda}
           onChange={e => setBusqueda(e.target.value)}
           placeholder="Buscar por equipo, categoría o cliente..."
-          className="flex-1 min-w-[200px] sm:max-w-sm border border-slate-200 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+          className={`flex-1 min-w-[200px] sm:max-w-sm border border-slate-200 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none ${tono.foco}`}
         />
         <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
           {(['todos', 'pesada', 'liviana'] as FiltroTipo[]).map(tipo => (
@@ -156,6 +178,26 @@ export default function DisponibilidadFlotaSection({ onNavTo, sectionActivas = '
         </div>
       </div>
 
+      {/* P3 — chips de proyectos */}
+      {proyectosActivos.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 mb-5">
+          <span className="text-xs font-semibold text-slate-400 self-center">Proyecto:</span>
+          {proyectosActivos.map(p => (
+            <button
+              key={p.id}
+              onClick={() => setFiltroProyecto(filtroProyecto === p.id ? null : p.id)}
+              className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${
+                filtroProyecto === p.id
+                  ? `${tono.acento} border`
+                  : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+              }`}
+            >
+              {p.nombre}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Error */}
       {error && (
         <div className="flex items-center gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 mb-4">
@@ -172,7 +214,6 @@ export default function DisponibilidadFlotaSection({ onNavTo, sectionActivas = '
           ))}
         </div>
       ) : filtroEstado === 'todos' ? (
-        /* Vista agrupada por estado (default) */
         itemsBase.length === 0 ? (
           <EmptyState hayFiltro={hayFiltroActivo} />
         ) : (
@@ -191,7 +232,12 @@ export default function DisponibilidadFlotaSection({ onNavTo, sectionActivas = '
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {grupo.map(item => (
-                      <FlotaEquipoCard key={item.equipoId} item={item} onVerRenta={handleVerRenta} />
+                      <FlotaEquipoCard
+                        key={item.equipoId}
+                        item={item}
+                        onVerRenta={handleVerRenta}
+                        onProyectoClick={setFiltroProyecto}
+                      />
                     ))}
                   </div>
                 </div>
@@ -200,13 +246,17 @@ export default function DisponibilidadFlotaSection({ onNavTo, sectionActivas = '
           </div>
         )
       ) : (
-        /* Vista plana al hacer drill-down por estado */
         itemsFiltrados.length === 0 ? (
           <EmptyState hayFiltro={true} />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {itemsFiltrados.map(item => (
-              <FlotaEquipoCard key={item.equipoId} item={item} onVerRenta={handleVerRenta} />
+              <FlotaEquipoCard
+                key={item.equipoId}
+                item={item}
+                onVerRenta={handleVerRenta}
+                onProyectoClick={setFiltroProyecto}
+              />
             ))}
           </div>
         )

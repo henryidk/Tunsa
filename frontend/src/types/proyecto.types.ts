@@ -19,6 +19,8 @@ export interface Proyecto {
   updatedAt:   string;
   _count:             { solicitudes: number };
   solicitudesActivas: number;
+  equiposEnCampo:     number;
+  costoAcumulado:     number;
 }
 
 export interface ProyectoSolicitudes {

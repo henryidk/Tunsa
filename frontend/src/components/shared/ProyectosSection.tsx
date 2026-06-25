@@ -1,12 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
 import type { Proyecto, ProyectoSolicitudes, EstadoProyecto } from '../../types/proyecto.types';
-import type { SolicitudRenta } from '../../types/solicitud-renta.types';
+import type { SolicitudRenta, ItemSnapshot } from '../../types/solicitud-renta.types';
+import type { TonoSistema } from '../../types/tono.types';
+import { TONO_INDIGO } from '../../types/tono.types';
 import { proyectosService } from '../../services/proyectos.service';
 import { formatFecha } from '../../utils/format';
 import ProyectoFormModal from './ProyectoFormModal';
 import ProyectoBadge from './ProyectoBadge';
 
 interface Props {
+  tono?:    TonoSistema;
   onNavTo?: (section: string, state?: Record<string, string>) => void;
 }
 
@@ -14,20 +17,20 @@ type Vista = 'lista' | 'detalle';
 
 // ── Componente principal ──────────────────────────────────────────────────────
 
-export default function ProyectosSection({ onNavTo: _onNavTo }: Props) {
-  const [vista,               setVista]               = useState<Vista>('lista');
-  const [proyectos,           setProyectos]           = useState<Proyecto[]>([]);
-  const [loading,             setLoading]             = useState(true);
-  const [error,               setError]               = useState<string | null>(null);
-  const [busqueda,            setBusqueda]            = useState('');
-  const [filtroEstado,        setFiltroEstado]        = useState<'' | EstadoProyecto>('');
+export default function ProyectosSection({ tono = TONO_INDIGO, onNavTo: _onNavTo }: Props) {
+  const [vista,                setVista]                = useState<Vista>('lista');
+  const [proyectos,            setProyectos]            = useState<Proyecto[]>([]);
+  const [loading,              setLoading]              = useState(true);
+  const [error,                setError]                = useState<string | null>(null);
+  const [busqueda,             setBusqueda]             = useState('');
+  const [filtroEstado,         setFiltroEstado]         = useState<'' | EstadoProyecto>('');
   const [proyectoSeleccionado, setProyectoSeleccionado] = useState<Proyecto | null>(null);
-  const [solicitudesProyecto, setSolicitudesProyecto] = useState<ProyectoSolicitudes | null>(null);
-  const [loadingDetalle,      setLoadingDetalle]      = useState(false);
-  const [modalForm,           setModalForm]           = useState<{ proyecto?: Proyecto } | null>(null);
-  const [confirmFinalizar,    setConfirmFinalizar]    = useState<Proyecto | null>(null);
-  const [finalizando,         setFinalizando]         = useState(false);
-  const [errorFinalizar,      setErrorFinalizar]      = useState<string | null>(null);
+  const [solicitudesProyecto,  setSolicitudesProyecto]  = useState<ProyectoSolicitudes | null>(null);
+  const [loadingDetalle,       setLoadingDetalle]       = useState(false);
+  const [modalForm,            setModalForm]            = useState<{ proyecto?: Proyecto } | null>(null);
+  const [confirmFinalizar,     setConfirmFinalizar]     = useState<Proyecto | null>(null);
+  const [finalizando,          setFinalizando]          = useState(false);
+  const [errorFinalizar,       setErrorFinalizar]       = useState<string | null>(null);
 
   const cargarProyectos = () => {
     setLoading(true);
@@ -188,7 +191,7 @@ export default function ProyectosSection({ onNavTo: _onNavTo }: Props) {
             </div>
             <button
               onClick={() => setModalForm({})}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-sm font-semibold text-white transition-colors"
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl ${tono.boton} text-sm font-semibold ${tono.botonTexto} transition-colors`}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
@@ -204,14 +207,14 @@ export default function ProyectosSection({ onNavTo: _onNavTo }: Props) {
               value={busqueda}
               onChange={e => setBusqueda(e.target.value)}
               placeholder="Buscar por nombre o cliente..."
-              className="w-full sm:w-72 border border-slate-200 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+              className={`w-full sm:w-72 border border-slate-200 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none ${tono.foco}`}
             />
             <div className="flex rounded-xl border border-slate-200 overflow-hidden bg-white text-sm font-medium">
               {(['', 'ACTIVO', 'FINALIZADO'] as const).map(e => (
                 <button
                   key={e}
                   onClick={() => setFiltroEstado(e)}
-                  className={`px-3 py-2 transition-colors ${filtroEstado === e ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+                  className={`px-3 py-2 transition-colors ${filtroEstado === e ? `${tono.acentoFuerte}` : 'text-slate-600 hover:bg-slate-50'}`}
                 >
                   {e === '' ? 'Todos' : e === 'ACTIVO' ? 'Activos' : 'Finalizados'}
                 </button>
@@ -228,7 +231,7 @@ export default function ProyectosSection({ onNavTo: _onNavTo }: Props) {
           {loading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {[1, 2, 3, 4].map(i => (
-                <div key={i} className="h-44 bg-white border border-slate-200 rounded-xl animate-pulse" />
+                <div key={i} className="h-48 bg-white border border-slate-200 rounded-xl animate-pulse" />
               ))}
             </div>
           ) : filtrados.length === 0 ? (
@@ -267,68 +270,86 @@ function ProyectoCard({
   const esActivo = proyecto.estado === 'ACTIVO';
 
   return (
-    <div className={`bg-white border rounded-xl overflow-hidden shadow-sm transition-shadow hover:shadow-md ${esActivo ? 'border-slate-200' : 'border-slate-100 opacity-75'}`}>
-      {/* Top bar */}
+    <div className={`bg-white border rounded-xl overflow-hidden shadow-sm transition-shadow hover:shadow-md ${
+      esActivo ? 'border-slate-200' : 'border-slate-100 opacity-75'
+    }`}>
+      {/* Top bar de color */}
       <div className={`h-1 w-full ${esActivo ? 'bg-emerald-400' : 'bg-slate-300'}`} />
 
       <div className="p-5">
-        <div className="flex items-start justify-between gap-3 mb-3">
+        {/* Encabezado */}
+        <div className="flex items-start justify-between gap-3 mb-4">
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-slate-800 truncate">{proyecto.nombre}</p>
+            <p className="text-sm font-semibold text-slate-800 leading-snug">{proyecto.nombre}</p>
             <p className="text-xs text-slate-500 mt-0.5 truncate">{proyecto.cliente.nombre}</p>
           </div>
-          <span className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${esActivo ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+          <span className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
+            esActivo ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
+          }`}>
             {proyecto.estado}
           </span>
         </div>
 
-        {/* Fechas */}
-        <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-3">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/>
-            <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-          </svg>
-          <span>Creado {formatFecha(proyecto.createdAt)}</span>
-          {proyecto.fechaFin && <><span>·</span><span>Finalizado {formatFecha(proyecto.fechaFin)}</span></>}
+        {/* Grid de 4 contadores */}
+        <div className="grid grid-cols-4 gap-2 mb-4">
+          {([
+            { label: 'Inicio',  value: formatFecha(proyecto.createdAt)                                                                                    },
+            { label: 'Rentas',  value: `${proyecto.solicitudesActivas} activas`                                                                            },
+            { label: 'Equipos', value: `${proyecto.equiposEnCampo} en campo`                                                                              },
+            { label: 'Total',   value: proyecto.costoAcumulado > 0
+                ? `Q ${proyecto.costoAcumulado.toLocaleString('es-GT', { minimumFractionDigits: 0 })}`
+                : '—',
+              mono: true },
+          ] as { label: string; value: string; mono?: boolean }[]).map(({ label, value, mono }) => (
+            <div key={label} className="bg-slate-50 rounded-lg p-2">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wide leading-none">{label}</p>
+              <p className={`text-xs font-semibold text-slate-700 mt-1 leading-tight ${mono ? 'font-mono' : ''}`}>
+                {value}
+              </p>
+            </div>
+          ))}
         </div>
 
-        {/* Contadores */}
-        <p className="text-xs text-slate-400">
-          <span className="font-medium text-slate-600">{proyecto.solicitudesActivas}</span> renta{proyecto.solicitudesActivas !== 1 ? 's' : ''} activa{proyecto.solicitudesActivas !== 1 ? 's' : ''}{' '}
-          · <span className="font-medium text-slate-600">{proyecto._count.solicitudes}</span> en total
-        </p>
-
         {/* Acciones */}
-        <div className="flex items-center gap-2 mt-4 pt-3 border-t border-slate-100 flex-wrap">
+        <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
           <button
             onClick={onVerDetalle}
-            className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 transition-colors"
           >
             Ver detalle
           </button>
-          <span className="text-slate-200">|</span>
+          <div className="flex-1" />
           <button
             onClick={onEditar}
-            className="text-xs font-medium text-slate-500 hover:text-slate-700 transition-colors"
+            title="Editar proyecto"
+            className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-400 hover:text-slate-600 transition-colors"
           >
-            Editar
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
           </button>
-          <span className="text-slate-200">|</span>
           {esActivo ? (
             <button
               onClick={onFinalizar}
               disabled={proyecto.solicitudesActivas > 0}
-              title={proyecto.solicitudesActivas > 0 ? 'Hay rentas activas o vencidas' : undefined}
-              className="text-xs font-medium text-slate-500 hover:text-slate-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              title={proyecto.solicitudesActivas > 0 ? 'Hay rentas activas' : 'Finalizar proyecto'}
+              className="p-1.5 rounded-lg border border-slate-200 hover:bg-red-50 hover:border-red-200 text-slate-400 hover:text-red-500 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             >
-              Finalizar
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
             </button>
           ) : (
             <button
               onClick={onReactivar}
-              className="text-xs font-medium text-emerald-600 hover:text-emerald-800 transition-colors"
+              title="Reactivar proyecto"
+              className="p-1.5 rounded-lg border border-emerald-200 hover:bg-emerald-50 text-emerald-500 transition-colors"
             >
-              Reactivar
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                <path d="M3 3v5h5"/>
+              </svg>
             </button>
           )}
         </div>
@@ -351,6 +372,20 @@ function DetalleProyecto({
   onReactivar: () => void;
 }) {
   const esActivo = proyecto.estado === 'ACTIVO';
+
+  // P6 — costo acumulado calculado client-side
+  const costoTotal = useMemo(() => {
+    if (!solicitudes) return null;
+    const todas = [
+      ...solicitudes.enProceso,
+      ...solicitudes.activas,
+      ...solicitudes.vencidas,
+      ...solicitudes.devueltas,
+    ];
+    const conTotal = todas.filter(s => s.totalFinal != null);
+    if (conTotal.length === 0) return null;
+    return conTotal.reduce((sum, s) => sum + (s.totalFinal ?? 0), 0);
+  }, [solicitudes]);
 
   return (
     <div>
@@ -385,6 +420,15 @@ function DetalleProyecto({
             </div>
             {proyecto.descripcion && (
               <p className="text-sm text-slate-600 mt-2 leading-relaxed">{proyecto.descripcion}</p>
+            )}
+            {/* P6 — total acumulado */}
+            {costoTotal != null && (
+              <div className="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg">
+                <span className="text-xs text-slate-500">Total acumulado:</span>
+                <span className="text-sm font-bold font-mono text-slate-800">
+                  Q {costoTotal.toLocaleString('es-GT', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -444,7 +488,7 @@ function DetalleProyecto({
            solicitudes.vencidas.length === 0 && solicitudes.devueltas.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 gap-3 text-slate-400">
               <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2">
-                <path d="M2 3.5A1.5 1.5 0 013.5 2h2.764c.958 0 1.76.56 2.134 1.373L8.75 4.5H12.5A1.5 1.5 0 0114 6v6.5A1.5 1.5 0 0112.5 14h-9A1.5 1.5 0 012 12.5v-9z"/>
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
               </svg>
               <p className="text-sm font-medium">Sin rentas en este proyecto</p>
               <p className="text-xs text-center max-w-xs leading-relaxed">
@@ -463,15 +507,15 @@ function DetalleProyecto({
 type ColorGrupo = 'amber' | 'emerald' | 'red' | 'slate';
 
 const colorMap: Record<ColorGrupo, { dot: string; badge: string }> = {
-  amber:   { dot: 'bg-amber-400',   badge: 'text-amber-700 bg-amber-50 border-amber-200'   },
-  emerald: { dot: 'bg-emerald-400', badge: 'text-emerald-700 bg-emerald-50 border-emerald-200' },
-  red:     { dot: 'bg-red-400',     badge: 'text-red-700 bg-red-50 border-red-200'         },
-  slate:   { dot: 'bg-slate-400',   badge: 'text-slate-600 bg-slate-50 border-slate-200'   },
+  amber:   { dot: 'bg-amber-400',   badge: 'text-amber-700 bg-amber-50 border-amber-200'        },
+  emerald: { dot: 'bg-emerald-400', badge: 'text-emerald-700 bg-emerald-50 border-emerald-200'  },
+  red:     { dot: 'bg-red-400',     badge: 'text-red-700 bg-red-50 border-red-200'              },
+  slate:   { dot: 'bg-slate-400',   badge: 'text-slate-600 bg-slate-50 border-slate-200'        },
 };
 
 function GrupoRentas({ titulo, color, solicitudes }: {
-  titulo:     string;
-  color:      ColorGrupo;
+  titulo:      string;
+  color:       ColorGrupo;
   solicitudes: SolicitudRenta[];
 }) {
   const [abierto, setAbierto] = useState(true);
@@ -508,37 +552,59 @@ function GrupoRentas({ titulo, color, solicitudes }: {
 // ── RentaFilaCompacta ─────────────────────────────────────────────────────────
 
 const estadoLabels: Record<string, { label: string; cls: string }> = {
-  PENDIENTE:   { label: 'Pendiente',   cls: 'bg-yellow-100 text-yellow-700' },
-  APROBADA:    { label: 'Aprobada',    cls: 'bg-blue-100 text-blue-700'     },
-  ACTIVA:      { label: 'Activa',      cls: 'bg-emerald-100 text-emerald-700' },
-  VENCIDA:     { label: 'Vencida',     cls: 'bg-red-100 text-red-700'       },
-  DEVUELTA:    { label: 'Devuelta',    cls: 'bg-slate-100 text-slate-600'   },
-  RECHAZADA:   { label: 'Rechazada',   cls: 'bg-rose-100 text-rose-700'     },
+  PENDIENTE: { label: 'Pendiente', cls: 'bg-yellow-100 text-yellow-700'   },
+  APROBADA:  { label: 'Aprobada',  cls: 'bg-blue-100 text-blue-700'       },
+  ACTIVA:    { label: 'Activa',    cls: 'bg-emerald-100 text-emerald-700' },
+  VENCIDA:   { label: 'Vencida',   cls: 'bg-red-100 text-red-700'         },
+  DEVUELTA:  { label: 'Devuelta',  cls: 'bg-slate-100 text-slate-600'     },
+  RECHAZADA: { label: 'Rechazada', cls: 'bg-rose-100 text-rose-700'       },
 };
 
+function equipoLabel(item: ItemSnapshot): string {
+  if (item.kind === 'maquinaria' || item.kind === 'pesada') {
+    return `${item.descripcion} #${item.numeracion}`;
+  }
+  return `${item.tipoLabel}${item.cantidad > 1 ? ` ×${item.cantidad}` : ''}`;
+}
+
 function RentaFilaCompacta({ solicitud: s }: { solicitud: SolicitudRenta }) {
-  const estado = estadoLabels[s.estado] ?? { label: s.estado, cls: 'bg-slate-100 text-slate-600' };
+  const estado      = estadoLabels[s.estado] ?? { label: s.estado, cls: 'bg-slate-100 text-slate-600' };
+  const equipoChips = (s.items ?? []).map(equipoLabel);
 
   return (
-    <div className="px-5 py-3 flex flex-wrap items-center gap-x-4 gap-y-1">
+    <div className="px-5 py-3 flex flex-wrap items-start gap-x-4 gap-y-1.5">
+      {/* Folio + tipo */}
       <div className="flex items-center gap-2 min-w-0">
         <span className="text-sm font-semibold text-slate-700 font-mono">{s.folio ?? s.id.slice(0, 8)}</span>
         {s.esPesada && (
-          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">PESADA</span>
+          <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">PESADA</span>
         )}
         <ProyectoBadge proyecto={s.proyecto} />
       </div>
-      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${estado.cls}`}>
-        {estado.label}
-      </span>
-      <span className="text-xs text-slate-400 flex-1 min-w-0 truncate">
-        {formatFecha(s.fechaInicioRenta)} → {s.fechaFinEstimada ? formatFecha(s.fechaFinEstimada) : '–'}
-      </span>
-      {s.totalFinal != null && (
-        <span className="text-xs font-medium text-slate-600 shrink-0">
-          Q {s.totalFinal.toLocaleString('es-GT', { minimumFractionDigits: 2 })}
-        </span>
+      {/* P2 — chips de equipos */}
+      {equipoChips.length > 0 && (
+        <div className="flex flex-wrap gap-1 flex-1 min-w-0">
+          {equipoChips.map((label, i) => (
+            <span key={i} className="text-xs font-medium text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">
+              {label}
+            </span>
+          ))}
+        </div>
       )}
+      {/* Estado + fechas + total */}
+      <div className="flex items-center gap-3 flex-wrap ml-auto">
+        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${estado.cls}`}>
+          {estado.label}
+        </span>
+        <span className="text-xs text-slate-400 shrink-0">
+          {formatFecha(s.fechaInicioRenta)} → {s.fechaFinEstimada ? formatFecha(s.fechaFinEstimada) : '–'}
+        </span>
+        {s.totalFinal != null && (
+          <span className="text-xs font-medium text-slate-600 shrink-0 font-mono">
+            Q {s.totalFinal.toLocaleString('es-GT', { minimumFractionDigits: 2 })}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

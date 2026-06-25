@@ -118,7 +118,7 @@ export class ProyectosService {
 
     const id = await this.generarId();
 
-    return this.prisma.proyecto.create({
+    await this.prisma.proyecto.create({
       data: {
         id,
         nombre:      dto.nombre,
@@ -128,8 +128,8 @@ export class ProyectosService {
         fechaFin:    dto.fechaFin ? new Date(dto.fechaFin) : null,
         creadoPor,
       },
-      include: { cliente: { select: { id: true, nombre: true } } },
     });
+    return this.toResponse(id);
   }
 
   async update(id: string, dto: UpdateProyectoDto) {
@@ -141,11 +141,8 @@ export class ProyectosService {
     if (dto.fechaInicio !== undefined) data.fechaInicio = new Date(dto.fechaInicio);
     if (dto.fechaFin    !== undefined) data.fechaFin    = dto.fechaFin ? new Date(dto.fechaFin) : null;
 
-    return this.prisma.proyecto.update({
-      where:   { id },
-      data,
-      include: { cliente: { select: { id: true, nombre: true } } },
-    });
+    await this.prisma.proyecto.update({ where: { id }, data });
+    return this.toResponse(id);
   }
 
   async finalizar(id: string) {
@@ -161,11 +158,8 @@ export class ProyectosService {
       );
     }
 
-    return this.prisma.proyecto.update({
-      where:   { id },
-      data:    { estado: 'FINALIZADO' },
-      include: { cliente: { select: { id: true, nombre: true } } },
-    });
+    await this.prisma.proyecto.update({ where: { id }, data: { estado: 'FINALIZADO' } });
+    return this.toResponse(id);
   }
 
   async reactivar(id: string) {
@@ -175,11 +169,8 @@ export class ProyectosService {
       throw new BadRequestException('El proyecto ya está activo.');
     }
 
-    return this.prisma.proyecto.update({
-      where:   { id },
-      data:    { estado: 'ACTIVO' },
-      include: { cliente: { select: { id: true, nombre: true } } },
-    });
+    await this.prisma.proyecto.update({ where: { id }, data: { estado: 'ACTIVO' } });
+    return this.toResponse(id);
   }
 
   async asignarSolicitud(solicitudId: string, dto: AsignarProyectoDto) {
@@ -220,6 +211,21 @@ export class ProyectosService {
   }
 
   // ── Helpers privados ─────────────────────────────────────────────────────
+
+  private async toResponse(id: string) {
+    const p = await this.prisma.proyecto.findUniqueOrThrow({
+      where: { id },
+      include: {
+        cliente:    { select: { id: true, nombre: true } },
+        _count:     { select: { solicitudes: true } },
+        solicitudes: {
+          where:  { estado: { in: ['ACTIVA', 'APROBADA', 'PENDIENTE'] } },
+          select: { id: true },
+        },
+      },
+    });
+    return { ...p, solicitudesActivas: p.solicitudes.length, solicitudes: undefined };
+  }
 
   private async generarId(): Promise<string> {
     const ultimo = await this.prisma.proyecto.findFirst({

@@ -54,6 +54,8 @@ export default function HistorialSection({
   const [encargados,    setEncargados]    = useState<Encargado[]>([]);
   const [busqueda,       setBusqueda]       = useState('');
   const [filtroProyecto, setFiltroProyecto] = useState<string | null>(null);
+  const [filtroActivo,  setFiltroActivo]  = useState<FiltroActivo>({ desde: inicioMes(), hasta: hoy(), creadaPor: '', busqueda: '' });
+  const [solicitudes,   setSolicitudes]   = useState<SolicitudRenta[]>([]);
 
   const { proyectosHistorial, hayIndependientesHistorial } = useMemo(() => {
     const map = new Map<string, string>();
@@ -67,8 +69,6 @@ export default function HistorialSection({
       hayIndependientesHistorial:  sinProyecto,
     };
   }, [solicitudes]);
-  const [filtroActivo,  setFiltroActivo]  = useState<FiltroActivo>({ desde: inicioMes(), hasta: hoy(), creadaPor: '', busqueda: '' });
-  const [solicitudes,   setSolicitudes]   = useState<SolicitudRenta[]>([]);
   const [nextCursor,    setNextCursor]    = useState<string | null>(null);
   const [isLoading,     setIsLoading]     = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);

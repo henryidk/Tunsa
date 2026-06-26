@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, MaxLength } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsArray, ArrayMinSize, MaxLength } from 'class-validator';
 
 export class CreateProyectoDto {
   @IsString()
@@ -14,4 +14,10 @@ export class CreateProyectoDto {
   @IsString()
   @IsNotEmpty()
   clienteId: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(0)
+  @IsString({ each: true })
+  encargadoIds?: string[];
 }

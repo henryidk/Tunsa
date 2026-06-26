@@ -72,7 +72,7 @@ export class ProyectosController {
     @Body() dto: CreateProyectoDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.proyectosService.create(dto, user.id, user.nombre);
+    return this.proyectosService.create(dto, user.id, user.nombre, user);
   }
 
   @Patch(':id')

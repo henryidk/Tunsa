@@ -153,13 +153,19 @@ export class ProyectosService {
     return proyecto;
   }
 
-  async create(dto: CreateProyectoDto, usuarioId: string, nombreUsuario: string) {
+  async create(dto: CreateProyectoDto, usuarioId: string, nombreUsuario: string, user: AuthenticatedUser) {
     const clienteExiste = await this.prisma.cliente.findUnique({
       where:  { id: dto.clienteId },
       select: { id: true },
     });
     if (!clienteExiste) {
       throw new NotFoundException(`Cliente ${dto.clienteId} no encontrado.`);
+    }
+
+    const idsAInsertar = this.buildEncargadosParaInsertar(dto, usuarioId, user);
+
+    if (idsAInsertar.length > 0) {
+      await Promise.all(idsAInsertar.map(id => this.validarRolEncargado(id)));
     }
 
     const id = await this.generarId();
@@ -176,10 +182,12 @@ export class ProyectosService {
           creadoPorId: usuarioId,
         },
       });
-      // Auto-asignar al creador como encargado
-      await tx.proyectoEncargado.create({
-        data: { proyectoId: id, usuarioId },
-      });
+      if (idsAInsertar.length > 0) {
+        await tx.proyectoEncargado.createMany({
+          data:           idsAInsertar.map(uid => ({ proyectoId: id, usuarioId: uid })),
+          skipDuplicates: true,
+        });
+      }
     });
 
     return this.toResponse(id);
@@ -206,7 +214,10 @@ export class ProyectosService {
     });
 
     const encargados = await this.prisma.proyectoEncargado.findMany({
-      where:   { proyectoId },
+      where: {
+        proyectoId,
+        usuario: { role: { nombre: 'encargado_maquinas' } },
+      },
       include: { usuario: { select: { id: true, nombre: true } } },
       orderBy: { asignadoEn: 'asc' },
     });
@@ -221,8 +232,7 @@ export class ProyectosService {
 
   async agregarEncargado(proyectoId: string, usuarioId: string) {
     await this.findOne(proyectoId);
-    const usuario = await this.prisma.usuario.findUnique({ where: { id: usuarioId }, select: { id: true } });
-    if (!usuario) throw new NotFoundException(`Usuario ${usuarioId} no encontrado.`);
+    await this.validarRolEncargado(usuarioId);
 
     await this.prisma.proyectoEncargado.upsert({
       where:  { proyectoId_usuarioId: { proyectoId, usuarioId } },
@@ -365,6 +375,31 @@ export class ProyectosService {
       costoAcumulado,
       equiposEnCampo,
     };
+  }
+
+  private buildEncargadosParaInsertar(
+    dto:       CreateProyectoDto,
+    usuarioId: string,
+    user:      AuthenticatedUser,
+  ): string[] {
+    const ids = new Set<string>();
+    if (tieneAccesoGlobal(user)) {
+      (dto.encargadoIds ?? []).forEach(id => ids.add(id));
+    } else {
+      ids.add(usuarioId); // encargado: solo puede auto-asignarse
+    }
+    return [...ids];
+  }
+
+  private async validarRolEncargado(usuarioId: string): Promise<void> {
+    const usuario = await this.prisma.usuario.findUnique({
+      where:  { id: usuarioId },
+      select: { role: { select: { nombre: true } } },
+    });
+    if (!usuario) throw new NotFoundException(`Usuario ${usuarioId} no encontrado.`);
+    if (usuario.role.nombre !== 'encargado_maquinas') {
+      throw new BadRequestException('Solo se pueden asignar encargados de máquinas a un proyecto.');
+    }
   }
 
   private async generarId(): Promise<string> {

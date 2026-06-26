@@ -32,9 +32,10 @@ export interface ProyectoSolicitudes {
 }
 
 export interface CreateProyectoData {
-  nombre:       string;
-  descripcion?: string;
-  clienteId:    string;
+  nombre:        string;
+  descripcion?:  string;
+  clienteId:     string;
+  encargadoIds?: string[];
 }
 
 export interface UpdateProyectoData {

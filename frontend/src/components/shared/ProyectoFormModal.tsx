@@ -3,6 +3,13 @@ import type { Proyecto, CreateProyectoData, UpdateProyectoData } from '../../typ
 import type { Cliente } from '../../services/clientes.service';
 import { clientesService } from '../../services/clientes.service';
 import { proyectosService } from '../../services/proyectos.service';
+import { usuariosService } from '../../services/usuarios.service';
+import { useAuthStore } from '../../store/auth.store';
+
+interface EncargadoDisp {
+  id:     string;
+  nombre: string;
+}
 
 interface Props {
   proyecto?: Proyecto;
@@ -12,21 +19,27 @@ interface Props {
 }
 
 export default function ProyectoFormModal({ proyecto, isOpen, onClose, onGuardado }: Props) {
-  const esEdicion = !!proyecto;
+  const esEdicion    = !!proyecto;
+  const { user }     = useAuthStore();
+  const esAdminOSec  = ['admin', 'secretaria'].includes(user?.role ?? '');
 
-  const [nombre,       setNombre]       = useState('');
-  const [descripcion,  setDescripcion]  = useState('');
-  const [clienteId,    setClienteId]    = useState('');
-  const [clientes,     setClientes]     = useState<Cliente[]>([]);
-  const [loadingCli,   setLoadingCli]   = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error,        setError]        = useState<string | null>(null);
-  const [errores,      setErrores]      = useState<Record<string, string>>({});
+  const [nombre,        setNombre]        = useState('');
+  const [descripcion,   setDescripcion]   = useState('');
+  const [clienteId,     setClienteId]     = useState('');
+  const [clientes,      setClientes]      = useState<Cliente[]>([]);
+  const [loadingCli,    setLoadingCli]    = useState(false);
+  const [encargados,    setEncargados]    = useState<EncargadoDisp[]>([]);
+  const [encargadoIds,  setEncargadoIds]  = useState<string[]>([]);
+  const [loadingEnc,    setLoadingEnc]    = useState(false);
+  const [isSubmitting,  setIsSubmitting]  = useState(false);
+  const [error,         setError]         = useState<string | null>(null);
+  const [errores,       setErrores]       = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!isOpen) return;
     setError(null);
     setErrores({});
+    setEncargadoIds([]);
     if (proyecto) {
       setNombre(proyecto.nombre);
       setDescripcion(proyecto.descripcion ?? '');
@@ -42,6 +55,19 @@ export default function ProyectoFormModal({ proyecto, isOpen, onClose, onGuardad
         .then(data => { setClientes(data); if (data.length > 0) setClienteId(data[0].id); })
         .catch(() => setError('No se pudieron cargar los clientes.'))
         .finally(() => setLoadingCli(false));
+
+      if (esAdminOSec) {
+        setLoadingEnc(true);
+        usuariosService.getAll()
+          .then(data => {
+            setEncargados(
+              data
+                .filter(u => u.isActive && u.role?.nombre === 'encargado_maquinas')
+                .map(u => ({ id: u.id, nombre: u.nombre })),
+            );
+          })
+          .finally(() => setLoadingEnc(false));
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
@@ -52,6 +78,10 @@ export default function ProyectoFormModal({ proyecto, isOpen, onClose, onGuardad
     if (!esEdicion && !clienteId)  e.clienteId = 'Selecciona un cliente';
     setErrores(e);
     return Object.keys(e).length === 0;
+  };
+
+  const toggleEncargado = (id: string) => {
+    setEncargadoIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
 
   const handleSubmit = async () => {
@@ -68,9 +98,10 @@ export default function ProyectoFormModal({ proyecto, isOpen, onClose, onGuardad
         resultado = await proyectosService.update(proyecto!.id, data);
       } else {
         const data: CreateProyectoData = {
-          nombre:      nombre.trim(),
-          descripcion: descripcion.trim() || undefined,
+          nombre:       nombre.trim(),
+          descripcion:  descripcion.trim() || undefined,
           clienteId,
+          encargadoIds: encargadoIds.length > 0 ? encargadoIds : undefined,
         };
         resultado = await proyectosService.create(data);
       }
@@ -152,6 +183,85 @@ export default function ProyectoFormModal({ proyecto, isOpen, onClose, onGuardad
                 </select>
               )}
               {errores.clienteId && <p className="text-xs text-red-500 mt-1">{errores.clienteId}</p>}
+            </div>
+          )}
+
+          {/* Encargados — solo admin/sec en modo creación */}
+          {!esEdicion && esAdminOSec && (
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-medium text-slate-600 flex items-center gap-1.5">
+                  Encargados
+                  <span className="text-[10px] font-normal text-slate-400">· Opcional</span>
+                </label>
+                {encargadoIds.length > 0 && (
+                  <span className="text-[10px] font-semibold text-indigo-600 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded-full leading-none">
+                    {encargadoIds.length} seleccionado{encargadoIds.length > 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
+
+              {loadingEnc ? (
+                <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100">
+                  {[1, 2].map(i => (
+                    <div key={i} className="flex items-center gap-3 px-3 py-2.5">
+                      <div className="w-7 h-7 rounded-lg bg-slate-100 animate-pulse flex-shrink-0" />
+                      <div className="h-3 w-36 bg-slate-100 rounded animate-pulse" />
+                    </div>
+                  ))}
+                </div>
+              ) : encargados.length === 0 ? (
+                <p className="text-xs text-slate-400 text-center py-3 border border-slate-200 rounded-xl bg-slate-50">
+                  No hay encargados activos registrados.
+                </p>
+              ) : (
+                <div className="relative">
+                  <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100 max-h-44 overflow-y-auto">
+                    {[
+                      ...encargados.filter(e => encargadoIds.includes(e.id)),
+                      ...encargados.filter(e => !encargadoIds.includes(e.id)),
+                    ].map(enc => {
+                      const seleccionado = encargadoIds.includes(enc.id);
+                      const initials = enc.nombre.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase();
+                      return (
+                        <button
+                          key={enc.id}
+                          type="button"
+                          onClick={() => toggleEncargado(enc.id)}
+                          className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors select-none ${seleccionado ? 'bg-indigo-50 hover:bg-indigo-100' : 'bg-white hover:bg-slate-50'}`}
+                        >
+                          <div
+                            className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0 transition-colors"
+                            style={{ background: seleccionado ? 'linear-gradient(135deg, #6366f1, #4f46e5)' : '#94a3b8' }}
+                          >
+                            {initials}
+                          </div>
+                          <span className={`text-sm flex-1 leading-tight transition-colors ${seleccionado ? 'font-semibold text-indigo-700' : 'font-normal text-slate-700'}`}>
+                            {enc.nombre}
+                          </span>
+                          <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-all ${seleccionado ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-slate-300'}`}>
+                            {seleccionado && (
+                              <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="2 6 5 9 10 3" />
+                              </svg>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {encargados.length > 3 && (
+                    <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-7 rounded-b-xl"
+                      style={{ background: 'linear-gradient(to top, rgba(255,255,255,0.95), transparent)' }} />
+                  )}
+                </div>
+              )}
+
+              {!loadingEnc && encargados.length > 0 && encargadoIds.length === 0 && (
+                <p className="text-[11px] text-slate-400 mt-1.5">
+                  Puedes agregar encargados después desde el detalle del proyecto.
+                </p>
+              )}
             </div>
           )}
 

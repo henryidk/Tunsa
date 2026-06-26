@@ -344,10 +344,11 @@ export class SolicitudesController {
   @Roles('encargado_maquinas', 'admin', 'secretaria')
   previewDevolucion(
     @Param('id') id: string,
-    @Query('itemRefs') itemRefs?: string,
+    @Query('itemRefs') itemRefs: string | undefined,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     const refs = itemRefs ? itemRefs.split(',').filter(Boolean) : undefined;
-    return this.solicitudesService.previewDevolucion(id, refs);
+    return this.solicitudesService.previewDevolucion(id, refs, user);
   }
 
   @Get(':id/comprobante')
@@ -356,7 +357,7 @@ export class SolicitudesController {
     @Param('id') id: string,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.solicitudesService.getComprobanteUrl(id, user.username);
+    return this.solicitudesService.getComprobanteUrl(id, user);
   }
 
   @Get(':id/liquidacion/:loteIndex')
@@ -404,7 +405,17 @@ export class SolicitudesController {
   asignarProyecto(
     @Param('id') solicitudId: string,
     @Body() dto: AsignarProyectoDto,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.proyectosService.asignarSolicitud(solicitudId, dto);
+    return this.proyectosService.asignarSolicitud(solicitudId, dto, user);
+  }
+
+  @Patch(':id/proyecto')
+  @Roles('admin', 'secretaria')
+  reasignarProyecto(
+    @Param('id') solicitudId: string,
+    @Body('proyectoId') proyectoId: string | null,
+  ) {
+    return this.solicitudesService.reasignarProyecto(solicitudId, proyectoId ?? null);
   }
 }

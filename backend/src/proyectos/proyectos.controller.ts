@@ -1,6 +1,6 @@
 import {
-  Controller, Get, Post, Patch, Param, Body,
-  Query, UseGuards,
+  Controller, Get, Post, Patch, Delete, Param, Body, Query,
+  UseGuards,
 } from '@nestjs/common';
 import { ProyectosService } from './proyectos.service';
 import { CreateProyectoDto } from './dto/create-proyecto.dto';
@@ -13,6 +13,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
 import { EstadoProyecto } from '@prisma/client';
 import { serializeSolicitud, type SolicitudConCliente } from '../solicitudes/solicitudes.serializer';
+import { AsignarEncargadoDto } from './dto/asignar-encargado.dto';
 
 @Controller('proyectos')
 @UseGuards(JwtAuthGuard, RolesGuard, MustChangePasswordGuard)
@@ -22,28 +23,36 @@ export class ProyectosController {
 
   @Get()
   findAll(
+    @CurrentUser() user: AuthenticatedUser,
     @Query('clienteId') clienteId?: string,
     @Query('estado')    estado?:    string,
   ) {
-    return this.proyectosService.findAll({
+    return this.proyectosService.findAll(user, {
       clienteId: clienteId || undefined,
       estado:    estado as EstadoProyecto | undefined,
     });
   }
 
+  // Debe declararse antes de ':id' para evitar conflictos de ruta
+  @Get('mis-proyectos')
+  getMisProyectos(@CurrentUser() user: AuthenticatedUser) {
+    return this.proyectosService.getMisProyectos(user);
+  }
+
   @Get('por-cliente/:clienteId')
+  @Roles('admin', 'secretaria')
   findByCliente(@Param('clienteId') clienteId: string) {
     return this.proyectosService.findByCliente(clienteId);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.proyectosService.findOne(id);
+  findOne(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.proyectosService.findOneConAcceso(id, user);
   }
 
   @Get(':id/solicitudes')
-  async findSolicitudesDeProyecto(@Param('id') id: string) {
-    const raw = await this.proyectosService.findSolicitudesDeProyecto(id);
+  async findSolicitudesDeProyecto(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    const raw = await this.proyectosService.findSolicitudesDeProyecto(id, user);
     const s = (arr: SolicitudConCliente[]) => arr.map(x => serializeSolicitud(x));
     return {
       enProceso: s(raw.enProceso as SolicitudConCliente[]),
@@ -53,29 +62,54 @@ export class ProyectosController {
     };
   }
 
+  @Get(':id/encargados')
+  getEncargados(@Param('id') id: string) {
+    return this.proyectosService.getEncargados(id);
+  }
+
   @Post()
   create(
     @Body() dto: CreateProyectoDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.proyectosService.create(dto, user.username);
+    return this.proyectosService.create(dto, user.id, user.nombre);
   }
 
   @Patch(':id')
   update(
     @Param('id') id: string,
     @Body() dto: UpdateProyectoDto,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.proyectosService.update(id, dto);
+    return this.proyectosService.update(id, dto, user);
   }
 
   @Post(':id/finalizar')
-  finalizar(@Param('id') id: string) {
-    return this.proyectosService.finalizar(id);
+  finalizar(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.proyectosService.finalizar(id, user);
   }
 
   @Post(':id/reactivar')
+  @Roles('admin', 'secretaria')
   reactivar(@Param('id') id: string) {
     return this.proyectosService.reactivar(id);
+  }
+
+  @Post(':id/encargados')
+  @Roles('admin', 'secretaria')
+  agregarEncargado(
+    @Param('id') proyectoId: string,
+    @Body() dto: AsignarEncargadoDto,
+  ) {
+    return this.proyectosService.agregarEncargado(proyectoId, dto.usuarioId);
+  }
+
+  @Delete(':id/encargados/:usuarioId')
+  @Roles('admin', 'secretaria')
+  quitarEncargado(
+    @Param('id') proyectoId: string,
+    @Param('usuarioId') usuarioId: string,
+  ) {
+    return this.proyectosService.quitarEncargado(proyectoId, usuarioId);
   }
 }

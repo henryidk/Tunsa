@@ -2,9 +2,12 @@ import { useState, useEffect, useMemo } from 'react';
 import type { Proyecto, ProyectoSolicitudes, EstadoProyecto } from '../../types/proyecto.types';
 import type { SolicitudRenta, ItemSnapshot } from '../../types/solicitud-renta.types';
 import type { TonoSistema } from '../../types/tono.types';
+import type { EncargadoProyecto } from '../../services/proyectos.service';
 import { TONO_INDIGO } from '../../types/tono.types';
 import { proyectosService } from '../../services/proyectos.service';
+import { usuariosService } from '../../services/usuarios.service';
 import { formatFecha } from '../../utils/format';
+import { useAuthStore } from '../../store/auth.store';
 import ProyectoFormModal from './ProyectoFormModal';
 import ProyectoBadge from './ProyectoBadge';
 
@@ -293,7 +296,7 @@ function ProyectoCard({
         {/* Grid de 4 contadores */}
         <div className="grid grid-cols-4 gap-2 mb-4">
           {([
-            { label: 'Inicio',  value: formatFecha(proyecto.createdAt)                                                                                    },
+            { label: 'Inicio',  value: formatFecha(proyecto.fechaInicio)                                                                                   },
             { label: 'Rentas',  value: `${proyecto.solicitudesActivas} activas`                                                                            },
             { label: 'Equipos', value: `${proyecto.equiposEnCampo} en campo`                                                                              },
             { label: 'Total',   value: proyecto.costoAcumulado > 0
@@ -371,7 +374,9 @@ function DetalleProyecto({
   onFinalizar: () => void;
   onReactivar: () => void;
 }) {
-  const esActivo = proyecto.estado === 'ACTIVO';
+  const esActivo   = proyecto.estado === 'ACTIVO';
+  const { user }   = useAuthStore();
+  const esAdmin    = user?.role === 'admin' || user?.role === 'secretaria';
 
   // P6 — costo acumulado calculado client-side
   const costoTotal = useMemo(() => {
@@ -463,6 +468,11 @@ function DetalleProyecto({
         </div>
       </div>
 
+      {/* Encargados (solo admin/sec) */}
+      {esAdmin && (
+        <EncargadosBlock proyectoId={proyecto.id} />
+      )}
+
       {/* Rentas del proyecto */}
       {loading ? (
         <div className="space-y-3">
@@ -497,6 +507,166 @@ function DetalleProyecto({
             </div>
           )}
         </div>
+      )}
+    </div>
+  );
+}
+
+// ── EncargadosBlock ───────────────────────────────────────────────────────────
+
+function EncargadosBlock({ proyectoId }: { proyectoId: string }) {
+  const [encargados,    setEncargados]    = useState<EncargadoProyecto[]>([]);
+  const [loading,       setLoading]       = useState(true);
+  const [error,         setError]         = useState<string | null>(null);
+  const [todos,         setTodos]         = useState<{ id: string; nombre: string }[]>([]);
+  const [selUsuario,    setSelUsuario]    = useState('');
+  const [confirmQuitar, setConfirmQuitar] = useState<string | null>(null);
+  const [savingAdd,     setSavingAdd]     = useState(false);
+  const [savingRemove,  setSavingRemove]  = useState(false);
+  const [errorMutacion, setErrorMutacion] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    Promise.all([
+      proyectosService.getEncargados(proyectoId),
+      usuariosService.getAll(),
+    ])
+      .then(([encs, usuarios]) => {
+        setEncargados(encs);
+        setTodos(
+          usuarios
+            .filter(u => u.isActive && u.role.nombre === 'encargado_maquinas')
+            .map(u => ({ id: u.id, nombre: u.nombre })),
+        );
+      })
+      .catch(() => setError('No se pudieron cargar los encargados.'))
+      .finally(() => setLoading(false));
+  }, [proyectoId]);
+
+  const asignadosIds = new Set(encargados.map(e => e.usuarioId));
+  const disponibles  = todos.filter(u => !asignadosIds.has(u.id));
+
+  const handleAgregar = async () => {
+    if (!selUsuario) return;
+    setSavingAdd(true);
+    setErrorMutacion(null);
+    try {
+      const updated = await proyectosService.agregarEncargado(proyectoId, selUsuario);
+      setEncargados(updated);
+      setSelUsuario('');
+    } catch (err: any) {
+      const msg = err?.response?.data?.message;
+      setErrorMutacion(Array.isArray(msg) ? msg.join(' · ') : (msg ?? 'Error al agregar encargado.'));
+    } finally {
+      setSavingAdd(false);
+    }
+  };
+
+  const handleQuitar = async (usuarioId: string) => {
+    setSavingRemove(true);
+    setErrorMutacion(null);
+    try {
+      const updated = await proyectosService.quitarEncargado(proyectoId, usuarioId);
+      setEncargados(updated);
+      setConfirmQuitar(null);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message;
+      setErrorMutacion(Array.isArray(msg) ? msg.join(' · ') : (msg ?? 'Error al quitar encargado.'));
+      setConfirmQuitar(null);
+    } finally {
+      setSavingRemove(false);
+    }
+  };
+
+  return (
+    <div className="mb-6 p-4 bg-white border border-slate-200 rounded-xl">
+      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Encargados</p>
+
+      {loading ? (
+        <div className="flex items-center gap-2 py-1 text-xs text-slate-400">
+          <svg className="animate-spin w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+          </svg>
+          Cargando...
+        </div>
+      ) : error ? (
+        <p className="text-xs text-red-500">{error}</p>
+      ) : (
+        <>
+          <div className="space-y-2 mb-3">
+            {encargados.length === 0 ? (
+              <p className="text-xs text-slate-400">Sin encargados asignados. Usa el selector de abajo para agregar uno.</p>
+            ) : encargados.map(e => (
+              <div key={e.usuarioId} className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600 shrink-0">
+                    {e.nombre.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                  </div>
+                  <span className="text-sm text-slate-700">{e.nombre}</span>
+                  {e.esCreador && (
+                    <span className="text-xs px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded font-medium">creador</span>
+                  )}
+                </div>
+                {!e.esCreador && (
+                  confirmQuitar === e.usuarioId ? (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => handleQuitar(e.usuarioId)}
+                        disabled={savingRemove}
+                        className="px-2 py-1 text-xs rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-60"
+                      >
+                        {savingRemove ? '...' : 'Quitar'}
+                      </button>
+                      <button
+                        onClick={() => setConfirmQuitar(null)}
+                        className="px-2 py-1 text-xs rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmQuitar(e.usuarioId)}
+                      className="text-slate-300 hover:text-red-500 transition-colors p-1"
+                      title="Quitar encargado"
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                      </svg>
+                    </button>
+                  )
+                )}
+              </div>
+            ))}
+          </div>
+
+          {errorMutacion && (
+            <p className="text-xs text-red-500 mb-2">{errorMutacion}</p>
+          )}
+
+          {disponibles.length > 0 && (
+            <div className="flex gap-2 items-center pt-2 border-t border-slate-100">
+              <select
+                value={selUsuario}
+                onChange={e => setSelUsuario(e.target.value)}
+                className="flex-1 px-2 py-1.5 text-xs rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100"
+              >
+                <option value="">— Seleccionar usuario —</option>
+                {disponibles.map(u => (
+                  <option key={u.id} value={u.id}>{u.nombre}</option>
+                ))}
+              </select>
+              <button
+                onClick={handleAgregar}
+                disabled={!selUsuario || savingAdd}
+                className="px-3 py-1.5 text-xs rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed shrink-0"
+              >
+                {savingAdd ? '...' : 'Agregar'}
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

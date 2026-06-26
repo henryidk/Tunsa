@@ -15,15 +15,16 @@ import { today } from '../../utils/horometro.utils';
 import VenceLabel from './VenceLabel';
 
 export interface RentaActivaCardProps {
-  solicitud:           SolicitudRenta;
-  ahora:               number;
-  abriendo:            boolean;
-  showEncargado?:      boolean;
-  onVerComprobante:    () => void;
-  onAmpliar?:          () => void;
-  onDevolucion:        () => void;
-  onHorometro?:        () => void;
-  onAsignarProyecto?:  () => void;
+  solicitud:              SolicitudRenta;
+  ahora:                  number;
+  abriendo:               boolean;
+  showEncargado?:         boolean;
+  onVerComprobante:       () => void;
+  onAmpliar?:             () => void;
+  onDevolucion:           () => void;
+  onHorometro?:           () => void;
+  onAsignarProyecto?:     () => void;
+  onReasignarProyecto?:   () => void;
 }
 
 export default function RentaActivaCard({
@@ -36,6 +37,7 @@ export default function RentaActivaCard({
   onDevolucion,
   onHorometro,
   onAsignarProyecto,
+  onReasignarProyecto,
 }: RentaActivaCardProps) {
   const todayStr = today();
   const estadoHorometro = (() => {
@@ -85,6 +87,18 @@ export default function RentaActivaCard({
           )}
           <span className="text-xs font-mono font-semibold text-slate-600">{solicitud.folio}</span>
           <ProyectoBadge proyecto={solicitud.proyecto} />
+          {onReasignarProyecto && solicitud.proyecto && (
+            <button
+              onClick={onReasignarProyecto}
+              title="Cambiar proyecto"
+              className="text-slate-400 hover:text-indigo-600 transition-colors"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+            </button>
+          )}
         </div>
         <span className="text-xs text-slate-400">
           Inicio {solicitud.fechaInicioRenta ? formatFechaHora(solicitud.fechaInicioRenta) : '—'}
@@ -175,9 +189,9 @@ export default function RentaActivaCard({
               Ver comprobante
             </button>
           )}
-          {onAsignarProyecto && !solicitud.proyecto && (
+          {!solicitud.proyecto && (onAsignarProyecto || onReasignarProyecto) && (
             <button
-              onClick={onAsignarProyecto}
+              onClick={onReasignarProyecto ?? onAsignarProyecto}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-medium text-slate-500 transition-colors"
             >
               <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">

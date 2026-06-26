@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, Fragment } from 'react';
+import { useState, useEffect, useCallback, Fragment, useMemo } from 'react';
 import type { AxiosError } from 'axios';
 import { solicitudesService, type LecturaHorometro, type DashboardStats } from '../../../services/solicitudes.service';
 import type { SolicitudRenta, ItemSnapshot, ExtraSeleccionado } from '../../../types/solicitud-renta.types';
@@ -115,6 +115,19 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
   const [listError,     setListError]     = useState<string | null>(null);
   const [busqueda,       setBusqueda]      = useState('');
   const [filtroProyecto, setFiltroProyecto] = useState<string | null>(null);
+
+  const { proyectosHorometros, hayIndependientesHorometros } = useMemo(() => {
+    const map = new Map<string, string>();
+    let sinProyecto = false;
+    for (const s of solicitudes) {
+      if (s.proyecto) map.set(s.proyecto.id, s.proyecto.nombre);
+      else            sinProyecto = true;
+    }
+    return {
+      proyectosHorometros:         Array.from(map.entries()).map(([id, nombre]) => ({ id, nombre })),
+      hayIndependientesHorometros: sinProyecto,
+    };
+  }, [solicitudes]);
 
   // Detail view state
   const [selectedId,  setSelectedId]  = useState<string | null>(initialSolicitudId ?? null);
@@ -1379,7 +1392,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
           placeholder="Buscar por folio o cliente..."
           className="w-full sm:w-72 border border-slate-200 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
         />
-        <FiltroProyecto solicitudes={solicitudes} value={filtroProyecto} onChange={setFiltroProyecto} />
+        <FiltroProyecto proyectos={proyectosHorometros} hayIndependientes={hayIndependientesHorometros} value={filtroProyecto} onChange={setFiltroProyecto} />
       </div>
 
       {!isLoadingList && pendientesHoy > 0 && (

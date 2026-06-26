@@ -304,11 +304,11 @@ function EquipoAgregado({ item, indefinido, onQuitar }: { item: PesadaItem; inde
           <tr>
             <td className="px-4 py-3">
               <div className="flex items-center gap-2">
-                <span className="font-mono text-[10px] text-slate-400">#{item.equipo.numeracion}</span>
+                <span className="font-mono text-xs text-slate-400">#{item.equipo.numeracion}</span>
                 <span className="font-medium text-slate-700">{item.equipo.descripcion}</span>
               </div>
               {item.extrasSeleccionados.length > 0 && (
-                <p className="text-[10px] text-slate-400 mt-0.5">
+                <p className="text-xs text-slate-400 mt-0.5">
                   Incluye: {item.extrasSeleccionados.map(e => `${e.nombre} (${formatQ(e.rentaHora)}/hr si se usa)`).join(' · ')}
                 </p>
               )}
@@ -369,7 +369,7 @@ function PesadaResumen({ cliente, items, indefinido, modalidadPago, canEnviar, i
         </div>
 
         <div className="px-5 py-3 border-b border-slate-100">
-          <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Cliente</div>
+          <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Cliente</div>
           {cliente ? (
             <>
               <div className="flex items-center gap-1.5 flex-wrap">
@@ -384,7 +384,7 @@ function PesadaResumen({ cliente, items, indefinido, modalidadPago, canEnviar, i
         </div>
 
         <div className="px-5 py-3 border-b border-slate-100 max-h-52 overflow-y-auto">
-          <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Equipo asignado</div>
+          <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Equipo asignado</div>
           {items.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-6 gap-1.5 text-slate-300">
               <CraneIcon />
@@ -397,10 +397,10 @@ function PesadaResumen({ cliente, items, indefinido, modalidadPago, canEnviar, i
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium text-slate-700 truncate">
-                    <span className="font-mono text-[10px] text-slate-400">#{it.equipo.numeracion} </span>
+                    <span className="font-mono text-xs text-slate-400">#{it.equipo.numeracion} </span>
                     {it.equipo.descripcion}
                   </p>
-                  <p className="text-[10px] text-slate-400">
+                  <p className="text-xs text-slate-400">
                     {indefinido
                       ? <span className="text-violet-500 font-medium">∞ Tiempo indefinido</span>
                       : unidadLabel(it.duracion!, it.unidad!)}
@@ -415,7 +415,7 @@ function PesadaResumen({ cliente, items, indefinido, modalidadPago, canEnviar, i
         </div>
 
         <div className="px-5 py-3 border-b border-slate-100">
-          <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Pago</div>
+          <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Pago</div>
           {!modalidadPago ? (
             <p className="text-xs text-slate-400 italic">Sin modalidad seleccionada</p>
           ) : modalidadPago === 'CONTADO' ? (
@@ -595,10 +595,10 @@ function PesadaPickerForm({ disponibles, isLoading, indefinido, onAdd }: PesadaP
                         <span className="text-xs font-medium text-slate-800 block truncate">{e.descripcion}</span>
                         <div className="flex flex-wrap gap-2 mt-0.5">
                           {e.rentaHora != null && (
-                            <span className="text-[10px] text-slate-400">{formatQ(e.rentaHora)}/hr</span>
+                            <span className="text-xs text-slate-400">{formatQ(e.rentaHora)}/hr</span>
                           )}
                           {e.extras.map(ex => (
-                            <span key={ex.tipoExtraId} className="text-[10px] text-orange-500">
+                            <span key={ex.tipoExtraId} className="text-xs text-orange-500">
                               +{ex.nombre}: {formatQ(ex.rentaHora)}/hr
                             </span>
                           ))}
@@ -616,11 +616,11 @@ function PesadaPickerForm({ disponibles, isLoading, indefinido, onAdd }: PesadaP
       {/* Extras del equipo seleccionado — informativo, viajan siempre con la máquina */}
       {seleccionado && seleccionado.extras.length > 0 && (
         <div className="mb-3 space-y-1">
-          <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Complementos incluidos</p>
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Complementos incluidos</p>
           {seleccionado.extras.map(ex => (
             <div key={ex.tipoExtraId} className="flex items-center gap-2 text-xs text-slate-600">
               <span className="font-medium">{ex.nombre}</span>
-              <span className="text-[10px] text-slate-400">— {formatQ(ex.rentaHora)}/hr si se usa</span>
+              <span className="text-xs text-slate-400">— {formatQ(ex.rentaHora)}/hr si se usa</span>
             </div>
           ))}
         </div>
@@ -635,7 +635,7 @@ function PesadaPickerForm({ disponibles, isLoading, indefinido, onAdd }: PesadaP
               <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
             </svg>
             <span className="font-mono text-slate-500">{fechaInicio}</span>
-            <span className="text-[10px] text-slate-400 font-medium">Hoy</span>
+            <span className="text-xs text-slate-400 font-medium">Hoy</span>
           </div>
         </div>
         {!indefinido && (

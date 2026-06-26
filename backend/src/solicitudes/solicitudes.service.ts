@@ -11,6 +11,7 @@ import { RegistrarDevolucionDto } from './dto/registrar-devolucion.dto';
 import { IniciarEntregaDto } from './dto/iniciar-entrega.dto';
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
 import { tieneAccesoGlobal, puedeGestionarSolicitud } from '../auth/utils/roles.util';
+import { ProyectosService } from '../proyectos/proyectos.service';
 import { fechaGT } from '../common/utils/date.util';
 import { serializeSolicitud } from './solicitudes.serializer';
 import { tieneEquipoId, type ItemParaCalculo, type ItemConKind } from './solicitudes.types';
@@ -41,9 +42,10 @@ const PDF_MAGIC_BYTES = Buffer.from([0x25, 0x50, 0x44, 0x46]); // %PDF
 @Injectable()
 export class SolicitudesService {
   constructor(
-    private readonly prisma:        PrismaService,
-    private readonly r2:            R2Service,
-    private readonly granelService: GranelService,
+    private readonly prisma:             PrismaService,
+    private readonly r2:                 R2Service,
+    private readonly granelService:      GranelService,
+    private readonly proyectosService:   ProyectosService,
   ) {}
 
   private buildComprobanteKey(clienteId: string, folio: string): string {
@@ -68,6 +70,19 @@ export class SolicitudesService {
       throw new BadRequestException('El proyecto no pertenece al cliente seleccionado.');
     if (proyecto.estado !== 'ACTIVO')
       throw new BadRequestException('Solo se pueden asignar proyectos activos.');
+  }
+
+  async reasignarProyecto(solicitudId: string, proyectoId: string | null): Promise<void> {
+    const exists = await this.prisma.solicitud.findUnique({
+      where:  { id: solicitudId },
+      select: { id: true },
+    });
+    if (!exists) throw new NotFoundException(`Solicitud ${solicitudId} no encontrada.`);
+
+    await this.prisma.solicitud.update({
+      where: { id: solicitudId },
+      data:  { proyectoId },
+    });
   }
 
   /**
@@ -188,7 +203,10 @@ export class SolicitudesService {
       });
     }
 
-    if (dto.proyectoId) await this.validarProyecto(dto.proyectoId, dto.clienteId);
+    if (dto.proyectoId) {
+      await this.validarProyecto(dto.proyectoId, dto.clienteId);
+      await this.proyectosService.checkAccesoProyecto(dto.proyectoId, user);
+    }
 
     const solicitud = await this.prisma.$transaction(async (tx) => {
       const s = await tx.solicitud.create({
@@ -266,7 +284,10 @@ export class SolicitudesService {
       });
     }
 
-    if (dto.proyectoId) await this.validarProyecto(dto.proyectoId, dto.clienteId);
+    if (dto.proyectoId) {
+      await this.validarProyecto(dto.proyectoId, dto.clienteId);
+      await this.proyectosService.checkAccesoProyecto(dto.proyectoId, user);
+    }
 
     return this.prisma.$transaction(async (tx) => {
       const now     = new Date();
@@ -357,7 +378,10 @@ export class SolicitudesService {
       });
     }
 
-    if (dto.proyectoId) await this.validarProyecto(dto.proyectoId, dto.clienteId);
+    if (dto.proyectoId) {
+      await this.validarProyecto(dto.proyectoId, dto.clienteId);
+      await this.proyectosService.checkAccesoProyecto(dto.proyectoId, user);
+    }
 
     return this.prisma.$transaction(async (tx) => {
       const now     = new Date();
@@ -807,9 +831,12 @@ export class SolicitudesService {
   async previewDevolucion(
     id:            string,
     itemRefsInput: string[] | undefined,
+    user:          AuthenticatedUser,
   ): Promise<{ itemRef: string; costoReal: number; diasCobrados: number; recargoTiempo: number }[]> {
     const solicitud = await this.prisma.solicitud.findUnique({ where: { id }, include: { cliente: true, proyecto: { select: { id: true, nombre: true } } } });
     if (!solicitud || !solicitud.fechaInicioRenta) return [];
+    if (!puedeGestionarSolicitud(user, solicitud))
+      throw new ForbiddenException('No tienes acceso a esta solicitud.');
 
     const fechaDevolucion    = new Date();
     const fechaInicio        = solicitud.fechaInicioRenta;
@@ -1155,11 +1182,13 @@ export class SolicitudesService {
     return { url };
   }
 
-  async getComprobanteUrl(id: string, username: string): Promise<{ url: string }> {
+  async getComprobanteUrl(id: string, user: AuthenticatedUser): Promise<{ url: string }> {
     const solicitud = await this.prisma.solicitud.findUnique({ where: { id } });
 
     if (!solicitud)
       throw new NotFoundException('Solicitud no encontrada.');
+    if (!puedeGestionarSolicitud(user, solicitud))
+      throw new ForbiddenException('No tienes acceso a esta solicitud.');
     if (!solicitud.comprobanteKey)
       throw new NotFoundException('Esta solicitud no tiene comprobante subido.');
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { solicitudesService } from '../../services/solicitudes.service';
 import { useVencidasRecargoTick } from '../../hooks/useVencidasRecargoTick';
 import type { SolicitudRenta } from '../../types/solicitud-renta.types';
@@ -37,6 +37,19 @@ export default function VencidasSection({
   const [error,           setError]           = useState<string | null>(null);
   const [busqueda,        setBusqueda]        = useState(initialFolio ?? '');
   const [filtroProyecto,  setFiltroProyecto]  = useState<string | null>(null);
+
+  const { proyectosVencidas, hayIndependientesVencidas } = useMemo(() => {
+    const map = new Map<string, string>();
+    let sinProyecto = false;
+    for (const s of solicitudes) {
+      if (s.proyecto) map.set(s.proyecto.id, s.proyecto.nombre);
+      else            sinProyecto = true;
+    }
+    return {
+      proyectosVencidas:          Array.from(map.entries()).map(([id, nombre]) => ({ id, nombre })),
+      hayIndependientesVencidas:  sinProyecto,
+    };
+  }, [solicitudes]);
   const [ahora,           setAhora]           = useState(() => Date.now());
   const [abriendo,        setAbriendo]        = useState<string | null>(null);
   const [modalAmpliar,    setModalAmpliar]    = useState<SolicitudRenta | null>(null);
@@ -194,7 +207,7 @@ export default function VencidasSection({
           placeholder="Buscar por folio o cliente..."
           className="w-full sm:w-72 border border-slate-200 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
         />
-        <FiltroProyecto solicitudes={solicitudes} value={filtroProyecto} onChange={setFiltroProyecto} />
+        <FiltroProyecto proyectos={proyectosVencidas} hayIndependientes={hayIndependientesVencidas} value={filtroProyecto} onChange={setFiltroProyecto} />
       </div>
 
       {isLoading ? (

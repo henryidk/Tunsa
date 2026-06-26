@@ -26,7 +26,9 @@ model Usuario {
   updatedAt DateTime @updatedAt
 
   // Relaciones
-  refreshTokens RefreshToken[]
+  refreshTokens      RefreshToken[]
+  proyectosCreados   Proyecto[]           @relation("ProyectosCreados")
+  proyectosAsignados ProyectoEncargado[]
   // @@index([username]) eliminado: @unique ya crea un índice, este era redundante
 
   @@map("usuarios")
@@ -381,15 +383,30 @@ model Proyecto {
   estado      EstadoProyecto @default(ACTIVO)
   fechaInicio DateTime       @db.Date
   fechaFin    DateTime?      @db.Date
-  creadoPor   String // username de quien creó el proyecto
+  creadoPor   String // nombre completo de quien creó el proyecto
+  creadoPorId String? // FK al usuario creador (null en proyectos migrados)
+  creadoPorUsuario Usuario?  @relation("ProyectosCreados", fields: [creadoPorId], references: [id])
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
   solicitudes Solicitud[]
+  encargados  ProyectoEncargado[]
 
   @@index([clienteId, estado]) // selector de proyectos al elegir cliente (filtra ACTIVO)
   @@index([estado, createdAt]) // lista de proyectos con filtro por estado
   @@map("proyectos")
+}
+
+model ProyectoEncargado {
+  proyectoId String
+  usuarioId  String
+  asignadoEn DateTime @default(now())
+
+  proyecto Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+  usuario  Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@id([proyectoId, usuarioId])
+  @@map("proyecto_encargados")
 }
 
 // ==================== HORÓMETRO (MAQUINARIA PESADA) ====================

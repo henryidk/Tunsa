@@ -1,42 +1,42 @@
-import { useMemo } from 'react';
-import type { SolicitudRenta } from '../../types/solicitud-renta.types';
-
-interface Props {
-  solicitudes: SolicitudRenta[];
-  value:       string | null;
-  onChange:    (v: string | null) => void;
+interface Proyecto {
+  id:     string;
+  nombre: string;
 }
 
-export default function FiltroProyecto({ solicitudes, value, onChange }: Props) {
-  const { proyectos, hayIndependientes } = useMemo(() => {
-    const map = new Map<string, string>();
-    let sinProyecto = false;
-    for (const s of solicitudes) {
-      if (s.proyecto) map.set(s.proyecto.id, s.proyecto.nombre);
-      else            sinProyecto = true;
-    }
-    return {
-      proyectos:       Array.from(map.entries()),
-      hayIndependientes: sinProyecto,
-    };
-  }, [solicitudes]);
+interface Props {
+  proyectos:         Proyecto[];
+  hayIndependientes: boolean;
+  value:             string | null;
+  onChange:          (v: string | null) => void;
+}
 
-  if (proyectos.length === 0) return null;
+export default function FiltroProyecto({ proyectos, hayIndependientes, value, onChange }: Props) {
+  if (proyectos.length === 0 && !hayIndependientes) return null;
+
+  const chips: { key: string | null; label: string }[] = [
+    { key: null,  label: 'Todos' },
+    ...(hayIndependientes ? [{ key: '', label: 'Independientes' }] : []),
+    ...proyectos.map(p => ({ key: p.id, label: p.nombre })),
+  ];
 
   return (
-    <select
-      value={value ?? 'todas'}
-      onChange={e => {
-        const v = e.target.value;
-        onChange(v === 'todas' ? null : v === 'independientes' ? '' : v);
-      }}
-      className="border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-700 bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
-    >
-      <option value="todas">Todos los proyectos</option>
-      {hayIndependientes && <option value="independientes">Independientes</option>}
-      {proyectos.map(([id, nombre]) => (
-        <option key={id} value={id}>{nombre}</option>
-      ))}
-    </select>
+    <div className="flex flex-wrap gap-2">
+      {chips.map(chip => {
+        const active = value === chip.key;
+        return (
+          <button
+            key={chip.key ?? '__todos__'}
+            onClick={() => onChange(chip.key)}
+            className={`px-3 py-1 text-xs rounded-full border font-medium transition-colors ${
+              active
+                ? 'bg-indigo-600 text-white border-indigo-600'
+                : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+            }`}
+          >
+            {chip.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }

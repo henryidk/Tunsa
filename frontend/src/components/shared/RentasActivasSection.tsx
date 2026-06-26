@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { solicitudesService, type DashboardStats } from '../../services/solicitudes.service';
 import { useActivasVencidasSync } from '../../hooks/useActivasVencidasSync';
 import type { SolicitudRenta } from '../../types/solicitud-renta.types';
@@ -10,6 +10,7 @@ import StatCard from './StatCard';
 import FiltroProyecto from './FiltroProyecto';
 import AsignarProyectoModal from './AsignarProyectoModal';
 import { filtrarPorProyecto } from '../../utils/filtrar-por-proyecto';
+import { api } from '../../services/auth.service';
 
 interface Props {
   solicitudes:      SolicitudRenta[];
@@ -23,12 +24,14 @@ interface Props {
   initialFolio?:    string;
   subtitle?:        string;
   onNavTo?:         (section: string, state?: { solicitudId?: string; folio?: string }) => void;
+  canReasignar?:    boolean;
 }
 
 export default function RentasActivasSection({
   solicitudes, setSolicitudes, updateRenta, removeRenta, addVencida,
   fetchSolicitudes, showEncargado = false, showBusqueda = false, initialFolio,
   subtitle = 'Equipos actualmente rentados por tus clientes', onNavTo,
+  canReasignar = false,
 }: Props) {
   const [isLoading,          setIsLoading]          = useState(true);
   const [error,              setError]              = useState<string | null>(null);
@@ -40,6 +43,7 @@ export default function RentasActivasSection({
   const [abriendo,           setAbriendo]           = useState<string | null>(null);
   const [filtroProyecto,     setFiltroProyecto]     = useState<string | null>(null);
   const [modalAsignar,       setModalAsignar]       = useState<SolicitudRenta | null>(null);
+  const [reasignando,        setReasignando]        = useState<SolicitudRenta | null>(null);
   const [modalAmpliar,       setModalAmpliar]       = useState<SolicitudRenta | null>(null);
   const [modalDevolucion,    setModalDevolucion]    = useState<SolicitudRenta | null>(null);
   const [modalDevPesada,     setModalDevPesada]     = useState<SolicitudRenta | null>(null);
@@ -104,6 +108,28 @@ export default function RentasActivasSection({
     setModalAsignar(null);
   };
 
+  const handleReasignado = async (solicitudId: string, proyectoId: string | null, nombre: string | null) => {
+    await api.patch(`/solicitudes/${solicitudId}/proyecto`, { proyectoId });
+    const s = solicitudes.find(r => r.id === solicitudId);
+    if (s) {
+      updateRenta({ ...s, proyecto: proyectoId ? { id: proyectoId, nombre: nombre ?? '' } : null });
+    }
+    setReasignando(null);
+  };
+
+  const { proyectosConRentas, hayIndependientes } = useMemo(() => {
+    const map = new Map<string, string>();
+    let sinProyecto = false;
+    for (const s of solicitudes) {
+      if (s.proyecto) map.set(s.proyecto.id, s.proyecto.nombre);
+      else            sinProyecto = true;
+    }
+    return {
+      proyectosConRentas: Array.from(map.entries()).map(([id, nombre]) => ({ id, nombre })),
+      hayIndependientes:  sinProyecto,
+    };
+  }, [solicitudes]);
+
   const solicitudesFiltradas = filtrarPorProyecto(
     (showBusqueda || !!initialFolio) && busqueda.trim()
       ? solicitudes.filter(s => {
@@ -161,6 +187,16 @@ export default function RentasActivasSection({
           onAsignado={(proyectoId, nombre) => handleAsignado(modalAsignar.id, proyectoId, nombre)}
         />
       )}
+      {reasignando && (
+        <AsignarProyectoModal
+          solicitud={reasignando}
+          isOpen={!!reasignando}
+          onClose={() => setReasignando(null)}
+          onAsignado={(proyectoId, nombre) => handleAsignado(reasignando.id, proyectoId, nombre)}
+          proyectoActualId={reasignando.proyecto?.id ?? null}
+          onReasignar={(proyectoId, nombre) => handleReasignado(reasignando.id, proyectoId, nombre)}
+        />
+      )}
 
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-800">Rentas Activas</h1>
@@ -204,7 +240,7 @@ export default function RentasActivasSection({
           }
         />
         <StatCard
-          label="Maq. pesada"
+          label="Pesada recaudada"
           value={loadingPesadaStats ? null : `Q ${(pesadaStats?.pesadaRecaudadaMes ?? 0).toLocaleString('es-GT', { minimumFractionDigits: 2 })}`}
           color="emerald"
           tag="Recaudado este mes"
@@ -215,7 +251,7 @@ export default function RentasActivasSection({
           }
         />
         <StatCard
-          label="Maq. pesada"
+          label="Pesada pendiente"
           value={isLoading ? null : `Q ${pendientesCobrar.toLocaleString('es-GT', { minimumFractionDigits: 2 })}`}
           color="amber"
           tag="Pendientes de cobrar"
@@ -243,7 +279,12 @@ export default function RentasActivasSection({
             className="w-full sm:w-72 border border-slate-200 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
           />
         )}
-        <FiltroProyecto solicitudes={solicitudes} value={filtroProyecto} onChange={setFiltroProyecto} />
+        <FiltroProyecto
+          proyectos={proyectosConRentas}
+          hayIndependientes={hayIndependientes}
+          value={filtroProyecto}
+          onChange={setFiltroProyecto}
+        />
       </div>
 
       {isLoading ? (
@@ -268,6 +309,7 @@ export default function RentasActivasSection({
               onDevolucion={s.esPesada ? () => setModalDevPesada(s) : () => setModalDevolucion(s)}
               onHorometro={s.esPesada ? () => onNavTo?.('horometros', { solicitudId: s.id }) : undefined}
               onAsignarProyecto={() => setModalAsignar(s)}
+              onReasignarProyecto={canReasignar ? () => setReasignando(s) : undefined}
             />
           ))}
         </div>

@@ -15,8 +15,10 @@ export function useProyectosCliente(clienteId: string | null) {
     let cancelled = false;
     setLoading(true);
 
-    proyectosService.getByCliente(clienteId)
-      .then(data => { if (!cancelled) setProyectos(data); })
+    proyectosService.getMisProyectos()
+      .then(data => {
+        if (!cancelled) setProyectos(data.filter(p => p.clienteId === clienteId));
+      })
       .catch(()   => { if (!cancelled) setProyectos([]);  })
       .finally(()  => { if (!cancelled) setLoading(false); });
 

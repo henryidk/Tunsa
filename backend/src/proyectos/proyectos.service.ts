@@ -3,23 +3,37 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { EstadoProyecto, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProyectoDto } from './dto/create-proyecto.dto';
 import { UpdateProyectoDto } from './dto/update-proyecto.dto';
 import { AsignarProyectoDto } from './dto/asignar-proyecto.dto';
+import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
+import { tieneAccesoGlobal } from '../auth/utils/roles.util';
 
 @Injectable()
 export class ProyectosService {
   constructor(private readonly prisma: PrismaService) {}
 
+  // ── Control de acceso ─────────────────────────────────────────────────────
+
+  async checkAccesoProyecto(proyectoId: string, user: AuthenticatedUser): Promise<void> {
+    if (tieneAccesoGlobal(user)) return;
+    const asignacion = await this.prisma.proyectoEncargado.findUnique({
+      where: { proyectoId_usuarioId: { proyectoId, usuarioId: user.id } },
+    });
+    if (!asignacion) throw new ForbiddenException('No tienes acceso a este proyecto.');
+  }
+
   // ── Queries ──────────────────────────────────────────────────────────────
 
-  async findAll(filtros?: { clienteId?: string; estado?: EstadoProyecto }) {
+  async findAll(user: AuthenticatedUser, filtros?: { clienteId?: string; estado?: EstadoProyecto }) {
     const where: Prisma.ProyectoWhereInput = {};
     if (filtros?.clienteId) where.clienteId = filtros.clienteId;
     if (filtros?.estado)    where.estado    = filtros.estado;
+    if (!tieneAccesoGlobal(user)) where.encargados = { some: { usuarioId: user.id } };
 
     const proyectos = await this.prisma.proyecto.findMany({
       where,
@@ -85,8 +99,8 @@ export class ProyectosService {
     return proyecto;
   }
 
-  async findSolicitudesDeProyecto(proyectoId: string) {
-    await this.findOne(proyectoId); // lanza 404 si no existe
+  async findSolicitudesDeProyecto(proyectoId: string, user: AuthenticatedUser) {
+    await this.findOneConAcceso(proyectoId, user);
 
     const [enProceso, activas, vencidas, devueltas] = await Promise.all([
       this.prisma.solicitud.findMany({
@@ -133,7 +147,13 @@ export class ProyectosService {
 
   // ── Mutaciones ───────────────────────────────────────────────────────────
 
-  async create(dto: CreateProyectoDto, creadoPor: string) {
+  async findOneConAcceso(id: string, user: AuthenticatedUser) {
+    const proyecto = await this.findOne(id); // lanza 404
+    await this.checkAccesoProyecto(id, user); // lanza 403
+    return proyecto;
+  }
+
+  async create(dto: CreateProyectoDto, usuarioId: string, nombreUsuario: string) {
     const clienteExiste = await this.prisma.cliente.findUnique({
       where:  { id: dto.clienteId },
       select: { id: true },
@@ -144,21 +164,92 @@ export class ProyectosService {
 
     const id = await this.generarId();
 
-    await this.prisma.proyecto.create({
-      data: {
-        id,
-        nombre:      dto.nombre,
-        descripcion: dto.descripcion ?? null,
-        clienteId:   dto.clienteId,
-        fechaInicio: new Date(),
-        creadoPor,
-      },
+    await this.prisma.$transaction(async (tx) => {
+      await tx.proyecto.create({
+        data: {
+          id,
+          nombre:      dto.nombre,
+          descripcion: dto.descripcion ?? null,
+          clienteId:   dto.clienteId,
+          fechaInicio: new Date(),
+          creadoPor:   nombreUsuario,
+          creadoPorId: usuarioId,
+        },
+      });
+      // Auto-asignar al creador como encargado
+      await tx.proyectoEncargado.create({
+        data: { proyectoId: id, usuarioId },
+      });
     });
+
     return this.toResponse(id);
   }
 
-  async update(id: string, dto: UpdateProyectoDto) {
-    await this.findOne(id);
+  async getMisProyectos(user: AuthenticatedUser) {
+    const esAdmin = ['admin', 'secretaria'].includes(user.role);
+    return this.prisma.proyecto.findMany({
+      where: {
+        estado: 'ACTIVO',
+        ...(esAdmin ? {} : {
+          encargados: { some: { usuarioId: user.id } },
+        }),
+      },
+      select: { id: true, nombre: true, clienteId: true },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async getEncargados(proyectoId: string) {
+    const proyecto = await this.prisma.proyecto.findUnique({
+      where:  { id: proyectoId },
+      select: { creadoPorId: true },
+    });
+
+    const encargados = await this.prisma.proyectoEncargado.findMany({
+      where:   { proyectoId },
+      include: { usuario: { select: { id: true, nombre: true } } },
+      orderBy: { asignadoEn: 'asc' },
+    });
+
+    return encargados.map(e => ({
+      usuarioId:  e.usuarioId,
+      nombre:     e.usuario.nombre,
+      asignadoEn: e.asignadoEn,
+      esCreador:  e.usuarioId === proyecto?.creadoPorId,
+    }));
+  }
+
+  async agregarEncargado(proyectoId: string, usuarioId: string) {
+    await this.findOne(proyectoId);
+    const usuario = await this.prisma.usuario.findUnique({ where: { id: usuarioId }, select: { id: true } });
+    if (!usuario) throw new NotFoundException(`Usuario ${usuarioId} no encontrado.`);
+
+    await this.prisma.proyectoEncargado.upsert({
+      where:  { proyectoId_usuarioId: { proyectoId, usuarioId } },
+      create: { proyectoId, usuarioId },
+      update: {},
+    });
+    return this.getEncargados(proyectoId);
+  }
+
+  async quitarEncargado(proyectoId: string, usuarioId: string) {
+    const proyecto = await this.prisma.proyecto.findUnique({
+      where:  { id: proyectoId },
+      select: { creadoPorId: true },
+    });
+    if (!proyecto) throw new NotFoundException(`Proyecto ${proyectoId} no encontrado.`);
+    if (proyecto.creadoPorId === usuarioId) {
+      throw new ConflictException('El creador no puede ser removido del proyecto.');
+    }
+
+    await this.prisma.proyectoEncargado.deleteMany({
+      where: { proyectoId, usuarioId },
+    });
+    return this.getEncargados(proyectoId);
+  }
+
+  async update(id: string, dto: UpdateProyectoDto, user: AuthenticatedUser) {
+    await this.findOneConAcceso(id, user);
 
     const data: Prisma.ProyectoUpdateInput = {};
     if (dto.nombre      !== undefined) data.nombre      = dto.nombre;
@@ -168,8 +259,8 @@ export class ProyectosService {
     return this.toResponse(id);
   }
 
-  async finalizar(id: string) {
-    await this.findOne(id);
+  async finalizar(id: string, user: AuthenticatedUser) {
+    await this.findOneConAcceso(id, user);
 
     const rentasEnCurso = await this.prisma.solicitud.count({
       where: { proyectoId: id, estado: { in: ['PENDIENTE', 'APROBADA', 'ACTIVA'] } },
@@ -196,7 +287,7 @@ export class ProyectosService {
     return this.toResponse(id);
   }
 
-  async asignarSolicitud(solicitudId: string, dto: AsignarProyectoDto) {
+  async asignarSolicitud(solicitudId: string, dto: AsignarProyectoDto, user: AuthenticatedUser) {
     const solicitud = await this.prisma.solicitud.findUnique({
       where:  { id: solicitudId },
       select: { id: true, estado: true, clienteId: true, proyectoId: true },
@@ -226,6 +317,8 @@ export class ProyectosService {
     if (proyecto.clienteId !== solicitud.clienteId) {
       throw new BadRequestException('El proyecto no pertenece al mismo cliente de la renta.');
     }
+
+    await this.checkAccesoProyecto(dto.proyectoId, user);
 
     await this.prisma.solicitud.update({
       where: { id: solicitudId },

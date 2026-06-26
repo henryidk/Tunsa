@@ -25,6 +25,7 @@ export default function AdminRentasActivasSection({ onNavTo, initialFolio }: Pro
       initialFolio={initialFolio}
       subtitle="Todos los contratos de renta en curso"
       onNavTo={onNavTo}
+      canReasignar
     />
   );
 }

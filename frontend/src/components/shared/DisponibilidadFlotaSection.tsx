@@ -131,7 +131,11 @@ export default function DisponibilidadFlotaSection({
           return (
             <button
               key={key}
-              onClick={() => setFiltroEstado(activo ? 'todos' : key)}
+              onClick={() => {
+                const next = activo ? 'todos' : key;
+                if (next === 'disponible') setFiltroProyecto(null);
+                setFiltroEstado(next);
+              }}
               title={activo ? 'Ver todos' : `Filtrar por ${label.toLowerCase()}`}
               className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all shadow-sm ${
                 activo
@@ -178,8 +182,8 @@ export default function DisponibilidadFlotaSection({
         </div>
       </div>
 
-      {/* P3 — chips de proyectos */}
-      {proyectosActivos.length > 0 && (
+      {/* P3 — chips de proyectos (oculto cuando filtrando por disponibles) */}
+      {proyectosActivos.length > 0 && filtroEstado !== 'disponible' && (
         <div className="flex flex-wrap items-center gap-2 mb-5">
           <span className="text-xs font-semibold text-slate-400 self-center">Proyecto:</span>
           {proyectosActivos.map(p => (

@@ -26,7 +26,7 @@ export default function ProyectoSelector({ proyectos, value, onChange }: Props) 
           <FolderIcon className="text-indigo-500" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-[10px] font-semibold text-indigo-400 uppercase tracking-wide leading-none mb-0.5">
+          <p className="text-xs font-semibold text-indigo-400 uppercase tracking-wide leading-none mb-0.5">
             Proyecto asignado
           </p>
           <p className="text-sm font-semibold text-slate-800 truncate">{seleccionado.nombre}</p>
@@ -88,7 +88,7 @@ function ProyectoDropdown({
           <FolderIcon className={open ? 'text-indigo-500' : 'text-slate-400'} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className={`text-[10px] font-semibold uppercase tracking-wide leading-none mb-0.5 transition-colors ${
+          <p className={`text-xs font-semibold uppercase tracking-wide leading-none mb-0.5 transition-colors ${
             open ? 'text-indigo-400' : 'text-slate-400'
           }`}>
             Proyecto · Opcional

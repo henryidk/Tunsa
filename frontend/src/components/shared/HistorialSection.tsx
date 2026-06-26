@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { usuariosService } from '../../services/usuarios.service';
 import type { SolicitudRenta } from '../../types/solicitud-renta.types';
 import type { QueryHistorial, RechazadasPage } from '../../services/solicitudes.service';
@@ -54,6 +54,19 @@ export default function HistorialSection({
   const [encargados,    setEncargados]    = useState<Encargado[]>([]);
   const [busqueda,       setBusqueda]       = useState('');
   const [filtroProyecto, setFiltroProyecto] = useState<string | null>(null);
+
+  const { proyectosHistorial, hayIndependientesHistorial } = useMemo(() => {
+    const map = new Map<string, string>();
+    let sinProyecto = false;
+    for (const s of solicitudes) {
+      if (s.proyecto) map.set(s.proyecto.id, s.proyecto.nombre);
+      else            sinProyecto = true;
+    }
+    return {
+      proyectosHistorial:          Array.from(map.entries()).map(([id, nombre]) => ({ id, nombre })),
+      hayIndependientesHistorial:  sinProyecto,
+    };
+  }, [solicitudes]);
   const [filtroActivo,  setFiltroActivo]  = useState<FiltroActivo>({ desde: inicioMes(), hasta: hoy(), creadaPor: '', busqueda: '' });
   const [solicitudes,   setSolicitudes]   = useState<SolicitudRenta[]>([]);
   const [nextCursor,    setNextCursor]    = useState<string | null>(null);
@@ -151,7 +164,7 @@ export default function HistorialSection({
         onBuscar={() => buscar(fechaDesde, fechaHasta, encargado)}
       />
       <div className="mt-3">
-        <FiltroProyecto solicitudes={solicitudes} value={filtroProyecto} onChange={setFiltroProyecto} />
+        <FiltroProyecto proyectos={proyectosHistorial} hayIndependientes={hayIndependientesHistorial} value={filtroProyecto} onChange={setFiltroProyecto} />
       </div>
 
       {error && (

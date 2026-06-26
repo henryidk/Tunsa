@@ -1,9 +1,9 @@
 export type EstadoProyecto = 'ACTIVO' | 'FINALIZADO';
 
 export interface ProyectoResumen {
-  id:        string;
-  nombre:    string;
-  clienteId: string;
+  id:         string;
+  nombre:     string;
+  clienteId?: string;
 }
 
 export interface Proyecto {

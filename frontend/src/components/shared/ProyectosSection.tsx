@@ -376,7 +376,7 @@ function DetalleProyecto({
 }) {
   const esActivo   = proyecto.estado === 'ACTIVO';
   const { user }   = useAuthStore();
-  const esAdmin    = user?.role === 'admin' || user?.role === 'secretaria';
+  const esAdmin    = user?.role?.nombre === 'admin' || user?.role?.nombre === 'secretaria';
 
   // P6 — costo acumulado calculado client-side
   const costoTotal = useMemo(() => {

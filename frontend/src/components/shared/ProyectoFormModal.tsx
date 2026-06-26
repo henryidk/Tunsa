@@ -21,7 +21,7 @@ interface Props {
 export default function ProyectoFormModal({ proyecto, isOpen, onClose, onGuardado }: Props) {
   const esEdicion    = !!proyecto;
   const { user }     = useAuthStore();
-  const esAdminOSec  = ['admin', 'secretaria'].includes(user?.role ?? '');
+  const esAdminOSec  = ['admin', 'secretaria'].includes(user?.role?.nombre ?? '');
 
   const [nombre,        setNombre]        = useState('');
   const [descripcion,   setDescripcion]   = useState('');

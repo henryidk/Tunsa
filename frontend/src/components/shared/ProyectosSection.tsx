@@ -523,15 +523,15 @@ function DetalleProyecto({
 // ── EncargadosBlock ───────────────────────────────────────────────────────────
 
 function EncargadosBlock({ proyectoId }: { proyectoId: string }) {
-  const [encargados,    setEncargados]    = useState<EncargadoProyecto[]>([]);
-  const [loading,       setLoading]       = useState(true);
-  const [error,         setError]         = useState<string | null>(null);
-  const [todos,         setTodos]         = useState<{ id: string; nombre: string }[]>([]);
-  const [selUsuario,    setSelUsuario]    = useState('');
-  const [confirmQuitar, setConfirmQuitar] = useState<string | null>(null);
-  const [savingAdd,     setSavingAdd]     = useState(false);
-  const [savingRemove,  setSavingRemove]  = useState(false);
-  const [errorMutacion, setErrorMutacion] = useState<string | null>(null);
+  const [encargados,       setEncargados]       = useState<EncargadoProyecto[]>([]);
+  const [loading,          setLoading]          = useState(true);
+  const [error,            setError]            = useState<string | null>(null);
+  const [todos,            setTodos]            = useState<{ id: string; nombre: string }[]>([]);
+  const [selUsuario,       setSelUsuario]       = useState('');
+  const [mostrandoAgregar, setMostrandoAgregar] = useState(false);
+  const [savingAdd,        setSavingAdd]        = useState(false);
+  const [savingRemove,     setSavingRemove]     = useState<string | null>(null);
+  const [errorMutacion,    setErrorMutacion]    = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -552,8 +552,12 @@ function EncargadosBlock({ proyectoId }: { proyectoId: string }) {
       .finally(() => setLoading(false));
   }, [proyectoId]);
 
-  const asignadosIds = new Set(encargados.map(e => e.usuarioId));
-  const disponibles  = todos.filter(u => !asignadosIds.has(u.id));
+  const asignadosIds        = new Set(encargados.map(e => e.usuarioId));
+  const disponibles         = todos.filter(u => !asignadosIds.has(u.id));
+  const usuarioSeleccionado = disponibles.find(u => u.id === selUsuario) ?? null;
+
+  const initials = (nombre: string) =>
+    nombre.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 
   const handleAgregar = async () => {
     if (!selUsuario) return;
@@ -563,6 +567,7 @@ function EncargadosBlock({ proyectoId }: { proyectoId: string }) {
       const updated = await proyectosService.agregarEncargado(proyectoId, selUsuario);
       setEncargados(updated);
       setSelUsuario('');
+      setMostrandoAgregar(false);
     } catch (err: any) {
       const msg = err?.response?.data?.message;
       setErrorMutacion(Array.isArray(msg) ? msg.join(' · ') : (msg ?? 'Error al agregar encargado.'));
@@ -572,27 +577,25 @@ function EncargadosBlock({ proyectoId }: { proyectoId: string }) {
   };
 
   const handleQuitar = async (usuarioId: string) => {
-    setSavingRemove(true);
+    setSavingRemove(usuarioId);
     setErrorMutacion(null);
     try {
       const updated = await proyectosService.quitarEncargado(proyectoId, usuarioId);
       setEncargados(updated);
-      setConfirmQuitar(null);
     } catch (err: any) {
       const msg = err?.response?.data?.message;
       setErrorMutacion(Array.isArray(msg) ? msg.join(' · ') : (msg ?? 'Error al quitar encargado.'));
-      setConfirmQuitar(null);
     } finally {
-      setSavingRemove(false);
+      setSavingRemove(null);
     }
   };
 
   return (
-    <div className="mb-6 p-4 bg-white border border-slate-200 rounded-xl">
-      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Encargados</p>
+    <div className="mb-6 bg-white border border-slate-200 rounded-xl shadow-sm px-[18px] py-4">
+      <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.07em] mb-3">Encargados</p>
 
       {loading ? (
-        <div className="flex items-center gap-2 py-1 text-xs text-slate-400">
+        <div className="flex items-center gap-2 text-xs text-slate-400">
           <svg className="animate-spin w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
           </svg>
@@ -602,77 +605,111 @@ function EncargadosBlock({ proyectoId }: { proyectoId: string }) {
         <p className="text-xs text-red-500">{error}</p>
       ) : (
         <>
-          <div className="space-y-2 mb-3">
-            {encargados.length === 0 ? (
-              <p className="text-xs text-slate-400">Sin encargados asignados. Usa el selector de abajo para agregar uno.</p>
-            ) : encargados.map(e => (
-              <div key={e.usuarioId} className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600 shrink-0">
-                    {e.nombre.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
-                  </div>
-                  <span className="text-sm text-slate-700">{e.nombre}</span>
-                  {e.esCreador && (
-                    <span className="text-xs px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded font-medium">creador</span>
-                  )}
+          {/* Chips de encargados + chip de agregar */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {encargados.length === 0 && !mostrandoAgregar && (
+              <p className="text-xs text-slate-400">Sin encargados asignados.</p>
+            )}
+
+            {encargados.map(e => (
+              <div
+                key={e.usuarioId}
+                className="flex items-center gap-[7px] bg-slate-50 border border-slate-200 rounded-full pl-[5px] pr-3 py-[5px]"
+              >
+                <div className="w-[26px] h-[26px] rounded-full bg-indigo-100 flex items-center justify-center text-[10px] font-bold text-indigo-700 shrink-0">
+                  {initials(e.nombre)}
                 </div>
+                <span className="text-xs font-medium text-slate-700">{e.nombre}</span>
+                {e.esCreador && (
+                  <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 rounded px-[5px] py-[2px]">
+                    creador
+                  </span>
+                )}
                 {!e.esCreador && (
-                  confirmQuitar === e.usuarioId ? (
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={() => handleQuitar(e.usuarioId)}
-                        disabled={savingRemove}
-                        className="px-2 py-1 text-xs rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-60"
-                      >
-                        {savingRemove ? '...' : 'Quitar'}
-                      </button>
-                      <button
-                        onClick={() => setConfirmQuitar(null)}
-                        className="px-2 py-1 text-xs rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors"
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setConfirmQuitar(e.usuarioId)}
-                      className="text-slate-300 hover:text-red-500 transition-colors p-1"
-                      title="Quitar encargado"
-                    >
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <button
+                    onClick={() => handleQuitar(e.usuarioId)}
+                    disabled={savingRemove === e.usuarioId}
+                    title="Quitar encargado"
+                    className="text-slate-300 hover:text-red-500 transition-colors disabled:opacity-50 ml-0.5"
+                  >
+                    {savingRemove === e.usuarioId ? (
+                      <svg className="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                      </svg>
+                    ) : (
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                         <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                       </svg>
-                    </button>
-                  )
+                    )}
+                  </button>
                 )}
               </div>
             ))}
+
+            {/* Chip "+ Agregar" */}
+            {disponibles.length > 0 && !mostrandoAgregar && (
+              <button
+                onClick={() => setMostrandoAgregar(true)}
+                className="inline-flex items-center gap-[5px] px-3 py-[5px] rounded-full border border-dashed border-slate-300 text-xs font-medium text-slate-400 hover:border-slate-400 hover:text-slate-500 transition-colors"
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                Agregar
+              </button>
+            )}
           </div>
 
-          {errorMutacion && (
-            <p className="text-xs text-red-500 mb-2">{errorMutacion}</p>
+          {/* Selector expandible inline */}
+          {mostrandoAgregar && (
+            <div className="mt-3 pt-3 border-t border-slate-100">
+              <p className="text-[11px] font-medium text-slate-400 mb-2">Agregar encargado</p>
+              <div className="flex gap-2">
+                <select
+                  value={selUsuario}
+                  onChange={e => setSelUsuario(e.target.value)}
+                  className="flex-1 px-[10px] py-2 rounded-[9px] border border-slate-200 text-sm text-slate-700 bg-white focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100"
+                >
+                  <option value="">— Seleccionar —</option>
+                  {disponibles.map(u => (
+                    <option key={u.id} value={u.id}>{u.nombre}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={handleAgregar}
+                  disabled={!selUsuario || savingAdd}
+                  className="px-4 py-2 rounded-[9px] bg-indigo-600 text-xs font-semibold text-white hover:bg-indigo-700 transition-colors disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed shrink-0"
+                >
+                  {savingAdd ? '...' : 'Agregar'}
+                </button>
+                <button
+                  onClick={() => { setMostrandoAgregar(false); setSelUsuario(''); setErrorMutacion(null); }}
+                  className="px-3 py-2 rounded-[9px] border border-slate-200 text-xs font-medium text-slate-500 hover:bg-slate-50 transition-colors shrink-0"
+                >
+                  Cancelar
+                </button>
+              </div>
+
+              {/* Preview del usuario seleccionado */}
+              {usuarioSeleccionado && (
+                <div className="flex items-center gap-[10px] mt-2 pt-[10px] border-t border-slate-100">
+                  <div className="w-[30px] h-[30px] rounded-full bg-indigo-100 flex items-center justify-center text-[11px] font-bold text-indigo-700 shrink-0">
+                    {initials(usuarioSeleccionado.nombre)}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-slate-700">{usuarioSeleccionado.nombre}</p>
+                    <p className="text-[11px] text-slate-400">encargado_maquinas · activo</p>
+                  </div>
+                  <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-[7px] py-[2px] rounded-full ml-auto shrink-0">
+                    Disponible
+                  </span>
+                </div>
+              )}
+            </div>
           )}
 
-          {disponibles.length > 0 && (
-            <div className="flex gap-2 items-center pt-2 border-t border-slate-100">
-              <select
-                value={selUsuario}
-                onChange={e => setSelUsuario(e.target.value)}
-                className="flex-1 px-2 py-1.5 text-xs rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100"
-              >
-                <option value="">— Seleccionar usuario —</option>
-                {disponibles.map(u => (
-                  <option key={u.id} value={u.id}>{u.nombre}</option>
-                ))}
-              </select>
-              <button
-                onClick={handleAgregar}
-                disabled={!selUsuario || savingAdd}
-                className="px-3 py-1.5 text-xs rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed shrink-0"
-              >
-                {savingAdd ? '...' : 'Agregar'}
-              </button>
-            </div>
+          {errorMutacion && (
+            <p className="text-xs text-red-500 mt-2">{errorMutacion}</p>
           )}
         </>
       )}

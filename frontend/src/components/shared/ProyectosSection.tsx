@@ -26,7 +26,7 @@ export default function ProyectosSection({ tono = TONO_INDIGO, onNavTo: _onNavTo
   const [loading,              setLoading]              = useState(true);
   const [error,                setError]                = useState<string | null>(null);
   const [busqueda,             setBusqueda]             = useState('');
-  const [filtroEstado,         setFiltroEstado]         = useState<'' | EstadoProyecto>('');
+  const [filtroEstado,         setFiltroEstado]         = useState<EstadoProyecto>('ACTIVO');
   const [proyectoSeleccionado, setProyectoSeleccionado] = useState<Proyecto | null>(null);
   const [solicitudesProyecto,  setSolicitudesProyecto]  = useState<ProyectoSolicitudes | null>(null);
   const [loadingDetalle,       setLoadingDetalle]       = useState(false);
@@ -113,7 +113,7 @@ export default function ProyectosSection({ tono = TONO_INDIGO, onNavTo: _onNavTo
         p.nombre.toLowerCase().includes(q) || p.cliente.nombre.toLowerCase().includes(q),
       );
     }
-    if (filtroEstado) list = list.filter(p => p.estado === filtroEstado);
+    list = list.filter(p => p.estado === filtroEstado);
     return [...list].sort((a, b) => {
       if (a.estado === b.estado) return 0;
       return a.estado === 'ACTIVO' ? -1 : 1;
@@ -213,13 +213,13 @@ export default function ProyectosSection({ tono = TONO_INDIGO, onNavTo: _onNavTo
               className={`w-full sm:w-72 border border-slate-200 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none ${tono.foco}`}
             />
             <div className="flex rounded-xl border border-slate-200 overflow-hidden bg-white text-sm font-medium">
-              {(['', 'ACTIVO', 'FINALIZADO'] as const).map(e => (
+              {(['ACTIVO', 'FINALIZADO'] as const).map(e => (
                 <button
                   key={e}
                   onClick={() => setFiltroEstado(e)}
                   className={`px-3 py-2 transition-colors ${filtroEstado === e ? `${tono.acentoFuerte}` : 'text-slate-600 hover:bg-slate-50'}`}
                 >
-                  {e === '' ? 'Todos' : e === 'ACTIVO' ? 'Activos' : 'Finalizados'}
+                  {e === 'ACTIVO' ? 'Activos' : 'Finalizados'}
                 </button>
               ))}
             </div>

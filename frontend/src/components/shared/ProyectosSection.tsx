@@ -378,20 +378,6 @@ function DetalleProyecto({
   const { user }   = useAuthStore();
   const esAdmin    = user?.role?.nombre === 'admin' || user?.role?.nombre === 'secretaria';
 
-  // P6 — costo acumulado calculado client-side
-  const costoTotal = useMemo(() => {
-    if (!solicitudes) return null;
-    const todas = [
-      ...solicitudes.enProceso,
-      ...solicitudes.activas,
-      ...solicitudes.vencidas,
-      ...solicitudes.devueltas,
-    ];
-    const conTotal = todas.filter(s => s.totalFinal != null);
-    if (conTotal.length === 0) return null;
-    return conTotal.reduce((sum, s) => sum + (s.totalFinal ?? 0), 0);
-  }, [solicitudes]);
-
   return (
     <div>
       {/* Header */}
@@ -426,12 +412,11 @@ function DetalleProyecto({
             {proyecto.descripcion && (
               <p className="text-sm text-slate-600 mt-2 leading-relaxed">{proyecto.descripcion}</p>
             )}
-            {/* P6 — total acumulado */}
-            {costoTotal != null && (
+            {proyecto.costoAcumulado > 0 && (
               <div className="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg">
                 <span className="text-xs text-slate-500">Total acumulado:</span>
                 <span className="text-sm font-bold font-mono text-slate-800">
-                  Q {costoTotal.toLocaleString('es-GT', { minimumFractionDigits: 2 })}
+                  Q {proyecto.costoAcumulado.toLocaleString('es-GT', { minimumFractionDigits: 2 })}
                 </span>
               </div>
             )}
@@ -492,7 +477,7 @@ function DetalleProyecto({
             <GrupoRentas titulo="Vencidas" color="red" solicitudes={solicitudes.vencidas} />
           )}
           {solicitudes.devueltas.length > 0 && (
-            <GrupoRentas titulo="Historial" color="slate" solicitudes={solicitudes.devueltas} />
+            <GrupoHistorial titulo="Historial" solicitudes={solicitudes.devueltas} />
           )}
           {solicitudes.enProceso.length === 0 && solicitudes.activas.length === 0 &&
            solicitudes.vencidas.length === 0 && solicitudes.devueltas.length === 0 && (
@@ -719,6 +704,59 @@ function GrupoRentas({ titulo, color, solicitudes }: {
   );
 }
 
+// ── GrupoHistorial ────────────────────────────────────────────────────────────
+
+const PAGE_SIZE = 10;
+
+function GrupoHistorial({ titulo, solicitudes }: {
+  titulo:      string;
+  solicitudes: SolicitudRenta[];
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const [pagina,  setPagina]  = useState(1);
+  const c = colorMap['slate'];
+
+  const visibles = solicitudes.slice(0, pagina * PAGE_SIZE);
+  const hayMas   = visibles.length < solicitudes.length;
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+      <button
+        onClick={() => setAbierto(o => !o)}
+        className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-slate-50 transition-colors text-left"
+      >
+        <span className={`w-2 h-2 rounded-full shrink-0 ${c.dot}`} />
+        <span className="text-sm font-semibold text-slate-800 flex-1">{titulo}</span>
+        <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${c.badge}`}>
+          {solicitudes.length}
+        </span>
+        <svg
+          width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+          className={`text-slate-400 transition-transform ${abierto ? 'rotate-180' : ''}`}
+        >
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </button>
+
+      {abierto && (
+        <div className="divide-y divide-slate-100 border-t border-slate-100">
+          {visibles.map(s => <RentaFilaCompacta key={s.id} solicitud={s} destacarTotal />)}
+          {hayMas && (
+            <div className="px-5 py-3 flex justify-center">
+              <button
+                onClick={() => setPagina(p => p + 1)}
+                className="text-xs font-medium text-slate-500 hover:text-slate-800 transition-colors"
+              >
+                Ver más (+{solicitudes.length - visibles.length})
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── RentaFilaCompacta ─────────────────────────────────────────────────────────
 
 const estadoLabels: Record<string, { label: string; cls: string }> = {
@@ -737,9 +775,39 @@ function equipoLabel(item: ItemSnapshot): string {
   return `${item.tipoLabel}${item.cantidad > 1 ? ` ×${item.cantidad}` : ''}`;
 }
 
-function RentaFilaCompacta({ solicitud: s }: { solicitud: SolicitudRenta }) {
-  const estado      = estadoLabels[s.estado] ?? { label: s.estado, cls: 'bg-slate-100 text-slate-600' };
-  const equipoChips = (s.items ?? []).map(equipoLabel);
+function RentaChips({ items, maxVisible }: { items: ItemSnapshot[]; maxVisible?: number }) {
+  const chips   = items.map(equipoLabel);
+  const visible = maxVisible !== undefined ? chips.slice(0, maxVisible) : chips;
+  const resto   = maxVisible !== undefined ? Math.max(0, chips.length - maxVisible) : 0;
+
+  if (chips.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap gap-1 flex-1 min-w-0">
+      {visible.map((label, i) => (
+        <span key={i} className="text-xs font-medium text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">
+          {label}
+        </span>
+      ))}
+      {resto > 0 && (
+        <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+          +{resto} más
+        </span>
+      )}
+    </div>
+  );
+}
+
+function RentaFilaCompacta({
+  solicitud: s,
+  mostrarProyecto = false,
+  destacarTotal   = false,
+}: {
+  solicitud:        SolicitudRenta;
+  mostrarProyecto?: boolean;
+  destacarTotal?:   boolean;
+}) {
+  const estado = estadoLabels[s.estado] ?? { label: s.estado, cls: 'bg-slate-100 text-slate-600' };
 
   return (
     <div className="px-5 py-3 flex flex-wrap items-start gap-x-4 gap-y-1.5">
@@ -749,18 +817,10 @@ function RentaFilaCompacta({ solicitud: s }: { solicitud: SolicitudRenta }) {
         {s.esPesada && (
           <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">PESADA</span>
         )}
-        <ProyectoBadge proyecto={s.proyecto} />
+        {mostrarProyecto && <ProyectoBadge proyecto={s.proyecto} />}
       </div>
-      {/* P2 — chips de equipos */}
-      {equipoChips.length > 0 && (
-        <div className="flex flex-wrap gap-1 flex-1 min-w-0">
-          {equipoChips.map((label, i) => (
-            <span key={i} className="text-xs font-medium text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">
-              {label}
-            </span>
-          ))}
-        </div>
-      )}
+      {/* chips de equipos */}
+      <RentaChips items={s.items ?? []} />
       {/* Estado + fechas + total */}
       <div className="flex items-center gap-3 flex-wrap ml-auto">
         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${estado.cls}`}>
@@ -770,7 +830,7 @@ function RentaFilaCompacta({ solicitud: s }: { solicitud: SolicitudRenta }) {
           {formatFecha(s.fechaInicioRenta)} → {s.fechaFinEstimada ? formatFecha(s.fechaFinEstimada) : '–'}
         </span>
         {s.totalFinal != null && (
-          <span className="text-xs font-medium text-slate-600 shrink-0 font-mono">
+          <span className={`text-xs shrink-0 font-mono ${destacarTotal ? 'font-bold text-slate-800' : 'font-medium text-slate-600'}`}>
             Q {s.totalFinal.toLocaleString('es-GT', { minimumFractionDigits: 2 })}
           </span>
         )}

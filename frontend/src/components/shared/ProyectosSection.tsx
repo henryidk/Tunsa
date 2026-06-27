@@ -361,31 +361,7 @@ function ProyectoCard({
   );
 }
 
-// ── Helpers de salud y estadísticas ──────────────────────────────────────────
-
-function calcSalud(
-  proyecto:    Proyecto,
-  solicitudes: ProyectoSolicitudes | null,
-): { label: string; cls: string } {
-  if (proyecto.estado === 'FINALIZADO') return { label: 'Finalizado',   cls: 'bg-slate-100 text-slate-500'     };
-  if (!solicitudes)                      return { label: '…',            cls: 'bg-slate-100 text-slate-400'     };
-  if (solicitudes.vencidas.length > 0)  return { label: 'Atención',     cls: 'bg-red-100 text-red-600'         };
-  if (solicitudes.activas.length > 0)   return { label: 'Saludable',    cls: 'bg-emerald-100 text-emerald-700' };
-  return { label: 'Sin actividad', cls: 'bg-slate-100 text-slate-500' };
-}
-
-function SaludProyecto({ proyecto, solicitudes }: {
-  proyecto:    Proyecto;
-  solicitudes: ProyectoSolicitudes | null;
-}) {
-  const { label, cls } = calcSalud(proyecto, solicitudes);
-  return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${cls}`}>
-      <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70" />
-      {label}
-    </span>
-  );
-}
+// ── Estadísticas del header ───────────────────────────────────────────────────
 
 function ProyectoStatCards({ proyecto }: { proyecto: Proyecto }) {
   const diasActivo = Math.max(0, Math.floor(
@@ -459,7 +435,6 @@ function DetalleProyecto({
             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${esActivo ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
               {proyecto.estado}
             </span>
-            <SaludProyecto proyecto={proyecto} solicitudes={solicitudes} />
           </div>
           <p className="text-xs text-slate-500">
             {proyecto.cliente.nombre} · desde {formatFecha(proyecto.fechaInicio)}

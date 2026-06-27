@@ -361,6 +361,65 @@ function ProyectoCard({
   );
 }
 
+// ── Helpers de salud y estadísticas ──────────────────────────────────────────
+
+function calcSalud(
+  proyecto:    Proyecto,
+  solicitudes: ProyectoSolicitudes | null,
+): { label: string; cls: string } {
+  if (proyecto.estado === 'FINALIZADO') return { label: 'Finalizado',   cls: 'bg-slate-100 text-slate-500'     };
+  if (!solicitudes)                      return { label: '…',            cls: 'bg-slate-100 text-slate-400'     };
+  if (solicitudes.vencidas.length > 0)  return { label: 'Atención',     cls: 'bg-red-100 text-red-600'         };
+  if (solicitudes.activas.length > 0)   return { label: 'Saludable',    cls: 'bg-emerald-100 text-emerald-700' };
+  return { label: 'Sin actividad', cls: 'bg-slate-100 text-slate-500' };
+}
+
+function SaludProyecto({ proyecto, solicitudes }: {
+  proyecto:    Proyecto;
+  solicitudes: ProyectoSolicitudes | null;
+}) {
+  const { label, cls } = calcSalud(proyecto, solicitudes);
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${cls}`}>
+      <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70" />
+      {label}
+    </span>
+  );
+}
+
+function ProyectoStatCards({ proyecto }: { proyecto: Proyecto }) {
+  const diasActivo = Math.max(0, Math.floor(
+    (Date.now() - new Date(proyecto.fechaInicio).getTime()) / 86_400_000,
+  ));
+
+  const stats: { valor: string; label: string; cls: string }[] = [
+    {
+      valor: proyecto.costoAcumulado > 0
+        ? `Q ${proyecto.costoAcumulado.toLocaleString('es-GT', { minimumFractionDigits: 0 })}`
+        : '—',
+      label: 'Total',
+      cls:   'text-slate-900 font-mono',
+    },
+    { valor: String(proyecto.solicitudesActivas), label: 'Rentas',  cls: 'text-blue-600'   },
+    { valor: String(proyecto.equiposEnCampo),     label: 'Equipos', cls: 'text-amber-600'  },
+    { valor: `${diasActivo}d`,                    label: 'Activo',  cls: 'text-violet-700' },
+  ];
+
+  return (
+    <div className="flex items-stretch border border-slate-200 rounded-[10px] overflow-hidden flex-shrink-0">
+      {stats.map(({ valor, label, cls }, i) => (
+        <div
+          key={label}
+          className={`px-[18px] py-[10px] text-center min-w-[88px] bg-white ${i < stats.length - 1 ? 'border-r border-slate-200' : ''}`}
+        >
+          <p className={`text-base font-bold leading-none ${cls}`}>{valor}</p>
+          <p className="text-[10px] font-medium text-slate-400 mt-1.5 uppercase tracking-wide">{label}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── DetalleProyecto ──────────────────────────────────────────────────────────
 
 function DetalleProyecto({
@@ -380,76 +439,65 @@ function DetalleProyecto({
 
   return (
     <div>
-      {/* Header */}
-      <div className="mb-6">
-        <button
-          onClick={onVolver}
-          className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 transition-colors mb-4"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <polyline points="15 18 9 12 15 6"/>
-          </svg>
-          Volver a proyectos
-        </button>
+      {/* Volver */}
+      <button
+        onClick={onVolver}
+        className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 transition-colors mb-4"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
+        Volver a proyectos
+      </button>
 
-        <div className="flex items-start gap-4 flex-wrap">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-2xl font-bold text-slate-800">{proyecto.nombre}</h1>
-              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${esActivo ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                {proyecto.estado}
-              </span>
-            </div>
-            <p className="text-sm text-slate-500 mt-1">{proyecto.cliente.nombre}</p>
-            <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-1.5">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/>
-                <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-              </svg>
-              <span>Creado {formatFecha(proyecto.createdAt)}</span>
-              {proyecto.fechaFin && <><span>·</span><span>Finalizado {formatFecha(proyecto.fechaFin)}</span></>}
-            </div>
-            {proyecto.descripcion && (
-              <p className="text-sm text-slate-600 mt-2 leading-relaxed">{proyecto.descripcion}</p>
-            )}
-            {proyecto.costoAcumulado > 0 && (
-              <div className="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg">
-                <span className="text-xs text-slate-500">Total acumulado:</span>
-                <span className="text-sm font-bold font-mono text-slate-800">
-                  Q {proyecto.costoAcumulado.toLocaleString('es-GT', { minimumFractionDigits: 2 })}
-                </span>
-              </div>
-            )}
+      {/* Header card */}
+      <div className="mb-6 bg-white border border-slate-200 rounded-2xl shadow-sm px-5 py-[18px] flex items-center gap-4 flex-wrap">
+        {/* Bloque izquierdo */}
+        <div className="flex-1 min-w-[200px]">
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            <h1 className="text-[17px] font-bold text-slate-900 leading-snug">{proyecto.nombre}</h1>
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${esActivo ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+              {proyecto.estado}
+            </span>
+            <SaludProyecto proyecto={proyecto} solicitudes={solicitudes} />
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <p className="text-xs text-slate-500">
+            {proyecto.cliente.nombre} · desde {formatFecha(proyecto.fechaInicio)}
+            {proyecto.fechaFin && ` · Finalizado ${formatFecha(proyecto.fechaFin)}`}
+          </p>
+          {proyecto.descripcion && (
+            <p className="text-sm text-slate-600 mt-1.5 leading-relaxed">{proyecto.descripcion}</p>
+          )}
+        </div>
+
+        {/* Stat cards */}
+        <ProyectoStatCards proyecto={proyecto} />
+
+        {/* Acciones */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            onClick={onEditar}
+            className="px-[14px] py-[7px] rounded-[10px] border border-slate-200 bg-white text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+          >
+            Editar
+          </button>
+          {esActivo ? (
             <button
-              onClick={onEditar}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+              onClick={onFinalizar}
+              disabled={proyecto.solicitudesActivas > 0}
+              title={proyecto.solicitudesActivas > 0 ? 'Hay rentas activas o vencidas' : undefined}
+              className="px-[14px] py-[7px] rounded-[10px] border border-slate-200 bg-white text-xs font-medium text-slate-400 hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-              </svg>
-              Editar
+              Finalizar
             </button>
-            {esActivo ? (
-              <button
-                onClick={onFinalizar}
-                disabled={proyecto.solicitudesActivas > 0}
-                title={proyecto.solicitudesActivas > 0 ? 'Hay rentas activas o vencidas' : undefined}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-500 hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                Finalizar
-              </button>
-            ) : (
-              <button
-                onClick={onReactivar}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-emerald-200 text-xs font-medium text-emerald-600 hover:bg-emerald-50 transition-colors"
-              >
-                Reactivar
-              </button>
-            )}
-          </div>
+          ) : (
+            <button
+              onClick={onReactivar}
+              className="px-[14px] py-[7px] rounded-[10px] border border-emerald-200 bg-white text-xs font-medium text-emerald-600 hover:bg-emerald-50 transition-colors"
+            >
+              Reactivar
+            </button>
+          )}
         </div>
       </div>
 

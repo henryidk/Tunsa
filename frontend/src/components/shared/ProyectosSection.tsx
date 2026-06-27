@@ -798,6 +798,34 @@ function equipoLabel(item: ItemSnapshot): string {
   return `${item.tipoLabel}${item.cantidad > 1 ? ` ×${item.cantidad}` : ''}`;
 }
 
+function calcUrgencia(fecha: string): { texto: string; colorCls: string } {
+  const [y, m, d] = fecha.split('-').map(Number);
+  const hoy  = new Date(); hoy.setHours(0, 0, 0, 0);
+  const fin  = new Date(y, m - 1, d);
+  const diff = Math.round((fin.getTime() - hoy.getTime()) / 86_400_000);
+
+  if (diff < 0)   return { texto: `Vencida hace ${Math.abs(diff)} día${Math.abs(diff) !== 1 ? 's' : ''}`, colorCls: 'text-red-500'   };
+  if (diff === 0) return { texto: 'Vence hoy',                                                              colorCls: 'text-red-500'   };
+  if (diff === 1) return { texto: 'Vence mañana',                                                           colorCls: 'text-amber-500' };
+  if (diff <= 3)  return { texto: `Vence en ${diff} días`,                                                  colorCls: 'text-amber-500' };
+  return { texto: `Vence el ${formatFecha(fecha)}`, colorCls: 'text-slate-400' };
+}
+
+function UrgenciaFecha({ inicio, fin }: { inicio: string; fin: string | null }) {
+  if (!fin) {
+    return (
+      <span className="text-xs text-slate-400 shrink-0">{formatFecha(inicio)} → Indefinida</span>
+    );
+  }
+  const { texto, colorCls } = calcUrgencia(fin);
+  return (
+    <span className="text-xs shrink-0">
+      <span className="text-slate-400">{formatFecha(inicio)} → </span>
+      <span className={colorCls}>{texto}</span>
+    </span>
+  );
+}
+
 function RentaChips({ items, maxVisible }: { items: ItemSnapshot[]; maxVisible?: number }) {
   const chips   = items.map(equipoLabel);
   const visible = maxVisible !== undefined ? chips.slice(0, maxVisible) : chips;
@@ -830,7 +858,8 @@ function RentaFilaCompacta({
   mostrarProyecto?: boolean;
   destacarTotal?:   boolean;
 }) {
-  const estado = estadoLabels[s.estado] ?? { label: s.estado, cls: 'bg-slate-100 text-slate-600' };
+  const estado       = estadoLabels[s.estado] ?? { label: s.estado, cls: 'bg-slate-100 text-slate-600' };
+  const usarUrgencia = s.estado === 'ACTIVA' || s.estado === 'VENCIDA';
 
   return (
     <div className="px-5 py-3 flex flex-wrap items-start gap-x-4 gap-y-1.5">
@@ -842,16 +871,19 @@ function RentaFilaCompacta({
         )}
         {mostrarProyecto && <ProyectoBadge proyecto={s.proyecto} />}
       </div>
-      {/* chips de equipos */}
-      <RentaChips items={s.items ?? []} />
+      {/* chips de equipos — máximo 2 visibles */}
+      <RentaChips items={s.items ?? []} maxVisible={2} />
       {/* Estado + fechas + total */}
       <div className="flex items-center gap-3 flex-wrap ml-auto">
         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${estado.cls}`}>
           {estado.label}
         </span>
-        <span className="text-xs text-slate-400 shrink-0">
-          {formatFecha(s.fechaInicioRenta)} → {s.fechaFinEstimada ? formatFecha(s.fechaFinEstimada) : '–'}
-        </span>
+        {usarUrgencia
+          ? <UrgenciaFecha inicio={s.fechaInicioRenta} fin={s.fechaFinEstimada} />
+          : <span className="text-xs text-slate-400 shrink-0">
+              {formatFecha(s.fechaInicioRenta)} → {s.fechaFinEstimada ? formatFecha(s.fechaFinEstimada) : '–'}
+            </span>
+        }
         {s.totalFinal != null && (
           <span className={`text-xs shrink-0 font-mono ${destacarTotal ? 'font-bold text-slate-800' : 'font-medium text-slate-600'}`}>
             Q {s.totalFinal.toLocaleString('es-GT', { minimumFractionDigits: 2 })}

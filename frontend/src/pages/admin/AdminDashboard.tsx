@@ -65,6 +65,7 @@ export default function AdminDashboard() {
   const [activeSection,    setActiveSection]    = useState<Section>('dashboard')
   const [navSolicitudId,   setNavSolicitudId]   = useState<string | undefined>(undefined)
   const [navFolio,         setNavFolio]         = useState<string | undefined>(undefined)
+  const [navProyectoId,    setNavProyectoId]    = useState<string | undefined>(undefined)
 
   const { playSound }  = useNotificationSound()
   // Mantiene el socket activo durante toda la sesión y alimenta ambos stores
@@ -107,10 +108,11 @@ export default function AdminDashboard() {
 
   const closeModal = () => setModalOpen(false)
 
-  const navTo = (section: string, state?: { solicitudId?: string; folio?: string }) => {
+  const navTo = (section: string, state?: { solicitudId?: string; folio?: string; proyectoId?: string }) => {
     setActiveSection(section as Section)
     setNavSolicitudId(state?.solicitudId)
     setNavFolio(state?.folio)
+    setNavProyectoId(state?.proyectoId)
   }
 
   return (
@@ -149,13 +151,13 @@ export default function AdminDashboard() {
             <SolicitudesSection />
           )}
           {activeSection === 'rentas-activas' && (
-            <RentasActivasSection onNavTo={navTo} initialFolio={navFolio} />
+            <RentasActivasSection onNavTo={navTo} initialFolio={navFolio} initialProyectoId={navProyectoId} />
           )}
           {activeSection === 'rentas-historial' && (
             <HistorialSection />
           )}
           {activeSection === 'rentas-vencidas' && (
-            <VencidasSection initialFolio={navFolio} onNavTo={navTo} />
+            <VencidasSection initialFolio={navFolio} initialProyectoId={navProyectoId} onNavTo={navTo} />
           )}
           {activeSection === 'flota' && (
             <DisponibilidadFlotaSection tono={TONO_INDIGO} onNavTo={navTo} sectionActivas="rentas-activas" sectionVencidas="rentas-vencidas" />

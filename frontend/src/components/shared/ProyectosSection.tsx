@@ -20,7 +20,7 @@ type Vista = 'lista' | 'detalle';
 
 // ── Componente principal ──────────────────────────────────────────────────────
 
-export default function ProyectosSection({ tono = TONO_INDIGO, onNavTo: _onNavTo }: Props) {
+export default function ProyectosSection({ tono = TONO_INDIGO, onNavTo }: Props) {
   const [vista,                setVista]                = useState<Vista>('lista');
   const [proyectos,            setProyectos]            = useState<Proyecto[]>([]);
   const [loading,              setLoading]              = useState(true);
@@ -177,6 +177,8 @@ export default function ProyectosSection({ tono = TONO_INDIGO, onNavTo: _onNavTo
           onEditar={() => setModalForm({ proyecto: proyectoSeleccionado })}
           onFinalizar={() => { setErrorFinalizar(null); setConfirmFinalizar(proyectoSeleccionado); }}
           onReactivar={() => handleReactivar(proyectoSeleccionado)}
+          onNavTo={onNavTo}
+          proyectoId={proyectoSeleccionado.id}
         />
       )}
 
@@ -399,7 +401,7 @@ function ProyectoStatCards({ proyecto }: { proyecto: Proyecto }) {
 // ── DetalleProyecto ──────────────────────────────────────────────────────────
 
 function DetalleProyecto({
-  proyecto, solicitudes, loading, onVolver, onEditar, onFinalizar, onReactivar,
+  proyecto, solicitudes, loading, onVolver, onEditar, onFinalizar, onReactivar, onNavTo, proyectoId,
 }: {
   proyecto:    Proyecto;
   solicitudes: ProyectoSolicitudes | null;
@@ -408,6 +410,8 @@ function DetalleProyecto({
   onEditar:    () => void;
   onFinalizar: () => void;
   onReactivar: () => void;
+  onNavTo?:    (section: string, state?: Record<string, string>) => void;
+  proyectoId?: string;
 }) {
   const esActivo   = proyecto.estado === 'ACTIVO';
   const { user }   = useAuthStore();
@@ -494,10 +498,16 @@ function DetalleProyecto({
             <GrupoRentas titulo="En proceso" color="amber" solicitudes={solicitudes.enProceso} />
           )}
           {solicitudes.activas.length > 0 && (
-            <GrupoRentas titulo="Activas" color="emerald" solicitudes={solicitudes.activas} />
+            <GrupoRentas
+              titulo="Activas" color="emerald" solicitudes={solicitudes.activas}
+              onVerEn={onNavTo && proyectoId ? () => onNavTo('rentas-activas', { proyectoId }) : undefined}
+            />
           )}
           {solicitudes.vencidas.length > 0 && (
-            <GrupoRentas titulo="Vencidas" color="red" solicitudes={solicitudes.vencidas} />
+            <GrupoRentas
+              titulo="Vencidas" color="red" solicitudes={solicitudes.vencidas}
+              onVerEn={onNavTo && proyectoId ? () => onNavTo('rentas-vencidas', { proyectoId }) : undefined}
+            />
           )}
           {solicitudes.devueltas.length > 0 && (
             <GrupoHistorial titulo="Historial" solicitudes={solicitudes.devueltas} />
@@ -728,13 +738,17 @@ const colorMap: Record<ColorGrupo, { dot: string; badge: string }> = {
   slate:   { dot: 'bg-slate-400',   badge: 'text-slate-600 bg-slate-50 border-slate-200'        },
 };
 
-function GrupoRentas({ titulo, color, solicitudes }: {
+function GrupoRentas({ titulo, color, solicitudes, onVerEn }: {
   titulo:      string;
   color:       ColorGrupo;
   solicitudes: SolicitudRenta[];
+  onVerEn?:    () => void;
 }) {
   const [abierto, setAbierto] = useState(true);
   const c = colorMap[color];
+  const verEnCls = color === 'red'
+    ? 'border-red-200 bg-red-50 text-red-600 hover:bg-red-100'
+    : 'border-indigo-200 bg-indigo-50 text-indigo-600 hover:bg-indigo-100';
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
@@ -747,6 +761,15 @@ function GrupoRentas({ titulo, color, solicitudes }: {
         <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${c.badge}`}>
           {solicitudes.length}
         </span>
+        {onVerEn && (
+          <span
+            role="button"
+            onClick={e => { e.stopPropagation(); onVerEn(); }}
+            className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-xs font-medium transition-colors cursor-pointer ${verEnCls}`}
+          >
+            Ver todos →
+          </span>
+        )}
         <svg
           width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
           className={`text-slate-400 transition-transform ${abierto ? 'rotate-180' : ''}`}

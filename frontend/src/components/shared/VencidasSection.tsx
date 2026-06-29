@@ -10,7 +10,7 @@ import TiempoGraciaModal from './TiempoGraciaModal';
 import DevolucionModal from './DevolucionModal';
 import DevolucionPesadaModal from '../encargado/DevolucionPesadaModal';
 import StatCard from './StatCard';
-import FiltroProyecto from './FiltroProyecto';
+import FiltroProyectoCombobox from './FiltroProyectoCombobox';
 import { filtrarPorProyecto } from '../../utils/filtrar-por-proyecto';
 
 type NavTo = (section: string, state?: { solicitudId?: string; folio?: string }) => void;
@@ -23,20 +23,21 @@ interface Props {
   addActiva:        (solicitud: SolicitudRenta) => void;
   fetchSolicitudes: () => Promise<SolicitudRenta[]>;
   showEncargado?:   boolean;
-  initialFolio?:    string;
-  onNavTo?:         NavTo;
+  initialFolio?:       string;
+  initialProyectoId?:  string;
+  onNavTo?:            NavTo;
   emptyStateText?:  string;
 }
 
 export default function VencidasSection({
   solicitudes, setSolicitudes, updateRenta, removeRenta, addActiva,
-  fetchSolicitudes, showEncargado = false, initialFolio, onNavTo,
+  fetchSolicitudes, showEncargado = false, initialFolio, initialProyectoId, onNavTo,
   emptyStateText = 'Todas las rentas están dentro de plazo.',
 }: Props) {
   const [isLoading,       setIsLoading]       = useState(true);
   const [error,           setError]           = useState<string | null>(null);
   const [busqueda,        setBusqueda]        = useState(initialFolio ?? '');
-  const [filtroProyecto,  setFiltroProyecto]  = useState<string | null>(null);
+  const [filtroProyecto,  setFiltroProyecto]  = useState<string | null>(initialProyectoId ?? null);
 
   const { proyectosVencidas, hayIndependientesVencidas } = useMemo(() => {
     const map = new Map<string, string>();
@@ -207,7 +208,23 @@ export default function VencidasSection({
           placeholder="Buscar por folio o cliente..."
           className="w-full sm:w-72 border border-slate-200 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
         />
-        <FiltroProyecto proyectos={proyectosVencidas} hayIndependientes={hayIndependientesVencidas} value={filtroProyecto} onChange={setFiltroProyecto} />
+        <FiltroProyectoCombobox
+          proyectos={proyectosVencidas}
+          hayIndependientes={hayIndependientesVencidas}
+          value={filtroProyecto}
+          onChange={setFiltroProyecto}
+        />
+        {initialProyectoId && onNavTo && (
+          <button
+            onClick={() => onNavTo('proyectos')}
+            className="ml-auto inline-flex items-center gap-1.5 px-3.5 py-[7px] rounded-xl border border-slate-200 bg-white text-xs font-medium text-slate-500 hover:bg-slate-50 transition-colors"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6"/>
+            </svg>
+            Volver al proyecto
+          </button>
+        )}
       </div>
 
       {isLoading ? (

@@ -7,7 +7,7 @@ import AmpliacionRentaModal from './AmpliacionRentaModal';
 import DevolucionModal from './DevolucionModal';
 import DevolucionPesadaModal from '../encargado/DevolucionPesadaModal';
 import StatCard from './StatCard';
-import FiltroProyecto from './FiltroProyecto';
+import FiltroProyectoCombobox from './FiltroProyectoCombobox';
 import AsignarProyectoModal from './AsignarProyectoModal';
 import { filtrarPorProyecto } from '../../utils/filtrar-por-proyecto';
 import { api } from '../../services/auth.service';
@@ -21,16 +21,17 @@ interface Props {
   fetchSolicitudes: () => Promise<SolicitudRenta[]>;
   showEncargado?:   boolean;
   showBusqueda?:    boolean;
-  initialFolio?:    string;
-  subtitle?:        string;
-  onNavTo?:         (section: string, state?: { solicitudId?: string; folio?: string }) => void;
-  canReasignar?:    boolean;
+  initialFolio?:       string;
+  initialProyectoId?:  string;
+  subtitle?:           string;
+  onNavTo?:            (section: string, state?: { solicitudId?: string; folio?: string }) => void;
+  canReasignar?:       boolean;
 }
 
 export default function RentasActivasSection({
   solicitudes, setSolicitudes, updateRenta, removeRenta, addVencida,
   fetchSolicitudes, showEncargado = false, showBusqueda = false, initialFolio,
-  subtitle = 'Equipos actualmente rentados por tus clientes', onNavTo,
+  initialProyectoId, subtitle = 'Equipos actualmente rentados por tus clientes', onNavTo,
   canReasignar = false,
 }: Props) {
   const [isLoading,          setIsLoading]          = useState(true);
@@ -41,7 +42,7 @@ export default function RentasActivasSection({
     if (initialFolio) setBusqueda(initialFolio);
   }, [initialFolio]);
   const [abriendo,           setAbriendo]           = useState<string | null>(null);
-  const [filtroProyecto,     setFiltroProyecto]     = useState<string | null>(null);
+  const [filtroProyecto,     setFiltroProyecto]     = useState<string | null>(initialProyectoId ?? null);
   const [modalAsignar,       setModalAsignar]       = useState<SolicitudRenta | null>(null);
   const [reasignando,        setReasignando]        = useState<SolicitudRenta | null>(null);
   const [modalAmpliar,       setModalAmpliar]       = useState<SolicitudRenta | null>(null);
@@ -279,12 +280,23 @@ export default function RentasActivasSection({
             className="w-full sm:w-72 border border-slate-200 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
           />
         )}
-        <FiltroProyecto
+        <FiltroProyectoCombobox
           proyectos={proyectosConRentas}
           hayIndependientes={hayIndependientes}
           value={filtroProyecto}
           onChange={setFiltroProyecto}
         />
+        {initialProyectoId && onNavTo && (
+          <button
+            onClick={() => onNavTo('proyectos')}
+            className="ml-auto inline-flex items-center gap-1.5 px-3.5 py-[7px] rounded-xl border border-slate-200 bg-white text-xs font-medium text-slate-500 hover:bg-slate-50 transition-colors"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6"/>
+            </svg>
+            Volver al proyecto
+          </button>
+        )}
       </div>
 
       {isLoading ? (

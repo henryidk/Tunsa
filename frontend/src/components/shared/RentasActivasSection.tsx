@@ -21,8 +21,9 @@ interface Props {
   fetchSolicitudes: () => Promise<SolicitudRenta[]>;
   showEncargado?:   boolean;
   showBusqueda?:    boolean;
-  initialFolio?:       string;
-  initialProyectoId?:  string;
+  initialFolio?:         string;
+  initialProyectoId?:    string;
+  initialProyectoNombre?: string;
   subtitle?:           string;
   onNavTo?:            (section: string, state?: { solicitudId?: string; folio?: string }) => void;
   canReasignar?:       boolean;
@@ -31,7 +32,7 @@ interface Props {
 export default function RentasActivasSection({
   solicitudes, setSolicitudes, updateRenta, removeRenta, addVencida,
   fetchSolicitudes, showEncargado = false, showBusqueda = false, initialFolio,
-  initialProyectoId, subtitle = 'Equipos actualmente rentados por tus clientes', onNavTo,
+  initialProyectoId, initialProyectoNombre, subtitle = 'Equipos actualmente rentados por tus clientes', onNavTo,
   canReasignar = false,
 }: Props) {
   const [isLoading,          setIsLoading]          = useState(true);
@@ -285,6 +286,7 @@ export default function RentasActivasSection({
           hayIndependientes={hayIndependientes}
           value={filtroProyecto}
           onChange={setFiltroProyecto}
+          fallbackLabel={initialProyectoNombre}
         />
         {initialProyectoId && onNavTo && (
           <button

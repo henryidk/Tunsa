@@ -6,11 +6,13 @@ import VencidasSection from '../../shared/VencidasSection';
 type NavTo = (section: string, state?: { solicitudId?: string; folio?: string }) => void;
 
 interface Props {
-  initialFolio?: string;
-  onNavTo?:      NavTo;
+  initialFolio?:          string;
+  initialProyectoId?:     string;
+  initialProyectoNombre?: string;
+  onNavTo?:               NavTo;
 }
 
-export default function AdminVencidasSection({ initialFolio, onNavTo }: Props) {
+export default function AdminVencidasSection({ initialFolio, initialProyectoId, initialProyectoNombre, onNavTo }: Props) {
   const { solicitudes, setSolicitudes, removeRenta, updateRenta } = useAdminVencidasStore();
   const addActiva = useAdminActivasStore(s => s.addRenta);
 
@@ -24,6 +26,8 @@ export default function AdminVencidasSection({ initialFolio, onNavTo }: Props) {
       fetchSolicitudes={solicitudesService.getVencidas}
       showEncargado
       initialFolio={initialFolio}
+      initialProyectoId={initialProyectoId}
+      initialProyectoNombre={initialProyectoNombre}
       onNavTo={onNavTo}
     />
   );

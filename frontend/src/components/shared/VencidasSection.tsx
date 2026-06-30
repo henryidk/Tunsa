@@ -23,15 +23,16 @@ interface Props {
   addActiva:        (solicitud: SolicitudRenta) => void;
   fetchSolicitudes: () => Promise<SolicitudRenta[]>;
   showEncargado?:   boolean;
-  initialFolio?:       string;
-  initialProyectoId?:  string;
+  initialFolio?:          string;
+  initialProyectoId?:     string;
+  initialProyectoNombre?: string;
   onNavTo?:            NavTo;
   emptyStateText?:  string;
 }
 
 export default function VencidasSection({
   solicitudes, setSolicitudes, updateRenta, removeRenta, addActiva,
-  fetchSolicitudes, showEncargado = false, initialFolio, initialProyectoId, onNavTo,
+  fetchSolicitudes, showEncargado = false, initialFolio, initialProyectoId, initialProyectoNombre, onNavTo,
   emptyStateText = 'Todas las rentas están dentro de plazo.',
 }: Props) {
   const [isLoading,       setIsLoading]       = useState(true);
@@ -213,6 +214,7 @@ export default function VencidasSection({
           hayIndependientes={hayIndependientesVencidas}
           value={filtroProyecto}
           onChange={setFiltroProyecto}
+          fallbackLabel={initialProyectoNombre}
         />
         {initialProyectoId && onNavTo && (
           <button

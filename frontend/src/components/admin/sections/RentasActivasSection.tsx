@@ -4,11 +4,13 @@ import { useAdminVencidasStore } from '../../../store/vencidas.store';
 import RentasActivasSection from '../../shared/RentasActivasSection';
 
 interface Props {
-  onNavTo?:      (section: string, state?: { solicitudId?: string; folio?: string }) => void;
-  initialFolio?: string;
+  onNavTo?:               (section: string, state?: { solicitudId?: string; folio?: string }) => void;
+  initialFolio?:          string;
+  initialProyectoId?:     string;
+  initialProyectoNombre?: string;
 }
 
-export default function AdminRentasActivasSection({ onNavTo, initialFolio }: Props) {
+export default function AdminRentasActivasSection({ onNavTo, initialFolio, initialProyectoId, initialProyectoNombre }: Props) {
   const { solicitudes, setSolicitudes, updateRenta, removeRenta } = useAdminActivasStore();
   const addVencida = useAdminVencidasStore(s => s.addVencida);
 
@@ -23,6 +25,8 @@ export default function AdminRentasActivasSection({ onNavTo, initialFolio }: Pro
       showEncargado
       showBusqueda
       initialFolio={initialFolio}
+      initialProyectoId={initialProyectoId}
+      initialProyectoNombre={initialProyectoNombre}
       subtitle="Todos los contratos de renta en curso"
       onNavTo={onNavTo}
       canReasignar

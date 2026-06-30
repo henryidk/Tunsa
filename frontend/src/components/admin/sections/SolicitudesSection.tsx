@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, Fragment } from 'react';
 import ClienteNombre from '../../shared/ClienteNombre';
 import ProyectoBadge from '../../shared/ProyectoBadge';
 import { useSolicitudes } from '../../../hooks/useSolicitudes';
@@ -8,7 +8,7 @@ import RechazadasTab from './RechazadasTab';
 import RechazarModal from '../RechazarModal';
 import AprobarModal from '../AprobarModal';
 import type { SolicitudRenta, ItemSnapshot } from '../../../types/solicitud-renta.types';
-import { formatFechaCorta, unidadLabel, duracionDisplay, formatQ } from '../../../types/solicitud.types';
+import { formatFechaCorta, duracionDisplay, type UnidadDuracion } from '../../../types/solicitud.types';
 
 type Tab = 'pendientes' | 'rechazadas';
 
@@ -150,6 +150,51 @@ function TabButton({
   );
 }
 
+// ── Accordion helpers ─────────────────────────────────────────────────────────
+
+type ItemConTarifasSnap = Extract<ItemSnapshot, { kind: 'maquinaria' | 'granel' }>;
+
+function itemSnapKey(item: ItemConTarifasSnap): string {
+  return item.kind === 'maquinaria' ? item.equipoId : `granel-${item.tipo}`;
+}
+
+function calcCatalogSubtotalSnap(item: ItemConTarifasSnap): number {
+  if (!item.tarifaFijada || !item.tarifas) return item.subtotal;
+  const cant = item.kind === 'granel' ? item.cantidad : 1;
+  if (item.desglose) {
+    const { desglose, tarifas } = item;
+    return (tarifas.mes    ?? 0) * desglose.meses   * cant
+         + (tarifas.semana ?? 0) * desglose.semanas  * cant
+         + (tarifas.dia    ?? 0) * desglose.dias     * cant;
+  }
+  const rate = item.unidad === 'semanas' ? item.tarifas.semana
+             : item.unidad === 'meses'   ? item.tarifas.mes
+             :                             item.tarifas.dia;
+  if (rate != null && item.duracion != null) return rate * item.duracion * cant;
+  return item.subtotal;
+}
+
+type BandaKey = 'dia' | 'semana' | 'mes';
+const UNIDAD_TO_BANDA: Partial<Record<UnidadDuracion, BandaKey>> = {
+  dias: 'dia', semanas: 'semana', meses: 'mes',
+};
+interface BandaInfo { key: BandaKey; label: string; catalogo: number | null; fijada: number | null; aplicada: boolean; subtotal: number | null; }
+
+function buildBandas(item: ItemConTarifasSnap): BandaInfo[] {
+  const aplicada = item.unidad ? (UNIDAD_TO_BANDA[item.unidad] ?? null) : null;
+  return ([
+    { key: 'dia'    as BandaKey, label: 'Por día'    },
+    { key: 'semana' as BandaKey, label: 'Por semana' },
+    { key: 'mes'    as BandaKey, label: 'Por mes'    },
+  ] as const).flatMap(({ key, label }) => {
+    const catalogo = item.tarifas?.[key]    ?? null;
+    const fijada   = item.tarifaFijada?.[key] ?? null;
+    if (catalogo == null && fijada == null) return [];
+    const esBandaAplicada = key === aplicada;
+    return [{ key, label, catalogo, fijada: fijada ?? catalogo, aplicada: esBandaAplicada, subtotal: esBandaAplicada ? item.subtotal : null }];
+  });
+}
+
 // ── Solicitud Card ────────────────────────────────────────────────────────────
 
 const ESTADO_BORDER: Record<SolicitudRenta['estado'], string> = {
@@ -169,9 +214,25 @@ function SolicitudCard({
   onRequestAprobar: () => void;
   onRequestRechazar: () => void;
 }) {
-  const maquinaria = solicitud.items.filter(i => i.kind === 'maquinaria');
-  const granel     = solicitud.items.filter(i => i.kind === 'granel');
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+
+  const toggleItem = (key: string) => {
+    setExpandedItems(prev => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  };
+
+  const maquinaria = solicitud.items.filter(i => i.kind === 'maquinaria') as ItemConTarifasSnap[];
+  const granel     = solicitud.items.filter(i => i.kind === 'granel')     as ItemConTarifasSnap[];
   const pesada     = solicitud.items.filter(i => i.kind === 'pesada');
+
+  const totalNormal = solicitud.tieneOverride
+    ? [...maquinaria, ...granel].reduce((s, item) => s + calcCatalogSubtotalSnap(item), 0)
+    : 0;
+  const diferencia  = totalNormal - solicitud.totalEstimado;
+  const pct         = totalNormal > 0 ? Math.round((diferencia / totalNormal) * 100) : 0;
 
   return (
     <div className={`bg-white border border-slate-200 border-l-4 ${ESTADO_BORDER[solicitud.estado]} rounded-lg shadow-md overflow-hidden`}>
@@ -227,11 +288,39 @@ function SolicitudCard({
         {/* Ítems */}
         <div>
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Ítems solicitados</p>
-          <div className="space-y-2">
-            {maquinaria.map((item, i) => <ItemRow key={i} item={item} />)}
-            {granel.map((item, i)     => <ItemRow key={i} item={item} />)}
-            {pesada.map((item, i)     => <ItemRow key={i} item={item} />)}
+          <div className="space-y-1.5">
+            {maquinaria.map((item, i) =>
+              item.tarifaFijada
+                ? <ItemAccordionCard
+                    key={i}
+                    item={item}
+                    isExpanded={expandedItems.has(itemSnapKey(item))}
+                    onToggle={() => toggleItem(itemSnapKey(item))}
+                  />
+                : <ItemRow key={i} item={item} />
+            )}
+            {granel.map((item, i) =>
+              item.tarifaFijada
+                ? <ItemAccordionCard
+                    key={`g-${i}`}
+                    item={item}
+                    isExpanded={expandedItems.has(itemSnapKey(item))}
+                    onToggle={() => toggleItem(itemSnapKey(item))}
+                  />
+                : <ItemRow key={`g-${i}`} item={item} />
+            )}
+            {pesada.map((item, i) => <ItemRow key={`p-${i}`} item={item} />)}
           </div>
+          {solicitud.tieneOverride && (
+            <p className="flex items-center gap-1 mt-2 text-[10px] text-slate-400">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              Clic en cada ítem para ver u ocultar el desglose de tarifas
+            </p>
+          )}
         </div>
 
         {/* Pago y total */}
@@ -252,6 +341,17 @@ function SolicitudCard({
             <p className="text-xl font-bold text-slate-800 font-mono">
               Q {solicitud.totalEstimado.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
+          )}
+          {solicitud.tieneOverride && !solicitud.esPesada && !solicitud.esIndefinida && diferencia !== 0 && (
+            <div className="mt-1 p-2 bg-violet-50 border border-violet-200 rounded-lg">
+              <p className="text-[9px] font-bold uppercase tracking-wide text-violet-600 mb-0.5">Vs. tarifa normal</p>
+              <p className="font-mono text-[13px] font-bold text-violet-600">
+                {diferencia > 0 ? '−' : '+'}Q {Math.abs(diferencia).toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                {diferencia > 0 ? '−' : '+'}{Math.abs(pct)}% del precio base
+              </p>
+            </div>
           )}
         </div>
       </div>
@@ -319,6 +419,92 @@ function AccionesFooter({
   );
 }
 
+// ── Item Accordion Card ───────────────────────────────────────────────────────
+
+function ItemAccordionCard({
+  item,
+  isExpanded,
+  onToggle,
+}: {
+  item:       ItemConTarifasSnap;
+  isExpanded: boolean;
+  onToggle:   () => void;
+}) {
+  const nombre     = item.kind === 'maquinaria'
+    ? item.descripcion
+    : `${item.tipoLabel}${item.conMadera ? ' (c/madera)' : ''} ×${item.cantidad.toLocaleString('es-GT')} u`;
+  const numeracion = item.kind === 'maquinaria' ? item.numeracion : null;
+  const durStr     = item.duracion != null && item.unidad ? duracionDisplay(item.duracion, item.unidad) : null;
+  const fechaStr   = formatFechaCorta(item.fechaInicio);
+  const bandas     = buildBandas(item);
+
+  return (
+    <div className={`border rounded-[10px] overflow-hidden ${isExpanded ? 'border-violet-300' : 'border-slate-200'}`}>
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center justify-between px-3 py-2 bg-white text-left cursor-pointer"
+      >
+        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+          {numeracion && (
+            <span className="font-mono text-[10px] text-slate-400 shrink-0">#{numeracion}</span>
+          )}
+          <span className="text-xs font-medium text-slate-800 truncate">{nombre}</span>
+          <span className="inline-flex items-center gap-1 ml-0.5 px-1.5 py-0.5 bg-violet-100 rounded shrink-0">
+            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2.5">
+              <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+            </svg>
+            <span className="text-[9px] font-semibold text-violet-700">mod.</span>
+          </span>
+        </div>
+        <div className="flex items-center gap-2 shrink-0 ml-3">
+          <div className="text-right">
+            <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-400 mb-0.5">Subtotal</p>
+            <p className="font-mono text-xs font-bold text-slate-800">
+              Q {item.subtotal.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
+            {durStr && <p className="text-[10px] text-slate-500">{durStr} · {fechaStr}</p>}
+          </div>
+          <svg
+            width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2"
+            className={`transition-transform duration-150 shrink-0 ${isExpanded ? 'rotate-180' : ''}`}
+          >
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </div>
+      </button>
+
+      {isExpanded && (
+        <div className="px-3 pb-2.5 pt-2 bg-violet-50 border-t border-violet-200">
+          <div className="grid grid-cols-[70px_1fr_1fr_1fr] gap-x-2 gap-y-1 items-center mb-1.5">
+            <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">Banda</span>
+            <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400 text-center">Original</span>
+            <span className="text-[9px] font-semibold uppercase tracking-wide text-violet-600 text-center">Modificada</span>
+            <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400 text-right">Subtotal</span>
+            {bandas.map(b => (
+              <Fragment key={b.key}>
+                <span className="text-[10px] text-slate-600">{b.label}{b.aplicada ? ' ✱' : ''}</span>
+                <span className="font-mono text-[10px] text-slate-400 line-through text-center">
+                  {b.catalogo != null ? `Q${b.catalogo.toLocaleString('es-GT')}` : '—'}
+                </span>
+                <span className="font-mono text-[10px] font-semibold text-violet-600 text-center">
+                  {b.fijada != null ? `Q${b.fijada.toLocaleString('es-GT')}` : '—'}
+                </span>
+                <span className={`font-mono text-right ${b.subtotal != null ? 'text-[11px] font-bold text-slate-800' : 'text-[10px] text-slate-300'}`}>
+                  {b.subtotal != null
+                    ? `Q ${b.subtotal.toLocaleString('es-GT', { minimumFractionDigits: 2 })}`
+                    : '—'}
+                </span>
+              </Fragment>
+            ))}
+          </div>
+          <p className="text-[9px] text-slate-400">✱ banda aplicada para este período</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Item Row ──────────────────────────────────────────────────────────────────
 
 function ItemRow({ item }: { item: ItemSnapshot }) {
@@ -355,7 +541,6 @@ function ItemRow({ item }: { item: ItemSnapshot }) {
           {item.descripcion}
         </p>
         {tiempo}
-        <TarifaFijadaLine item={item} />
       </div>
     );
   }
@@ -368,7 +553,6 @@ function ItemRow({ item }: { item: ItemSnapshot }) {
         {item.conMadera && <span className="text-amber-600 ml-1">(c/madera)</span>}
       </p>
       {tiempo}
-      <TarifaFijadaLine item={item} />
     </div>
   );
 }
@@ -465,40 +649,7 @@ function EmptyState({ tab }: { tab: Tab }) {
   );
 }
 
-// ── Tarifa fijada line ────────────────────────────────────────────────────────
-
-type ItemConTarifas = Extract<ItemSnapshot, { kind: 'maquinaria' | 'granel' }>;
-
-function TarifaFijadaLine({ item }: { item: ItemConTarifas }) {
-  const { tarifaFijada, tarifas } = item;
-  if (!tarifaFijada || !tarifas) return null;
-
-  const entries: { label: string; key: 'dia' | 'semana' | 'mes' }[] = [
-    { label: 'día', key: 'dia'    },
-    { label: 'sem', key: 'semana' },
-    { label: 'mes', key: 'mes'    },
-  ];
-
-  const changed = entries.filter(e => tarifaFijada[e.key] !== tarifas[e.key]);
-  if (changed.length === 0) return null;
-
-  return (
-    <div className="flex flex-wrap items-center gap-2 mt-1">
-      {changed.map(e => (
-        <span key={e.key} className="inline-flex items-center gap-1 text-xs font-mono">
-          {tarifas[e.key] != null && (
-            <span className="text-slate-400 line-through">Q{formatQ(tarifas[e.key]!)}/{e.label}</span>
-          )}
-          <span className="text-violet-600 font-semibold">
-            → {tarifaFijada[e.key] != null ? `Q${formatQ(tarifaFijada[e.key]!)}` : '—'}
-          </span>
-        </span>
-      ))}
-    </div>
-  );
-}
-
-// ── Helpers y helpers ─────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function fechaHora(fecha: string): string {
   const d = new Date(fecha);

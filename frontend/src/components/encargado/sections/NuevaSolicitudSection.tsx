@@ -6,11 +6,12 @@ import MaquinariaPickerForm from '../MaquinariaPickerForm';
 import GranelPickerSection from '../GranelPickerSection';
 import PaymentModeSelector from '../PaymentModeSelector';
 import type { Cliente } from '../../../services/clientes.service';
-import type { ItemSolicitud, ModalidadPago } from '../../../types/solicitud.types';
-import { calcSubtotal, formatQ, unidadLabel, descomponerDuracion, formatDesglose, esAdaptado } from '../../../types/solicitud.types';
+import type { ItemSolicitud, ModalidadPago, TarifasOverride } from '../../../types/solicitud.types';
+import { calcSubtotal, calcSubtotalConTarifasOverride, formatQ, unidadLabel, itemCartKey, descomponerDuracion, formatDesglose, esAdaptado } from '../../../types/solicitud.types';
 import { SolicitudCartTable } from '../../shared/SolicitudCartTable';
 import { useSolicitudData } from '../../../hooks/useSolicitudData';
 import { useSolicitudCart } from '../../../hooks/useSolicitudCart';
+import { usePrecioOverride } from '../../../hooks/usePrecioOverride';
 import { solicitudesService } from '../../../services/solicitudes.service';
 import { usePendientesStore } from '../../../store/pendientes.store';
 import type { ItemSnapshot } from '../../../types/solicitud-renta.types';
@@ -39,7 +40,16 @@ export default function NuevaSolicitudSection({ onShowToast = () => {} }: Props)
 
   const { proyectos } = useProyectosCliente(clienteSeleccionado?.id ?? null);
   const { equiposLiviana, granelData, reservedIds, isLoading, error: dataError, refreshReservedIds } = useSolicitudData();
-  const cart = useSolicitudCart();
+  const cart          = useSolicitudCart();
+  const precioOverride = usePrecioOverride();
+
+  const effectiveTotal = useMemo(
+    () => cart.items.reduce((s, item) => {
+      const tarifa = precioOverride.get(itemCartKey(item));
+      return s + (tarifa !== undefined ? calcSubtotalConTarifasOverride(item, tarifa) : calcSubtotal(item));
+    }, 0),
+    [cart.items, precioOverride.overrides],
+  );
 
   // Equipos disponibles: activos, liviana, no en el carrito actual y no reservados en otra solicitud activa
   const equiposDisponibles = useMemo(
@@ -52,6 +62,7 @@ export default function NuevaSolicitudSection({ onShowToast = () => {} }: Props)
       setIndefinido(false);
       setProyectoId(null);
       cart.clear();
+      precioOverride.clear();
     }
     setClienteSeleccionado(cliente);
   };
@@ -59,16 +70,19 @@ export default function NuevaSolicitudSection({ onShowToast = () => {} }: Props)
   const handleToggleIndefinido = (val: boolean) => {
     setIndefinido(val);
     cart.clear();
+    precioOverride.clear();
   };
 
   const handleLimpiarItems = () => {
     cart.clear();
+    precioOverride.clear();
     setModalidadPago(null);
     setNotas('');
   };
 
   const handleCancelarSolicitud = () => {
     cart.clear();
+    precioOverride.clear();
     setClienteSeleccionado(null);
     setClienteKey(k => k + 1);
     setModalidadPago(null);
@@ -96,24 +110,27 @@ export default function NuevaSolicitudSection({ onShowToast = () => {} }: Props)
     try {
       const items: ItemSnapshot[] = cart.items.flatMap((item): ItemSnapshot[] => {
         if (item.kind === 'maquinaria') {
+          const override = precioOverride.get(itemCartKey(item));
           const desglose = item.duracion && item.unidad
             ? descomponerDuracion(item.fechaInicio, item.duracion, item.unidad)
             : undefined;
           return [{
-            kind:        'maquinaria',
-            equipoId:    item.equipo.id,
-            numeracion:  item.equipo.numeracion,
-            descripcion: item.equipo.descripcion,
-            fechaInicio: item.fechaInicio,
-            duracion:    item.duracion,
-            unidad:      item.unidad,
-            tarifa:      item.equipo.rentaDia ?? null,
-            subtotal:    calcSubtotal(item),
+            kind:         'maquinaria',
+            equipoId:     item.equipo.id,
+            numeracion:   item.equipo.numeracion,
+            descripcion:  item.equipo.descripcion,
+            fechaInicio:  item.fechaInicio,
+            duracion:     item.duracion,
+            unidad:       item.unidad,
+            tarifa:       item.equipo.rentaDia ?? null,
+            tarifaFijada: override ?? null,
+            subtotal:     override !== undefined ? calcSubtotalConTarifasOverride(item, override) : calcSubtotal(item),
             desglose,
             tarifas: { dia: item.equipo.rentaDia ?? null, semana: item.equipo.rentaSemana ?? null, mes: item.equipo.rentaMes ?? null },
           }];
         }
         if (item.kind === 'granel') {
+          const override = precioOverride.get(itemCartKey(item));
           const desglose = item.duracion && item.unidad
             ? descomponerDuracion(item.fechaInicio, item.duracion, item.unidad)
             : undefined;
@@ -121,18 +138,17 @@ export default function NuevaSolicitudSection({ onShowToast = () => {} }: Props)
             ? { dia: item.config?.rentaDiaConMadera ?? null, semana: item.config?.rentaSemanaConMadera ?? null, mes: item.config?.rentaMesConMadera ?? null }
             : { dia: item.config?.rentaDia ?? null,          semana: item.config?.rentaSemana ?? null,          mes: item.config?.rentaMes ?? null          };
           return [{
-            kind:        'granel',
-            tipo:        item.tipo,
-            tipoLabel:   item.tipoLabel,
-            cantidad:    item.cantidad,
-            conMadera:   item.conMadera ?? false,
-            fechaInicio: item.fechaInicio,
-            duracion:    item.duracion,
-            unidad:      item.unidad,
-            tarifa:      item.conMadera
-              ? (item.config?.rentaDiaConMadera ?? null)
-              : (item.config?.rentaDia ?? null),
-            subtotal:    calcSubtotal(item),
+            kind:         'granel',
+            tipo:         item.tipo,
+            tipoLabel:    item.tipoLabel,
+            cantidad:     item.cantidad,
+            conMadera:    item.conMadera ?? false,
+            fechaInicio:  item.fechaInicio,
+            duracion:     item.duracion,
+            unidad:       item.unidad,
+            tarifa:       tarifas.dia,
+            tarifaFijada: override ?? null,
+            subtotal:     override !== undefined ? calcSubtotalConTarifasOverride(item, override) : calcSubtotal(item),
             desglose,
             tarifas,
           }];
@@ -145,7 +161,7 @@ export default function NuevaSolicitudSection({ onShowToast = () => {} }: Props)
         proyectoId:    proyectoId || undefined,
         modalidad:     modalidadPago,
         notas:         notas.trim(),
-        totalEstimado: cart.summary.total,
+        totalEstimado: effectiveTotal,
         items,
         esIndefinida:  indefinido,
       });
@@ -272,9 +288,11 @@ export default function NuevaSolicitudSection({ onShowToast = () => {} }: Props)
             <SolicitudCartTable
               items={cart.items}
               onRemove={cart.removeAt}
-              effectiveTotal={cart.summary.total}
+              effectiveTotal={effectiveTotal}
               countMaquinaria={cart.summary.countMaquinaria}
               countGranel={cart.summary.countGranel}
+              overrides={precioOverride.overrides}
+              onSetOverride={(key, val) => (val === null ? precioOverride.remove(key) : precioOverride.set(key, val))}
               emptyMessage="Aún no has agregado equipos"
             />
           </SectionCard>
@@ -315,7 +333,8 @@ export default function NuevaSolicitudSection({ onShowToast = () => {} }: Props)
         <SolicitudResumen
           cliente={clienteSeleccionado}
           items={cart.items}
-          summary={cart.summary}
+          summary={{ ...cart.summary, total: effectiveTotal }}
+          overrides={precioOverride.overrides}
           modalidadPago={modalidadPago}
           esIndefinida={indefinido}
           onLimpiarItems={handleLimpiarItems}
@@ -432,6 +451,7 @@ interface SolicitudResumenProps {
   cliente:         Cliente | null;
   items:           ItemSolicitud[];
   summary:         { total: number; countMaquinaria: number; countGranel: number };
+  overrides?:      Map<string, TarifasOverride>;
   modalidadPago:   ModalidadPago | null;
   esIndefinida:    boolean;
   onLimpiarItems:  () => void;
@@ -443,7 +463,11 @@ interface SolicitudResumenProps {
   isSubmitting:    boolean;
 }
 
-function SolicitudResumen({ cliente, items, summary, modalidadPago, esIndefinida, onLimpiarItems, canLimpiarItems, onCancelar, canCancelar, canEnviar, onEnviar, isSubmitting }: SolicitudResumenProps) {
+function SolicitudResumen({ cliente, items, summary, overrides, modalidadPago, esIndefinida, onLimpiarItems, canLimpiarItems, onCancelar, canCancelar, canEnviar, onEnviar, isSubmitting }: SolicitudResumenProps) {
+  const itemSubtotal = (item: ItemSolicitud) => {
+    const tarifa = overrides?.get(itemCartKey(item));
+    return tarifa !== undefined ? calcSubtotalConTarifasOverride(item, tarifa) : calcSubtotal(item);
+  };
   const [confirmandoCancelar, setConfirmandoCancelar] = useState(false);
   return (
     <div className="w-72 flex-shrink-0 sticky top-20 self-start">
@@ -518,8 +542,8 @@ function SolicitudResumen({ cliente, items, summary, modalidadPago, esIndefinida
                         : null;
                     })()}
                   </div>
-                  <span className="text-xs font-mono font-semibold text-slate-700 flex-shrink-0">
-                    {(item.kind === 'maquinaria' || item.kind === 'granel') && !item.duracion ? '—' : formatQ(calcSubtotal(item))}
+                  <span className={`text-xs font-mono font-semibold flex-shrink-0 ${overrides?.has(itemCartKey(item)) ? 'text-indigo-600' : 'text-slate-700'}`}>
+                    {(item.kind === 'maquinaria' || item.kind === 'granel') && !item.duracion ? '—' : formatQ(itemSubtotal(item))}
                   </span>
                 </div>
               ))}

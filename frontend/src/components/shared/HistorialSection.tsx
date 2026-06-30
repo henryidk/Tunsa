@@ -3,7 +3,7 @@ import { usuariosService } from '../../services/usuarios.service';
 import type { SolicitudRenta } from '../../types/solicitud-renta.types';
 import type { QueryHistorial, RechazadasPage } from '../../services/solicitudes.service';
 import RentaHistorialCard from './RentaHistorialCard';
-import FiltroProyecto from './FiltroProyecto';
+import FiltroProyectoCombobox from './FiltroProyectoCombobox';
 import { filtrarPorProyecto } from '../../utils/filtrar-por-proyecto';
 
 // ── Helpers de fecha ──────────────────────────────────────────────────────────
@@ -36,24 +36,30 @@ interface Encargado    { username: string; nombre: string; }
 interface FiltroActivo { desde: string; hasta: string; creadaPor: string; busqueda: string; }
 
 export interface HistorialSectionProps {
-  fetchHistorial:       (params: QueryHistorial) => Promise<RechazadasPage>;
-  showEncargadoFilter?: boolean;
-  showEncargado?:       boolean;
+  fetchHistorial:         (params: QueryHistorial) => Promise<RechazadasPage>;
+  showEncargadoFilter?:   boolean;
+  showEncargado?:         boolean;
+  initialProyectoId?:     string;
+  initialProyectoNombre?: string;
+  onNavTo?:               (section: string, state?: Record<string, string>) => void;
 }
 
 // ── Componente principal ──────────────────────────────────────────────────────
 
 export default function HistorialSection({
   fetchHistorial,
-  showEncargadoFilter = false,
-  showEncargado       = false,
+  showEncargadoFilter   = false,
+  showEncargado         = false,
+  initialProyectoId,
+  initialProyectoNombre,
+  onNavTo,
 }: HistorialSectionProps) {
   const [fechaDesde,    setFechaDesde]    = useState(inicioMes());
   const [fechaHasta,    setFechaHasta]    = useState(hoy());
   const [encargado,     setEncargado]     = useState('');
   const [encargados,    setEncargados]    = useState<Encargado[]>([]);
   const [busqueda,       setBusqueda]       = useState('');
-  const [filtroProyecto, setFiltroProyecto] = useState<string | null>(null);
+  const [filtroProyecto, setFiltroProyecto] = useState<string | null>(initialProyectoId ?? null);
   const [filtroActivo,  setFiltroActivo]  = useState<FiltroActivo>({ desde: inicioMes(), hasta: hoy(), creadaPor: '', busqueda: '' });
   const [solicitudes,   setSolicitudes]   = useState<SolicitudRenta[]>([]);
 
@@ -163,8 +169,25 @@ export default function HistorialSection({
         onChangeBusqueda={setBusqueda}
         onBuscar={() => buscar(fechaDesde, fechaHasta, encargado)}
       />
-      <div className="mt-3">
-        <FiltroProyecto proyectos={proyectosHistorial} hayIndependientes={hayIndependientesHistorial} value={filtroProyecto} onChange={setFiltroProyecto} />
+      <div className="mt-3 flex flex-wrap gap-3 items-center">
+        <FiltroProyectoCombobox
+          proyectos={proyectosHistorial}
+          hayIndependientes={hayIndependientesHistorial}
+          value={filtroProyecto}
+          onChange={setFiltroProyecto}
+          fallbackLabel={initialProyectoNombre}
+        />
+        {initialProyectoId && onNavTo && (
+          <button
+            onClick={() => onNavTo('proyectos')}
+            className="ml-auto inline-flex items-center gap-1.5 px-3.5 py-[7px] rounded-xl border border-slate-200 bg-white text-xs font-medium text-slate-500 hover:bg-slate-50 transition-colors"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6"/>
+            </svg>
+            Volver al proyecto
+          </button>
+        )}
       </div>
 
       {error && (

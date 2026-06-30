@@ -66,6 +66,7 @@ export default function AdminDashboard() {
   const [navSolicitudId,   setNavSolicitudId]   = useState<string | undefined>(undefined)
   const [navFolio,         setNavFolio]         = useState<string | undefined>(undefined)
   const [navProyectoId,    setNavProyectoId]    = useState<string | undefined>(undefined)
+  const [navProyectoNombre, setNavProyectoNombre] = useState<string | undefined>(undefined)
 
   const { playSound }  = useNotificationSound()
   // Mantiene el socket activo durante toda la sesión y alimenta ambos stores
@@ -108,11 +109,12 @@ export default function AdminDashboard() {
 
   const closeModal = () => setModalOpen(false)
 
-  const navTo = (section: string, state?: { solicitudId?: string; folio?: string; proyectoId?: string }) => {
+  const navTo = (section: string, state?: { solicitudId?: string; folio?: string; proyectoId?: string; proyectoNombre?: string }) => {
     setActiveSection(section as Section)
     setNavSolicitudId(state?.solicitudId)
     setNavFolio(state?.folio)
     setNavProyectoId(state?.proyectoId)
+    setNavProyectoNombre(state?.proyectoNombre)
   }
 
   return (
@@ -151,13 +153,13 @@ export default function AdminDashboard() {
             <SolicitudesSection />
           )}
           {activeSection === 'rentas-activas' && (
-            <RentasActivasSection onNavTo={navTo} initialFolio={navFolio} initialProyectoId={navProyectoId} />
+            <RentasActivasSection onNavTo={navTo} initialFolio={navFolio} initialProyectoId={navProyectoId} initialProyectoNombre={navProyectoNombre} />
           )}
           {activeSection === 'rentas-historial' && (
-            <HistorialSection />
+            <HistorialSection onNavTo={navTo} initialProyectoId={navProyectoId} initialProyectoNombre={navProyectoNombre} />
           )}
           {activeSection === 'rentas-vencidas' && (
-            <VencidasSection initialFolio={navFolio} initialProyectoId={navProyectoId} onNavTo={navTo} />
+            <VencidasSection initialFolio={navFolio} initialProyectoId={navProyectoId} initialProyectoNombre={navProyectoNombre} onNavTo={navTo} />
           )}
           {activeSection === 'flota' && (
             <DisponibilidadFlotaSection tono={TONO_INDIGO} onNavTo={navTo} sectionActivas="rentas-activas" sectionVencidas="rentas-vencidas" />

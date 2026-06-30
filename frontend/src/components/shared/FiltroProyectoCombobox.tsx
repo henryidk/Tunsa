@@ -10,6 +10,7 @@ interface Props {
   hayIndependientes: boolean;
   value:             string | null;
   onChange:          (v: string | null) => void;
+  fallbackLabel?:    string;
 }
 
 function highlightMatch(text: string, query: string) {
@@ -27,20 +28,11 @@ function highlightMatch(text: string, query: string) {
 
 const MAX_VISIBLE = 6;
 
-export default function FiltroProyectoCombobox({ proyectos, hayIndependientes, value, onChange }: Props) {
+export default function FiltroProyectoCombobox({ proyectos, hayIndependientes, value, onChange, fallbackLabel }: Props) {
   const [open,  setOpen]  = useState(false);
   const [query, setQuery] = useState('');
   const ref      = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  if (proyectos.length === 0 && !hayIndependientes) return null;
-
-  const selectedProyecto = proyectos.find(p => p.id === value);
-  const selectedLabel    = value === null
-    ? null
-    : value === ''
-    ? 'Independientes'
-    : (selectedProyecto?.nombre ?? null);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -56,6 +48,15 @@ export default function FiltroProyectoCombobox({ proyectos, hayIndependientes, v
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 30);
   }, [open]);
+
+  if (proyectos.length === 0 && !hayIndependientes) return null;
+
+  const selectedProyecto = proyectos.find(p => p.id === value);
+  const selectedLabel    = value === null
+    ? null
+    : value === ''
+    ? 'Independientes'
+    : (selectedProyecto?.nombre ?? fallbackLabel ?? null);
 
   const filteredProyectos = query.trim()
     ? proyectos.filter(p => p.nombre.toLowerCase().includes(query.toLowerCase()))

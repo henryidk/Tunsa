@@ -8,7 +8,7 @@ import RechazadasTab from './RechazadasTab';
 import RechazarModal from '../RechazarModal';
 import AprobarModal from '../AprobarModal';
 import type { SolicitudRenta, ItemSnapshot } from '../../../types/solicitud-renta.types';
-import { formatFechaCorta, unidadLabel, duracionDisplay } from '../../../types/solicitud.types';
+import { formatFechaCorta, unidadLabel, duracionDisplay, formatQ } from '../../../types/solicitud.types';
 
 type Tab = 'pendientes' | 'rechazadas';
 
@@ -185,6 +185,11 @@ function SolicitudCard({
               PESADA
             </span>
           )}
+          {solicitud.tieneOverride && (
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 border border-violet-200">
+              Tarifas modificadas
+            </span>
+          )}
           {solicitud.folio && (
             <span className="text-xs font-mono font-semibold text-slate-600">{solicitud.folio}</span>
           )}
@@ -350,6 +355,7 @@ function ItemRow({ item }: { item: ItemSnapshot }) {
           {item.descripcion}
         </p>
         {tiempo}
+        <TarifaFijadaLine item={item} />
       </div>
     );
   }
@@ -362,6 +368,7 @@ function ItemRow({ item }: { item: ItemSnapshot }) {
         {item.conMadera && <span className="text-amber-600 ml-1">(c/madera)</span>}
       </p>
       {tiempo}
+      <TarifaFijadaLine item={item} />
     </div>
   );
 }
@@ -454,6 +461,39 @@ function EmptyState({ tab }: { tab: Tab }) {
           ? 'Cuando un encargado envíe una solicitud, aparecerá aquí en tiempo real.'
           : ''}
       </p>
+    </div>
+  );
+}
+
+// ── Tarifa fijada line ────────────────────────────────────────────────────────
+
+type ItemConTarifas = Extract<ItemSnapshot, { kind: 'maquinaria' | 'granel' }>;
+
+function TarifaFijadaLine({ item }: { item: ItemConTarifas }) {
+  const { tarifaFijada, tarifas } = item;
+  if (!tarifaFijada || !tarifas) return null;
+
+  const entries: { label: string; key: 'dia' | 'semana' | 'mes' }[] = [
+    { label: 'día', key: 'dia'    },
+    { label: 'sem', key: 'semana' },
+    { label: 'mes', key: 'mes'    },
+  ];
+
+  const changed = entries.filter(e => tarifaFijada[e.key] !== tarifas[e.key]);
+  if (changed.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 mt-1">
+      {changed.map(e => (
+        <span key={e.key} className="inline-flex items-center gap-1 text-xs font-mono">
+          {tarifas[e.key] != null && (
+            <span className="text-slate-400 line-through">Q{formatQ(tarifas[e.key]!)}/{e.label}</span>
+          )}
+          <span className="text-violet-600 font-semibold">
+            → {tarifaFijada[e.key] != null ? `Q${formatQ(tarifaFijada[e.key]!)}` : '—'}
+          </span>
+        </span>
+      ))}
     </div>
   );
 }

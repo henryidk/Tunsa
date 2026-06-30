@@ -938,7 +938,7 @@ function RentaFilaCompacta({
   destacarTotal?:   boolean;
 }) {
   const estado       = estadoLabels[s.estado] ?? { label: s.estado, cls: 'bg-slate-100 text-slate-600' };
-  const usarUrgencia = s.estado === 'ACTIVA' || s.estado === 'VENCIDA';
+  const usarUrgencia = s.estado === 'ACTIVA';
 
   return (
     <div className="px-5 py-3 flex flex-wrap items-start gap-x-4 gap-y-1.5">
@@ -958,7 +958,7 @@ function RentaFilaCompacta({
           {estado.label}
         </span>
         {usarUrgencia
-          ? <UrgenciaFecha inicio={s.fechaInicioRenta} fin={s.fechaFinEstimada} />
+          ? <UrgenciaFecha inicio={s.fechaInicioRenta ?? ''} fin={s.fechaFinEstimada} />
           : <span className="text-xs text-slate-400 shrink-0">
               {formatFecha(s.fechaInicioRenta)} → {s.fechaFinEstimada ? formatFecha(s.fechaFinEstimada) : '–'}
             </span>

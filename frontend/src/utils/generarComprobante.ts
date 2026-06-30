@@ -391,27 +391,49 @@ export async function generarComprobante(solicitud: SolicitudRenta, entregadoPor
   // ── NOTA TARIFAS MODIFICADAS ─────────────────────────────────────────────────
 
   if (!solicitud.esPesada && solicitud.tieneOverride) {
-    const notaTexto = 'Las tarifas aplicadas en este comprobante fueron acordadas individualmente con el cliente y pueden diferir del catálogo estándar.';
-    const notaW     = W - 28;
-    const wrapped   = doc.splitTextToSize(notaTexto, notaW - 14);
-    const notaH     = 7 + wrapped.length * 5.5 + 5;
+    const lineasItems: string[] = [];
+    const sufijos: Record<string, string> = { dia: '/día', semana: '/sem', mes: '/mes' };
 
-    doc.setFillColor(...COLORES.advertenciaFondo);
-    doc.setDrawColor(...COLORES.advertenciaBorde);
-    doc.setLineWidth(0.4);
-    doc.roundedRect(14, y, notaW, notaH, 2, 2, 'FD');
+    for (const item of solicitud.items) {
+      if (item.kind === 'pesada' || !item.tarifaFijada || !item.tarifas) continue;
+      const nombre = item.kind === 'maquinaria'
+        ? `#${item.numeracion} ${item.descripcion}`
+        : `${item.tipoLabel}${item.conMadera ? ' (c/madera)' : ''} x${item.cantidad.toLocaleString('es-GT')} u`;
 
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.setTextColor(...COLORES.advertencia);
-    doc.text('Tarifas acordadas con el cliente', 20, y + 6);
+      for (const [key, sufijo] of Object.entries(sufijos) as ['dia' | 'semana' | 'mes', string][]) {
+        const fijada   = item.tarifaFijada[key];
+        const catalogo = item.tarifas[key];
+        if (fijada !== null && fijada !== catalogo) {
+          const catStr = catalogo != null ? ` (catálogo: ${fmtQ(catalogo)}${sufijo})` : '';
+          lineasItems.push(`• ${nombre}: ${fmtQ(fijada)}${sufijo}${catStr}`);
+        }
+      }
+    }
 
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(...COLORES.advertencia);
-    doc.text(wrapped, 20, y + 12);
+    if (lineasItems.length > 0) {
+      const notaW   = W - 28;
+      const ITEM_H  = 5.5;
+      const notaH   = 7 + ITEM_H + lineasItems.length * ITEM_H + 5;
 
-    y += notaH + 8;
+      doc.setFillColor(...COLORES.advertenciaFondo);
+      doc.setDrawColor(...COLORES.advertenciaBorde);
+      doc.setLineWidth(0.4);
+      doc.roundedRect(14, y, notaW, notaH, 2, 2, 'FD');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(...COLORES.advertencia);
+      doc.text('Esta renta tiene tarifas modificadas y son las siguientes:', 20, y + 6);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(...COLORES.advertencia);
+      lineasItems.forEach((linea, i) => {
+        doc.text(linea, 20, y + 6 + ITEM_H * (i + 1));
+      });
+
+      y += notaH + 8;
+    }
   }
 
   // ── CLÁUSULA DE CONSENTIMIENTO + FIRMA ───────────────────────────────────────

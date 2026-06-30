@@ -113,6 +113,7 @@ export interface SolicitudRenta {
   totalEstimado:  number;
   esPesada:        boolean;
   esIndefinida?:   boolean;
+  tieneOverride:   boolean;
   estado:          EstadoSolicitud;
   creadaPor:       string;
   gestionadaPor:   string | null;

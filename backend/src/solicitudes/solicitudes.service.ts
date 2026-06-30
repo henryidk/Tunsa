@@ -161,6 +161,10 @@ export class SolicitudesService {
   async create(dto: CreateSolicitudDto, user: AuthenticatedUser) {
     const esPesada = dto.items.every(i => i.kind === 'pesada');
     const esMixta  = !esPesada && dto.items.some(i => i.kind === 'pesada');
+    const tieneOverride = dto.items.some(
+      i => i.tarifaFijada != null &&
+           (i.tarifaFijada.dia != null || i.tarifaFijada.semana != null || i.tarifaFijada.mes != null),
+    );
 
     if (esMixta) {
       throw new BadRequestException(
@@ -219,6 +223,7 @@ export class SolicitudesService {
           totalEstimado: esPesada ? 0 : (dto.totalEstimado ?? 0),
           esPesada,
           esIndefinida:  dto.esIndefinida ?? false,
+          tieneOverride,
           creadaPor:     user.username,
         },
         include: { cliente: true, proyecto: { select: { id: true, nombre: true } } },

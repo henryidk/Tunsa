@@ -204,7 +204,7 @@ export default function Login() {
           <p className="text-slate-400 text-xs">
             Sistema protegido • Acceso autorizado unicamente
           </p>
-          <p className="text-slate-300 text-xs mt-2">v2.1.0</p>
+          <p className="text-slate-300 text-xs mt-2">v2.3.0</p>
         </div>
       </div>
     </div>

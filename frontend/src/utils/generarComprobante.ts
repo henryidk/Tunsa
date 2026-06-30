@@ -14,12 +14,15 @@ const EMPRESA = {
 };
 
 const COLORES = {
-  primario:   [49,  80, 174] as [number, number, number],  // indigo-600
-  texto:      [30,  41,  59] as [number, number, number],  // slate-800
-  textoSuave: [100, 116, 139] as [number, number, number], // slate-500
-  borde:      [226, 232, 240] as [number, number, number], // slate-200
-  fondo:      [248, 250, 252] as [number, number, number], // slate-50
-  blanco:     [255, 255, 255] as [number, number, number],
+  primario:         [49,  80, 174] as [number, number, number],  // indigo-600
+  texto:            [30,  41,  59] as [number, number, number],  // slate-800
+  textoSuave:       [100, 116, 139] as [number, number, number], // slate-500
+  borde:            [226, 232, 240] as [number, number, number], // slate-200
+  fondo:            [248, 250, 252] as [number, number, number], // slate-50
+  blanco:           [255, 255, 255] as [number, number, number],
+  advertenciaFondo: [255, 251, 235] as [number, number, number], // amber-50
+  advertenciaBorde: [252, 211,  77] as [number, number, number], // amber-300
+  advertencia:      [146,  64,  14] as [number, number, number], // amber-800
 };
 
 // ── Logo loader ───────────────────────────────────────────────────────────────
@@ -82,6 +85,29 @@ function fmtQ(n: number): string {
   return `Q ${n.toLocaleString('es-GT', { minimumFractionDigits: 2 })}`;
 }
 
+type TarifaFijadaSnap = { dia: number | null; semana: number | null; mes: number | null } | null | undefined;
+
+function tarifaEfectivaParaUnidad(
+  catalogo:     number | null,
+  tarifaFijada: TarifaFijadaSnap,
+  unidad:       UnidadDuracion | undefined,
+): number | null {
+  if (!tarifaFijada || !unidad) return catalogo;
+  const fijada = unidad === 'semanas' ? tarifaFijada.semana
+               : unidad === 'meses'   ? tarifaFijada.mes
+               :                        tarifaFijada.dia;
+  return fijada ?? catalogo;
+}
+
+function tarifaEfectivaTramo(
+  catalogo:     number | null,
+  tarifaFijada: TarifaFijadaSnap,
+  tramo:        'dia' | 'semana' | 'mes',
+): number | null {
+  if (!tarifaFijada) return catalogo;
+  return tarifaFijada[tramo] ?? catalogo;
+}
+
 function buildFilasLiviana(items: ItemSnapshot[], fechaInicio: Date): string[][] {
   const filas: string[][] = [];
 
@@ -99,9 +125,10 @@ function buildFilasLiviana(items: ItemSnapshot[], fechaInicio: Date): string[][]
 
     // ── Caso 1: indefinida o snapshot antiguo (sin desglose) ──
     if (indefinido || !item.desglose || !item.tarifas) {
-      const tramo      = indefinido ? 'Indefinido' : duracionDisplay(item.duracion, item.unidad);
-      const sufijo     = item.unidad === 'semanas' ? '/sem' : item.unidad === 'meses' ? '/mes' : '/día';
-      const tarifaStr  = item.tarifa != null ? `${fmtQ(item.tarifa)}${sufijo}` : '—';
+      const tramo       = indefinido ? 'Indefinido' : duracionDisplay(item.duracion, item.unidad);
+      const sufijo      = item.unidad === 'semanas' ? '/sem' : item.unidad === 'meses' ? '/mes' : '/día';
+      const efectiva    = tarifaEfectivaParaUnidad(item.tarifa, item.tarifaFijada, item.unidad);
+      const tarifaStr   = efectiva != null ? `${fmtQ(efectiva)}${sufijo}` : '—';
       const subtotalStr = indefinido ? 'A calcular' : fmtQ(item.subtotal);
       filas.push([itemLabel, tramo, finStr, tarifaStr, subtotalStr]);
       continue;
@@ -114,45 +141,49 @@ function buildFilasLiviana(items: ItemSnapshot[], fechaInicio: Date): string[][]
 
     // ── Caso 2: sin adaptación — fila simple ──
     if (!esAdaptativo) {
-      const tramo     = unidadLabel(item.duracion!, item.unidad!);
       const sufijo    = item.unidad === 'semanas' ? '/sem' : item.unidad === 'meses' ? '/mes' : '/día';
-      const tarifaStr = item.tarifa != null ? `${fmtQ(item.tarifa)}${sufijo}${porUnidad}` : '—';
-      filas.push([itemLabel, tramo, finStr, tarifaStr, fmtQ(item.subtotal)]);
+      const efectiva  = tarifaEfectivaParaUnidad(item.tarifa, item.tarifaFijada, item.unidad);
+      const tarifaStr = efectiva != null ? `${fmtQ(efectiva)}${sufijo}${porUnidad}` : '—';
+      filas.push([itemLabel, unidadLabel(item.duracion!, item.unidad!), finStr, tarifaStr, fmtQ(item.subtotal)]);
       continue;
     }
 
     // ── Caso 3: adaptativo — una fila por tramo, Ítem y Vence solo en la primera ──
     let primera = true;
 
-    if (desglose.meses > 0 && tarifas.mes != null) {
-      const sub = tarifas.mes * desglose.meses * cant;
+    const tMes     = tarifaEfectivaTramo(tarifas.mes,    item.tarifaFijada, 'mes');
+    const tSemana  = tarifaEfectivaTramo(tarifas.semana, item.tarifaFijada, 'semana');
+    const tDia     = tarifaEfectivaTramo(tarifas.dia,    item.tarifaFijada, 'dia');
+
+    if (desglose.meses > 0 && tMes != null) {
+      const sub = tMes * desglose.meses * cant;
       filas.push([
         primera ? itemLabel : '',
         unidadLabel(desglose.meses, 'meses'),
         primera ? finStr : '',
-        `${fmtQ(tarifas.mes)}/mes${porUnidad}`,
+        `${fmtQ(tMes)}/mes${porUnidad}`,
         fmtQ(sub),
       ]);
       primera = false;
     }
-    if (desglose.semanas > 0 && tarifas.semana != null) {
-      const sub = tarifas.semana * desglose.semanas * cant;
+    if (desglose.semanas > 0 && tSemana != null) {
+      const sub = tSemana * desglose.semanas * cant;
       filas.push([
         primera ? itemLabel : '',
         unidadLabel(desglose.semanas, 'semanas'),
         primera ? finStr : '',
-        `${fmtQ(tarifas.semana)}/sem${porUnidad}`,
+        `${fmtQ(tSemana)}/sem${porUnidad}`,
         fmtQ(sub),
       ]);
       primera = false;
     }
-    if (desglose.dias > 0 && tarifas.dia != null) {
-      const sub = tarifas.dia * desglose.dias * cant;
+    if (desglose.dias > 0 && tDia != null) {
+      const sub = tDia * desglose.dias * cant;
       filas.push([
         primera ? itemLabel : '',
         unidadLabel(desglose.dias, 'dias'),
         primera ? finStr : '',
-        `${fmtQ(tarifas.dia)}/día${porUnidad}`,
+        `${fmtQ(tDia)}/día${porUnidad}`,
         fmtQ(sub),
       ]);
     }
@@ -356,6 +387,32 @@ export async function generarComprobante(solicitud: SolicitudRenta, entregadoPor
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   y = (doc as any).lastAutoTable.finalY + 10;
+
+  // ── NOTA TARIFAS MODIFICADAS ─────────────────────────────────────────────────
+
+  if (!solicitud.esPesada && solicitud.tieneOverride) {
+    const notaTexto = 'Las tarifas aplicadas en este comprobante fueron acordadas individualmente con el cliente y pueden diferir del catálogo estándar.';
+    const notaW     = W - 28;
+    const wrapped   = doc.splitTextToSize(notaTexto, notaW - 14);
+    const notaH     = 7 + wrapped.length * 5.5 + 5;
+
+    doc.setFillColor(...COLORES.advertenciaFondo);
+    doc.setDrawColor(...COLORES.advertenciaBorde);
+    doc.setLineWidth(0.4);
+    doc.roundedRect(14, y, notaW, notaH, 2, 2, 'FD');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(...COLORES.advertencia);
+    doc.text('Tarifas acordadas con el cliente', 20, y + 6);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(...COLORES.advertencia);
+    doc.text(wrapped, 20, y + 12);
+
+    y += notaH + 8;
+  }
 
   // ── CLÁUSULA DE CONSENTIMIENTO + FIRMA ───────────────────────────────────────
 

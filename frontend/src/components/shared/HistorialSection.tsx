@@ -1,4 +1,13 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+
+const PAGE_SIZE = 10;
+
+function getPageNumbers(current: number, total: number): (number | '...')[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  if (current <= 4) return [1, 2, 3, 4, 5, '...', total];
+  if (current >= total - 3) return [1, '...', total - 4, total - 3, total - 2, total - 1, total];
+  return [1, '...', current - 1, current, current + 1, '...', total];
+}
 import { usuariosService } from '../../services/usuarios.service';
 import type { SolicitudRenta } from '../../types/solicitud-renta.types';
 import type { QueryHistorial, RechazadasPage } from '../../services/solicitudes.service';
@@ -75,6 +84,29 @@ export default function HistorialSection({
       hayIndependientesHistorial:  sinProyecto,
     };
   }, [solicitudes]);
+
+  const [page, setPage] = useState(1);
+
+  const visibles = useMemo(() => {
+    const q = busqueda.toLowerCase().trim();
+    const porTexto = q
+      ? solicitudes.filter(s =>
+          (s.folio ?? '').toLowerCase().includes(q) ||
+          s.cliente.nombre.toLowerCase().includes(q),
+        )
+      : solicitudes;
+    return filtrarPorProyecto(porTexto, filtroProyecto);
+  }, [solicitudes, busqueda, filtroProyecto]);
+
+  const totalPages = Math.max(1, Math.ceil(visibles.length / PAGE_SIZE));
+  const safePage   = Math.min(page, totalPages);
+  const paginated  = useMemo(
+    () => visibles.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    [visibles, safePage],
+  );
+
+  useEffect(() => { setPage(1); }, [busqueda, filtroProyecto]);
+
   const [nextCursor,    setNextCursor]    = useState<string | null>(null);
   const [isLoading,     setIsLoading]     = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -92,6 +124,7 @@ export default function HistorialSection({
     setError(null);
     setSolicitudes([]);
     setNextCursor(null);
+    setPage(1);
     setFiltroActivo({ desde, hasta, creadaPor, busqueda: '' });
     try {
       const res = await fetchHistorial({
@@ -196,29 +229,61 @@ export default function HistorialSection({
         </div>
       )}
 
-      {(() => {
-        const q = busqueda.toLowerCase().trim();
-        const porTexto = q
-          ? solicitudes.filter(s =>
-              (s.folio ?? '').toLowerCase().includes(q) ||
-              s.cliente.nombre.toLowerCase().includes(q),
-            )
-          : solicitudes;
-        const visibles = filtrarPorProyecto(porTexto, filtroProyecto);
-
-        if (isLoading) return <Skeletons />;
-        if (visibles.length === 0) return <SinResultados hayFiltro={q.length > 0} />;
-        return (
+      {isLoading ? (
+        <Skeletons />
+      ) : visibles.length === 0 ? (
+        <SinResultados hayFiltro={busqueda.trim().length > 0} />
+      ) : (
+        <>
           <div className="space-y-4">
-            {visibles.map(s => (
+            {paginated.map(s => (
               <RentaHistorialCard key={s.id} solicitud={s} showEncargado={showEncargado} />
             ))}
-            <div ref={sentinelRef} className="flex justify-center py-4">
-              {isLoadingMore && <Spinner />}
-            </div>
           </div>
-        );
-      })()}
+
+          {/* Controles de paginación */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-1 mt-5">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={safePage === 1}
+                className="px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                ← Anterior
+              </button>
+
+              {getPageNumbers(safePage, totalPages).map((n, i) =>
+                n === '...'
+                  ? <span key={`e-${i}`} className="px-2 text-slate-400 text-sm select-none">…</span>
+                  : <button
+                      key={n}
+                      onClick={() => setPage(n)}
+                      className={`min-w-[36px] px-2 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                        safePage === n
+                          ? 'bg-indigo-600 border-indigo-600 text-white'
+                          : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-600'
+                      }`}
+                    >
+                      {n}
+                    </button>
+              )}
+
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={safePage === totalPages}
+                className="px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                Siguiente →
+              </button>
+            </div>
+          )}
+
+          {/* Sentinel de carga infinita — siempre al fondo para auto-cargar más del servidor */}
+          <div ref={sentinelRef} className="flex justify-center py-4">
+            {isLoadingMore && <Spinner />}
+          </div>
+        </>
+      )}
     </div>
   );
 }

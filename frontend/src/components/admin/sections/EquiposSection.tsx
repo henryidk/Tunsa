@@ -1,6 +1,6 @@
 // EquiposSection.tsx — inventario completo de equipos
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import type { Equipo } from '../../../types/equipo.types';
 import { TIPO_BADGE } from '../../../types/equipo.types';
 import { useEquipos } from '../../../hooks/useEquipos';
@@ -36,6 +36,15 @@ interface GranelSectionTab {
   tipoLabel: string;
 }
 
+const PAGE_SIZE = 20;
+
+function getPageNumbers(current: number, total: number): (number | '...')[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  if (current <= 4) return [1, 2, 3, 4, 5, '...', total];
+  if (current >= total - 3) return [1, '...', total - 4, total - 3, total - 2, total - 1, total];
+  return [1, '...', current - 1, current, current + 1, '...', total];
+}
+
 const GRANEL_SECTION_TABS: GranelSectionTab[] = [
   { id: 'puntales',       label: 'Puntales',            tipo: 'PUNTAL',         tipoLabel: 'Puntales'            },
   { id: 'andamio_simple', label: 'Andamios simples',    tipo: 'ANDAMIO_SIMPLE', tipoLabel: 'Andamios simples'    },
@@ -52,6 +61,9 @@ export default function EquiposSection({ onShowToast = () => {}, canEdit = true,
   const [search, setSearch]               = useState('');
   const [filtroTipo, setFiltroTipo]       = useState('');
   const [filtroCategoria, setFiltroCategoria] = useState('');
+  const [page, setPage]                   = useState(1);
+
+  const resetPage = useCallback(() => setPage(1), []);
 
   const [agregarOpen, setAgregarOpen]     = useState(false);
   const [editEquipo, setEditEquipo]       = useState<Equipo | null>(null);
@@ -94,6 +106,13 @@ export default function EquiposSection({ onShowToast = () => {}, canEdit = true,
       return matchSearch && matchTipo && matchCategoria;
     })),
     [base, search, filtroTipo, filtroCategoria],
+  );
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage   = Math.min(page, totalPages);
+  const paginated  = useMemo(
+    () => filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    [filtered, safePage],
   );
 
   // ── Stats ─────────────────────────────────────────────────────────────────
@@ -231,7 +250,7 @@ export default function EquiposSection({ onShowToast = () => {}, canEdit = true,
             { id: 'activos', label: 'Activos',       count: activos.length,   cls: 'bg-indigo-100 text-indigo-700' },
             { id: 'baja',    label: 'Dados de baja', count: dadosBaja.length, cls: 'bg-red-100 text-red-600' },
           ] as const).map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)}
+            <button key={t.id} onClick={() => { setTab(t.id); resetPage(); }}
               className={`flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium border-r border-slate-200 last:border-0 transition-colors ${
                 tab === t.id ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-slate-600 hover:bg-slate-50'
               }`}>
@@ -249,7 +268,7 @@ export default function EquiposSection({ onShowToast = () => {}, canEdit = true,
             className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
             <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
           </svg>
-          <input type="search" value={search} onChange={e => setSearch(e.target.value)}
+          <input type="search" value={search} onChange={e => { setSearch(e.target.value); resetPage(); }}
             placeholder="Buscar por no., descripción o serie..."
             className="pl-8 pr-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:border-indigo-400 min-w-[240px]" />
         </div>
@@ -258,6 +277,7 @@ export default function EquiposSection({ onShowToast = () => {}, canEdit = true,
         <select value={filtroTipo} onChange={e => {
           const nuevoTipo = e.target.value;
           setFiltroTipo(nuevoTipo);
+          resetPage();
           // resetear categoría si ya no pertenece al nuevo tipo
           if (filtroCategoria) {
             const cats = nuevoTipo
@@ -276,7 +296,7 @@ export default function EquiposSection({ onShowToast = () => {}, canEdit = true,
         </select>
 
         {/* Filtro categoría */}
-        <select value={filtroCategoria} onChange={e => setFiltroCategoria(e.target.value)}
+        <select value={filtroCategoria} onChange={e => { setFiltroCategoria(e.target.value); resetPage(); }}
           className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white focus:outline-none focus:border-indigo-400">
           <option value="">Todas las categorías</option>
           {categoriasDisponibles.map(c => <option key={c} value={c}>{c}</option>)}
@@ -284,7 +304,7 @@ export default function EquiposSection({ onShowToast = () => {}, canEdit = true,
 
         {/* Reset filtros */}
         {(search || filtroTipo || filtroCategoria) && (
-          <button onClick={() => { setSearch(''); setFiltroTipo(''); setFiltroCategoria(''); }}
+          <button onClick={() => { setSearch(''); setFiltroTipo(''); setFiltroCategoria(''); resetPage(); }}
             className="text-xs text-slate-500 hover:text-slate-700 underline transition-colors">
             Limpiar filtros
           </button>
@@ -328,7 +348,7 @@ export default function EquiposSection({ onShowToast = () => {}, canEdit = true,
                 </tr>
               )}
               {/* Rows */}
-              {!isLoading && !error && filtered.map(e => (
+              {!isLoading && !error && paginated.map(e => (
                 <tr key={e.id}
                   className={`border-b border-slate-100 hover:bg-slate-50 transition-colors ${!e.isActive ? 'opacity-60' : ''}`}>
 
@@ -446,10 +466,14 @@ export default function EquiposSection({ onShowToast = () => {}, canEdit = true,
 
         {/* Footer de la tabla */}
         {!isLoading && !error && filtered.length > 0 && (
-          <div className="px-4 py-2.5 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+          <div className="px-4 py-2.5 border-t border-slate-100 bg-slate-50 flex items-center justify-between gap-4 flex-wrap">
             <span className="text-xs text-slate-400">
-              {filtered.length} {filtered.length === 1 ? 'equipo' : 'equipos'} encontrados
-              {(search || filtroTipo || filtroCategoria) && ` de ${base.length} en total`}
+              {(() => {
+                const desde = (safePage - 1) * PAGE_SIZE + 1;
+                const hasta = Math.min(safePage * PAGE_SIZE, filtered.length);
+                return `Mostrando ${desde}–${hasta} de ${filtered.length} ${filtered.length === 1 ? 'equipo' : 'equipos'}`;
+              })()}
+              {(search || filtroTipo || filtroCategoria) && ` (filtrado de ${base.length})`}
             </span>
             {tab === 'activos' && (
               <span className="text-xs text-slate-400 font-mono">
@@ -459,6 +483,43 @@ export default function EquiposSection({ onShowToast = () => {}, canEdit = true,
           </div>
         )}
       </div>
+
+      {/* Controles de paginación */}
+      {!isLoading && !error && totalPages > 1 && (
+        <div className="flex items-center justify-center gap-1 mt-4">
+          <button
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={safePage === 1}
+            className="px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            ← Anterior
+          </button>
+
+          {getPageNumbers(safePage, totalPages).map((n, i) =>
+            n === '...'
+              ? <span key={`ellipsis-${i}`} className="px-2 text-slate-400 text-sm select-none">…</span>
+              : <button
+                  key={n}
+                  onClick={() => setPage(n)}
+                  className={`min-w-[36px] px-2 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                    safePage === n
+                      ? 'bg-indigo-600 border-indigo-600 text-white'
+                      : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-600'
+                  }`}
+                >
+                  {n}
+                </button>
+          )}
+
+          <button
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            disabled={safePage === totalPages}
+            className="px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            Siguiente →
+          </button>
+        </div>
+      )}
 
       {/* END maquinaria tab */}
       </>}

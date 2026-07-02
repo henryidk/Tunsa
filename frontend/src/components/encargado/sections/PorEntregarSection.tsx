@@ -57,14 +57,14 @@ export default function PorEntregarSection({ onShowToast = () => {} }: Props) {
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-slate-800">Por Entregar</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Por Entregar</h1>
           {solicitudes.length > 0 && (
             <span className="inline-flex items-center justify-center min-w-[26px] h-[26px] px-2 rounded-full bg-amber-100 text-amber-700 text-xs font-bold border border-amber-200">
               {solicitudes.length}
             </span>
           )}
         </div>
-        <p className="text-sm text-slate-500 mt-1">
+        <p className="text-sm font-medium text-slate-500 mt-1">
           Solicitudes aprobadas — genera el comprobante y registra la entrega al cliente
         </p>
       </div>
@@ -142,7 +142,7 @@ function SolicitudAprobadaCard({
   const puedeGenerar = !solicitud.esPesada || todosHorometrosValidos;
 
   return (
-    <div className="bg-white border border-slate-200 border-l-4 border-l-amber-400 rounded-xl shadow-sm overflow-hidden">
+    <div className="bg-white border-l-4 border-l-amber-400 rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-8px_rgba(37,86,184,0.12)] overflow-hidden">
 
       {/* Top bar */}
       <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-amber-50/60">
@@ -257,7 +257,7 @@ function SolicitudAprobadaCard({
             <button
               onClick={handleGenerar}
               disabled={generandoPdf || !puedeGenerar}
-              className="inline-flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm font-semibold transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              className="inline-flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg border border-brand-200 bg-brand-50 hover:bg-brand-100 text-brand-700 text-sm font-semibold transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {generandoPdf ? (
                 <>
@@ -291,7 +291,7 @@ function SolicitudAprobadaCard({
               <button
                 onClick={onRegistrarEntrega}
                 disabled={!solicitud.fechaInicioRenta}
-                className="inline-flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="inline-flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <polyline points="20 6 9 17 4 12"/>

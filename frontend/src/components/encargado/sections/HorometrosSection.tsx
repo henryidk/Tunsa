@@ -20,7 +20,7 @@ const RECARGO_NOCTURNO = 100; // Q extra por hora nocturna — mismo valor que b
 const fmtHorometro = (n: number) => n.toLocaleString('es-GT', { minimumFractionDigits: 1 });
 
 // Ícono de luna (trazo, estilo Lucide) — reemplaza el emoji 🌙 para que el color herede `currentColor`
-// (y por lo tanto el `tono` ámbar/indigo) en vez de depender del render de emoji de cada sistema operativo.
+// (y por lo tanto el `tono` de marca) en vez de depender del render de emoji de cada sistema operativo.
 function IconoLuna({ className = 'w-3.5 h-3.5' }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -30,8 +30,8 @@ function IconoLuna({ className = 'w-3.5 h-3.5' }: { className?: string }) {
   );
 }
 
-// Tema de color del acento principal de esta sección — ámbar para encargado (a juego con su sidebar
-// y el resto de sus pantallas), indigo para admin/secretaria (su color primario en todo el panel).
+// Tema de color del acento principal de esta sección — un único acento de marca (`brand`) para
+// encargado y admin/secretaria (ver docs/redisenoUI.md §2.4: un solo acento para ambos paneles).
 // No reemplaza los colores semánticos fijos (emerald = dinero/tarifa, red = vencido, slate = neutral).
 export interface TonoHorometro {
   boton:        string; // botón primario (fondo + hover)
@@ -50,38 +50,21 @@ export interface TonoHorometro {
   hexFg:        string; // color de ícono (estilo inline, InfoTile/PesadaStatCard)
 }
 
-const TONO_AMBAR: TonoHorometro = {
-  boton:      'bg-amber-500 hover:bg-amber-600',
-  texto:      'text-amber-700',
-  textoSuave: 'text-amber-600',
-  link:       'text-amber-700 hover:text-amber-800',
-  fondoSuave: 'bg-amber-50',
-  borde:      'border-amber-100',
-  badge:      'bg-amber-100 text-amber-700',
-  badgeHover: 'bg-amber-100 hover:bg-amber-200 text-amber-600',
-  pillActiva: 'bg-amber-50 border-amber-300 text-amber-700',
-  iconoFondo: 'bg-amber-100',
-  iconoTexto: 'text-amber-600',
-  punto:      'bg-amber-500',
-  hexBg:      '#fef3c7',
-  hexFg:      '#d97706',
-};
-
-const TONO_INDIGO: TonoHorometro = {
-  boton:      'bg-indigo-600 hover:bg-indigo-700',
-  texto:      'text-indigo-700',
-  textoSuave: 'text-indigo-600',
-  link:       'text-indigo-700 hover:text-indigo-800',
-  fondoSuave: 'bg-indigo-50',
-  borde:      'border-indigo-100',
-  badge:      'bg-indigo-100 text-indigo-700',
-  badgeHover: 'bg-indigo-100 hover:bg-indigo-200 text-indigo-600',
-  pillActiva: 'bg-indigo-50 border-indigo-300 text-indigo-700',
-  iconoFondo: 'bg-indigo-100',
-  iconoTexto: 'text-indigo-600',
-  punto:      'bg-indigo-500',
-  hexBg:      '#e0e7ff',
-  hexFg:      '#4f46e5',
+const TONO_BRAND: TonoHorometro = {
+  boton:      'bg-brand-600 hover:bg-brand-700',
+  texto:      'text-brand-700',
+  textoSuave: 'text-brand-600',
+  link:       'text-brand-700 hover:text-brand-800',
+  fondoSuave: 'bg-brand-50',
+  borde:      'border-brand-100',
+  badge:      'bg-brand-100 text-brand-700',
+  badgeHover: 'bg-brand-100 hover:bg-brand-200 text-brand-600',
+  pillActiva: 'bg-brand-50 border-brand-300 text-brand-700',
+  iconoFondo: 'bg-brand-100',
+  iconoTexto: 'text-brand-600',
+  punto:      'bg-brand-500',
+  hexBg:      '#DCE7F8',
+  hexFg:      '#2856B8',
 };
 
 function getApiErrorMessage(err: unknown): string | string[] | undefined {
@@ -186,10 +169,9 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
 
   const resolvedFetch  = fetchSolicitudes ?? fetchSolicitudesEncargado;
   const modoEncargado  = fetchSolicitudes == null;
-  // Esta sección la usan tanto encargado (tema ámbar) como admin/secretaria (tema indigo, vía
-  // admin/sections/HorometrosSection.tsx, que envuelve este mismo componente). El acento debe
-  // coincidir con el resto del panel donde se está viendo, no quedar fijo en un solo color.
-  const tono = modoEncargado ? TONO_AMBAR : TONO_INDIGO;
+  // Esta sección la usan tanto encargado como admin/secretaria (vía admin/sections/HorometrosSection.tsx,
+  // que envuelve este mismo componente) — ambos comparten el mismo acento de marca (`brand`).
+  const tono = TONO_BRAND;
 
   const [pesadaStats,        setPesadaStats]        = useState<Pick<DashboardStats, 'pesadaRecaudadaMes'> | null>(null);
   const [loadingPesadaStats, setLoadingPesadaStats] = useState(modoEncargado);
@@ -653,7 +635,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
         <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6 items-start">
 
           {/* Calendar column */}
-          <div className="bg-white border border-slate-200 rounded-xl p-5">
+          <div className="bg-white rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-8px_rgba(37,86,184,0.12)] p-5">
             {/* Month navigation */}
             <div className="flex items-center justify-between mb-4">
               <button
@@ -720,7 +702,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
           <div className="space-y-5">
 
             {/* Registration form */}
-            <div className="bg-white border border-slate-200 rounded-xl p-5">
+            <div className="bg-white rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-8px_rgba(37,86,184,0.12)] p-5">
               <div className="flex items-center justify-between mb-4">
                 <p className="text-sm font-bold text-slate-700">Registrar lectura</p>
                 <div className="flex items-center gap-2">
@@ -731,7 +713,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                     onChange={e => handleSelectDia(e.target.value)}
                     max={limiteRegistro}
                     min={fechaInicioStr}
-                    className="px-2 py-1 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                    className="px-2 py-1 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
                   />
                 </div>
               </div>
@@ -830,7 +812,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                         value={valor}
                         onChange={e => setValor(e.target.value)}
                         placeholder="Ej: 1234.5"
-                        className="px-3 py-2 border border-slate-200 rounded-lg text-sm w-36 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                        className="px-3 py-2 border border-slate-200 rounded-lg text-sm w-36 focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
                         autoFocus
                       />
                     </div>
@@ -842,7 +824,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                         <select
                           value={inicioExtraId ?? ''}
                           onChange={e => setInicioExtraId(e.target.value || null)}
-                          className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                          className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
                         >
                           <option value="">Ninguno</option>
                           {activeItem.extras.map(ex => (
@@ -899,7 +881,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
                           <select
                             value={nocheTramos.complementos[0] ?? ''}
                             onChange={e => setNocheTramos({ cortes: [], complementos: [e.target.value || null] })}
-                            className="mb-2 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                            className="mb-2 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
                           >
                             {activeItem.extras.map(ex => (
                               <option key={ex.tipoExtraId} value={ex.tipoExtraId}>{ex.nombre}</option>
@@ -1014,7 +996,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
             </div>
 
             {/* Lecturas table for the active month */}
-            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-8px_rgba(37,86,184,0.12)] overflow-hidden">
               <div className="px-5 py-3 border-b border-slate-100">
                 <p className="text-sm font-bold text-slate-700">
                   Lecturas — {MESES[mesActivo.mes]} {mesActivo.año}
@@ -1350,8 +1332,8 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">Horómetros</h1>
-        <p className="text-sm text-slate-500 mt-1">Registro diario de horas de maquinaria pesada en renta</p>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Horómetros</h1>
+        <p className="text-sm font-medium text-slate-500 mt-1">Registro diario de horas de maquinaria pesada en renta</p>
       </div>
 
       {modoEncargado && (
@@ -1390,7 +1372,7 @@ export default function HorometrosSection({ initialSolicitudId, fetchSolicitudes
           value={busqueda}
           onChange={e => setBusqueda(e.target.value)}
           placeholder="Buscar por folio o cliente..."
-          className="w-full sm:w-72 border border-slate-200 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+          className="w-full sm:w-72 border border-slate-200 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
         />
         <FiltroProyecto proyectos={proyectosHorometros} hayIndependientes={hayIndependientesHorometros} value={filtroProyecto} onChange={setFiltroProyecto} />
       </div>
@@ -1479,7 +1461,7 @@ function PesadaStatCard({
   }[color];
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl px-5 py-4 flex items-center gap-4 shadow-sm">
+    <div className="bg-white rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-8px_rgba(37,86,184,0.12)] px-5 py-4 flex items-center gap-4">
       <div
         className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
         style={{ background: styles.bg, color: styles.fg }}
@@ -1519,7 +1501,7 @@ function InfoTile({
   }[color];
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl px-4 py-3 flex items-center gap-3">
+    <div className="bg-white rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-8px_rgba(37,86,184,0.12)] px-4 py-3 flex items-center gap-3">
       <div
         className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
         style={{ background: styles.bg, color: styles.fg }}
@@ -1620,7 +1602,7 @@ function TramoTimeline({
                     <select
                       value={s.extraId ?? ''}
                       onChange={e => onCambiarComplemento!(i, e.target.value || null)}
-                      className="px-2 py-1 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                      className="px-2 py-1 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
                     >
                       <option value="">Sin complemento</option>
                       {extras!.map(ex => (
@@ -1703,7 +1685,7 @@ function MarcarCambioInline({
           placeholder={referenciaMax != null
             ? `Entre ${fmtHorometro(referenciaMin)} y ${fmtHorometro(referenciaMax)}`
             : `Mayor a ${fmtHorometro(referenciaMin)}`}
-          className="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs w-40 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+          className="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs w-40 focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
           autoFocus
         />
       </div>
@@ -1712,7 +1694,7 @@ function MarcarCambioInline({
         <select
           value={extraId ?? ''}
           onChange={e => setExtraId(e.target.value || null)}
-          className="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+          className="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
         >
           <option value="">Ninguno</option>
           {extras.map(ex => (
@@ -1760,7 +1742,7 @@ function CorregirInput({
           inputMode="decimal"
           value={val}
           onChange={e => setVal(e.target.value)}
-          className="px-2 py-1.5 border border-slate-200 rounded-lg text-sm w-28 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 bg-white"
+          className="px-2 py-1.5 border border-slate-200 rounded-lg text-sm w-28 focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 bg-white"
         />
         <button
           type="button"

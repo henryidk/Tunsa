@@ -66,7 +66,7 @@ export default function RentaActivaCard({
   const nivel       = nivelUrgencia(msMin);
 
   return (
-    <div className={`bg-white border border-slate-200 border-l-4 rounded-xl shadow-sm overflow-hidden ${URGENCIA_BORDER[nivel]}`}>
+    <div className={`bg-white border-l-4 rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-8px_rgba(37,86,184,0.12)] overflow-hidden ${URGENCIA_BORDER[nivel]}`}>
 
       {/* Top bar */}
       <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-slate-50">
@@ -91,7 +91,7 @@ export default function RentaActivaCard({
             <button
               onClick={onReasignarProyecto}
               title="Cambiar proyecto"
-              className="text-slate-400 hover:text-indigo-600 transition-colors"
+              className="text-slate-400 hover:text-brand-600 transition-colors"
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
@@ -225,7 +225,7 @@ export default function RentaActivaCard({
           {onAmpliar && !solicitud.esIndefinida && (
             <button
               onClick={onAmpliar}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-200 bg-white hover:bg-indigo-50 text-xs font-semibold text-indigo-600 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-200 bg-white hover:bg-brand-50 text-xs font-semibold text-brand-600 transition-colors"
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
@@ -300,7 +300,7 @@ function GranelRow({ item, inicio, extensiones, ahora, esIndefinida }: {
     return (
       <div className="flex items-start justify-between gap-2">
         <p className="text-xs font-medium text-slate-700 leading-tight">
-          <span className="font-mono text-indigo-500 mr-1">{item.cantidad.toLocaleString('es-GT')}</span>
+          <span className="font-mono text-brand-500 mr-1">{item.cantidad.toLocaleString('es-GT')}</span>
           {item.tipoLabel}
           {item.conMadera && <span className="text-amber-600 ml-1">(c/madera)</span>}
         </p>
@@ -313,7 +313,7 @@ function GranelRow({ item, inicio, extensiones, ahora, esIndefinida }: {
   return (
     <div className="flex items-start justify-between gap-2">
       <p className="text-xs font-medium text-slate-700 leading-tight">
-        <span className="font-mono text-indigo-500 mr-1">{item.cantidad.toLocaleString('es-GT')}</span>
+        <span className="font-mono text-brand-500 mr-1">{item.cantidad.toLocaleString('es-GT')}</span>
         {item.tipoLabel}
         {item.conMadera && <span className="text-amber-600 ml-1">(c/madera)</span>}
       </p>

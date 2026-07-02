@@ -79,7 +79,7 @@ export default function RentaVencidaCard({
   const hayMixto       = vencidasCount > 0 && vencidasCount < todosItems.length;
 
   return (
-    <div className={`bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden border-l-4 ${enGracia ? 'border-l-amber-400' : 'border-l-red-500'}`}>
+    <div className={`bg-white rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-8px_rgba(37,86,184,0.12)] overflow-hidden border-l-4 ${enGracia ? 'border-l-amber-400' : 'border-l-red-500'}`}>
 
       {/* Top bar */}
       <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-slate-50">
@@ -201,7 +201,7 @@ export default function RentaVencidaCard({
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
               Tiempo de gracia
             </button>
-            <button onClick={onAmpliar} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-200 bg-white hover:bg-indigo-50 text-xs font-semibold text-indigo-600 transition-colors">
+            <button onClick={onAmpliar} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-200 bg-white hover:bg-brand-50 text-xs font-semibold text-brand-600 transition-colors">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
                 <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
@@ -277,7 +277,7 @@ function GranelRow({ item, inicio, extensiones, ahoraRecargo, ahora, esEspecial 
       <div className="flex items-start gap-1.5 min-w-0">
         <span className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${yaVencio ? 'bg-red-500' : 'bg-amber-400'}`} />
         <p className="text-xs font-medium text-slate-700 leading-tight">
-          <span className="font-mono text-indigo-500 mr-1">{item.cantidad.toLocaleString('es-GT')}</span>
+          <span className="font-mono text-brand-500 mr-1">{item.cantidad.toLocaleString('es-GT')}</span>
           {item.tipoLabel}
           {item.conMadera && <span className="text-amber-600 ml-1">(c/madera)</span>}
         </p>

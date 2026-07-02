@@ -26,7 +26,7 @@ function initiales(nombre: string): string {
 }
 
 function Avatar({ nombre, especial }: { nombre: string; especial?: boolean }) {
-  const cls = especial ? 'bg-amber-100 text-amber-600' : 'bg-indigo-100 text-indigo-600';
+  const cls = especial ? 'bg-amber-100 text-amber-600' : 'bg-brand-100 text-brand-600';
   return (
     <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 ${cls}`}>
       {initiales(nombre)}
@@ -86,7 +86,7 @@ export default function ClientesSection({ onShowToast, canEdit = true }: Props) 
   const stats = useMemo(() => {
     const now = new Date();
     return [
-      { label: 'Total clientes',       value: clientes.length,                                                                                                                              color: 'text-indigo-600', bg: 'bg-indigo-50'  },
+      { label: 'Total clientes',       value: clientes.length,                                                                                                                              color: 'text-brand-600',  bg: 'bg-brand-50'   },
       { label: 'Registrados este mes', value: clientes.filter(c => { const d = new Date(c.createdAt); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); }).length, color: 'text-emerald-600', bg: 'bg-emerald-50' },
       { label: 'Sin documento',        value: clientes.filter(c => !c.documentoKey).length,                                                                                                 color: 'text-amber-600',  bg: 'bg-amber-50'  },
       { label: 'Clientes especiales',  value: clientes.filter(c => c.esEspecial).length,                                                                                                    color: 'text-amber-600',  bg: 'bg-amber-50'  },
@@ -108,11 +108,11 @@ export default function ClientesSection({ onShowToast, canEdit = true }: Props) 
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Clientes</h1>
-          <p className="text-sm text-slate-500 mt-1">Directorio de clientes registrados en el sistema</p>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Clientes</h1>
+          <p className="text-sm font-medium text-slate-500 mt-1">Directorio de clientes registrados en el sistema</p>
         </div>
         <button onClick={() => setModalOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors">
+          className="inline-flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-lg transition-colors">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
           </svg>
@@ -123,7 +123,7 @@ export default function ClientesSection({ onShowToast, canEdit = true }: Props) 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {stats.map(s => (
-          <div key={s.label} className="bg-white border border-slate-200 rounded-xl px-4 py-3.5 shadow-sm">
+          <div key={s.label} className="bg-white rounded-2xl px-4 py-3.5 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-8px_rgba(37,86,184,0.12)]">
             <div className={`inline-flex items-center justify-center w-8 h-8 rounded-lg ${s.bg} mb-2`}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={s.color}>
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
@@ -145,7 +145,7 @@ export default function ClientesSection({ onShowToast, canEdit = true }: Props) 
           </svg>
           <input type="search" value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Buscar por nombre, código o DPI..."
-            className="pl-8 pr-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:border-indigo-400 min-w-[280px]" />
+            className="pl-8 pr-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:border-brand-400 min-w-[280px]" />
         </div>
         {search && (
           <button onClick={() => setSearch('')}
@@ -156,7 +156,7 @@ export default function ClientesSection({ onShowToast, canEdit = true }: Props) 
       </div>
 
       {/* Tabla */}
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-8px_rgba(37,86,184,0.12)] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -205,7 +205,7 @@ export default function ClientesSection({ onShowToast, canEdit = true }: Props) 
                         <button
                           onClick={() => handleVerDocumento(c.id)}
                           disabled={viewingDoc === c.id}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-brand-50 text-brand-700 hover:bg-brand-100 border border-brand-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {viewingDoc === c.id ? (
                             <svg className="animate-spin" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
@@ -216,7 +216,7 @@ export default function ClientesSection({ onShowToast, canEdit = true }: Props) 
                         </button>
                         <button
                           onClick={() => setSubirDoc(c)}
-                          className="inline-flex items-center justify-center w-6 h-6 rounded-lg text-slate-400 hover:text-indigo-700 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 transition-colors"
+                          className="inline-flex items-center justify-center w-6 h-6 rounded-lg text-slate-400 hover:text-brand-700 hover:bg-brand-50 border border-slate-200 hover:border-brand-200 transition-colors"
                           title="Reemplazar documento"
                         >
                           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -244,7 +244,7 @@ export default function ClientesSection({ onShowToast, canEdit = true }: Props) 
                     <td className="px-4 py-3">
                       <button
                         onClick={() => setEditingCliente(c)}
-                        className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-slate-400 hover:text-indigo-700 hover:bg-indigo-50 border border-transparent hover:border-indigo-200 transition-colors"
+                        className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-slate-400 hover:text-brand-700 hover:bg-brand-50 border border-transparent hover:border-brand-200 transition-colors"
                         title="Editar cliente"
                       >
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

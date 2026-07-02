@@ -7,6 +7,10 @@ import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuthStore } from '../store/auth.store';
 import logoTunsa from '../assets/logo-tunsa.png';
 
+// Textura de grano sutil para el panel de marca (evita el look "flat vector" del fondo oscuro)
+const GRAIN_BG =
+  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")";
+
 export default function Login() {
   const navigate = useNavigate();
   
@@ -88,34 +92,41 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-blue-50 to-slate-100 flex items-center justify-center p-4">
-      {/* Elementos decorativos de fondo */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-blue-200/40 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-cyan-200/40 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
-        <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-indigo-200/30 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
+    <div className="flex min-h-dvh flex-col lg:grid lg:grid-cols-2">
+      {/* Panel de marca */}
+      <div className="relative flex h-36 shrink-0 items-center justify-center overflow-hidden bg-ink-900 lg:h-auto lg:min-h-dvh lg:flex-col lg:justify-center lg:gap-8 lg:py-16">
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.04]"
+          style={{ backgroundImage: GRAIN_BG }}
+        />
+        <div className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rotate-[18deg] bg-brand-700/20 [clip-path:polygon(50%_0%,0%_100%,100%_100%)] lg:-right-24 lg:-top-24 lg:h-96 lg:w-96" />
+        <div className="pointer-events-none absolute -bottom-24 -left-12 hidden h-72 w-72 -rotate-[15deg] bg-brand-800/20 [clip-path:polygon(50%_0%,0%_100%,100%_100%)] lg:block" />
+
+        <div className="relative z-10 flex flex-col items-center gap-4 px-6 text-center lg:gap-6">
+          <img src={logoTunsa} alt="TUNSA" className="h-9 w-auto brightness-0 invert lg:h-16" />
+          <p className="hidden max-w-[15rem] text-sm leading-relaxed text-slate-300 lg:block">
+            Sistema de gestión de rentas de maquinaria y equipo
+          </p>
+        </div>
+
+        <p className="pointer-events-none absolute bottom-6 left-0 right-0 hidden text-center font-mono text-xs text-slate-400 lg:block">
+          © {new Date().getFullYear()} Tunsa · v2.3.0
+        </p>
       </div>
 
-      <div className="w-full max-w-md relative z-10">
-        {/* Card principal */}
-        <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 overflow-hidden border border-slate-200/60">
-          {/* Header con logo */}
-          <div className="px-8 pt-10 pb-8 text-center bg-gradient-to-b from-white to-slate-50/50">
-            <div className="inline-flex items-center justify-center p-4 bg-white rounded-2xl shadow-lg shadow-slate-300/50 border border-slate-100 mb-6">
-              <img src={logoTunsa} alt="TUNSA Logo" className="h-12" />
-            </div>
-            <h1 className="text-2xl font-bold text-slate-800">Bienvenido</h1>
-            <p className="text-slate-500 text-sm mt-1">Ingresa tus credenciales para continuar</p>
-          </div>
+      {/* Formulario */}
+      <div className="flex flex-1 items-center justify-center bg-slate-50 px-6 py-10 lg:px-16">
+        <div className="w-full max-w-sm">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Bienvenido</h1>
+          <p className="mt-1 text-sm text-slate-500">Ingresa tus credenciales para continuar</p>
 
-          {/* Formulario */}
-          <form onSubmit={handleSubmit} className="px-8 pb-8 space-y-5">
+          <form onSubmit={handleSubmit} className="mt-8 space-y-5">
             {(error || countdown > 0) && (
-              <div className="bg-red-50 border border-red-200 p-4 rounded-xl flex items-start gap-3">
-                <div className="w-5 h-5 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <span className="text-red-600 text-xs font-bold">!</span>
+              <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
+                <div className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-red-100">
+                  <span className="text-xs font-bold text-red-600">!</span>
                 </div>
-                <p className="text-red-700 text-sm">
+                <p className="text-sm text-red-700">
                   {countdown > 0
                     ? `Demasiados intentos fallidos. Intenta nuevamente en ${countdown} segundos.`
                     : error}
@@ -136,11 +147,7 @@ export default function Login() {
                 disabled={isLoading}
                 autoComplete="username"
                 autoFocus
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl 
-                         focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500
-                         disabled:bg-slate-100 disabled:cursor-not-allowed
-                         transition-all duration-200 outline-none
-                         placeholder:text-slate-400 text-slate-800"
+                className="w-full rounded-xl border border-slate-400 bg-white px-4 py-3 text-slate-800 shadow-sm outline-none transition-all duration-200 placeholder:text-slate-400 focus:border-brand-600 focus:ring-2 focus:ring-brand-500/30 disabled:cursor-not-allowed disabled:bg-slate-100"
               />
             </div>
 
@@ -157,21 +164,15 @@ export default function Login() {
                   placeholder="Ingresa tu contraseña"
                   disabled={isLoading}
                   autoComplete="current-password"
-                  className="w-full px-4 py-3 pr-12 bg-slate-50 border border-slate-200 rounded-xl 
-                           focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500
-                           disabled:bg-slate-100 disabled:cursor-not-allowed
-                           transition-all duration-200 outline-none
-                           placeholder:text-slate-400 text-slate-800"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 pr-12 text-slate-800 outline-none transition-all duration-200 placeholder:text-slate-400 focus:border-brand-600 focus:ring-2 focus:ring-brand-500/30 disabled:cursor-not-allowed disabled:bg-slate-100"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   disabled={isLoading}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg
-                           text-slate-400 hover:text-slate-600 hover:bg-slate-100
-                           disabled:cursor-not-allowed transition-all duration-200"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-slate-400 transition-all duration-200 hover:bg-slate-100 hover:text-slate-600 disabled:cursor-not-allowed"
                 >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
               </div>
             </div>
@@ -179,17 +180,11 @@ export default function Login() {
             <button
               type="submit"
               disabled={isLoading || !username.trim() || !password.trim() || countdown > 0}
-              className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-blue-700 
-                       text-white font-semibold rounded-xl
-                       hover:from-blue-700 hover:to-blue-800 hover:shadow-lg hover:shadow-blue-500/25
-                       focus:ring-4 focus:ring-blue-500/30
-                       disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none
-                       transition-all duration-200
-                       flex items-center justify-center gap-2"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-600 py-3.5 font-semibold text-white transition-all duration-200 hover:bg-brand-700 focus:ring-4 focus:ring-brand-500/30 active:scale-[0.98] disabled:pointer-events-none disabled:bg-slate-200 disabled:text-slate-400"
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <Loader2 className="h-5 w-5 animate-spin" />
                   Ingresando...
                 </>
               ) : (
@@ -197,14 +192,10 @@ export default function Login() {
               )}
             </button>
           </form>
-        </div>
 
-        {/* Footer */}
-        <div className="mt-6 text-center">
-          <p className="text-slate-400 text-xs">
+          <p className="mt-6 text-center text-xs text-slate-400">
             Sistema protegido • Acceso autorizado unicamente
           </p>
-          <p className="text-slate-300 text-xs mt-2">v2.3.0</p>
         </div>
       </div>
     </div>

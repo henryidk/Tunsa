@@ -102,7 +102,7 @@ export default function RechazadasTab() {
   return (
     <div>
       {/* Filtro de fecha */}
-      <div className="flex items-center gap-3 mb-5 p-3 bg-white border border-slate-200 rounded-lg shadow-sm">
+      <div className="flex items-center gap-3 mb-5 p-3 bg-white rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-8px_rgba(37,86,184,0.12)]">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-slate-400 flex-shrink-0">
           <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
           <line x1="16" y1="2" x2="16" y2="6"/>
@@ -116,7 +116,7 @@ export default function RechazadasTab() {
             value={fechaDesde}
             max={fechaHasta}
             onChange={e => setFechaDesde(e.target.value)}
-            className="text-sm text-slate-700 border border-slate-200 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+            className="text-sm text-slate-700 border border-slate-200 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-brand-400"
           />
         </div>
         <div className="flex items-center gap-2">
@@ -127,13 +127,13 @@ export default function RechazadasTab() {
             min={fechaDesde}
             max={toDateInput(new Date())}
             onChange={e => setFechaHasta(e.target.value)}
-            className="text-sm text-slate-700 border border-slate-200 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+            className="text-sm text-slate-700 border border-slate-200 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-brand-400"
           />
         </div>
         {(fechaDesde !== hoy || fechaHasta !== hoy) && (
           <button
             onClick={() => { setFechaDesde(hoy); setFechaHasta(hoy); }}
-            className="ml-auto text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
+            className="ml-auto text-xs font-semibold text-brand-600 hover:text-brand-800 transition-colors"
           >
             Hoy
           </button>
@@ -193,7 +193,7 @@ export default function RechazadasTab() {
 
 function SolicitudRechazadaCard({ solicitud }: { solicitud: SolicitudRenta }) {
   return (
-    <div className="bg-white border border-slate-200 border-l-4 border-l-red-400 rounded-lg shadow-md overflow-hidden">
+    <div className="bg-white border-l-4 border-l-red-400 rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-8px_rgba(37,86,184,0.12)] overflow-hidden">
 
       {/* Top bar */}
       <div className="flex items-center justify-between px-5 py-2.5 bg-red-50 border-b border-red-100">

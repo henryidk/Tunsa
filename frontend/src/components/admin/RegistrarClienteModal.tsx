@@ -192,7 +192,7 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  const inputCls = 'w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all disabled:opacity-60 disabled:cursor-not-allowed';
+  const inputCls = 'w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 transition-all disabled:opacity-60 disabled:cursor-not-allowed';
   const labelCls = 'block text-xs font-semibold text-slate-600 mb-1.5';
 
   return (
@@ -226,7 +226,7 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
         <div className="flex items-center gap-0 px-6 pt-4 pb-2">
           <div className="flex items-center gap-2">
             <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
-              step === 1 ? 'bg-indigo-600 text-white' : 'bg-emerald-500 text-white'
+              step === 1 ? 'bg-brand-600 text-white' : 'bg-emerald-500 text-white'
             }`}>
               {step === 1 ? '1' : (
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
@@ -234,7 +234,7 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
                 </svg>
               )}
             </div>
-            <span className={`text-xs font-semibold ${step === 1 ? 'text-indigo-600' : 'text-emerald-500'}`}>
+            <span className={`text-xs font-semibold ${step === 1 ? 'text-brand-600' : 'text-emerald-500'}`}>
               Datos
             </span>
           </div>
@@ -243,11 +243,11 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
 
           <div className="flex items-center gap-2">
             <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
-              step === 2 ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-400'
+              step === 2 ? 'bg-brand-600 text-white' : 'bg-slate-200 text-slate-400'
             }`}>
               2
             </div>
-            <span className={`text-xs font-semibold ${step === 2 ? 'text-indigo-600' : 'text-slate-400'}`}>
+            <span className={`text-xs font-semibold ${step === 2 ? 'text-brand-600' : 'text-slate-400'}`}>
               Documentación
             </span>
           </div>
@@ -390,11 +390,11 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
           {/* ── Paso 2: Documentación (solo clientes regulares) ── */}
           {!uploadFailed && step === 2 && (
             <div className="space-y-4">
-              <div className="flex items-start gap-2.5 px-3.5 py-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-blue-500 flex-shrink-0 mt-0.5">
+              <div className="flex items-start gap-2.5 px-3.5 py-3 bg-brand-50 border border-brand-200 rounded-lg">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-brand-500 flex-shrink-0 mt-0.5">
                   <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
                 </svg>
-                <span className="text-xs text-blue-700">
+                <span className="text-xs text-brand-700">
                   Sube un <strong>único PDF</strong> con toda la documentación del cliente.
                 </span>
               </div>
@@ -441,7 +441,7 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
                   onDragLeave={() => setIsDragging(false)}
                   onDrop={handleDrop}
                   className={`flex flex-col items-center justify-center gap-2 px-4 py-8 border-2 border-dashed rounded-xl cursor-pointer transition-colors ${
-                    isDragging ? 'border-indigo-400 bg-indigo-50' : 'border-slate-200 hover:border-indigo-300 hover:bg-slate-50'
+                    isDragging ? 'border-brand-400 bg-brand-50' : 'border-slate-200 hover:border-brand-300 hover:bg-slate-50'
                   }`}
                 >
                   <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-slate-400">
@@ -452,7 +452,7 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
                   </svg>
                   <div className="text-center">
                     <p className="text-sm text-slate-600">
-                      <span className="font-semibold text-indigo-600">Arrastra el PDF aquí</span> o haz clic para seleccionar
+                      <span className="font-semibold text-brand-600">Arrastra el PDF aquí</span> o haz clic para seleccionar
                     </p>
                     <p className="text-xs text-slate-400 mt-0.5">Solo PDF</p>
                   </div>
@@ -484,7 +484,7 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
                 Cerrar
               </button>
               <button onClick={handleRetryUpload} disabled={isRetrying}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-brand-600 hover:bg-brand-700 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
                 {isRetrying ? (
                   <><svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>Subiendo...</>
                 ) : (
@@ -499,7 +499,7 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
                 Cancelar
               </button>
               <button onClick={handleNext} disabled={isChecking || isSaving}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-brand-600 hover:bg-brand-700 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
                 {isChecking || isSaving ? (
                   <><svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
                   {isSaving ? 'Registrando...' : 'Verificando...'}</>
@@ -518,7 +518,7 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
                 Atrás
               </button>
               <button onClick={handleSave} disabled={isSaving}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-brand-600 hover:bg-brand-700 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
                 {isSaving ? (
                   <><svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>Registrando...</>
                 ) : (

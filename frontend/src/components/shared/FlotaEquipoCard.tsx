@@ -11,9 +11,9 @@ const ESTADO_CFG = {
     pulse:  false,
   },
   'en-renta': {
-    border: 'border-l-indigo-400',
-    badge:  'bg-indigo-100 text-indigo-700 border-indigo-200',
-    dot:    'bg-indigo-500',
+    border: 'border-l-blue-400',
+    badge:  'bg-blue-100 text-blue-700 border-blue-200',
+    dot:    'bg-blue-500',
     label:  'En renta',
     pulse:  false,
   },
@@ -54,7 +54,7 @@ export default function FlotaEquipoCard({ item, onVerRenta, onProyectoClick }: P
     : 0;
 
   return (
-    <div className={`bg-white border border-slate-200 border-l-4 ${cfg.border} rounded-xl shadow-sm p-4 flex flex-col gap-3`}>
+    <div className={`bg-white border-l-4 ${cfg.border} rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-8px_rgba(37,86,184,0.12)] p-4 flex flex-col gap-3`}>
 
       {/* Badges */}
       <div className="flex items-center gap-1.5 flex-wrap">

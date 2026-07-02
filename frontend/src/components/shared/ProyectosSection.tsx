@@ -3,7 +3,7 @@ import type { Proyecto, ProyectoSolicitudes, EstadoProyecto } from '../../types/
 import type { SolicitudRenta, ItemSnapshot } from '../../types/solicitud-renta.types';
 import type { TonoSistema } from '../../types/tono.types';
 import type { EncargadoProyecto } from '../../services/proyectos.service';
-import { TONO_INDIGO } from '../../types/tono.types';
+import { TONO_BRAND } from '../../types/tono.types';
 import { proyectosService } from '../../services/proyectos.service';
 import { usuariosService } from '../../services/usuarios.service';
 import { formatFecha } from '../../utils/format';
@@ -20,7 +20,7 @@ type Vista = 'lista' | 'detalle';
 
 // ── Componente principal ──────────────────────────────────────────────────────
 
-export default function ProyectosSection({ tono = TONO_INDIGO, onNavTo }: Props) {
+export default function ProyectosSection({ tono = TONO_BRAND, onNavTo }: Props) {
   const [vista,                setVista]                = useState<Vista>('lista');
   const [proyectos,            setProyectos]            = useState<Proyecto[]>([]);
   const [loading,              setLoading]              = useState(true);
@@ -188,8 +188,8 @@ export default function ProyectosSection({ tono = TONO_INDIGO, onNavTo }: Props)
           {/* Header */}
           <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
             <div>
-              <h1 className="text-2xl font-bold text-slate-800">Proyectos</h1>
-              <p className="text-sm text-slate-500 mt-1">
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900">Proyectos</h1>
+              <p className="text-sm font-medium text-slate-500 mt-1">
                 <span className="font-medium text-emerald-600">{totalActivos}</span> activos ·{' '}
                 <span className="font-medium text-slate-400">{totalFinalizados}</span> finalizados
               </p>
@@ -275,8 +275,8 @@ function ProyectoCard({
   const esActivo = proyecto.estado === 'ACTIVO';
 
   return (
-    <div className={`bg-white border rounded-xl overflow-hidden shadow-sm transition-shadow hover:shadow-md ${
-      esActivo ? 'border-slate-200' : 'border-slate-100 opacity-75'
+    <div className={`bg-white rounded-2xl overflow-hidden shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-8px_rgba(37,86,184,0.12)] ${
+      esActivo ? '' : 'opacity-75'
     }`}>
       {/* Top bar de color */}
       <div className={`h-1 w-full ${esActivo ? 'bg-emerald-400' : 'bg-slate-300'}`} />
@@ -433,7 +433,7 @@ function DetalleProyecto({
       </button>
 
       {/* Header card */}
-      <div className="mb-6 bg-white border border-slate-200 rounded-2xl shadow-sm px-5 py-[18px] flex items-center gap-4 flex-wrap">
+      <div className="mb-6 bg-white rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-8px_rgba(37,86,184,0.12)] px-5 py-[18px] flex items-center gap-4 flex-wrap">
         {/* Bloque izquierdo */}
         <div className="flex-1 min-w-[200px]">
           <div className="flex items-center gap-2 flex-wrap mb-1">
@@ -609,7 +609,7 @@ function EncargadosBlock({ proyectoId }: { proyectoId: string }) {
   };
 
   return (
-    <div className="mb-6 bg-white border border-slate-200 rounded-xl shadow-sm px-[18px] py-4">
+    <div className="mb-6 bg-white rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-8px_rgba(37,86,184,0.12)] px-[18px] py-4">
       <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.07em] mb-3">Encargados</p>
 
       {loading ? (
@@ -634,7 +634,7 @@ function EncargadosBlock({ proyectoId }: { proyectoId: string }) {
                 key={e.usuarioId}
                 className="flex items-center gap-[7px] bg-slate-50 border border-slate-200 rounded-full pl-[5px] pr-3 py-[5px]"
               >
-                <div className="w-[26px] h-[26px] rounded-full bg-indigo-100 flex items-center justify-center text-[10px] font-bold text-indigo-700 shrink-0">
+                <div className="w-[26px] h-[26px] rounded-full bg-brand-100 flex items-center justify-center text-[10px] font-bold text-brand-700 shrink-0">
                   {initials(e.nombre)}
                 </div>
                 <span className="text-xs font-medium text-slate-700">{e.nombre}</span>
@@ -686,7 +686,7 @@ function EncargadosBlock({ proyectoId }: { proyectoId: string }) {
                 <select
                   value={selUsuario}
                   onChange={e => setSelUsuario(e.target.value)}
-                  className="flex-1 px-[10px] py-2 rounded-[9px] border border-slate-200 text-sm text-slate-700 bg-white focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100"
+                  className="flex-1 px-[10px] py-2 rounded-[9px] border border-slate-200 text-sm text-slate-700 bg-white focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100"
                 >
                   <option value="">— Seleccionar —</option>
                   {disponibles.map(u => (
@@ -696,7 +696,7 @@ function EncargadosBlock({ proyectoId }: { proyectoId: string }) {
                 <button
                   onClick={handleAgregar}
                   disabled={!selUsuario || savingAdd}
-                  className="px-4 py-2 rounded-[9px] bg-indigo-600 text-xs font-semibold text-white hover:bg-indigo-700 transition-colors disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed shrink-0"
+                  className="px-4 py-2 rounded-[9px] bg-brand-600 text-xs font-semibold text-white hover:bg-brand-700 transition-colors disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed shrink-0"
                 >
                   {savingAdd ? '...' : 'Agregar'}
                 </button>
@@ -711,7 +711,7 @@ function EncargadosBlock({ proyectoId }: { proyectoId: string }) {
               {/* Preview del usuario seleccionado */}
               {usuarioSeleccionado && (
                 <div className="flex items-center gap-[10px] mt-2 pt-[10px] border-t border-slate-100">
-                  <div className="w-[30px] h-[30px] rounded-full bg-indigo-100 flex items-center justify-center text-[11px] font-bold text-indigo-700 shrink-0">
+                  <div className="w-[30px] h-[30px] rounded-full bg-brand-100 flex items-center justify-center text-[11px] font-bold text-brand-700 shrink-0">
                     {initials(usuarioSeleccionado.nombre)}
                   </div>
                   <div className="min-w-0">
@@ -757,10 +757,10 @@ function GrupoRentas({ titulo, color, solicitudes, onVerEn, labelVerEn }: {
   const c = colorMap[color];
   const verEnCls = color === 'red'
     ? 'border-red-200 bg-red-50 text-red-600 hover:bg-red-100'
-    : 'border-indigo-200 bg-indigo-50 text-indigo-600 hover:bg-indigo-100';
+    : 'border-brand-200 bg-brand-50 text-brand-600 hover:bg-brand-100';
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+    <div className="bg-white rounded-2xl overflow-hidden shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-8px_rgba(37,86,184,0.12)]">
       <button
         onClick={() => setAbierto(o => !o)}
         className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-slate-50 transition-colors text-left"
@@ -813,7 +813,7 @@ function GrupoHistorial({ titulo, solicitudes, onVerEn }: {
   const hayMas   = visibles.length < solicitudes.length;
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+    <div className="bg-white rounded-2xl overflow-hidden shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-8px_rgba(37,86,184,0.12)]">
       <button
         onClick={() => setAbierto(o => !o)}
         className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-slate-50 transition-colors text-left"

@@ -180,8 +180,8 @@ export default function HistorialSection({
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">Historial de Rentas</h1>
-        <p className="text-sm text-slate-500 mt-1">
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Historial de Rentas</h1>
+        <p className="text-sm font-medium text-slate-500 mt-1">
           {showEncargadoFilter
             ? 'Registro de devoluciones parciales y rentas finalizadas de todos los encargados'
             : 'Registro de devoluciones parciales y rentas finalizadas'}
@@ -260,7 +260,7 @@ export default function HistorialSection({
                       onClick={() => setPage(n)}
                       className={`min-w-[36px] px-2 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
                         safePage === n
-                          ? 'bg-indigo-600 border-indigo-600 text-white'
+                          ? 'bg-brand-600 border-brand-600 text-white'
                           : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-600'
                       }`}
                     >
@@ -308,7 +308,7 @@ function FiltroFechas({
   onBuscar:            () => void;
 }) {
   return (
-    <div className="bg-white border border-slate-200 rounded-xl px-5 py-4 mb-6 flex flex-wrap items-end gap-4 shadow-sm">
+    <div className="bg-white rounded-2xl px-5 py-4 mb-6 flex flex-wrap items-end gap-4 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-8px_rgba(37,86,184,0.12)]">
       <div>
         <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-1">Buscar</label>
         <input
@@ -316,7 +316,7 @@ function FiltroFechas({
           value={busqueda}
           onChange={e => onChangeBusqueda(e.target.value)}
           placeholder="Folio o cliente..."
-          className="w-full sm:w-56 border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+          className="w-full sm:w-56 border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-300"
         />
       </div>
 
@@ -329,7 +329,7 @@ function FiltroFechas({
           value={fechaDesde}
           max={fechaHasta}
           onChange={e => onChangeDe(e.target.value)}
-          className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+          className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-300"
         />
       </div>
       <div>
@@ -339,7 +339,7 @@ function FiltroFechas({
           value={fechaHasta}
           min={fechaDesde}
           onChange={e => onChangeHasta(e.target.value)}
-          className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+          className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-300"
         />
       </div>
       {showEncargadoFilter && (
@@ -348,7 +348,7 @@ function FiltroFechas({
           <select
             value={encargado}
             onChange={e => onChangeEncargado(e.target.value)}
-            className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+            className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white"
           >
             <option value="">Todos</option>
             {encargados.map(e => (
@@ -360,7 +360,7 @@ function FiltroFechas({
       <button
         onClick={onBuscar}
         disabled={isLoading}
-        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-sm font-semibold text-white transition-colors disabled:opacity-60"
+        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-sm font-semibold text-white transition-colors disabled:opacity-60"
       >
         {isLoading ? <Spinner size={14} /> : (
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

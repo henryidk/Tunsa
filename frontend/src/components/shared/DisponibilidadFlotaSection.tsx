@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useFlotaDisponibilidad } from '../../hooks/useFlotaDisponibilidad';
 import type { FlotaEstado } from '../../types/flota.types';
 import type { TonoSistema } from '../../types/tono.types';
-import { TONO_INDIGO } from '../../types/tono.types';
+import { TONO_BRAND } from '../../types/tono.types';
 import FlotaEquipoCard from './FlotaEquipoCard';
 
 type FiltroEstado = FlotaEstado | 'todos';
@@ -26,7 +26,7 @@ const FILTRO_CFG: {
 }[] = [
   { key: 'todos',      label: 'Total',       activeBg: 'bg-slate-100',  activeBorder: 'border-slate-400',   activeCount: 'text-slate-800',   activeLabel: 'text-slate-600',   inactiveCount: 'text-slate-700' },
   { key: 'disponible', label: 'Disponibles', activeBg: 'bg-emerald-50', activeBorder: 'border-emerald-400', activeCount: 'text-emerald-700', activeLabel: 'text-emerald-600', inactiveCount: 'text-slate-700' },
-  { key: 'en-renta',   label: 'En renta',    activeBg: 'bg-indigo-50',  activeBorder: 'border-indigo-400',  activeCount: 'text-indigo-700',  activeLabel: 'text-indigo-600',  inactiveCount: 'text-slate-700' },
+  { key: 'en-renta',   label: 'En renta',    activeBg: 'bg-blue-50',   activeBorder: 'border-blue-400',    activeCount: 'text-blue-700',    activeLabel: 'text-blue-600',    inactiveCount: 'text-slate-700' },
   { key: 'vencida',    label: 'Vencidas',    activeBg: 'bg-red-50',     activeBorder: 'border-red-400',     activeCount: 'text-red-700',     activeLabel: 'text-red-600',     inactiveCount: 'text-slate-700' },
 ];
 
@@ -34,12 +34,12 @@ const GRUPOS_ORDER: FlotaEstado[] = ['vencida', 'en-renta', 'disponible'];
 
 const GRUPO_CFG: Record<FlotaEstado, { label: string; badgeCls: string }> = {
   vencida:    { label: 'Vencidas',    badgeCls: 'bg-red-100 text-red-700 border-red-200'            },
-  'en-renta': { label: 'En renta',    badgeCls: 'bg-indigo-100 text-indigo-700 border-indigo-200'   },
+  'en-renta': { label: 'En renta',    badgeCls: 'bg-blue-100 text-blue-700 border-blue-200'         },
   disponible: { label: 'Disponibles', badgeCls: 'bg-emerald-100 text-emerald-700 border-emerald-200'},
 };
 
 export default function DisponibilidadFlotaSection({
-  tono = TONO_INDIGO,
+  tono = TONO_BRAND,
   onNavTo,
   sectionActivas  = 'rentas-activas',
   sectionVencidas = 'vencidas',
@@ -106,8 +106,8 @@ export default function DisponibilidadFlotaSection({
       {/* Header */}
       <div className="flex items-start justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Disponibilidad</h1>
-          <p className="text-sm text-slate-500 mt-1">Estado actual de todos los equipos activos</p>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Disponibilidad</h1>
+          <p className="text-sm font-medium text-slate-500 mt-1">Estado actual de todos los equipos activos</p>
         </div>
         <button
           onClick={refresh}
@@ -137,9 +137,9 @@ export default function DisponibilidadFlotaSection({
                 setFiltroEstado(next);
               }}
               title={activo ? 'Ver todos' : `Filtrar por ${label.toLowerCase()}`}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all shadow-sm ${
+              className={`flex items-center gap-3 px-4 py-3 rounded-2xl border text-left transition-all duration-200 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-8px_rgba(37,86,184,0.12)] ${
                 activo
-                  ? `${activeBg} ${activeBorder} shadow-md`
+                  ? `${activeBg} ${activeBorder}`
                   : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50'
               }`}
             >

@@ -253,7 +253,7 @@ const EncargadoSidebar = memo(function EncargadoSidebar({ activeSection, onNavTo
         {collapsed && (
           <div
             className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm flex-shrink-0 mx-auto"
-            style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}
+            style={{ background: 'linear-gradient(135deg, #2856B8, #1F429A)' }}
             aria-label="TUNSA"
           >
             T
@@ -275,14 +275,14 @@ const EncargadoSidebar = memo(function EncargadoSidebar({ activeSection, onNavTo
       <div className={`flex items-center border-b border-slate-200 flex-shrink-0 ${collapsed ? 'justify-center py-3' : 'gap-3 px-4 py-3'}`}>
         <div
           className="w-9 h-9 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-          style={{ background: 'linear-gradient(135deg,#f59e0b,#d97706)' }}
+          style={{ background: 'linear-gradient(135deg,#2856B8,#1F429A)' }}
         >
           {initials}
         </div>
         {!collapsed && (
           <div className="min-w-0">
             <div className="text-sm font-semibold text-slate-800 truncate">{nombre}</div>
-            <div className="text-xs text-slate-500">Enc. de Máquinas</div>
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Enc. de Máquinas</div>
           </div>
         )}
       </div>
@@ -304,13 +304,13 @@ const EncargadoSidebar = memo(function EncargadoSidebar({ activeSection, onNavTo
                     key={item.id}
                     onClick={() => onNavTo(item.id)}
                     title={collapsed ? item.label : undefined}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                    className={`w-full flex items-center gap-3 pl-[10px] pr-3 py-2 rounded-lg border-l-2 text-sm font-medium transition-colors cursor-pointer ${
                       isActive
-                        ? 'bg-amber-50 text-amber-700'
-                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800'
+                        ? 'border-brand-600 bg-brand-50 text-brand-700'
+                        : 'border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-800'
                     } ${collapsed ? 'justify-center' : ''}`}
                   >
-                    <span className={`flex-shrink-0 ${isActive ? 'text-amber-600' : ''}`}>
+                    <span className={`flex-shrink-0 ${isActive ? 'text-brand-600' : ''}`}>
                       {item.icon}
                     </span>
                     {!collapsed && (

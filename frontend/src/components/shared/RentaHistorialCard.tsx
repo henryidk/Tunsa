@@ -40,8 +40,8 @@ export default function RentaHistorialCard({ solicitud, showEncargado = false }:
   };
 
   return (
-    <div className={`bg-white border rounded-xl shadow-sm overflow-hidden border-l-4 ${
-      devuelto ? 'border-l-emerald-500 border-slate-200' : 'border-l-amber-400 border-slate-200'
+    <div className={`bg-white rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-8px_rgba(37,86,184,0.12)] overflow-hidden border-l-4 ${
+      devuelto ? 'border-l-emerald-500' : 'border-l-amber-400'
     }`}>
 
       <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-slate-50">
@@ -65,7 +65,7 @@ export default function RentaHistorialCard({ solicitud, showEncargado = false }:
             <button
               onClick={handleVerComprobante}
               disabled={abriendoComprobante}
-              className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-indigo-600 transition-colors disabled:opacity-60"
+              className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-brand-600 transition-colors disabled:opacity-60"
             >
               {abriendoComprobante ? (
                 <svg className="animate-spin" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -212,13 +212,13 @@ function LoteRow({
       )}
 
       {lote.descuento && (
-        <div className="flex items-center justify-between mb-3 pl-3 border-l-2 border-indigo-200 text-xs">
-          <span className="text-indigo-600 font-medium">
+        <div className="flex items-center justify-between mb-3 pl-3 border-l-2 border-brand-200 text-xs">
+          <span className="text-brand-600 font-medium">
             Descuento{lote.descuento.tipo === 'porcentaje'
               ? ` (${lote.descuento.valor}%)`
               : ' (monto fijo)'}
           </span>
-          <span className="text-indigo-600 font-medium">
+          <span className="text-brand-600 font-medium">
             − {formatQ(lote.descuento.montoOriginal - lote.descuento.montoFinal)}
           </span>
         </div>
@@ -251,7 +251,7 @@ function LoteRow({
             <button
               onClick={handleVerLiquidacion}
               disabled={abriendo}
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-600 hover:text-brand-800 transition-colors disabled:opacity-60"
             >
               {abriendo ? (
                 <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

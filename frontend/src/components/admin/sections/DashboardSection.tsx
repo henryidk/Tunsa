@@ -65,10 +65,13 @@ function KpiCard({
   return (
     <div
       onClick={onClick}
-      className={`bg-white border border-slate-200 rounded-xl p-5 flex items-center gap-4 shadow-sm ${onClick ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}`}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
+      className={`bg-white rounded-2xl p-5 flex items-center gap-4 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-8px_rgba(37,86,184,0.12)] ${onClick ? 'cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40' : ''}`}
     >
       <div
-        className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+        className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
         style={{ background: styles.bg, color: styles.fg }}
       >
         {icon}
@@ -78,7 +81,7 @@ function KpiCard({
         {isLoading ? (
           <div className="h-8 w-12 bg-slate-100 rounded animate-pulse mt-1" />
         ) : (
-          <div className="text-3xl font-bold text-slate-800 leading-tight">{value}</div>
+          <div className="text-3xl font-bold font-mono text-slate-800 leading-tight">{value}</div>
         )}
         {sub && !isLoading && (
           <div className="text-xs text-slate-400 mt-0.5">{sub}</div>
@@ -97,7 +100,7 @@ function FinancialCard({
   icon: React.ReactNode; iconBg: string; iconFg: string;
 }) {
   return (
-    <div className="bg-white border border-slate-200 rounded-xl px-4 py-3.5 flex items-center gap-3 shadow-sm">
+    <div className="bg-white rounded-2xl px-4 py-3.5 flex items-center gap-3 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-8px_rgba(37,86,184,0.12)]">
       <div
         className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
         style={{ background: iconBg, color: iconFg }}
@@ -124,7 +127,7 @@ function Panel({
   title: string; badge?: React.ReactNode; action?: React.ReactNode; children: React.ReactNode;
 }) {
   return (
-    <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
+    <div className="bg-white rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-8px_rgba(37,86,184,0.12)] overflow-hidden flex flex-col">
       <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 flex-shrink-0">
         <div className="flex items-center gap-2">
           <span className="font-bold text-slate-800 text-sm">{title}</span>
@@ -148,7 +151,7 @@ function CountBadge({ count, color }: { count: number; color: string }) {
 
 function NavLink({ label, onClick }: { label: string; onClick: () => void }) {
   return (
-    <button onClick={onClick} className="text-xs font-medium text-indigo-600 hover:text-indigo-700 transition-colors">
+    <button onClick={onClick} className="text-xs font-medium text-brand-600 hover:text-brand-700 transition-colors duration-200 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40">
       {label} →
     </button>
   );
@@ -331,12 +334,12 @@ export default function DashboardSection({ onNavTo }: Props) {
     .slice(0, 4);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
 
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">Dashboard</h1>
-        <p className="text-sm text-slate-500 mt-1 capitalize">{hoyStr()}</p>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Dashboard</h1>
+        <p className="text-sm font-medium text-slate-500 mt-1 capitalize">{hoyStr()}</p>
       </div>
 
       {/* KPI cards */}
@@ -401,7 +404,7 @@ export default function DashboardSection({ onNavTo }: Props) {
           label="Cobrado por horómetro"
           value={fmtQ(acumuladoPesadas)}
           isLoading={loadingActivas}
-          iconBg="#fef3c7" iconFg="#d97706"
+          iconBg="#EEF3FC" iconFg="#1F429A"
           icon={
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
@@ -412,7 +415,7 @@ export default function DashboardSection({ onNavTo }: Props) {
           label="Equipos en campo"
           value={String(equiposEnCampo)}
           isLoading={loadingActivas}
-          iconBg="#eff6ff" iconFg="#3b82f6"
+          iconBg="#EEF3FC" iconFg="#1F429A"
           icon={
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <rect x="2" y="7" width="20" height="14" rx="2"/>

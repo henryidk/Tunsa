@@ -41,8 +41,8 @@ export default function SolicitudesSection() {
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Solicitudes de Renta</h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Solicitudes de Renta</h1>
+          <p className="text-sm font-medium text-slate-500 mt-1">
             Solicitudes enviadas por los encargados de máquinas
           </p>
         </div>
@@ -134,14 +134,14 @@ function TabButton({
       onClick={onClick}
       className={`relative flex items-center gap-2 px-4 py-2.5 text-sm font-semibold transition-colors border-b-2 -mb-px ${
         active
-          ? 'border-indigo-600 text-indigo-600'
+          ? 'border-brand-600 text-brand-600'
           : 'border-transparent text-slate-500 hover:text-slate-700'
       }`}
     >
       {label}
       {count !== null && count > 0 && (
         <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full leading-none ${
-          active ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-500'
+          active ? 'bg-brand-100 text-brand-700' : 'bg-slate-100 text-slate-500'
         }`}>
           {count}
         </span>
@@ -201,7 +201,7 @@ const ESTADO_BORDER: Record<SolicitudRenta['estado'], string> = {
   PENDIENTE: 'border-l-amber-400',
   APROBADA:  'border-l-emerald-400',
   RECHAZADA: 'border-l-red-400',
-  ACTIVA:    'border-l-indigo-400',
+  ACTIVA:    'border-l-emerald-400',
   DEVUELTA:  'border-l-slate-400',
 };
 
@@ -235,7 +235,7 @@ function SolicitudCard({
   const pct         = totalNormal > 0 ? Math.round((diferencia / totalNormal) * 100) : 0;
 
   return (
-    <div className={`bg-white border border-slate-200 border-l-4 ${ESTADO_BORDER[solicitud.estado]} rounded-lg shadow-md overflow-hidden`}>
+    <div className={`bg-white border-l-4 ${ESTADO_BORDER[solicitud.estado]} rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-8px_rgba(37,86,184,0.12)] overflow-hidden`}>
 
       {/* Top bar */}
       <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-slate-50">
@@ -526,7 +526,7 @@ function ItemRow({ item }: { item: ItemSnapshot }) {
 
   const tiempo = (
     <span className="flex items-center gap-1 mt-0.5 text-xs text-slate-400">
-      <span className="inline-flex items-center gap-1 font-medium text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-md">
+      <span className="inline-flex items-center gap-1 font-medium text-brand-600 bg-brand-50 px-1.5 py-0.5 rounded-md">
         {duracionDisplay(item.duracion, item.unidad)}
       </span>
       <span>desde {formatFechaCorta(item.fechaInicio)}</span>
@@ -590,7 +590,7 @@ function DocumentoButton({ clienteId, tieneDocumento }: { clienteId: string; tie
     <button
       onClick={handleVerDocumento}
       disabled={loading}
-      className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md hover:bg-indigo-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+      className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-600 bg-brand-50 border border-brand-200 px-2 py-0.5 rounded-md hover:bg-brand-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
     >
       {loading ? (
         <svg className="animate-spin" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -618,7 +618,7 @@ function EstadoBadge({ estado }: { estado: SolicitudRenta['estado'] }) {
     PENDIENTE: { cls: 'bg-amber-100 text-amber-700 border-amber-200',       label: 'Pendiente'  },
     APROBADA:  { cls: 'bg-emerald-100 text-emerald-700 border-emerald-200', label: 'Aprobada'   },
     RECHAZADA: { cls: 'bg-red-100 text-red-700 border-red-200',             label: 'Rechazada'  },
-    ACTIVA:    { cls: 'bg-indigo-100 text-indigo-700 border-indigo-200',    label: 'Activa'     },
+    ACTIVA:    { cls: 'bg-emerald-100 text-emerald-700 border-emerald-200', label: 'Activa'     },
     DEVUELTA:  { cls: 'bg-slate-100 text-slate-600 border-slate-200',       label: 'Devuelta'   },
   };
   const { cls, label } = map[estado];

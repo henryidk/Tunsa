@@ -79,9 +79,9 @@ export default function SubirDocModal({ cliente, onClose, onUploaded, onShowToas
             onDragLeave={() => setDragging(false)}
             onDrop={handleDrop}
             className={`relative flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl px-4 py-8 cursor-pointer transition-colors ${
-              dragging ? 'border-indigo-400 bg-indigo-50'
+              dragging ? 'border-brand-400 bg-brand-50'
               : file   ? 'border-emerald-400 bg-emerald-50'
-                       : 'border-slate-200 hover:border-indigo-300 hover:bg-slate-50'
+                       : 'border-slate-200 hover:border-brand-300 hover:bg-slate-50'
             }`}
           >
             {file ? (
@@ -115,7 +115,7 @@ export default function SubirDocModal({ cliente, onClose, onUploaded, onShowToas
             Cancelar
           </button>
           <button onClick={handleUpload} disabled={!file || uploading}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+            className="inline-flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
             {uploading ? (
               <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M21 12a9 9 0 1 1-6.219-8.56"/>

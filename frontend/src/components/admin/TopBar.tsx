@@ -65,7 +65,7 @@ export default function TopBar({ activeSection, onNavTo, unreadCount, todayCount
           onClick={() => setPanelOpen(o => !o)}
           className={`relative p-2 rounded-lg transition-colors ${
             panelOpen
-              ? 'bg-indigo-50 text-indigo-600'
+              ? 'bg-brand-50 text-brand-600'
               : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
           }`}
           aria-label="Notificaciones"
@@ -76,7 +76,7 @@ export default function TopBar({ activeSection, onNavTo, unreadCount, todayCount
           </svg>
 
           {unreadCount > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5 flex items-center justify-center rounded-full bg-indigo-600 text-xs font-bold text-white leading-none">
+            <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5 flex items-center justify-center rounded-full bg-brand-600 text-xs font-bold text-white leading-none">
               {badgeLabel}
             </span>
           )}

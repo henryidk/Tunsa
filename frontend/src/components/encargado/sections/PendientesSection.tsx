@@ -14,8 +14,8 @@ export default function PendientesSection({ onNavTo }: Props) {
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Pendientes de Aprobación</h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Pendientes de Aprobación</h1>
+          <p className="text-sm font-medium text-slate-500 mt-1">
             Tus solicitudes en espera de aprobación por secretaría
           </p>
         </div>
@@ -65,7 +65,7 @@ export default function PendientesSection({ onNavTo }: Props) {
 
 function SolicitudPendienteCard({ solicitud }: { solicitud: SolicitudRenta }) {
   return (
-    <div className="bg-white border border-slate-200 border-l-4 border-l-amber-400 rounded-lg shadow-md overflow-hidden">
+    <div className="bg-white border-l-4 border-l-amber-400 rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-8px_rgba(37,86,184,0.12)] overflow-hidden">
 
       {/* Top bar */}
       <div className="flex items-center justify-between px-5 py-2.5 bg-amber-50 border-b border-amber-100">
@@ -170,7 +170,7 @@ function ItemResumen({ item }: { item: ItemSnapshot }) {
 function TiempoPill({ duracion, fecha }: { duracion: string; fecha: string }) {
   return (
     <span className="inline-flex items-center gap-1 mt-0.5 text-xs text-slate-400">
-      <span className="font-medium text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-md">
+      <span className="font-medium text-brand-600 bg-brand-50 px-1.5 py-0.5 rounded-md">
         {duracion}
       </span>
       <span>desde {fecha}</span>
@@ -198,7 +198,7 @@ function EmptyState({ onNavTo }: { onNavTo?: (s: string) => void }) {
       {onNavTo && (
         <button
           onClick={() => onNavTo('nueva-solicitud')}
-          className="mt-1 flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors"
+          className="mt-1 flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 transition-colors"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <line x1="12" y1="5" x2="12" y2="19"/>

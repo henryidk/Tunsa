@@ -52,9 +52,9 @@ export default function DashboardSection({ onNavTo }: Props) {
       label:   'Mis solicitudes este mes',
       value:   stats?.solicitudesEsteMes,
       section: 'mis-solicitudes',
-      color:   'text-indigo-600',
-      bg:      'bg-indigo-50',
-      ring:    'ring-indigo-200',
+      color:   'text-brand-700',
+      bg:      'bg-brand-50',
+      ring:    'ring-brand-200',
       icon: (
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -67,26 +67,26 @@ export default function DashboardSection({ onNavTo }: Props) {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">Dashboard</h1>
-        <p className="text-sm text-slate-500 mt-1">Resumen de tu actividad</p>
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Dashboard</h1>
+        <p className="text-sm font-medium text-slate-500 mt-1">Resumen de tu actividad</p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {cards.map(card => (
           <button
             key={card.label}
             onClick={() => onNavTo(card.section)}
-            className="bg-white border border-slate-200 rounded-xl px-4 py-4 shadow-sm flex items-center gap-3.5 text-left w-full cursor-pointer hover:border-slate-300 hover:shadow-md transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+            className="bg-white rounded-2xl px-4 py-4 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-8px_rgba(37,86,184,0.12)] flex items-center gap-3.5 text-left w-full cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2"
           >
-            <div className={`w-11 h-11 rounded-xl ${card.bg} flex items-center justify-center flex-shrink-0 ${card.color}`}>
+            <div className={`w-11 h-11 rounded-lg ${card.bg} flex items-center justify-center flex-shrink-0 ${card.color}`}>
               {card.icon}
             </div>
             <div className="min-w-0">
               {loading ? (
                 <div className="h-7 w-10 bg-slate-200 rounded animate-pulse mb-1" />
               ) : (
-                <div className={`text-2xl font-bold ${card.color}`}>
+                <div className={`text-2xl font-bold font-mono ${card.color}`}>
                   {card.value ?? 0}
                 </div>
               )}
@@ -97,7 +97,7 @@ export default function DashboardSection({ onNavTo }: Props) {
       </div>
 
       {/* Actividad reciente — pendiente de implementar */}
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-8px_rgba(37,86,184,0.12)] overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100">
           <span className="font-semibold text-slate-700 text-sm">Actividad reciente</span>
         </div>

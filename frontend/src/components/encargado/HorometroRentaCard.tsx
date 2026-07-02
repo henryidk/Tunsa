@@ -86,7 +86,7 @@ export default function HorometroRentaCard({ solicitud, lecturas, onVerDetalle, 
   })();
 
   return (
-    <div className={`bg-white border border-slate-200 border-l-4 ${borderColor} rounded-xl shadow-sm p-5`}>
+    <div className={`bg-white border-l-4 ${borderColor} rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-8px_rgba(37,86,184,0.12)] p-5`}>
 
       {/* ── Cabecera ── */}
       <div className="flex items-start justify-between gap-4 mb-4">
@@ -168,7 +168,7 @@ export default function HorometroRentaCard({ solicitud, lecturas, onVerDetalle, 
                   title={`${d.split('-').reverse().join('/')} · ${DIA_LABEL[status]}`}
                   className={`flex flex-col items-center justify-center px-1.5 py-1.5 rounded-lg border text-[9px] font-bold min-w-[2.5rem]
                     ${DIA_BG[status]}
-                    ${esDestacado ? 'ring-2 ring-indigo-400 ring-offset-1' : ''}`}
+                    ${esDestacado ? 'ring-2 ring-brand-400 ring-offset-1' : ''}`}
                 >
                   <span className="text-[11px]">{DIA_ICON[status]}</span>
                   <span className="font-mono mt-0.5">{d.substring(8)}/{d.substring(5, 7)}</span>
@@ -183,7 +183,7 @@ export default function HorometroRentaCard({ solicitud, lecturas, onVerDetalle, 
       <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-100">
         <button
           onClick={onVerDetalle}
-          className="text-xs text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
+          className="text-xs text-brand-600 hover:text-brand-800 font-medium transition-colors"
         >
           Ver historial →
         </button>
@@ -203,7 +203,7 @@ export default function HorometroRentaCard({ solicitud, lecturas, onVerDetalle, 
           {ctaLabel ? (
             <button
               onClick={onRegistrar}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold transition-colors"
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>

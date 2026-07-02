@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
 
-export type StatCardColor = 'indigo' | 'amber' | 'emerald' | 'red' | 'orange';
+export type StatCardColor = 'brand' | 'amber' | 'emerald' | 'red' | 'orange';
 
 const COLOR_MAP: Record<StatCardColor, { bg: string; icon: string; value: string }> = {
-  indigo:  { bg: 'bg-indigo-50',  icon: 'text-indigo-500',  value: 'text-indigo-700'  },
+  brand:   { bg: 'bg-brand-50',   icon: 'text-brand-500',   value: 'text-brand-700'   },
   amber:   { bg: 'bg-amber-50',   icon: 'text-amber-500',   value: 'text-amber-700'   },
   emerald: { bg: 'bg-emerald-50', icon: 'text-emerald-500', value: 'text-emerald-700' },
   red:     { bg: 'bg-red-50',     icon: 'text-red-500',     value: 'text-red-700'     },
@@ -21,7 +21,7 @@ interface StatCardProps {
 export default function StatCard({ label, value, icon, color, tag }: StatCardProps) {
   const c = COLOR_MAP[color];
   return (
-    <div className="bg-white border border-slate-200 rounded-xl px-5 py-4 flex items-center gap-4 shadow-sm">
+    <div className="bg-white rounded-2xl px-5 py-4 flex items-center gap-4 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-8px_rgba(37,86,184,0.12)]">
       <div className={`flex-shrink-0 w-10 h-10 rounded-lg ${c.bg} flex items-center justify-center ${c.icon}`}>
         {icon}
       </div>

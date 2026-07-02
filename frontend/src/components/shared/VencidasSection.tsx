@@ -168,8 +168,8 @@ export default function VencidasSection({
       )}
 
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">Rentas Vencidas</h1>
-        <p className="text-sm text-slate-500 mt-1">
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Rentas Vencidas</h1>
+        <p className="text-sm font-medium text-slate-500 mt-1">
           Equipos cuya fecha de devolución ya pasó — el cliente tiene 1 h de gracia antes de que corran cargos adicionales
         </p>
       </div>
@@ -207,7 +207,7 @@ export default function VencidasSection({
           value={busqueda}
           onChange={e => setBusqueda(e.target.value)}
           placeholder="Buscar por folio o cliente..."
-          className="w-full sm:w-72 border border-slate-200 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+          className="w-full sm:w-72 border border-slate-200 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
         />
         <FiltroProyectoCombobox
           proyectos={proyectosVencidas}

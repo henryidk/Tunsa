@@ -26,7 +26,7 @@ import CategoriasSection from '../../components/admin/sections/CategoriasSection
 import HorometrosSection from '../../components/admin/sections/HorometrosSection'
 import ProyectosSectionShared from '../../components/shared/ProyectosSection'
 import DisponibilidadFlotaSection from '../../components/shared/DisponibilidadFlotaSection'
-import { TONO_INDIGO } from '../../types/tono.types'
+import { TONO_BRAND } from '../../types/tono.types'
 import NuevaRentaLivianaSection from '../../components/admin/sections/NuevaRentaLivianaSection'
 import NuevaRentaPesadaSection from '../../components/admin/sections/NuevaRentaPesadaSection'
 import RentaRetroactivaSection from '../../components/admin/sections/RentaRetroactivaSection'
@@ -162,13 +162,13 @@ export default function AdminDashboard() {
             <VencidasSection initialFolio={navFolio} initialProyectoId={navProyectoId} initialProyectoNombre={navProyectoNombre} onNavTo={navTo} />
           )}
           {activeSection === 'flota' && (
-            <DisponibilidadFlotaSection tono={TONO_INDIGO} onNavTo={navTo} sectionActivas="rentas-activas" sectionVencidas="rentas-vencidas" />
+            <DisponibilidadFlotaSection tono={TONO_BRAND} onNavTo={navTo} sectionActivas="rentas-activas" sectionVencidas="rentas-vencidas" />
           )}
           {activeSection === 'horometros' && (
             <HorometrosSection initialSolicitudId={navSolicitudId} onNavTo={navTo} />
           )}
           {activeSection === 'proyectos' && (
-            <ProyectosSectionShared tono={TONO_INDIGO} onNavTo={navTo} />
+            <ProyectosSectionShared tono={TONO_BRAND} onNavTo={navTo} />
           )}
           {activeSection === 'equipos' && (
             <EquiposSection onShowToast={showToast} />

@@ -45,6 +45,8 @@ export interface ItemPesadaSnapshot {
   descripcion:     string;
   extras:          ExtraSeleccionadoSnapshot[];  // complementos disponibles para esta renta (no "incluidos" en el precio)
   tarifaEfectiva:  number;  // rentaHora BASE del equipo (sin complemento) — puede venir de tarifaBaseFijada
+  /** Tarifa base pactada por el usuario, distinta a la de catálogo. Null/undefined = se usó la de catálogo. */
+  tarifaBaseFijada?: number | null;
   diasSolicitados?: number;
   duracion:        number;
   unidad:          string;

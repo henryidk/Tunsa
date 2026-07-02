@@ -16,6 +16,8 @@ import { fechaGT } from '../common/utils/date.util';
 import { serializeSolicitud } from './solicitudes.serializer';
 import { tieneEquipoId, type ItemParaCalculo, type ItemConKind } from './solicitudes.types';
 import { SolicitudBitacoraFactory } from './solicitud-bitacora.factory';
+import { resolverItemsSolicitud, type EquipoCatalogoPesada } from './solicitud-tarifas.util';
+import type { ItemSolicitudDto } from './dto/create-solicitud.dto';
 import {
   ExtensionEntry,
   DevolucionEntry,
@@ -50,6 +52,33 @@ export class SolicitudesService {
 
   private buildComprobanteKey(clienteId: string, folio: string): string {
     return `clientes/${clienteId}/comprobantes/${folio}.pdf`;
+  }
+
+  /** Catálogo de tarifa base + precio de extras por equipo, para resolver overrides de pesada. */
+  private async fetchCatalogoPesada(equipoIds: string[]): Promise<Map<string, EquipoCatalogoPesada>> {
+    if (equipoIds.length === 0) return new Map();
+
+    const equipos = await this.prisma.equipo.findMany({
+      where:  { id: { in: equipoIds } },
+      select: { id: true, rentaHora: true, extras: { select: { tipoExtraId: true, rentaHora: true } } },
+    });
+
+    return new Map(equipos.map(e => [e.id, {
+      rentaHora: e.rentaHora != null ? parseFloat(e.rentaHora.toString()) : 0,
+      extras:    new Map(e.extras.map(x => [x.tipoExtraId, parseFloat(x.rentaHora.toString())])),
+    }]));
+  }
+
+  /** Resuelve items de una solicitud (tarifa pesada vs. catálogo) y detecta si hay tarifas modificadas. */
+  private async resolverItemsYOverride(
+    items: ItemSolicitudDto[],
+  ): Promise<{ items: object[]; tieneOverride: boolean }> {
+    const equipoIdsPesada = items
+      .filter((i): i is ItemSolicitudDto & { equipoId: string } => i.kind === 'pesada' && !!i.equipoId)
+      .map(i => i.equipoId);
+
+    const catalogoPesada = await this.fetchCatalogoPesada(equipoIdsPesada);
+    return resolverItemsSolicitud(items, catalogoPesada);
   }
 
   private validatePdfBuffer(buffer: Buffer): void {
@@ -161,10 +190,6 @@ export class SolicitudesService {
   async create(dto: CreateSolicitudDto, user: AuthenticatedUser) {
     const esPesada = dto.items.every(i => i.kind === 'pesada');
     const esMixta  = !esPesada && dto.items.some(i => i.kind === 'pesada');
-    const tieneOverride = dto.items.some(
-      i => i.tarifaFijada != null &&
-           (i.tarifaFijada.dia != null || i.tarifaFijada.semana != null || i.tarifaFijada.mes != null),
-    );
 
     if (esMixta) {
       throw new BadRequestException(
@@ -189,23 +214,7 @@ export class SolicitudesService {
       }
     }
 
-    let itemsToStore: object[] = dto.items as object[];
-    if (esPesada && equipoIds.length > 0) {
-      const equipos = await this.prisma.equipo.findMany({
-        where:   { id: { in: equipoIds } },
-        select:  { id: true, rentaHora: true },
-      });
-      const equipoMap = new Map(equipos.map(e => [e.id, e]));
-
-      itemsToStore = dto.items.map(item => {
-        if (item.kind !== 'pesada' || !item.equipoId) return item as object;
-        const eq           = equipoMap.get(item.equipoId);
-        const rentaBase    = eq?.rentaHora != null ? parseFloat(eq.rentaHora.toString()) : 0;
-        const extras       = (item.extras ?? []) as { tipoExtraId: string; nombre: string; rentaHora: number }[];
-        const { tarifaEfectiva: _dropped, ...rest } = item as any;
-        return { ...rest, extras, tarifaEfectiva: rentaBase };
-      });
-    }
+    const { items: itemsToStore, tieneOverride } = await this.resolverItemsYOverride(dto.items);
 
     if (dto.proyectoId) {
       await this.validarProyecto(dto.proyectoId, dto.clienteId);
@@ -270,24 +279,7 @@ export class SolicitudesService {
       }
     }
 
-    let itemsToStore: object[] = dto.items as object[];
-    if (esPesada && equipoIds.length > 0) {
-      const equipos = await this.prisma.equipo.findMany({
-        where:  { id: { in: equipoIds } },
-        select: { id: true, rentaHora: true },
-      });
-      const equipoMap = new Map(equipos.map(e => [e.id, e]));
-
-      itemsToStore = dto.items.map(item => {
-        if (item.kind !== 'pesada' || !item.equipoId) return item as object;
-        const eq           = equipoMap.get(item.equipoId);
-        const rentaCatalogo = eq?.rentaHora != null ? parseFloat(eq.rentaHora.toString()) : 0;
-        const rentaBase    = item.tarifaBaseFijada != null ? item.tarifaBaseFijada : rentaCatalogo;
-        const extras       = (item.extras ?? []) as { tipoExtraId: string; nombre: string; rentaHora: number }[];
-        const { tarifaEfectiva: _dropped, ...rest } = item as any;
-        return { ...rest, extras, tarifaEfectiva: rentaBase };
-      });
-    }
+    const { items: itemsToStore, tieneOverride } = await this.resolverItemsYOverride(dto.items);
 
     if (dto.proyectoId) {
       await this.validarProyecto(dto.proyectoId, dto.clienteId);
@@ -316,6 +308,7 @@ export class SolicitudesService {
           totalEstimado: esPesada ? 0 : (dto.totalEstimado ?? 0),
           esPesada,
           esIndefinida:  dto.esIndefinida ?? false,
+          tieneOverride,
           creadaPor:     user.username,
           gestionadaPor: dto.gestionadaPor,
           estado:        'APROBADA',
@@ -367,21 +360,7 @@ export class SolicitudesService {
         );
     }
 
-    let itemsToStore: object[] = dto.items as object[];
-
-    if (esPesada && equipoIds.length > 0) {
-      const equipos   = await this.prisma.equipo.findMany({ where: { id: { in: equipoIds } } });
-      const equipoMap = new Map(equipos.map(e => [e.id, e]));
-      itemsToStore = dto.items.map(item => {
-        if (item.kind !== 'pesada' || !item.equipoId) return item as object;
-        const eq            = equipoMap.get(item.equipoId);
-        const rentaCatalogo = eq?.rentaHora != null ? parseFloat(eq.rentaHora.toString()) : 0;
-        const rentaBase     = item.tarifaBaseFijada != null ? item.tarifaBaseFijada : rentaCatalogo;
-        const extras        = (item.extras ?? []) as { tipoExtraId: string; nombre: string; rentaHora: number }[];
-        const { tarifaEfectiva: _dropped, ...rest } = item as any;
-        return { ...rest, extras, tarifaEfectiva: rentaBase };
-      });
-    }
+    const { items: itemsToStore, tieneOverride } = await this.resolverItemsYOverride(dto.items);
 
     if (dto.proyectoId) {
       await this.validarProyecto(dto.proyectoId, dto.clienteId);
@@ -426,6 +405,7 @@ export class SolicitudesService {
           totalEstimado:   esPesada ? 0 : (dto.totalEstimado ?? 0),
           esPesada,
           esIndefinida:    dto.esIndefinida ?? false,
+          tieneOverride,
           creadaPor:       user.username,
           gestionadaPor:   gestionadaPor,
           estado:          'ACTIVA',

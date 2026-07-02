@@ -5,6 +5,7 @@ import type { Cliente } from '../../services/clientes.service';
 import { formatDpi, formatTelefono } from '../../utils/clientes.utils';
 import { extractApiError } from '../../utils/usuario.utils';
 import { useAuthStore } from '../../store/auth.store';
+import ClienteEspecialToggle from '../shared/ClienteEspecialToggle';
 
 interface Props {
   open:    boolean;
@@ -262,38 +263,13 @@ export default function RegistrarClienteModal({ open, onClose, onSave }: Props) 
 
               {/* Toggle cliente especial — solo admin/secretaria */}
               {puedeCrearEspecial && (
-                <button
-                  type="button"
-                  onClick={toggleEspecial}
+                <ClienteEspecialToggle
+                  checked={form.esEspecial}
+                  onToggle={toggleEspecial}
                   disabled={isSaving}
-                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-colors disabled:opacity-50 ${
-                    form.esEspecial
-                      ? 'border-amber-300 bg-amber-50'
-                      : 'border-slate-200 bg-slate-50 hover:bg-slate-100'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                      className={form.esEspecial ? 'text-amber-600' : 'text-slate-400'}>
-                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-                    </svg>
-                    <div className="text-left">
-                      <p className={`text-xs font-semibold ${form.esEspecial ? 'text-amber-800' : 'text-slate-600'}`}>
-                        Cliente especial
-                      </p>
-                      <p className={`text-[10px] ${form.esEspecial ? 'text-amber-600' : 'text-slate-400'}`}>
-                        {form.esEspecial ? 'DPI opcional · sin paso de documentación' : 'DPI requerido · documentación opcional'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className={`w-9 h-5 rounded-full transition-colors relative flex-shrink-0 ${
-                    form.esEspecial ? 'bg-amber-400' : 'bg-slate-300'
-                  }`}>
-                    <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${
-                      form.esEspecial ? 'left-[18px]' : 'left-0.5'
-                    }`} />
-                  </div>
-                </button>
+                  activeDescription="DPI opcional · sin paso de documentación"
+                  inactiveDescription="DPI requerido · documentación opcional"
+                />
               )}
 
               <div>

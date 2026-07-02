@@ -44,12 +44,12 @@ export default function UsuariosSection({ onShowToast, user }: UsuariosSectionPr
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Usuarios del sistema</h1>
-          <p className="text-sm text-slate-500 mt-1">Cuentas con acceso al sistema, roles y permisos</p>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Usuarios del sistema</h1>
+          <p className="text-sm font-medium text-slate-500 mt-1">Cuentas con acceso al sistema, roles y permisos</p>
         </div>
         <button
           onClick={() => setAgregarOpen(true)}
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-brand-600 hover:bg-brand-700 text-white transition-colors"
         >
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
@@ -60,7 +60,7 @@ export default function UsuariosSection({ onShowToast, user }: UsuariosSectionPr
       </div>
 
       {/* Users Table */}
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden mb-5">
+      <div className="bg-white rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-8px_rgba(37,86,184,0.12)] overflow-hidden mb-5">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -106,7 +106,7 @@ export default function UsuariosSection({ onShowToast, user }: UsuariosSectionPr
                           <div className="font-semibold text-slate-800 flex items-center gap-1.5">
                             {u.nombre}
                             {isCurrentUser && u.isActive && (
-                              <span className="text-xs font-semibold bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded">Tú</span>
+                              <span className="text-xs font-semibold bg-brand-100 text-brand-700 px-1.5 py-0.5 rounded">Tú</span>
                             )}
                           </div>
                           <div className="text-xs text-slate-400 font-mono mt-0.5">@{u.username}</div>
@@ -121,7 +121,7 @@ export default function UsuariosSection({ onShowToast, user }: UsuariosSectionPr
                     </td>
                     <td className="px-4 py-3 text-xs font-mono text-slate-500">{u.telefono ?? '—'}</td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${u.isActive ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}`}>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${u.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
                         {u.isActive ? 'Activo' : 'Inactivo'}
                       </span>
                     </td>
@@ -159,7 +159,7 @@ export default function UsuariosSection({ onShowToast, user }: UsuariosSectionPr
                           <button
                             disabled={activandoId === u.id}
                             onClick={() => handleActivar(u)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-green-600 hover:bg-green-700 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                           >
                             {activandoId === u.id ? (
                               <>
@@ -182,7 +182,7 @@ export default function UsuariosSection({ onShowToast, user }: UsuariosSectionPr
       </div>
 
       {/* Roles info */}
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-8px_rgba(37,86,184,0.12)] overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100">
           <span className="font-bold text-slate-800">Roles del sistema</span>
         </div>

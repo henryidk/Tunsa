@@ -123,7 +123,7 @@ export default function PasswordGeneradaModal({ password, usuario, onClose }: Pa
         <div className="flex justify-end px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
           <button
             onClick={onClose}
-            className="px-5 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
+            className="px-5 py-2 rounded-lg text-sm font-medium bg-brand-600 hover:bg-brand-700 text-white transition-colors"
           >
             Cerrar
           </button>

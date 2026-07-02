@@ -238,11 +238,11 @@ export default function ResetPasswordModal({ usuario, open, onClose }: ResetPass
           </div>
 
           {/* Aviso */}
-          <div className="flex items-start gap-2.5 px-3.5 py-3 bg-indigo-50 border border-indigo-200 rounded-lg">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-indigo-500 flex-shrink-0 mt-0.5">
+          <div className="flex items-start gap-2.5 px-3.5 py-3 bg-brand-50 border border-brand-200 rounded-lg">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-brand-500 flex-shrink-0 mt-0.5">
               <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
             </svg>
-            <span className="text-xs text-indigo-700">
+            <span className="text-xs text-brand-700">
               El usuario deberá cambiar esta contraseña temporal en su próximo inicio de sesión.
             </span>
           </div>
@@ -253,7 +253,7 @@ export default function ResetPasswordModal({ usuario, open, onClose }: ResetPass
         <div className="flex justify-end px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
           <button
             onClick={handleClose}
-            className="px-5 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
+            className="px-5 py-2 rounded-lg text-sm font-medium bg-brand-600 hover:bg-brand-700 text-white transition-colors"
           >
             Cerrar
           </button>

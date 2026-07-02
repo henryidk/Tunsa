@@ -133,7 +133,7 @@ export default function EditarUsuarioModal({ usuario, open, onClose, onSave }: E
                   onChange={handleChange('nombre')}
                   disabled={isSaving}
                   placeholder="Nombre completo"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                 />
               </div>
               <div>
@@ -146,7 +146,7 @@ export default function EditarUsuarioModal({ usuario, open, onClose, onSave }: E
                   onChange={handleChange('telefono')}
                   disabled={isSaving}
                   placeholder="0000-0000"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all disabled:opacity-60 disabled:cursor-not-allowed font-mono"
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 transition-all disabled:opacity-60 disabled:cursor-not-allowed font-mono"
                 />
               </div>
             </div>
@@ -181,7 +181,7 @@ export default function EditarUsuarioModal({ usuario, open, onClose, onSave }: E
                   onChange={handleChange('username')}
                   disabled={isSaving}
                   placeholder="username"
-                  className="w-full border border-slate-200 rounded-lg pl-7 pr-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all disabled:opacity-60 disabled:cursor-not-allowed font-mono"
+                  className="w-full border border-slate-200 rounded-lg pl-7 pr-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 transition-all disabled:opacity-60 disabled:cursor-not-allowed font-mono"
                 />
               </div>
             </div>
@@ -212,7 +212,7 @@ export default function EditarUsuarioModal({ usuario, open, onClose, onSave }: E
           <button
             onClick={handleSave}
             disabled={isSaving}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-brand-600 hover:bg-brand-700 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {isSaving ? (
               <>

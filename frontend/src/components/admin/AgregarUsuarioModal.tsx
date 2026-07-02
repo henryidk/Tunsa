@@ -146,7 +146,7 @@ export default function AgregarUsuarioModal({ open, onClose, onCreated, actorRol
                   onChange={handleChange('nombre')}
                   disabled={isSaving}
                   placeholder="Ej. Pedro García"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                 />
               </div>
               <div>
@@ -159,7 +159,7 @@ export default function AgregarUsuarioModal({ open, onClose, onCreated, actorRol
                   onChange={handleChange('telefono')}
                   disabled={isSaving}
                   placeholder="0000-0000"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all disabled:opacity-60 disabled:cursor-not-allowed font-mono"
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 transition-all disabled:opacity-60 disabled:cursor-not-allowed font-mono"
                 />
               </div>
             </div>
@@ -183,7 +183,7 @@ export default function AgregarUsuarioModal({ open, onClose, onCreated, actorRol
                     onChange={handleChange('username')}
                     disabled={isSaving}
                     placeholder="usuario"
-                    className="w-full border border-slate-200 rounded-lg pl-7 pr-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all disabled:opacity-60 disabled:cursor-not-allowed font-mono"
+                    className="w-full border border-slate-200 rounded-lg pl-7 pr-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 transition-all disabled:opacity-60 disabled:cursor-not-allowed font-mono"
                   />
                 </div>
               </div>
@@ -195,7 +195,7 @@ export default function AgregarUsuarioModal({ open, onClose, onCreated, actorRol
                   value={form.rol}
                   onChange={handleChange('rol')}
                   disabled={isSaving}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-white"
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-white"
                 >
                   <option value="">Seleccionar rol...</option>
                   {roles.map(r => (
@@ -207,11 +207,11 @@ export default function AgregarUsuarioModal({ open, onClose, onCreated, actorRol
           </div>
 
           {/* Info contraseña temporal */}
-          <div className="flex items-start gap-2.5 px-3.5 py-3 bg-indigo-50 border border-indigo-200 rounded-lg">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-indigo-500 flex-shrink-0 mt-0.5">
+          <div className="flex items-start gap-2.5 px-3.5 py-3 bg-brand-50 border border-brand-200 rounded-lg">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-brand-500 flex-shrink-0 mt-0.5">
               <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
             </svg>
-            <span className="text-xs text-indigo-700">
+            <span className="text-xs text-brand-700">
               El sistema generará una contraseña temporal segura. El usuario deberá cambiarla en su primer inicio de sesión.
             </span>
           </div>
@@ -240,7 +240,7 @@ export default function AgregarUsuarioModal({ open, onClose, onCreated, actorRol
           <button
             onClick={handleSave}
             disabled={isSaving}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-brand-600 hover:bg-brand-700 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {isSaving ? (
               <>

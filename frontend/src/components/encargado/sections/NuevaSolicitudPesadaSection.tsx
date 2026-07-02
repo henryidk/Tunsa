@@ -14,17 +14,20 @@ import EspecialBadge from '../../shared/EspecialBadge';
 import PaymentModeSelector from '../PaymentModeSelector';
 import ProyectoSelector from '../../shared/ProyectoSelector';
 import { useProyectosCliente } from '../../../hooks/useProyectosCliente';
+import { useTarifaPesadaEdit } from '../../../hooks/useTarifaPesadaEdit';
+import { TarifaConOverride, PencilIcon, PesadaTarifaEditorPanel } from '../../admin/PesadaTarifaEditor';
 
 interface Props {
   onShowToast?: (type: ToastType, title: string, msg: string) => void;
 }
 
 interface PesadaItem {
-  equipo:              Equipo;
-  extrasSeleccionados: ExtraSeleccionado[];
-  duracion?:           number;
-  unidad?:             UnidadDuracion;
-  fechaInicio:         string;
+  equipo:               Equipo;
+  extrasSeleccionados:  ExtraSeleccionado[];
+  tarifaBaseEfectiva:   number;
+  duracion?:            number;
+  unidad?:              UnidadDuracion;
+  fechaInicio:          string;
 }
 
 function diasDesdeDuracion(fechaInicio: string, duracion: number, unidad: UnidadDuracion): number {
@@ -41,8 +44,8 @@ function today(): string {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
-function calcTarifa(equipo: Equipo): number {
-  return equipo.rentaHora ?? 0;
+function calcTarifa(tarifaBase: number): number {
+  return tarifaBase;
 }
 
 export default function NuevaSolicitudPesadaSection({ onShowToast = () => {} }: Props) {
@@ -107,6 +110,9 @@ export default function NuevaSolicitudPesadaSection({ onShowToast = () => {} }: 
   const removeEquipo = (equipoId: string) =>
     setItems(prev => prev.filter(it => it.equipo.id !== equipoId));
 
+  const updateEquipo = (updated: PesadaItem) =>
+    setItems(prev => prev.map(it => (it.equipo.id === updated.equipo.id ? updated : it)));
+
   const handleEnviar = () => {
     if (!notas.trim())   { setShowNoNotasModal(true); return; }
     if (!modalidadPago)  { setShowNoPagoModal(true);  return; }
@@ -121,27 +127,29 @@ export default function NuevaSolicitudPesadaSection({ onShowToast = () => {} }: 
       const snapItems = items.map(it => {
         if (indefinido) {
           return {
-            kind:        'pesada' as const,
-            equipoId:    it.equipo.id,
-            numeracion:  it.equipo.numeracion,
-            descripcion: it.equipo.descripcion,
-            extras:      it.extrasSeleccionados,
-            fechaInicio: it.fechaInicio,
-            subtotal:    0,
+            kind:             'pesada' as const,
+            equipoId:         it.equipo.id,
+            numeracion:       it.equipo.numeracion,
+            descripcion:      it.equipo.descripcion,
+            extras:           it.extrasSeleccionados,
+            tarifaBaseFijada: it.tarifaBaseEfectiva,
+            fechaInicio:      it.fechaInicio,
+            subtotal:         0,
           };
         }
         const dias = diasDesdeDuracion(it.fechaInicio, it.duracion!, it.unidad!);
         return {
-          kind:            'pesada' as const,
-          equipoId:        it.equipo.id,
-          numeracion:      it.equipo.numeracion,
-          descripcion:     it.equipo.descripcion,
-          extras:          it.extrasSeleccionados,
-          diasSolicitados: dias,
-          fechaInicio:     it.fechaInicio,
-          duracion:        dias,
-          unidad:          'dias' as const,
-          subtotal:        0,
+          kind:             'pesada' as const,
+          equipoId:         it.equipo.id,
+          numeracion:       it.equipo.numeracion,
+          descripcion:      it.equipo.descripcion,
+          extras:           it.extrasSeleccionados,
+          tarifaBaseFijada: it.tarifaBaseEfectiva,
+          diasSolicitados:  dias,
+          fechaInicio:      it.fechaInicio,
+          duracion:         dias,
+          unidad:           'dias' as const,
+          subtotal:         0,
         };
       });
 
@@ -236,6 +244,7 @@ export default function NuevaSolicitudPesadaSection({ onShowToast = () => {} }: 
                 item={items[0]}
                 indefinido={indefinido}
                 onQuitar={() => removeEquipo(items[0].equipo.id)}
+                onUpdateItem={updateEquipo}
               />
             )}
           </SectionCard>
@@ -286,8 +295,17 @@ export default function NuevaSolicitudPesadaSection({ onShowToast = () => {} }: 
 
 // ── EquipoAgregado ────────────────────────────────────────────────────────────
 
-function EquipoAgregado({ item, indefinido, onQuitar }: { item: PesadaItem; indefinido: boolean; onQuitar: () => void }) {
-  const tarifa = calcTarifa(item.equipo);
+function EquipoAgregado({ item, indefinido, onQuitar, onUpdateItem }: {
+  item:         PesadaItem;
+  indefinido:   boolean;
+  onQuitar:     () => void;
+  onUpdateItem: (item: PesadaItem) => void;
+}) {
+  const {
+    catalogBase, tieneOverride, editing, startEdit, cancelEdit,
+    baseInput, setBaseInput, extraInputs, setExtraInput, commitEdit, restablecer,
+  } = useTarifaPesadaEdit(item, onUpdateItem);
+
   return (
     <div className="border border-slate-200 rounded-xl overflow-hidden">
       <table className="w-full text-xs">
@@ -319,17 +337,39 @@ function EquipoAgregado({ item, indefinido, onQuitar }: { item: PesadaItem; inde
                 ? <span className="font-bold text-violet-600">∞</span>
                 : <span className="text-slate-600">{unidadLabel(item.duracion!, item.unidad!)}</span>}
             </td>
-            <td className="px-3 py-3 font-mono font-semibold text-slate-700 whitespace-nowrap">{formatQ(tarifa)}/hr</td>
+            <td className="px-3 py-3 whitespace-nowrap">
+              <TarifaConOverride tarifa={item.tarifaBaseEfectiva} catalogBase={catalogBase} tieneOverride={tieneOverride} />
+            </td>
             <td className="px-3 py-3 text-right">
-              <button onClick={onQuitar} className="text-slate-300 hover:text-red-400 transition-colors">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                </svg>
-              </button>
+              <div className="flex items-center justify-end gap-2.5">
+                <button onClick={startEdit} title="Editar tarifas" className="text-slate-300 hover:text-indigo-500 transition-colors">
+                  <PencilIcon />
+                </button>
+                <button onClick={onQuitar} className="text-slate-300 hover:text-red-400 transition-colors">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              </div>
             </td>
           </tr>
         </tbody>
       </table>
+
+      {editing && (
+        <PesadaTarifaEditorPanel
+          extrasSeleccionados={item.extrasSeleccionados}
+          tieneOverride={tieneOverride}
+          baseInput={baseInput}
+          onBaseInputChange={setBaseInput}
+          extraInputs={extraInputs}
+          onExtraInputChange={setExtraInput}
+          onAplicar={commitEdit}
+          onCancelar={cancelEdit}
+          onRestablecer={restablecer}
+        />
+      )}
+
       <div className="px-4 py-2.5 border-t border-slate-100 flex items-center justify-between">
         <span className="text-[11px] text-slate-400">1 equipo</span>
         <span className="text-[11px] text-slate-400">Facturación por horómetro real</span>
@@ -391,8 +431,10 @@ function PesadaResumen({ cliente, items, indefinido, modalidadPago, canEnviar, i
               <p className="text-xs text-center">Sin equipo seleccionado</p>
             </div>
           ) : (() => {
-            const it     = items[0];
-            const tarifa = calcTarifa(it.equipo);
+            const it            = items[0];
+            const tarifa        = calcTarifa(it.tarifaBaseEfectiva);
+            const catalogBase   = it.equipo.rentaHora ?? 0;
+            const tieneOverride = tarifa !== catalogBase;
             return (
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
@@ -405,8 +447,11 @@ function PesadaResumen({ cliente, items, indefinido, modalidadPago, canEnviar, i
                       ? <span className="text-violet-500 font-medium">∞ Tiempo indefinido</span>
                       : unidadLabel(it.duracion!, it.unidad!)}
                   </p>
+                  {tieneOverride && (
+                    <p className="text-[10px] text-indigo-500 font-medium mt-0.5">Tarifa personalizada</p>
+                  )}
                 </div>
-                <span className="text-xs font-mono font-semibold text-amber-700 flex-shrink-0 whitespace-nowrap">
+                <span className={`text-xs font-mono font-semibold flex-shrink-0 whitespace-nowrap ${tieneOverride ? 'text-indigo-600' : 'text-amber-700'}`}>
                   {formatQ(tarifa)}/hr
                 </span>
               </div>
@@ -510,7 +555,7 @@ function PesadaPickerForm({ disponibles, isLoading, indefinido, onAdd }: PesadaP
       .slice(0, 8);
   }, [disponibles, busqueda]);
 
-  const tarifaPreview = seleccionado ? calcTarifa(seleccionado) : 0;
+  const tarifaPreview = seleccionado ? calcTarifa(seleccionado.rentaHora ?? 0) : 0;
 
   const handleSelect = (e: Equipo) => {
     setSeleccionado(e);
@@ -530,6 +575,7 @@ function PesadaPickerForm({ disponibles, isLoading, indefinido, onAdd }: PesadaP
     onAdd({
       equipo:              seleccionado,
       extrasSeleccionados,
+      tarifaBaseEfectiva:  seleccionado.rentaHora ?? 0,
       duracion:            indefinido ? undefined : duracion,
       unidad:              indefinido ? undefined : unidad,
       fechaInicio,

@@ -11,7 +11,8 @@ export interface ItemConTarifaPesada {
 
 /**
  * Estado y lógica para editar la tarifa base + complementos de un ítem de maquinaria pesada
- * en el carrito, con override sobre el catálogo. Usado por Nueva Renta Pesada y Renta Retroactiva.
+ * en el carrito, con override sobre el catálogo. Usado por Nueva Renta Pesada, Renta Retroactiva
+ * y Nueva Solicitud Pesada (encargado).
  */
 export function useTarifaPesadaEdit<T extends ItemConTarifaPesada>(item: T, onUpdateItem: (item: T) => void) {
   const catalogBase   = item.equipo.rentaHora ?? 0;

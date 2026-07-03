@@ -28,19 +28,21 @@ function resolverItemPesada(
   item: ItemSolicitudDto,
   catalogo: EquipoCatalogoPesada | undefined,
 ): { item: object; tieneOverride: boolean } {
-  const rentaCatalogo    = catalogo?.rentaHora ?? 0;
+  const tarifaCatalogo   = catalogo?.rentaHora ?? null;
+  const rentaCatalogo    = tarifaCatalogo ?? 0;
   const baseModificada   = item.tarifaBaseFijada != null && item.tarifaBaseFijada !== rentaCatalogo;
   const rentaBase        = item.tarifaBaseFijada != null ? item.tarifaBaseFijada : rentaCatalogo;
 
-  const extras          = item.extras ?? [];
-  const extraModificado = extras.some(extra => {
-    const rentaHoraCatalogo = catalogo?.extras.get(extra.tipoExtraId);
-    return rentaHoraCatalogo != null && extra.rentaHora !== rentaHoraCatalogo;
+  let extraModificado = false;
+  const extras = (item.extras ?? []).map(extra => {
+    const catalogoRentaHora = catalogo?.extras.get(extra.tipoExtraId) ?? null;
+    if (catalogoRentaHora != null && extra.rentaHora !== catalogoRentaHora) extraModificado = true;
+    return { ...extra, catalogoRentaHora };
   });
 
   const { tarifaEfectiva: _dropped, ...rest } = item as ItemSolicitudDto & { tarifaEfectiva?: unknown };
   return {
-    item:          { ...rest, extras, tarifaEfectiva: rentaBase },
+    item:          { ...rest, extras, tarifaEfectiva: rentaBase, tarifaCatalogo },
     tieneOverride: baseModificada || extraModificado,
   };
 }

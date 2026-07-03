@@ -7,6 +7,8 @@ export interface ExtraSeleccionado {
   tipoExtraId: string;
   nombre:      string;
   rentaHora:   number;
+  /** Precio de catálogo de este extra al momento de crear la solicitud. Null/undefined = no disponible (solicitudes antiguas). */
+  catalogoRentaHora?: number | null;
 }
 
 /** Cargo adicional por condición del equipo (daños, faltantes, etc.). */
@@ -85,6 +87,8 @@ export type ItemSnapshot =
       diasSolicitados:   number;
       tarifaEfectiva:    number;
       tarifaBaseFijada?: number | null;
+      /** Precio base de catálogo al momento de crear la solicitud. Null/undefined = no disponible (solicitudes antiguas). */
+      tarifaCatalogo?:   number | null;
       fechaInicio:       string;
       duracion:          number;
       unidad:            UnidadDuracion;

@@ -35,6 +35,8 @@ export interface ExtraSeleccionadoSnapshot {
   tipoExtraId: string;
   nombre:      string;
   rentaHora:   number;
+  /** Precio de catálogo de este extra al momento de crear la solicitud. Null = no se pudo resolver contra el catálogo. */
+  catalogoRentaHora?: number | null;
 }
 
 /** Shape completa de un ítem de maquinaria pesada. */
@@ -47,6 +49,8 @@ export interface ItemPesadaSnapshot {
   tarifaEfectiva:  number;  // rentaHora BASE del equipo (sin complemento) — puede venir de tarifaBaseFijada
   /** Tarifa base pactada por el usuario, distinta a la de catálogo. Null/undefined = se usó la de catálogo. */
   tarifaBaseFijada?: number | null;
+  /** Precio base de catálogo al momento de crear la solicitud, para comparar contra lo pactado. Null = no se pudo resolver. */
+  tarifaCatalogo?: number | null;
   diasSolicitados?: number;
   duracion:        number;
   unidad:          string;

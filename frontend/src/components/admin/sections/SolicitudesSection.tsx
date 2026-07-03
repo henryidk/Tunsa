@@ -7,8 +7,8 @@ import { useSolicitudesStore } from '../../../store/solicitudes.store';
 import RechazadasTab from './RechazadasTab';
 import RechazarModal from '../RechazarModal';
 import AprobarModal from '../AprobarModal';
-import type { SolicitudRenta, ItemSnapshot } from '../../../types/solicitud-renta.types';
-import { formatFechaCorta, duracionDisplay, type UnidadDuracion } from '../../../types/solicitud.types';
+import type { SolicitudRenta, ItemSnapshot, ExtraSeleccionado } from '../../../types/solicitud-renta.types';
+import { formatQ, formatFechaCorta, duracionDisplay, type UnidadDuracion } from '../../../types/solicitud.types';
 
 type Tab = 'pendientes' | 'rechazadas';
 
@@ -195,6 +195,36 @@ function buildBandas(item: ItemConTarifasSnap): BandaInfo[] {
   });
 }
 
+// ── Accordion helpers — pesada ───────────────────────────────────────────────
+
+type ItemPesadaSnap = Extract<ItemSnapshot, { kind: 'pesada' }>;
+
+function itemPesadaTieneOverride(item: ItemPesadaSnap): boolean {
+  const baseModificada = item.tarifaCatalogo != null && item.tarifaEfectiva !== item.tarifaCatalogo;
+  const extraModificado = item.extras.some(
+    e => e.catalogoRentaHora != null && e.rentaHora !== e.catalogoRentaHora,
+  );
+  return baseModificada || extraModificado;
+}
+
+interface FilaTarifaPesada { label: string; catalogo: number | null; pactada: number; modificada: boolean; }
+
+function buildFilasPesada(item: ItemPesadaSnap): FilaTarifaPesada[] {
+  const filas: FilaTarifaPesada[] = [{
+    label:      'Equipo base',
+    catalogo:   item.tarifaCatalogo ?? null,
+    pactada:    item.tarifaEfectiva,
+    modificada: item.tarifaCatalogo != null && item.tarifaEfectiva !== item.tarifaCatalogo,
+  }];
+  item.extras.forEach((e: ExtraSeleccionado) => filas.push({
+    label:      e.nombre,
+    catalogo:   e.catalogoRentaHora ?? null,
+    pactada:    e.rentaHora,
+    modificada: e.catalogoRentaHora != null && e.rentaHora !== e.catalogoRentaHora,
+  }));
+  return filas;
+}
+
 // ── Solicitud Card ────────────────────────────────────────────────────────────
 
 const ESTADO_BORDER: Record<SolicitudRenta['estado'], string> = {
@@ -226,7 +256,7 @@ function SolicitudCard({
 
   const maquinaria = solicitud.items.filter(i => i.kind === 'maquinaria') as ItemConTarifasSnap[];
   const granel     = solicitud.items.filter(i => i.kind === 'granel')     as ItemConTarifasSnap[];
-  const pesada     = solicitud.items.filter(i => i.kind === 'pesada');
+  const pesada     = solicitud.items.filter(i => i.kind === 'pesada')     as ItemPesadaSnap[];
 
   const totalNormal = solicitud.tieneOverride
     ? [...maquinaria, ...granel].reduce((s, item) => s + calcCatalogSubtotalSnap(item), 0)
@@ -309,7 +339,16 @@ function SolicitudCard({
                   />
                 : <ItemRow key={`g-${i}`} item={item} />
             )}
-            {pesada.map((item, i) => <ItemRow key={`p-${i}`} item={item} />)}
+            {pesada.map((item, i) =>
+              itemPesadaTieneOverride(item)
+                ? <ItemAccordionCardPesada
+                    key={`p-${i}`}
+                    item={item}
+                    isExpanded={expandedItems.has(`pesada-${item.equipoId}`)}
+                    onToggle={() => toggleItem(`pesada-${item.equipoId}`)}
+                  />
+                : <ItemRow key={`p-${i}`} item={item} />
+            )}
           </div>
           {solicitud.tieneOverride && (
             <p className="flex items-center gap-1 mt-2 text-[10px] text-slate-400">
@@ -499,6 +538,76 @@ function ItemAccordionCard({
             ))}
           </div>
           <p className="text-[9px] text-slate-400">✱ banda aplicada para este período</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Item Accordion Card — pesada ─────────────────────────────────────────────
+
+function ItemAccordionCardPesada({
+  item,
+  isExpanded,
+  onToggle,
+}: {
+  item:       ItemPesadaSnap;
+  isExpanded: boolean;
+  onToggle:   () => void;
+}) {
+  const filas = buildFilasPesada(item);
+
+  return (
+    <div className={`border rounded-[10px] overflow-hidden ${isExpanded ? 'border-violet-300' : 'border-slate-200'}`}>
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center justify-between px-3 py-2 bg-white text-left cursor-pointer"
+      >
+        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+          <span className="font-mono text-[10px] text-slate-400 shrink-0">#{item.numeracion}</span>
+          <span className="text-xs font-medium text-slate-800 truncate">{item.descripcion}</span>
+          <span className="inline-flex items-center gap-1 ml-0.5 px-1.5 py-0.5 bg-violet-100 rounded shrink-0">
+            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2.5">
+              <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+            </svg>
+            <span className="text-[9px] font-semibold text-violet-700">mod.</span>
+          </span>
+        </div>
+        <div className="flex items-center gap-2 shrink-0 ml-3">
+          <div className="text-right">
+            <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-400 mb-0.5">Facturación</p>
+            <p className="font-mono text-xs font-bold text-amber-700">Por horómetro</p>
+            <p className="text-[10px] text-slate-500">{item.diasSolicitados} días sol.</p>
+          </div>
+          <svg
+            width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2"
+            className={`transition-transform duration-150 shrink-0 ${isExpanded ? 'rotate-180' : ''}`}
+          >
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </div>
+      </button>
+
+      {isExpanded && (
+        <div className="px-3 pb-2.5 pt-2 bg-violet-50 border-t border-violet-200">
+          <div className="grid grid-cols-[1fr_1fr_1fr] gap-x-2 gap-y-1 items-center mb-1.5">
+            <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">Concepto</span>
+            <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400 text-center">Catálogo</span>
+            <span className="text-[9px] font-semibold uppercase tracking-wide text-violet-600 text-center">Pactada</span>
+            {filas.map((f, i) => (
+              <Fragment key={i}>
+                <span className="text-[10px] text-slate-600">{f.label}</span>
+                <span className="font-mono text-[10px] text-slate-400 line-through text-center">
+                  {f.catalogo != null ? `${formatQ(f.catalogo)}/hr` : '—'}
+                </span>
+                <span className={`font-mono text-[10px] text-center ${f.modificada ? 'font-semibold text-violet-600' : 'text-slate-600'}`}>
+                  {formatQ(f.pactada)}/hr
+                </span>
+              </Fragment>
+            ))}
+          </div>
+          <p className="text-[9px] text-slate-400">El costo real se calcula con las lecturas de horómetro.</p>
         </div>
       )}
     </div>

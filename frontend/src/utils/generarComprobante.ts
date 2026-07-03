@@ -390,12 +390,24 @@ export async function generarComprobante(solicitud: SolicitudRenta, entregadoPor
 
   // ── NOTA TARIFAS MODIFICADAS ─────────────────────────────────────────────────
 
-  if (!solicitud.esPesada && solicitud.tieneOverride) {
+  if (solicitud.tieneOverride) {
     const lineasItems: string[] = [];
     const sufijos: Record<string, string> = { dia: '/día', semana: '/sem', mes: '/mes' };
 
     for (const item of solicitud.items) {
-      if (item.kind === 'pesada' || !item.tarifaFijada || !item.tarifas) continue;
+      if (item.kind === 'pesada') {
+        const nombre = `#${item.numeracion} ${item.descripcion}`;
+        if (item.tarifaCatalogo != null && item.tarifaEfectiva !== item.tarifaCatalogo) {
+          lineasItems.push(`• ${nombre}: ${fmtQ(item.tarifaEfectiva)}/hr (catálogo: ${fmtQ(item.tarifaCatalogo)}/hr)`);
+        }
+        for (const extra of item.extras) {
+          if (extra.catalogoRentaHora != null && extra.rentaHora !== extra.catalogoRentaHora) {
+            lineasItems.push(`• ${nombre} — ${extra.nombre}: ${fmtQ(extra.rentaHora)}/hr (catálogo: ${fmtQ(extra.catalogoRentaHora)}/hr)`);
+          }
+        }
+        continue;
+      }
+      if (!item.tarifaFijada || !item.tarifas) continue;
       const nombre = item.kind === 'maquinaria'
         ? `#${item.numeracion} ${item.descripcion}`
         : `${item.tipoLabel}${item.conMadera ? ' (c/madera)' : ''} x${item.cantidad.toLocaleString('es-GT')} u`;

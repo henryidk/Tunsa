@@ -10,7 +10,7 @@ import { AmpliacionRentaDto } from './dto/ampliar-renta.dto';
 import { RegistrarDevolucionDto } from './dto/registrar-devolucion.dto';
 import { IniciarEntregaDto } from './dto/iniciar-entrega.dto';
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
-import { tieneAccesoGlobal, puedeGestionarSolicitud } from '../auth/utils/roles.util';
+import { puedeGestionarSolicitud } from '../auth/utils/roles.util';
 import { ProyectosService } from '../proyectos/proyectos.service';
 import { fechaGT } from '../common/utils/date.util';
 import { serializeSolicitud } from './solicitudes.serializer';
@@ -1104,8 +1104,8 @@ export class SolicitudesService {
 
     if (!solicitud)
       throw new NotFoundException('Solicitud no encontrada.');
-    if (!tieneAccesoGlobal(user) && solicitud.creadaPor !== user.username)
-      throw new ForbiddenException('Solo el encargado que creó la solicitud puede subir la liquidación.');
+    if (!puedeGestionarSolicitud(user, solicitud))
+      throw new ForbiddenException('Solo el encargado asignado puede subir la liquidación.');
 
     const devoluciones = (solicitud.devolucionesParciales as unknown as DevolucionEntry[]) ?? [];
     if (devoluciones.length === 0)
@@ -1143,8 +1143,8 @@ export class SolicitudesService {
 
     if (!solicitud)
       throw new NotFoundException('Solicitud no encontrada.');
-    if (!tieneAccesoGlobal(user) && solicitud.creadaPor !== user.username)
-      throw new ForbiddenException('Solo el encargado que creó la solicitud puede subir este documento.');
+    if (!puedeGestionarSolicitud(user, solicitud))
+      throw new ForbiddenException('Solo el encargado asignado puede subir este documento.');
 
     const devoluciones = (solicitud.devolucionesParciales as unknown as DevolucionEntry[]) ?? [];
     if (devoluciones.length === 0)
@@ -1186,7 +1186,7 @@ export class SolicitudesService {
 
     if (!solicitud)
       throw new NotFoundException('Solicitud no encontrada.');
-    if (!tieneAccesoGlobal(user) && solicitud.creadaPor !== user.username)
+    if (!puedeGestionarSolicitud(user, solicitud))
       throw new ForbiddenException('No tienes acceso a esta solicitud.');
 
     const devoluciones = (solicitud.devolucionesParciales ?? []) as unknown as DevolucionEntry[];
@@ -1207,7 +1207,7 @@ export class SolicitudesService {
 
     if (!solicitud)
       throw new NotFoundException('Solicitud no encontrada.');
-    if (!tieneAccesoGlobal(user) && solicitud.creadaPor !== user.username)
+    if (!puedeGestionarSolicitud(user, solicitud))
       throw new ForbiddenException('No tienes acceso a esta solicitud.');
 
     const devoluciones = (solicitud.devolucionesParciales ?? []) as unknown as DevolucionEntry[];

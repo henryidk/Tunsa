@@ -9,7 +9,7 @@ import { RegistrarLecturaDto } from './dto/lectura-horometro.dto';
 import { RegistrarTramoDto, DeshacerTramoDto } from './dto/tramo-horometro.dto';
 import { RegistrarDevolucionPesadaDto } from './dto/registrar-devolucion-pesada.dto';
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
-import { tieneAccesoGlobal } from '../auth/utils/roles.util';
+import { puedeGestionarSolicitud } from '../auth/utils/roles.util';
 import type { DevolucionEntry, DevolucionItemEntry, CargoAdicional, DescuentoAplicado } from './recargo.util';
 import { SolicitudBitacoraFactory } from './solicitud-bitacora.factory';
 import type {
@@ -38,7 +38,7 @@ export class HorometroService {
       throw new BadRequestException('Esta solicitud no es de maquinaria pesada.');
     if (solicitud.estado !== 'ACTIVA')
       throw new ConflictException('Solo se pueden registrar lecturas en rentas activas.');
-    if (!tieneAccesoGlobal(user) && solicitud.creadaPor !== user.username && solicitud.gestionadaPor !== user.username)
+    if (!puedeGestionarSolicitud(user, solicitud))
       throw new ForbiddenException('No tienes permiso para registrar lecturas en esta solicitud.');
 
     const items = solicitud.items as unknown as ItemPesadaSnapshot[];
@@ -79,7 +79,7 @@ export class HorometroService {
       throw new BadRequestException('Esta solicitud no es de maquinaria pesada.');
     if (solicitud.estado !== 'ACTIVA')
       throw new ConflictException('Solo se pueden registrar tramos en rentas activas.');
-    if (!tieneAccesoGlobal(user) && solicitud.creadaPor !== user.username && solicitud.gestionadaPor !== user.username)
+    if (!puedeGestionarSolicitud(user, solicitud))
       throw new ForbiddenException('No tienes permiso para registrar tramos en esta solicitud.');
 
     const items = solicitud.items as unknown as ItemPesadaSnapshot[];
@@ -153,7 +153,7 @@ export class HorometroService {
       throw new BadRequestException('Esta solicitud no es de maquinaria pesada.');
     if (solicitud.estado !== 'ACTIVA')
       throw new ConflictException('Solo se pueden corregir tramos en rentas activas.');
-    if (!tieneAccesoGlobal(user) && solicitud.creadaPor !== user.username && solicitud.gestionadaPor !== user.username)
+    if (!puedeGestionarSolicitud(user, solicitud))
       throw new ForbiddenException('No tienes permiso para corregir tramos en esta solicitud.');
 
     const fechaDate = new Date(dto.fecha + 'T00:00:00.000Z');
@@ -446,7 +446,7 @@ export class HorometroService {
       throw new NotFoundException('Solicitud no encontrada.');
     if (!solicitud.esPesada)
       throw new BadRequestException('Esta solicitud no es de maquinaria pesada.');
-    if (!tieneAccesoGlobal(user) && solicitud.creadaPor !== user.username && solicitud.gestionadaPor !== user.username)
+    if (!puedeGestionarSolicitud(user, solicitud))
       throw new ForbiddenException('No tienes acceso a esta solicitud.');
 
     const lecturas = await this.prisma.lecturaHorometro.findMany({
@@ -465,7 +465,7 @@ export class HorometroService {
       throw new NotFoundException('Solicitud no encontrada.');
     if (!solicitud.esPesada)
       throw new BadRequestException('Esta solicitud no es de maquinaria pesada.');
-    if (!tieneAccesoGlobal(user) && solicitud.creadaPor !== user.username && solicitud.gestionadaPor !== user.username)
+    if (!puedeGestionarSolicitud(user, solicitud))
       throw new ForbiddenException('No tienes acceso a esta solicitud.');
 
     const items = solicitud.items as unknown as ItemPesadaSnapshot[];
@@ -507,7 +507,7 @@ export class HorometroService {
       throw new NotFoundException('Solicitud no encontrada.');
     if (!solicitud.esPesada)
       throw new BadRequestException('Esta solicitud no es de maquinaria pesada.');
-    if (!tieneAccesoGlobal(user) && solicitud.creadaPor !== user.username && solicitud.gestionadaPor !== user.username)
+    if (!puedeGestionarSolicitud(user, solicitud))
       throw new ForbiddenException('Solo el encargado asignado puede registrar la devolución.');
     if (solicitud.estado !== 'ACTIVA')
       throw new ConflictException('Solo se puede registrar la devolución de rentas activas.');

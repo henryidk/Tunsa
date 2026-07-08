@@ -279,8 +279,9 @@ export default function DevolucionPesadaModal({
           const detalleSubido     = await solicitudesService.subirDetalleHorometro(solicitud.id, pdfDetalle);
           url        = liquidacionSubida.url;
           urlDetalle = detalleSubido.url;
-        } catch {
-          // No bloquear la devolución si algún PDF falla
+        } catch (err) {
+          // No bloquear la devolución si algún PDF falla, pero sí dejar rastro del motivo
+          console.error('Fallo al generar/subir liquidación o detalle de horómetro:', err);
         }
       }
 

@@ -388,9 +388,9 @@ export class HorometroService {
       ? tramosActuales[tramosActuales.length - 1].horometroHasta
       : parseFloat(lectura.horometroInicio.toString());
 
-    if (horometroFin5pm <= ultimaReferencia)
+    if (horometroFin5pm < ultimaReferencia)
       throw new BadRequestException(
-        `El horómetro de cierre (${horometroFin5pm} hrs) debe ser mayor al último registrado en el día (${ultimaReferencia} hrs).`,
+        `El horómetro de cierre (${horometroFin5pm} hrs) no puede ser menor al último registrado en el día (${ultimaReferencia} hrs).`,
       );
 
     const horas               = this.calc.diffHorometro(ultimaReferencia, horometroFin5pm);

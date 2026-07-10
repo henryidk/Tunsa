@@ -308,7 +308,7 @@ function SolicitudCartRow({ item, onRemove, overrideTarifas, onSetOverride }: So
               <button
                 onClick={startEdit}
                 title="Personalizar tarifas"
-                className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 transition-all flex-shrink-0"
+                className="p-0.5 rounded text-indigo-300 hover:text-indigo-600 hover:bg-indigo-50 transition-colors flex-shrink-0"
               >
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>

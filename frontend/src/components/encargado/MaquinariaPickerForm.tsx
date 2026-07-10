@@ -112,7 +112,7 @@ export default function MaquinariaPickerForm({ equiposDisponibles, isLoading, on
               {seleccionado.descripcion}
             </span>
             {seleccionado.categoria && (
-              <span className="text-[10px] text-slate-400 flex-shrink-0">
+              <span className="text-[11px] text-slate-400 flex-shrink-0">
                 {seleccionado.categoria.nombre}
               </span>
             )}
@@ -153,7 +153,7 @@ export default function MaquinariaPickerForm({ equiposDisponibles, isLoading, on
                       </span>
                       <span className="text-xs font-medium text-slate-800 flex-1 truncate">{e.descripcion}</span>
                       {e.categoria && (
-                        <span className="text-[10px] text-slate-400 flex-shrink-0">{e.categoria.nombre}</span>
+                        <span className="text-[11px] text-slate-400 flex-shrink-0">{e.categoria.nombre}</span>
                       )}
                     </button>
                   ))
@@ -173,7 +173,7 @@ export default function MaquinariaPickerForm({ equiposDisponibles, isLoading, on
               <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
             </svg>
             <span className="font-mono">{fechaInicio}</span>
-            <span className="ml-auto text-[10px] text-slate-400 font-medium">
+            <span className="ml-auto text-[11px] text-slate-400 font-medium">
               {fechaInicioFija ? 'Fija' : 'Hoy'}
             </span>
           </div>
@@ -200,7 +200,7 @@ export default function MaquinariaPickerForm({ equiposDisponibles, isLoading, on
         )}
         <button onClick={handleAdd}
           className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors flex-shrink-0">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
           </svg>
           Agregar
